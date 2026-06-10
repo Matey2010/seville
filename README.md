@@ -1,69 +1,26 @@
 # Seville
 
-Seville is an experimental visualization project built with
-[Flutter](https://flutter.dev/) and [Flame](https://flame-engine.org/).
+This README is an index to the repository. Detailed documentation belongs in
+[`docs/`](docs/) or in the README of the workspace it describes.
 
-The goal is to turn data from an [Obsidian](https://obsidian.md/) vault into an
-interactive, visually expressive space. Instead of presenting notes as a
-traditional list or graph, Seville will explore more playful ways to represent
-their structure, relationships, and activity.
+## Repository responsibilities
 
-## Project status
+| Folder | Responsibility |
+| --- | --- |
+| [`interface/`](interface/) | Flutter and Flame application, including visualization and user interaction |
+| [`backend/`](backend/) | Go ingestion service, Obsidian parsing, storage, and HTTP API |
+| [`proto/`](proto/) | Canonical Protocol Buffer contracts and generated Go and Dart packages |
+| [`scripts/`](scripts/) | Project automation and focused Obsidian import, export, inspection, and migration utilities |
+| [`docs/`](docs/) | Repository-wide architecture, design decisions, and project documentation |
 
-Seville is at the beginning of development. The current codebase is a small
-Flame prototype used to explore rendering, animation, and interaction.
+Each functional workspace owns its implementation details, development
+instructions, and workspace-specific documentation.
 
-Development is planned in two stages:
+## Documentation
 
-1. **Visualization only**  
-   Seville will render predefined or locally supplied data. It will be an
-   output-only experience, with no vault editing or data input from the
-   interface.
+The `docs/` folder contains documentation that applies across workspace
+boundaries:
 
-2. **Obsidian integration**  
-   A future backend will read and update data in an Obsidian vault. Once that
-   backend is available, Seville will also provide ways to modify the connected
-   data directly from its interface.
-
-The exact visual language and data model are still being explored.
-
-## Repository structure
-
-Seville is organized as a monorepo:
-
-```text
-interface/  Flutter and Flame application
-docs/       Architecture and project documentation
-backend/    Future Go ingestion service and API
-proto/      Future protobuf contracts and generated packages
-scripts/    Project automation and Obsidian utilities
-```
-
-Only the Flutter interface is implemented today. The other areas are
-placeholders whose designs will be developed and reviewed incrementally.
-
-## Technology
-
-- Flutter for the application and platform support
-- Flame for the visualization, animation, and interaction layer
-- Protocol Buffers for future structured communication with the backend
-
-## Running locally
-
-Install Flutter, fetch the dependencies, and run the application:
-
-```sh
-cd interface
-flutter pub get
-flutter run
-```
-
-## Platforms
-
-The interface currently includes Flutter targets for Android, iOS, macOS, and
-Linux. Platform support may change as the visualization develops.
-
-## Architecture
-
-The living architecture plan is documented in
-[`docs/seville-architecture-plan.md`](docs/seville-architecture-plan.md).
+- [`seville-architecture-plan.md`](docs/seville-architecture-plan.md) records
+  the product goal, current architecture direction, accepted decisions, and
+  open design questions.
