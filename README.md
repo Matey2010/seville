@@ -27,6 +27,21 @@ Development is planned in two stages:
 
 The exact visual language and data model are still being explored.
 
+## Repository structure
+
+Seville is organized as a monorepo:
+
+```text
+interface/  Flutter and Flame application
+docs/       Architecture and project documentation
+backend/    Future Go ingestion service and API
+proto/      Future protobuf contracts and generated packages
+scripts/    Project automation and Obsidian utilities
+```
+
+Only the Flutter interface is implemented today. The other areas are
+placeholders whose designs will be developed and reviewed incrementally.
+
 ## Technology
 
 - Flutter for the application and platform support
@@ -38,11 +53,17 @@ The exact visual language and data model are still being explored.
 Install Flutter, fetch the dependencies, and run the application:
 
 ```sh
+cd interface
 flutter pub get
 flutter run
 ```
 
 ## Platforms
 
-The project currently includes Flutter targets for Android, iOS, macOS, and
+The interface currently includes Flutter targets for Android, iOS, macOS, and
 Linux. Platform support may change as the visualization develops.
+
+## Architecture
+
+The living architecture plan is documented in
+[`docs/seville-architecture-plan.md`](docs/seville-architecture-plan.md).
