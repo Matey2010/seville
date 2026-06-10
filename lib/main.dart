@@ -61,92 +61,99 @@ class _GameScreenState extends State<GameScreen> {
   }
 }
 
-/// A tiny game: tap the moving ball to score. It speeds up each hit.
+/// Tap the plumbob to make it spin a little faster each time.
 class TapGame extends FlameGame {
-  late final Ball _ball;
-  late final TextComponent _scoreText;
-  int _score = 0;
+  late final Plumbob _plumbob;
 
   @override
   Color backgroundColor() => const Color(0xFF1A1228);
 
   @override
   Future<void> onLoad() async {
-    _scoreText = TextComponent(
-      text: 'Score: 0',
-      position: Vector2(16, 48),
-      textRenderer: TextPaint(
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 24,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-    );
-    add(_scoreText);
-
-    _ball = Ball(onHit: _onHit)..position = size / 2;
-    add(_ball);
+    _plumbob = Plumbob()
+      ..anchor = Anchor.center
+      ..position = size / 2;
+    add(_plumbob);
   }
 
-  void _onHit() {
-    _score++;
-    _scoreText.text = 'Score: $_score';
-    _ball.speedUp();
+  @override
+  void onGameResize(Vector2 size) {
+    super.onGameResize(size);
+    if (isLoaded) {
+      _plumbob.position = size / 2;
+    }
   }
 
-  void reset() {
-    _score = 0;
-    _scoreText.text = 'Score: 0';
-    _ball.resetState(size / 2);
-  }
+  void reset() => _plumbob.reset();
 }
 
-class Ball extends CircleComponent with TapCallbacks {
-  Ball({required this.onHit})
-      : super(
-          radius: 32,
-          anchor: Anchor.center,
-          paint: Paint()..color = Colors.amber,
-        );
+/// A green Sims-style plumbob that spins around its vertical axis.
+/// The 3D spin is faked by squashing the diamond horizontally over time.
+class Plumbob extends PositionComponent with TapCallbacks {
+  Plumbob() : super(size: Vector2(120, 170));
 
-  final VoidCallback onHit;
-  final Random _rng = Random();
-  late Vector2 _velocity = _randomVelocity(180);
+  static const double _baseSpeed = 0.4; // radians/sec — a slow idle spin
+  static const double _speedPerTap = 0.18; // gentle bump per click
 
-  Vector2 _randomVelocity(double speed) {
-    final angle = _rng.nextDouble() * 2 * pi;
-    return Vector2(cos(angle), sin(angle))..scale(speed);
-  }
+  double _spin = 0; // accumulated rotation angle
+  double _speed = _baseSpeed;
 
   @override
   void update(double dt) {
     super.update(dt);
-    position += _velocity * dt;
-
-    // Bounce off the walls.
-    final game = findGame()!;
-    if (position.x - radius < 0 || position.x + radius > game.size.x) {
-      _velocity.x = -_velocity.x;
-      position.x = position.x.clamp(radius, game.size.x - radius);
-    }
-    if (position.y - radius < 0 || position.y + radius > game.size.y) {
-      _velocity.y = -_velocity.y;
-      position.y = position.y.clamp(radius, game.size.y - radius);
-    }
+    _spin += _speed * dt;
   }
 
-  void speedUp() {
-    _velocity.scale(1.12);
-  }
-
-  void resetState(Vector2 center) {
-    position = center;
-    _velocity = _randomVelocity(180);
+  void reset() {
+    _speed = _baseSpeed;
+    _spin = 0;
   }
 
   @override
   void onTapDown(TapDownEvent event) {
-    onHit();
+    _speed += _speedPerTap;
+  }
+
+  @override
+  void render(Canvas canvas) {
+    final cx = size.x / 2;
+    final cy = size.y / 2;
+    final hh = size.y / 2;
+    final cosA = cos(_spin);
+    final hw = (size.x / 2) * cosA; // shrinks to 0 when edge-on, then mirrors
+
+    // Brighter when a face points at us, dimmer when seen edge-on.
+    final facing = cosA.abs();
+    final fill = Color.lerp(
+      const Color(0xFF1F6B2E),
+      const Color(0xFF66FF8C),
+      facing,
+    )!;
+
+    final diamond = Path()
+      ..moveTo(cx, cy - hh)
+      ..lineTo(cx + hw, cy)
+      ..lineTo(cx, cy + hh)
+      ..lineTo(cx - hw, cy)
+      ..close();
+
+    // Soft glow behind the crystal.
+    canvas.drawPath(
+      diamond,
+      Paint()
+        ..color = const Color(0xFF66FF8C).withValues(alpha: 0.35)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 18),
+    );
+
+    canvas.drawPath(diamond, Paint()..color = fill);
+
+    // A vertical highlight down the center for a glassy look.
+    canvas.drawPath(
+      diamond,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..color = Colors.white.withValues(alpha: 0.25 + 0.35 * facing),
+    );
   }
 }
