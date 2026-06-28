@@ -1,0 +1,141 @@
+#!/bin/sh
+set -eu
+
+ROOT=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
+PID_FILE="$ROOT/.local/seville.pid"
+LOG_FILE="$ROOT/.local/seville.log"
+BINARY="$ROOT/.local/seville-backend"
+
+load_env() {
+  if [ -f "$ROOT/.env" ]; then
+    while IFS= read -r line || [ -n "$line" ]; do
+      case "$line" in
+        ''|'#'*) continue ;;
+      esac
+
+      key=${line%%=*}
+      raw=${line#*=}
+      case "$key" in
+        SEVILLE_ADDR|SEVILLE_VAULT_PATH|SEVILLE_DB_PATH|SEVILLE_TOKEN) ;;
+        *) continue ;;
+      esac
+
+      case "$raw" in
+        \"*\") raw=${raw#\"}; raw=${raw%\"} ;;
+        \'*\') raw=${raw#\'}; raw=${raw%\'} ;;
+      esac
+      export "$key=$raw"
+    done <"$ROOT/.env"
+  fi
+  : "${SEVILLE_ADDR:=127.0.0.1:8787}"
+  : "${SEVILLE_TOKEN:=local-seville-token}"
+}
+
+is_running() {
+  [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null
+}
+
+start() {
+  mkdir -p "$ROOT/.local"
+  if is_running; then
+    echo "Seville is already running (PID $(cat "$PID_FILE"))."
+    exit 0
+  fi
+  load_env
+  (
+    cd "$ROOT"
+    go build -o "$BINARY" ./backend/cmd/seville
+  )
+  (
+    cd "$ROOT"
+    nohup "$BINARY" >>"$LOG_FILE" 2>&1 &
+    echo $! >"$PID_FILE"
+  )
+  sleep 1
+  if is_running; then
+    echo "Seville started at http://$SEVILLE_ADDR"
+    echo "Log: $LOG_FILE"
+  else
+    echo "Seville did not start. Check $LOG_FILE" >&2
+    exit 1
+  fi
+}
+
+serve() {
+  mkdir -p "$ROOT/.local"
+  load_env
+  (
+    cd "$ROOT"
+    go build -o "$BINARY" ./backend/cmd/seville
+  )
+  cd "$ROOT"
+  exec "$BINARY"
+}
+
+serve_built() {
+  load_env
+  if [ ! -x "$BINARY" ]; then
+    echo "Seville backend is not built; run './scripts/seville start' first." >&2
+    exit 1
+  fi
+  cd "$ROOT"
+  exec "$BINARY"
+}
+
+stop() {
+  if ! is_running; then
+    rm -f "$PID_FILE"
+    echo "Seville is not running."
+    return 0
+  fi
+  pid=$(cat "$PID_FILE")
+  kill "$pid"
+  rm -f "$PID_FILE"
+  echo "Seville stopped."
+}
+
+status() {
+  load_env
+  if ! is_running; then
+    echo "Seville process is not running."
+    exit 1
+  fi
+  echo "Seville process is running (PID $(cat "$PID_FILE"))."
+  curl --fail --silent --show-error \
+    -H "Authorization: Bearer $SEVILLE_TOKEN" \
+    "http://$SEVILLE_ADDR/v1/status" \
+    --output "$ROOT/.local/status.pb"
+  echo "API is healthy. Protobuf status saved to .local/status.pb"
+}
+
+rescan() {
+  load_env
+  curl --fail --silent --show-error \
+    -X POST \
+    -H "Authorization: Bearer $SEVILLE_TOKEN" \
+    "http://$SEVILLE_ADDR/v1/admin/rescan" \
+    --output "$ROOT/.local/status.pb"
+  echo "Vault rescan complete."
+}
+
+logs() {
+  mkdir -p "$ROOT/.local"
+  touch "$LOG_FILE"
+  tail -n 80 -f "$LOG_FILE"
+}
+
+case "${1:-}" in
+  start) start ;;
+  serve) serve ;;
+  serve-built) serve_built ;;
+  stop) stop ;;
+  restart) stop; start ;;
+  status) status ;;
+  rescan) rescan ;;
+  logs) logs ;;
+  test) cd "$ROOT"; go test ./backend/... ;;
+  *)
+    echo "Usage: $0 {start|serve|serve-built|stop|restart|status|rescan|logs|test}" >&2
+    exit 2
+    ;;
+esac

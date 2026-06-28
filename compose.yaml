@@ -1,0 +1,27 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      SEVILLE_ADDR: 0.0.0.0:8787
+      SEVILLE_VAULT_PATH: /vault
+      SEVILLE_DB_PATH: /data/seville.db
+      SEVILLE_TOKEN: ${SEVILLE_TOKEN:?Set SEVILLE_TOKEN in .env}
+    volumes:
+      - ${SEVILLE_VAULT_PATH:?Set SEVILLE_VAULT_PATH in .env}:/vault:ro
+      - seville-data:/data
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2.10-alpine
+    depends_on:
+      - backend
+    ports:
+      - "8787:8787"
+    volumes:
+      - ./backend/Caddyfile:/etc/caddy/Caddyfile:ro
+    restart: unless-stopped
+
+volumes:
+  seville-data:

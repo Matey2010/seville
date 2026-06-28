@@ -78,13 +78,14 @@ server.
 
 ### Current layout
 
-The Flutter project lives in `interface/`. Documentation and the reserved
-backend, contract, and utility workspaces live beside it at the repository
-root.
+User-facing clients live in `interface/`, with the Flutter project in
+`interface/flutter/`. Documentation, backend, contract, and utility workspaces
+live beside `interface/` at the repository root.
 
 ```text
 seville/
-├── interface/          Flutter and Flame application
+├── interface/          User-facing clients
+│   └── flutter/        Flutter and Flame application
 ├── docs/               Architecture, decisions, and project documentation
 ├── backend/            Go ingestion service, database, and HTTP API
 ├── proto/              Protobuf source, generation config, and generated code
@@ -92,15 +93,19 @@ seville/
 └── README.md           Monorepo overview and entry points
 ```
 
-The top-level structure is implemented. `backend/`, `proto/`, and `scripts/`
-currently contain only boundary documentation; their internal structures will
-be added after the corresponding architecture layers are reviewed.
-
-A root `go.work` file and task runner may be added when Go modules and stable
-cross-project commands exist. They are not required for the folder-only
-restructure.
+The top-level structure is implemented. `backend/` is a Go module,
+`proto/gen/go/` is a generated Go module, and the root `go.work` connects them.
+Stable local commands live in `scripts/seville`; protobuf generation is exposed
+through `scripts/generate-proto`.
 
 ### `interface/`
+
+Owns:
+
+- User-facing clients and their client-specific documentation.
+- Shared conventions for consuming Seville's public API.
+
+### `interface/flutter/`
 
 Owns:
 
@@ -110,9 +115,9 @@ Owns:
 - Conversion from protobuf messages to application models.
 - Flutter interface and Flame visualization.
 
-The interface consumes generated Dart code through a local path dependency on
-the Dart package under `proto/`. It must not parse vault files or depend on
-backend database models.
+The Flutter application consumes generated Dart code through a local path
+dependency on the Dart package under `proto/`. It must not parse vault files or
+depend on backend database models.
 
 ### `docs/`
 
@@ -193,15 +198,15 @@ remember individual script paths.
 ```text
 proto source
   ├──> generated Go package ──> backend
-  └──> generated Dart package ──> interface
+  └──> generated Dart package ──> interface/flutter
 
-backend ──HTTP/protobuf──> interface
+backend ──HTTP/protobuf──> interface clients
 scripts ──may invoke tooling──> proto/backend fixtures
 docs ──describes all areas but is not a runtime dependency
 ```
 
 - `backend/` must not import code from `interface/`.
-- `interface/` must not import backend implementation packages.
+- `interface/` clients must not import backend implementation packages.
 - `proto/` must not contain backend or interface business logic.
 - `scripts/` must not become an undeclared runtime requirement.
 - Cross-language communication occurs only through the protobuf contract and
@@ -682,19 +687,20 @@ For each layer:
 5. Record the decision and rejected alternatives here.
 6. Convert only the accepted decision into implementation tasks.
 
-## Immediate Next Review
+## Current Implementation Slice
 
-Start with the monorepo layout and workspace boundaries.
+The first local backend slice is implemented:
 
-The first review must answer:
+- Independent Go modules for `backend/` and generated Go protobuf code.
+- A root `go.work` workspace.
+- Markdown scanning with basic frontmatter, tags, wiki links, and Markdown
+  links.
+- Atomic SQLite snapshot replacement.
+- Bearer-authenticated protobuf HTTP endpoints with ETag support.
+- Docker Compose and Caddy deployment files.
+- Stable local development commands.
 
-- Exact Go module and workspace layout for `backend/` and generated Go code.
-- Exact Dart package layout for generated code and its local path dependency.
-- Choice of root task runner and stable command names.
-- How contract generation runs locally and in CI.
-- How compatibility is checked against the main branch.
-- Which root commands build, test, generate, and verify the whole monorepo.
-
-The physical Flutter move is complete. No backend or Flutter integration should
-be implemented until the remaining workspace decisions are understood and
-accepted.
+The parser is intentionally an initial implementation. YAML completeness,
+Markdown AST adoption, Obsidian-compatible resolution edge cases, generated
+Dart code, Flutter integration, and CI compatibility checks remain for the
+next reviews.

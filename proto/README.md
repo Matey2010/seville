@@ -1,6 +1,13 @@
 # Protocol Buffers
 
-This directory is reserved for canonical protobuf definitions, generation
-configuration, and generated Go and Dart packages.
+The canonical API contract is
+`seville/knowledge/v1/knowledge.proto`. Generated Go code is committed under
+`gen/go`.
 
-The contract architecture is still under review. No schema has been committed.
+Regenerate it from the repository root:
+
+```sh
+./scripts/generate-proto
+```
+
+The backend imports the generated module through the root `go.work` workspace.
