@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../constants/interface_colors.dart';
 import '../models/knowledge_graph.dart';
+import '../models/layout.dart';
 import '../models/open_box_spatial_layout.dart';
 import '../utils/canvas_guides.dart';
 import 'graph_layout.dart';
@@ -124,18 +125,10 @@ class _GraphField extends PositionComponent {
     if (bottomWallPosition != null) return bottomWallPosition;
 
     final normalized = _positions[id] ?? const Offset(0.5, 0.5);
+    final scene = _sceneRect();
     return Offset(
-      _layout.desktop.horizontalPadding +
-          normalized.dx *
-              max(0, size.x - _layout.desktop.horizontalPadding * 2),
-      _layout.desktop.topPadding +
-          normalized.dy *
-              max(
-                0,
-                size.y -
-                    _layout.desktop.topPadding -
-                    _layout.desktop.bottomPadding,
-              ),
+      scene.left + normalized.dx * scene.width,
+      scene.top + normalized.dy * scene.height,
     );
   }
 
@@ -143,7 +136,8 @@ class _GraphField extends PositionComponent {
   void render(Canvas canvas) {
     super.render(canvas);
     final scene = _sceneRect();
-    _renderBoxWalls(canvas, scene);
+    _renderBoxWalls(canvas);
+    _renderGlobalLayoutDimensions(canvas);
     _renderPerspectiveGuides(canvas, scene);
 
     final edgePaint = Paint()
@@ -168,6 +162,8 @@ class _GraphField extends PositionComponent {
     };
 
     for (final node in _graph.nodes) {
+      if (_renderBottomWallNodePlacement(canvas, node)) continue;
+
       final center = _screenPosition(node.id);
       canvas.drawCircle(
         center,
@@ -215,44 +211,41 @@ class _GraphField extends PositionComponent {
   }
 
   Rect _sceneRect() {
-    return Rect.fromLTRB(
-      _layout.desktop.horizontalPadding,
-      _layout.desktop.topPadding,
-      max(
-        _layout.desktop.horizontalPadding,
-        size.x - _layout.desktop.horizontalPadding,
-      ),
-      _normalizedY(_layout.desktop.sceneBottomRatio),
-    );
+    return _sceneLayoutAreaRect(_layout.globalLayout.boxBottomArea);
   }
 
-  void _renderBoxWalls(Canvas canvas, Rect scene) {
+  void _renderGlobalLayoutDimensions(Canvas canvas) {
     if (size.x <= 0 || size.y <= 0) return;
 
-    _drawWall(canvas, [
-      Offset.zero,
-      Offset(size.x, 0),
-      scene.topRight,
-      scene.topLeft,
-    ], _layout.desktop.topWallColor);
-    _drawWall(canvas, [
-      Offset(size.x, 0),
-      Offset(size.x, size.y),
-      scene.bottomRight,
-      scene.topRight,
-    ], _layout.desktop.rightWallColor);
-    _drawWall(canvas, [
-      Offset(0, size.y),
-      Offset(size.x, size.y),
-      scene.bottomRight,
-      scene.bottomLeft,
-    ], _layout.desktop.bottomWallColor);
-    _drawWall(canvas, [
-      Offset.zero,
-      scene.topLeft,
-      scene.bottomLeft,
-      Offset(0, size.y),
-    ], _layout.desktop.leftWallColor);
+    final dimensions = _layout.globalLayout.dimensions;
+    final paint = Paint()
+      ..color = InterfaceColors.globalLayoutDimensions
+      ..strokeWidth = 0.8
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+
+    for (var column = 1; column < dimensions.horizontal; column += 1) {
+      final x = size.x * dimensions.normalizedHorizontalPosition(column);
+      canvas.drawLine(Offset(x, 0), Offset(x, size.y), paint);
+    }
+
+    for (var row = 1; row < dimensions.vertical; row += 1) {
+      final y = size.y * dimensions.normalizedVerticalPosition(row);
+      canvas.drawLine(Offset(0, y), Offset(size.x, y), paint);
+    }
+  }
+
+  void _renderBoxWalls(Canvas canvas) {
+    if (size.x <= 0 || size.y <= 0) return;
+
+    for (final glue in _layout.globalLayout.wallGlues) {
+      _drawWall(canvas, [
+        _sceneLayoutPointFrom(glue.outerStart),
+        _sceneLayoutPointFrom(glue.outerEnd),
+        _sceneLayoutPointFrom(glue.innerEnd),
+        _sceneLayoutPointFrom(glue.innerStart),
+      ], _wallColor(glue.wall));
+    }
   }
 
   void _drawWall(Canvas canvas, List<Offset> corners, Color color) {
@@ -273,85 +266,42 @@ class _GraphField extends PositionComponent {
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
 
-    _renderBottomWallGrid(canvas, scene, perspectivePaint);
+    _renderBottomWallDimensions(canvas, scene, perspectivePaint);
     _renderBottomWallTimeAxis(canvas, scene);
-    drawDashedLine(canvas, Offset.zero, scene.topLeft, perspectivePaint);
-    drawDashedLine(canvas, Offset(size.x, 0), scene.topRight, perspectivePaint);
-    drawDashedLine(
-      canvas,
-      Offset(0, size.y),
-      scene.bottomLeft,
-      perspectivePaint,
-    );
-    drawDashedLine(
-      canvas,
-      Offset(size.x, size.y),
-      scene.bottomRight,
-      perspectivePaint,
-    );
-    drawDashedLine(canvas, scene.topLeft, scene.topRight, perspectivePaint);
-    drawDashedLine(canvas, scene.topRight, scene.bottomRight, perspectivePaint);
-    drawDashedLine(
-      canvas,
-      scene.bottomRight,
-      scene.bottomLeft,
-      perspectivePaint,
-    );
-    drawDashedLine(canvas, scene.bottomLeft, scene.topLeft, perspectivePaint);
-    _renderWallRowGuides(canvas, scene, perspectivePaint);
+    for (final glue in _layout.globalLayout.wallGlues) {
+      final outerStart = _sceneLayoutPointFrom(glue.outerStart);
+      final outerEnd = _sceneLayoutPointFrom(glue.outerEnd);
+      final innerStart = _sceneLayoutPointFrom(glue.innerStart);
+      final innerEnd = _sceneLayoutPointFrom(glue.innerEnd);
+
+      drawDashedLine(canvas, outerStart, innerStart, perspectivePaint);
+      drawDashedLine(canvas, outerEnd, innerEnd, perspectivePaint);
+      drawDashedLine(canvas, innerStart, innerEnd, perspectivePaint);
+    }
+    _renderWallRowGuides(canvas, perspectivePaint);
   }
 
-  void _renderWallRowGuides(Canvas canvas, Rect scene, Paint paint) {
-    final topLeft = Offset.zero;
-    final topRight = Offset(size.x, 0);
-    final bottomRight = Offset(size.x, size.y);
-    final bottomLeft = Offset(0, size.y);
-
-    _drawWallRowGuides(
-      canvas: canvas,
-      outerStart: topLeft,
-      outerEnd: topRight,
-      innerStart: scene.topLeft,
-      innerEnd: scene.topRight,
-      rows: _layout.desktop.topWallRows,
-      paint: paint,
-    );
-    _drawWallRowGuides(
-      canvas: canvas,
-      outerStart: topRight,
-      outerEnd: bottomRight,
-      innerStart: scene.topRight,
-      innerEnd: scene.bottomRight,
-      rows: _layout.desktop.rightWallRows,
-      paint: paint,
-    );
-    _drawWallRowGuides(
-      canvas: canvas,
-      outerStart: bottomLeft,
-      outerEnd: bottomRight,
-      innerStart: scene.bottomLeft,
-      innerEnd: scene.bottomRight,
-      rows: _layout.desktop.bottomWallRows,
-      paint: paint,
-    );
-    _drawWallRowGuides(
-      canvas: canvas,
-      outerStart: topLeft,
-      outerEnd: bottomLeft,
-      innerStart: scene.topLeft,
-      innerEnd: scene.bottomLeft,
-      rows: _layout.desktop.leftWallRows,
-      paint: paint,
-    );
+  void _renderWallRowGuides(Canvas canvas, Paint paint) {
+    for (final glue in _layout.globalLayout.wallGlues) {
+      _drawWallRowGuides(
+        canvas: canvas,
+        outerStart: _sceneLayoutPointFrom(glue.outerStart),
+        outerEnd: _sceneLayoutPointFrom(glue.outerEnd),
+        innerStart: _sceneLayoutPointFrom(glue.innerStart),
+        innerEnd: _sceneLayoutPointFrom(glue.innerEnd),
+        rows: _wallRows(glue.wall),
+        paint: paint,
+      );
+    }
   }
 
-  void _renderBottomWallGrid(Canvas canvas, Rect scene, Paint paint) {
-    final grid = _layout.desktop.bottomWallGrid;
+  void _renderBottomWallDimensions(Canvas canvas, Rect scene, Paint paint) {
+    final dimensions = _layout.desktop.bottomWallDimensions;
     final outerLeft = Offset(0, size.y);
     final outerRight = Offset(size.x, size.y);
 
-    for (var column = 1; column < grid.columns; column += 1) {
-      final t = column / grid.columns;
+    for (var column = 1; column < dimensions.horizontal; column += 1) {
+      final t = dimensions.normalizedHorizontalPosition(column);
       drawDashedLine(
         canvas,
         Offset.lerp(outerLeft, outerRight, t)!,
@@ -360,20 +310,22 @@ class _GraphField extends PositionComponent {
       );
     }
 
-    for (var row = 1; row < grid.rows; row += 1) {
-      final t = row / grid.rows;
+    for (var row = 1; row < dimensions.vertical; row += 1) {
+      final t = dimensions.normalizedVerticalPosition(row);
       drawDashedLine(
         canvas,
-        Offset.lerp(outerLeft, scene.bottomLeft, t)!,
-        Offset.lerp(outerRight, scene.bottomRight, t)!,
+        Offset.lerp(scene.bottomLeft, outerLeft, t)!,
+        Offset.lerp(scene.bottomRight, outerRight, t)!,
         paint,
       );
     }
   }
 
   void _renderBottomWallTimeAxis(Canvas canvas, Rect scene) {
-    final axisY = _layout.desktop.bottomWallTimeAxisY.clamp(0.0, 1.0);
-    final grid = _layout.desktop.bottomWallGrid;
+    final dimensions = _layout.desktop.bottomWallDimensions;
+    final axisTrack =
+        dimensions.vertical - _layout.desktop.bottomWallTimeAxisTrackInset;
+    final axisY = dimensions.normalizedVerticalPosition(axisTrack);
     final nowX = _bottomWallCurrentHourX(DateTime.now());
     final axisPaint = Paint()
       ..color = InterfaceColors.bottomWallTimeAxis
@@ -400,8 +352,8 @@ class _GraphField extends PositionComponent {
       gapLength: 5,
     );
 
-    for (var hour = 0; hour <= grid.columns; hour += 1) {
-      final x = hour / grid.columns;
+    for (var hour = 0; hour <= dimensions.horizontal; hour += 1) {
+      final x = dimensions.normalizedHorizontalPosition(hour);
       final isMajorTick = hour % 6 == 0;
       canvas.drawLine(
         _bottomWallPoint(scene, x, axisY),
@@ -420,7 +372,7 @@ class _GraphField extends PositionComponent {
       36: 'T 06',
     };
     for (final entry in labels.entries) {
-      final x = entry.key / grid.columns;
+      final x = dimensions.normalizedHorizontalPosition(entry.key);
       final labelPoint = _bottomWallPoint(scene, x, max(axisY - 0.08, 0));
       _paintBottomWallTimeLabel(
         canvas,
@@ -440,21 +392,125 @@ class _GraphField extends PositionComponent {
   }
 
   Offset _bottomWallPoint(Rect scene, double x, double y) {
-    final left = Offset.lerp(Offset(0, size.y), scene.bottomLeft, y)!;
-    final right = Offset.lerp(Offset(size.x, size.y), scene.bottomRight, y)!;
+    final left = Offset.lerp(scene.bottomLeft, Offset(0, size.y), y)!;
+    final right = Offset.lerp(scene.bottomRight, Offset(size.x, size.y), y)!;
     return Offset.lerp(left, right, x)!;
+  }
+
+  Rect _sceneLayoutAreaRect(LayoutArea area) {
+    final topLeft = _sceneLayoutPoint(area.column, area.row);
+    final bottomRight = _sceneLayoutPoint(
+      area.column + area.columnSpan,
+      area.row + area.rowSpan,
+    );
+    return Rect.fromLTRB(
+      min(topLeft.dx, bottomRight.dx),
+      min(topLeft.dy, bottomRight.dy),
+      max(topLeft.dx, bottomRight.dx),
+      max(topLeft.dy, bottomRight.dy),
+    );
+  }
+
+  Offset _sceneLayoutPoint(num column, num row) {
+    final dimensions = _layout.globalLayout.dimensions;
+    return Offset(
+      size.x * dimensions.normalizedHorizontalPosition(column),
+      size.y * dimensions.normalizedVerticalPosition(row),
+    );
+  }
+
+  Offset _sceneLayoutPointFrom(LayoutPoint point) {
+    return _sceneLayoutPoint(point.column, point.row);
   }
 
   Offset? _bottomWallNodePosition(GraphNode node) {
     final placement = _bottomWallNodePlacement(node);
     if (placement == null) return null;
 
-    final grid = _layout.desktop.bottomWallGrid;
+    final dimensions = _layout.desktop.bottomWallDimensions;
     final area = placement.area;
-    final centerX = (area.column + area.columnSpan / 2) / grid.columns;
-    final centerY = (area.row + area.rowSpan / 2) / grid.rows;
+    final centerX = dimensions.normalizedHorizontalPosition(
+      area.column + area.columnSpan / 2,
+    );
+    final centerY = dimensions.normalizedVerticalPosition(
+      area.row + area.rowSpan / 2,
+    );
     return _bottomWallPoint(
       _sceneRect(),
+      centerX.clamp(0.0, 1.0),
+      centerY.clamp(0.0, 1.0),
+    );
+  }
+
+  bool _renderBottomWallNodePlacement(Canvas canvas, GraphNode node) {
+    final placement = _bottomWallNodePlacement(node);
+    if (placement == null || placement.shape != BottomWallNodeShape.cellSpan) {
+      return false;
+    }
+
+    final path = _bottomWallLayoutAreaPath(_sceneRect(), placement.area);
+    canvas.drawPath(path, Paint()..color = node.color.withValues(alpha: 0.78));
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.88)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2,
+    );
+
+    final center = _bottomWallLayoutAreaCenter(_sceneRect(), placement.area);
+    final painter = TextPainter(
+      text: TextSpan(
+        text: node.title,
+        style: const TextStyle(
+          color: InterfaceColors.wallLabel,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          shadows: [Shadow(color: Colors.black54, blurRadius: 4)],
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+      ellipsis: '…',
+    )..layout(maxWidth: 120);
+    painter.paint(
+      canvas,
+      center - Offset(painter.width / 2, painter.height / 2),
+    );
+    return true;
+  }
+
+  Path _bottomWallLayoutAreaPath(Rect scene, LayoutArea area) {
+    final dimensions = _layout.desktop.bottomWallDimensions;
+    final left = dimensions.normalizedHorizontalPosition(area.column);
+    final right = dimensions.normalizedHorizontalPosition(
+      area.column + area.columnSpan,
+    );
+    final bottom = dimensions.normalizedVerticalPosition(area.row);
+    final top = dimensions.normalizedVerticalPosition(area.row + area.rowSpan);
+    final bottomLeft = _bottomWallPoint(scene, left, bottom);
+    final bottomRight = _bottomWallPoint(scene, right, bottom);
+    final topRight = _bottomWallPoint(scene, right, top);
+    final topLeft = _bottomWallPoint(scene, left, top);
+
+    return Path()
+      ..moveTo(bottomLeft.dx, bottomLeft.dy)
+      ..lineTo(bottomRight.dx, bottomRight.dy)
+      ..lineTo(topRight.dx, topRight.dy)
+      ..lineTo(topLeft.dx, topLeft.dy)
+      ..close();
+  }
+
+  Offset _bottomWallLayoutAreaCenter(Rect scene, LayoutArea area) {
+    final dimensions = _layout.desktop.bottomWallDimensions;
+    final centerX = dimensions.normalizedHorizontalPosition(
+      area.column + area.columnSpan / 2,
+    );
+    final centerY = dimensions.normalizedVerticalPosition(
+      area.row + area.rowSpan / 2,
+    );
+    return _bottomWallPoint(
+      scene,
       centerX.clamp(0.0, 1.0),
       centerY.clamp(0.0, 1.0),
     );
@@ -508,15 +564,22 @@ class _GraphField extends PositionComponent {
     }
   }
 
-  double _normalizedY(double value) {
-    return _layout.desktop.topPadding +
-        value *
-            max(
-              0,
-              size.y -
-                  _layout.desktop.topPadding -
-                  _layout.desktop.bottomPadding,
-            );
+  Color _wallColor(OpenBoxWall wall) {
+    return switch (wall) {
+      OpenBoxWall.top => _layout.desktop.topWallColor,
+      OpenBoxWall.right => _layout.desktop.rightWallColor,
+      OpenBoxWall.bottom => _layout.desktop.bottomWallColor,
+      OpenBoxWall.left => _layout.desktop.leftWallColor,
+    };
+  }
+
+  int _wallRows(OpenBoxWall wall) {
+    return switch (wall) {
+      OpenBoxWall.top => _layout.desktop.topWallRows,
+      OpenBoxWall.right => _layout.desktop.rightWallRows,
+      OpenBoxWall.bottom => _layout.desktop.bottomWallRows,
+      OpenBoxWall.left => _layout.desktop.leftWallRows,
+    };
   }
 }
 

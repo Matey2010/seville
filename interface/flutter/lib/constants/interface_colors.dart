@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 abstract final class InterfaceColors {
   static const background = Colors.white;
 
+  static const globalLayoutDimensions = Color(0x224B5563);
   static const guidelineRed = Color(0xCCDC2626);
 
   static const topWall = Color(0xFFD6BD58);
