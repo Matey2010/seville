@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:seville_proto/seville_proto.dart';
 
-import 'graph_rules.dart';
+import '../graph/graph_rules.dart';
 
 class KnowledgeGraph {
   const KnowledgeGraph({required this.nodes, required this.edges});

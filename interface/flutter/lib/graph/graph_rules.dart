@@ -64,8 +64,8 @@ const sevilleGraphRules = GraphRules(
     LinkKind.LINK_KIND_EMBED: 1.5,
   },
   edgeColors: {
-    LinkKind.LINK_KIND_WIKI: Color(0x6676B7FF),
-    LinkKind.LINK_KIND_MARKDOWN: Color(0x447D8BA6),
-    LinkKind.LINK_KIND_EMBED: Color(0x88B18CFE),
+    LinkKind.LINK_KIND_WIKI: Color(0x9976B7FF),
+    LinkKind.LINK_KIND_MARKDOWN: Color(0x807D8BA6),
+    LinkKind.LINK_KIND_EMBED: Color(0xA6B18CFE),
   },
 );

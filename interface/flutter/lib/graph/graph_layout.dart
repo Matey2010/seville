@@ -2,7 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import 'graph_model.dart';
+import '../models/knowledge_graph.dart';
 
 /// Small deterministic force layout intended for the first useful prototype.
 ///
@@ -11,14 +11,8 @@ import 'graph_model.dart';
 Map<String, Offset> layoutGraph(KnowledgeGraph graph) {
   if (graph.nodes.isEmpty) return const {};
 
-  final pinnedPositions = <String, Offset>{};
-  for (final node in graph.nodes) {
-    final position = _timelinePosition(node.path);
-    if (position != null) pinnedPositions[node.id] = position;
-  }
   final positions = <String, Offset>{
-    for (final node in graph.nodes)
-      node.id: pinnedPositions[node.id] ?? _seededPosition(node.id),
+    for (final node in graph.nodes) node.id: _seededPosition(node.id),
   };
   if (graph.nodes.length > 250) return positions;
 
@@ -56,11 +50,6 @@ Map<String, Offset> layoutGraph(KnowledgeGraph graph) {
     final cooling = 1 - iteration / 170;
     for (final node in graph.nodes) {
       final id = node.id;
-      if (pinnedPositions.containsKey(id)) {
-        positions[id] = pinnedPositions[id]!;
-        velocity[id] = Offset.zero;
-        continue;
-      }
       final centerPull = (const Offset(0.5, 0.5) - positions[id]!) * 0.002;
       final nextVelocity =
           (velocity[id]! * 0.72 + forces[id]! + centerPull) * cooling;
@@ -68,33 +57,13 @@ Map<String, Offset> layoutGraph(KnowledgeGraph graph) {
       final next = positions[id]! + nextVelocity;
       positions[id] = Offset(
         next.dx.clamp(0.04, 0.96),
-        // Keep the lower timeline rail visually separate from the graph cloud.
+        // Keep the lower wall area visually separate from the graph cloud.
         next.dy.clamp(0.04, 0.82),
       );
     }
   }
   return positions;
 }
-
-Offset? _timelinePosition(String path) {
-  final normalized = path
-      .replaceAll(r'\', '/')
-      .toLowerCase()
-      .replaceFirst(RegExp(r'\.md$'), '');
-  if (_endsWithVaultPath(normalized, 'time/concept/past')) {
-    return const Offset(0.02, 0.975);
-  }
-  if (_endsWithVaultPath(normalized, 'time/concept/now')) {
-    return const Offset(0.50, 0.975);
-  }
-  if (_endsWithVaultPath(normalized, 'time/concept/future')) {
-    return const Offset(0.98, 0.975);
-  }
-  return null;
-}
-
-bool _endsWithVaultPath(String path, String suffix) =>
-    path == suffix || path.endsWith('/$suffix');
 
 Offset _seededPosition(String value) {
   var hash = 0x811C9DC5;

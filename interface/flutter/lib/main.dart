@@ -2,9 +2,13 @@ import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:seville_proto/seville_proto.dart';
 
+import 'constants/interface_colors.dart';
 import 'data/seville_api.dart';
 import 'graph/graph_field.dart';
-import 'graph/graph_model.dart';
+import 'models/knowledge_graph.dart';
+
+const _legendOverlay = 'legend';
+const _legendToggleOverlay = 'legend-toggle';
 
 void main() {
   runApp(const SevilleApp());
@@ -18,7 +22,12 @@ class SevilleApp extends StatelessWidget {
     return MaterialApp(
       title: 'Seville',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark(useMaterial3: true),
+      theme: ThemeData(
+        brightness: Brightness.light,
+        useMaterial3: true,
+        colorSchemeSeed: const Color(0xFF6750A4),
+        scaffoldBackgroundColor: InterfaceColors.background,
+      ),
       home: const NodeFieldScreen(),
     );
   }
@@ -125,30 +134,57 @@ class _NodeFieldScreenState extends State<NodeFieldScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-          GameWidget(game: _game),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: FilterPanel(
-                loading: _loading,
-                error: _error,
-                totalCount: _snapshot?.notes.length ?? 0,
-                visibleCount: _visibleNotes.length,
-                linkCount:
-                    _snapshot?.links
-                        .where((link) => link.hasResolvedTargetId())
-                        .length ??
-                    0,
-                matchAll: _matchAll,
-                onQueryChanged: (query) => _updateFilter(query: query),
-                onMatchAllChanged: (value) => _updateFilter(matchAll: value),
-                onRetry: _loadSnapshot,
+      body: GameWidget<KnowledgeGraphGame>(
+        game: _game,
+        initialActiveOverlays: const [_legendToggleOverlay],
+        overlayBuilderMap: {
+          _legendToggleOverlay: (context, game) {
+            final isOpen = game.overlays.isActive(_legendOverlay);
+            return SafeArea(
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Tooltip(
+                    message: isOpen ? 'Close legend' : 'Open legend',
+                    child: FilledButton.tonal(
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size.square(48),
+                        padding: EdgeInsets.zero,
+                        textStyle: const TextStyle(fontSize: 22),
+                      ),
+                      onPressed: () => game.overlays.toggle(_legendOverlay),
+                      child: const Text('🧭'),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+          _legendOverlay: (context, game) => SafeArea(
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 76, 16, 16),
+                child: FilterPanel(
+                  loading: _loading,
+                  error: _error,
+                  totalCount: _snapshot?.notes.length ?? 0,
+                  visibleCount: _visibleNotes.length,
+                  linkCount:
+                      _snapshot?.links
+                          .where((link) => link.hasResolvedTargetId())
+                          .length ??
+                      0,
+                  matchAll: _matchAll,
+                  onQueryChanged: (query) => _updateFilter(query: query),
+                  onMatchAllChanged: (value) => _updateFilter(matchAll: value),
+                  onRetry: _loadSnapshot,
+                ),
               ),
             ),
           ),
-        ],
+        },
       ),
     );
   }
@@ -180,88 +216,91 @@ class FilterPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 390,
-      child: Card(
-        color: const Color(0xE6171920),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      loading
-                          ? 'Fetching knowledge snapshot…'
-                          : error != null
-                          ? 'Backend unavailable'
-                          : '$visibleCount of $totalCount notes · $linkCount resolved links',
-                      style: Theme.of(context).textTheme.titleMedium,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 390),
+      child: SizedBox(
+        width: double.infinity,
+        child: Card(
+          color: const Color(0xF7FFFFFF),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        loading
+                            ? 'Fetching knowledge snapshot…'
+                            : error != null
+                            ? 'Backend unavailable'
+                            : '$visibleCount of $totalCount notes · $linkCount resolved links',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Reload snapshot',
+                      onPressed: loading ? null : onRetry,
+                      icon: const Icon(Icons.refresh),
+                    ),
+                  ],
+                ),
+                if (error != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    '$error',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ] else ...[
+                  const SizedBox(height: 12),
+                  TextField(
+                    enabled: !loading,
+                    onChanged: onQueryChanged,
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      labelText: 'Filter tags',
+                      hintText: 'project, active',
+                      prefixIcon: Icon(Icons.tag),
+                      border: OutlineInputBorder(),
                     ),
                   ),
-                  IconButton(
-                    tooltip: 'Reload snapshot',
-                    onPressed: loading ? null : onRetry,
-                    icon: const Icon(Icons.refresh),
+                  const SizedBox(height: 10),
+                  SegmentedButton<bool>(
+                    segments: const [
+                      ButtonSegment(value: false, label: Text('Any tag')),
+                      ButtonSegment(value: true, label: Text('All tags')),
+                    ],
+                    selected: {matchAll},
+                    onSelectionChanged: (selection) {
+                      onMatchAllChanged(selection.first);
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  const Wrap(
+                    spacing: 12,
+                    runSpacing: 8,
+                    children: [
+                      _LegendDot(label: 'project', color: Color(0xFFFFB454)),
+                      _LegendDot(label: 'active', color: Color(0xFF62D6A7)),
+                      _LegendDot(label: 'idea', color: Color(0xFFB18CFE)),
+                      _LegendDot(label: 'person', color: Color(0xFFFF7A90)),
+                      _LegendDot(label: 'other', color: Color(0xFF76B7FF)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Node size = weighted links · embeds count ${1.5}×',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
-              ),
-              if (error != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  '$error',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ] else ...[
-                const SizedBox(height: 12),
-                TextField(
-                  enabled: !loading,
-                  onChanged: onQueryChanged,
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    labelText: 'Filter tags',
-                    hintText: 'project, active',
-                    prefixIcon: Icon(Icons.tag),
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                SegmentedButton<bool>(
-                  segments: const [
-                    ButtonSegment(value: false, label: Text('Any tag')),
-                    ButtonSegment(value: true, label: Text('All tags')),
-                  ],
-                  selected: {matchAll},
-                  onSelectionChanged: (selection) {
-                    onMatchAllChanged(selection.first);
-                  },
-                ),
-                const SizedBox(height: 14),
-                const Wrap(
-                  spacing: 12,
-                  runSpacing: 8,
-                  children: [
-                    _LegendDot(label: 'project', color: Color(0xFFFFB454)),
-                    _LegendDot(label: 'active', color: Color(0xFF62D6A7)),
-                    _LegendDot(label: 'idea', color: Color(0xFFB18CFE)),
-                    _LegendDot(label: 'person', color: Color(0xFFFF7A90)),
-                    _LegendDot(label: 'other', color: Color(0xFF76B7FF)),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Node size = weighted links · embeds count ${1.5}×',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: Colors.white60),
-                ),
               ],
-            ],
+            ),
           ),
         ),
       ),
