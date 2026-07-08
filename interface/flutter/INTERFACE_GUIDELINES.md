@@ -1,5 +1,94 @@
 # Seville Flutter Interface Guidelines
 
+See `CUSTOM_LAYOUTS.md` for the complete model → constants → renderer registry
+workflow, including nesting, radial slots, perspective surfaces, responsive
+scaling, and animation.
+
+## Layout type taxonomy
+
+- `GridLayout` (**grid-layout**) is the general two-dimensional rectangular
+  layout. It owns row/column tracks, fractions, sublayouts, elements, and grid
+  styling.
+- `TrackLayout` (**track-layout**) is the deliberately boring one-dimensional
+  line layout. Concept, era, millennium, century, decade, year, quarter, month,
+  and week timelines specialize it.
+- `SceneLayout` (**scene-layout**) is the compositional layout for three
+  dimensions, including depth.
+- `OpenBoxSpatialLayout` (**open-box-spatial-layout**) specializes
+  `SceneLayout` into the existing five-surface open-box graph experience.
+- `PerceptualMapLayout` (**perceptual-map-layout**) specializes `GridLayout`
+  into a center-origin perceptual plane. Its directional guidelines and their
+  individual visual styles belong to the layout configuration.
+- `CompassLayout` (**compass-layout**) specializes `PerceptualMapLayout` into a
+  radial flex container around a typed `CompassMainSlot`. The main slot can own
+  any `Layout`; meeples, triangles, squares, stars, and future central
+  interfaces do not require changes to compass geometry. Surrounding
+  `CompassSlot` values use clockwise degrees with `0°` at the top. Optional
+  `startDegrees` fixes placement and optional `spanDegrees` restricts width.
+  Unrestricted slots share the remaining sweep by `LayoutSlot.fraction`; one
+  unrestricted slot therefore consumes the full default `360°`.
+  `CompassMainFigure` lists layout, circle, triangle, square, and star center
+  figures; the selected figure may own a specialized `subLayout`.
+  `CompassFrame` defines the layout's normalized bounds inside its parent.
+  `positionFraction`, `anchorFraction`, and logical-pixel `translation` place
+  the main slot within that frame, allowing animated off-center figures while
+  their radial slots continue resolving against the same moving bounds. Grid
+  projection, directional guides, radial boundaries, and viewport intersections
+  all resolve against the configured frame rather than assuming a full screen.
+- `LandscapeXlLayout` (**landscape-xl-layout**) owns the full-screen landscape
+  hierarchy. It extends the base `Layout` and nests every child under a stable
+  key in `Layout.layouts`; there is no separate depth-node tree, root wrapper,
+  role tag, or frame object. `SafeAreaLayout` expresses actual inset behavior
+  through its concrete type.
+- `TimeCompassLayout` (**time-compass-layout**) specializes
+  `CompassLayout` with a rotating temporal polar grid. Its default geometry is a
+  lower semicircle below the perceptual map's horizontal zero axis; a nonzero
+  inner radius can turn it into a semi-annulus. Radial layers and angular
+  columns use a shared fraction coordinate system.
+- `MeepleLayout` (**meeple-layout**) is the current character layout inside the
+  Time Compass `mainSlot`. Its `MeepleLayoutConfig` extends the shared
+  `LayoutConfig` with the SVG asset, body color, responsive dimensions, and
+  four-sided padding.
+- `TimeCompassSlot` pairs a reusable `LayoutSlot` with a `LayoutArea`.
+  `column` and `columnSpan` address angular fractions, while `row` and
+  `rowSpan` address radial layers. A slot can therefore span multiple compass
+  rings without being repeated in every layer. A `columnSpan` of
+  `LayoutFraction.fullSpan` consumes the available angular space until the next
+  slot overlapping the same rows, or the compass edge. When `column` is
+  omitted, Time Compass places the slot after the preceding list item; its
+  default `columnSpan` is `1fr`.
+- `LayoutSlot` is the reusable flex-like slot primitive. `fraction`
+  controls main-axis share, while optional `span`, `minWidth`, and `maxWidth`
+  constrain cross-axis width in the owning configuration's fraction units.
+- `Point` is the reusable coordinate entity above raw layout tracks. Each point
+  owns a `Map<String, Coord>` keyed by standard or custom aliases.
+  `CoordAlias.horizontal`, `vertical`, `depth`, `diagonal`, `angle`, `radius`,
+  and `weight` are built in. `Coord` supports fraction, pixel, track, scalar,
+  degree, and radian units with start-, center-, or end-relative rules.
+- `LineView` is a lightweight one-dimensional sequence of fractional
+  `LayoutSlot` segments. It is intended for nested content where a complete
+  `TrackLayout` would add unnecessary layout ownership.
+- Every `Layout` owns a `Map<String, Layout>`. Its keys are child identities;
+  values may be content, `SafeAreaLayout`, `Guideline`, `GuideGrid`, or other
+  layouts.
+  `Guideline` defines an explicit normalized line and optional arrow; `GuideGrid` generates
+  Cartesian, radial, or virtual-radial guides from layout dimensions.
+  `GuideStyle` controls color, width, cap, and solid, dashed, or dotted
+  patterns, including dash length and dash interval. A `GuideGrid` additionally
+  controls visible axes and full-line versus intersection-dot rendering.
+- `PerceptualMapSlot` names every supported perceptual-map anchor: `top`,
+  `bottom`, `topRight`, `topLeft`, `bottomRight`, `bottomLeft`,
+  `bottomCenter`, `topCenter`, `leftCenter`, `rightCenter`, and `center`.
+- `PerceptualMapSlotAlias` provides compact configuration names: `lb` resolves
+  to left-bottom, `rb` to right-bottom, and `bc` to the bottom-center triangle
+  slots. String aliases can be resolved through `resolve`.
+- `PerceptualMapSlotConfig.shape` selects stacked or triangular slot geometry.
+  A bottom-center triangle expands from the screen center toward the bottom
+  corners while preserving slot fractions and width constraints. Its optional
+  `apexSlot` is layer zero and consumes the apex before the regular slots.
+- `TimelineGrid` specializes `GridLayout` for the bottom-wall temporal
+  hierarchy and its named tracks.
+
 ## Core spatial metaphor: OpenBoxSpatialLayout
 
 The spectator looks down into an open box. This viewpoint is the base guideline
@@ -12,65 +101,100 @@ five-surface spatial layout shown in top-down cutaway perspective**. Use
   knowledge scene. Its corners are defined by layout dimensions, not by ad-hoc
   padding.
 - The four regions between the scene and the viewport edges are the **top,
-  right, bottom, and left walls**. Each wall is glued between an outer scene edge
-  and an inner box-bottom edge.
-- The global scene is dimension-based. The current default is
-  `DefaultDimensions.w40h10d6`: 40 horizontal tracks, 10 vertical tracks, and
-  6 depth tracks. These dimensions are the CSS-grid-like skeleton for placing
-  and joining perspective surfaces.
-- Layouts are modeled through `Layout`, an abstract base with required
-  `dimensions` and optional `subLayouts`. `dimensions` points to the amount
-  of addressable space on each dimension and becomes the shared conversion
-  contract between layouts. `subLayouts` is a `Map<String, Layout>` keyed by a
-  stable layout id, so surfaces can nest other surfaces without spreading world
-  structure into widgets.
-- `SceneLayout` has three dimensions and describes surfaces joined by layout
-  coordinates and glue points. `GridLayout` has two dimensions and describes
-  plain 2D panel surfaces. Cross-layout conversion must remain possible by
-  translating through normalized layout positions.
-- `LayoutDimensions` may optionally define fraction sizes for horizontal,
-  vertical, and depth tracks. Fractions work like CSS `fr` units: if every track
-  is `1`, the layout is uniform; if one track is `3`, it receives three times
-  the span of a `1` track. These fractions are intended for runtime
-  rebalancing, so data-heavy rows or columns can expand without changing the
-  semantic layout address.
+  right, bottom, and left walls**. The open-box model derives each wall's
+  perspective coordinates from the parent, scene, and nested walls layout.
+- The open-box scene is dimension-based. The current default is
+  `defaultOpenBoxLayout` with axes `[40, 10, 6]`: 40 horizontal tracks, 10
+  vertical tracks, and 6 depth tracks. These axes are the CSS-grid-like
+  skeleton for placing and joining perspective surfaces.
+- Layouts are modeled through `Layout`, an abstract base with default axes
+  `[0, 0]`, optional row/column/depth fractions, and one recursive `layouts`
+  map. Dimensioned grid layouts override those axes. Guide
+  geometry and presentation live in that same map as ordinary layouts. Each
+  legacy spatial `subLayouts`
+  entry is one named record containing both its child `layout` and parent-grid
+  `area`; these must never be maintained in parallel maps. This is the project
+  equivalent of CSS Grid named areas. `LayoutArea` supports `depth` and
+  `depthSpan` alongside row/column spans.
+- `SceneLayout` has three dimensions and composes nested surfaces. `GridLayout`
+  has two dimensions and describes plain 2D panel surfaces. Every `Layout` may
+  define an `elements` map from stable element ids to `LayoutElement` values.
+  Each element owns its coordinate area, optional default vault path, visual
+  radius, and optional empty-slot style. `TrackLayout` provides one-dimensional
+  fractional slots.
+  `TimelineGrid` specializes `GridLayout` with timeline identifiers such as
+  `TimelineGrid.timeAxis`, `TimelineGrid.nowPointer`, and
+  `TimelineGrid.conceptTimeline`. Cross-layout conversion must remain possible
+  by translating through normalized layout positions.
+- `LayoutDimensions.fromAxes` derives `dimensionCount` from the axes-list length;
+  configuration must never repeat it manually. `GridLayout.fromAxes`,
+  `SceneLayout.fromAxes`, and `OpenBoxSpatialLayout.fromAxes` hide dimensions
+  construction from configuration. Their optional `columnFractions`,
+  `rowFractions`, and `depthFractions` work like CSS `fr` units.
+- Visible guide grids are painted from `GuideGrid` values in the owning
+  layout's `layouts` map. Nested layouts are projected through their configured
+  `LayoutArea`, so changing a child layout's row count or fractions also changes
+  its visible grid without renderer-specific drawing code.
 - Depth is an ordinary layout axis rather than a separate projection model. On
   the 36x6 bottom-wall layout, depth track `0` touches the scene and depth track
-  `6` touches the user's screen. Track fractions, layout coordinates, and glue
-  points determine every intermediate position. `LayoutPoint.depth` carries
-  this third coordinate: inner wall glues use `0`, while viewport glues use `6`.
+  `6` touches the user's screen. Wall areas span that depth directly. The model
+  interpolates their visible outer coordinates from `depthSpan` and parent depth
+  fractions, without a separate glue model.
 - Each wall uses a distinct shade from the same color family so the spectator
   can read their orientation without mistaking them for separate panels.
-- Wall-row guides divide each wall into placement rows. The current default is
-  two rows for the top, right, and left walls, and three rows for the bottom
-  wall.
+- Wall guides come from each surface layout's own vertical tracks and fractions.
+  The current defaults are four tracks for the top wall, two for the left and
+  right walls, and six depth tracks for the bottom wall.
 - The bottom wall can be subdivided into panels. Dimension presets are basic
-  reusable primitives, including `DefaultDimensions.h9v9`,
-  `DefaultDimensions.h36v36`, `DefaultDimensions.h32v6`, and
-  `DefaultDimensions.h36v6`. The current desktop layout assigns
-  `OpenBoxSpatialLayout.defaults.desktop.bottomWallLayout` to a `GridLayout`
-  backed by those 36x6 dimensions. Its 36 horizontal segments are hours:
+  reusable ratios grouped under `CommonRatio.twoDimension` in
+  `layout_axes.dart`, including 9x9, 40x10, 40x40, 120x120, 300x300, 36x36,
+  32x6, 36x6, and 36x13. The default open box assigns the bottom wall under
+  `defaultWallsLayout.subLayouts['bottom-wall']`.
+  Its 36 horizontal segments are hours:
   6 hours from yesterday, 24 hours of the current day, and 6 hours from
   tomorrow.
-- The horizontal time axis is configurable through
-  `bottomWallTimeAxisTrackInset`. It lives one grid line behind the lid/lip line
-  where the bottom wall meets the box bottom, leaving that front line visually
-  clear. The renderer derives its position from the bottom-wall track sizes, so
-  runtime fraction changes preserve that one-track relationship.
+- The horizontal time axis is the `timeline-track` sublayout of the bottom-wall
+  grid and uses `defaultTimelineLayout`. The timeline is currently a 36x13 grid
+  projected across the 36x6 bottom wall. Its own visible grid therefore has
+  thirteen rows even though its parent wall retains six depth tracks. Two
+  scene-facing spacer rows precede timeline content; the first is `2fr` and the
+  second is `1fr`. Its `elements` map places the time axis on row `2` and the
+  current-day band on row `3`, and the now pointer across rows `0..13`; timeline
+  fractions provide interpolation for ticks, labels, and later decorations.
 - The current-time pointer is a separate line positioned from local
   `DateTime.now()`. Its x-position is calculated as
   `(6 + current-hour-of-day) / 36`, so it moves through the central 24-hour
   current-day band.
-- Nodes can be explicitly assigned to bottom-wall cells through
-  `OpenBoxSpatialLayout.defaults.desktop.bottomWallNodePlacements`. The current
-  default places the `time/concept/now` node across the two center cells of the
-  bottom row on the 36x6 layout. Placements are intended to become user-adjustable
-  configuration: a user should eventually be able to move elements to different
-  cells without changing rendering code.
-- Bottom-wall node placements define both position and shape. A placement may
-  render as a normal circular node or as a `cellSpan` block that fills the
-  assigned layout area. The current `time/concept/now` placement uses `cellSpan`,
-  so it visually spans its two cells instead of appearing as a circle.
+- `defaultConceptTimeline` is a `TrackLayout` nested on timeline row `12`. It
+  defines `ConceptTimeline.past`, `ConceptTimeline.now`, and
+  `ConceptTimeline.future` with `columnRatio: [1, 4, 1]` and default vault paths
+  from `time/concept/`. A future per-vault configuration may replace those
+  paths without changing rendering code.
+- `defaultEraTimeline` is nested on timeline row `11`. It defines
+  `EraTimeline.bce` and `EraTimeline.ce` with `columnRatio: [5, 31]`, using
+  `time/era/bce` and `time/era/ce`.
+- Millennium, century, decade, year, quarter, month, and week tracks occupy rows
+  `10`, `9`, `8`, `7`, `6`, `5`, and `4` respectively. Their fractions align
+  compressed historical ranges while allowing the active millennium, century,
+  decade, and year to consume the remaining span. The current decade is
+  `Twenties`; the configured calendar year is `2026`.
+- Quarters and months subdivide the expanded 2026 span proportionally by their
+  real day counts. Each month is further divided at Monday-Sunday boundaries;
+  partial weeks at month edges receive widths proportional to their actual
+  number of days.
+- Year, quarter, month, and week elements are configured as slots. Until a
+  matching graph node exists, each slot remains unfilled with a dashed `2px`
+  border and its configured label. Once a node exists, normal node color and
+  title rendering replaces the placeholder treatment.
+- Any timeline element with a non-null `defaultPath` is rendered from layout
+  configuration. A matching graph node enriches its title and color when
+  available, but is not required for visibility. Element discovery recursively
+  follows nested sublayouts, so custom tracks and element ids do not require
+  renderer changes.
+- Timeline-to-node bindings, labeled-node selection, and screen positions are
+  cached when graph data changes. Static timeline elements are recorded into a
+  reusable picture and disposed/rebuilt only when graph data or viewport size
+  changes. Fraction normalization avoids per-frame list allocation.
 - Lines from the viewport corners to the scene corners are virtual perspective
   guides. The guides and the border around the scene are dashed to distinguish
   spatial construction from knowledge-graph edges.
@@ -84,27 +208,225 @@ preserving the five-surface composition and top-down spectator perspective.
 
 ## Layout parameters
 
-`OpenBoxSpatialLayout` owns the layout family, while its `desktop` sub-entity
-owns the geometry and visual parameters for the current Flutter interface:
+`defaultOpenBoxLayout` is the complete default composition.
+`OpenBoxSpatialLayout` is a reusable `SceneLayout` subtype, so it can itself be
+placed in another layout's `subLayouts`. Its immediate children are deliberately
+small:
 
-- global scene dimensions: currently `DefaultDimensions.w40h10d6`
-- global scene layout: currently `DefaultLayout.openBoxScene`
-- box bottom area: derived from the inner wall glue coordinates; currently
-  columns 3-37 and rows 1-8 on the global scene dimensions
-- wall glue rules: top, right, bottom, and left walls explicitly connect scene
-  coordinates without a separate projection configuration
-- wall rows: independent row counts for top, right, bottom, and left walls
-- bottom wall layout: a reusable `GridLayout`, currently
-  `DefaultLayout.bottomWallLayout`, rendered directly on the bottom wall surface
+- parent plane: `defaultOpenBoxLayout`, axes `[40, 10, 6]`
+- `defaultWallsLayout`, containing the top, left, right, and bottom grids
+- the scene grid, declared directly in the parent's `scene` placement
+
+The walls object owns four placements, each pairing a wall grid with its area
+and depth span. The parent similarly owns `walls` and `scene` placements. The
+model derives wall coordinates from those spans. Parent fraction arrays
+participate in coordinate normalization, while each surface's fractions control
+its internal tracks.
+
+Other configured behavior includes:
+
 - bottom wall time axis position: one track behind the bottom-wall lip
 - bottom wall now-pointer x-position: calculated from local current time
-- bottom wall node placements: explicit node-to-cell assignments, currently
-  placing `time/concept/now` as a two-cell `cellSpan` block on the bottom-center
-  cells
+- concept timeline: Past/Now/Future slots with relative widths `1fr 4fr 1fr`
+- layout-owned grid visibility and line styling
 - guide color and wall surface colors
 
-The initial desktop configuration uses `DefaultLayout.bottomWallLayout`, two rows
-for the top, right, and left walls, and three rows for the bottom wall.
+`lib/constants/layout_defaults.dart` is the working six-plane configuration:
+one open-box parent, one scene grid, and one walls object containing four wall
+grids. Each named sublayout declaration contains its layout and area together.
+There are no parallel area maps, standalone `LayoutDimensions`, glue
+declarations, or abstract namespace classes. Reusable axes presets live in
+`lib/constants/layout_axes.dart`. Configuration is ordered from larger to
+smaller: `defaultOpenBoxLayout` then `defaultWallsLayout`.
+Timeline configuration lives under `lib/constants/timeline/`: layouts are in
+`defaults.dart`, while default vault paths are in `paths.dart`.
+
+## Inner and outer circles
+
+Every `Layout` may define an `innerCircle` and an `outerCircle`. Both use the
+owning layout bounds as their coordinate space:
+
+- `center` is a normalized `Offset`; `(0.5, 0.5)` is the layout center.
+- `radiusFraction` is measured against the layout's shortest side; `0.5`
+  touches its nearest edges.
+- `Layout.center` resolves to the inner circle's center first, then the outer
+  circle's center, and finally `(0.5, 0.5)`.
+
+The circles are geometry references, not mandatory decoration. Add a
+`CirleLayout` to `layout.layouts` when either boundary should be visible.
+This keeps centering and radial calculations usable even when the circles are
+hidden.
+
+## Inner borders and anchors
+
+Every visual layout may expose its meaningful content boundary under
+`LayoutKey.innerBorder`. The value is a `LayoutBorderGuide`, so the border stays
+inside the same recursive layout map as all other geometry. Borders should be
+quiet alignment aids rather than containers: prefer a thin, partially
+transparent dashed stroke.
+
+A border may reference the layout bounds, inner circle, or outer circle. A
+square referencing a circle is mathematically inscribed in it, so its four
+corners touch the circle. Named `Point` values on the border are durable anchors
+for later connections, labels, angles, and animation.
+
+## Derivatives and observables
+
+`Layout.derivatives` stores named `LayoutDerivativeSnapshot` values.
+`derivativeSnapshot` selects the active snapshot, and `getDerivatives()` always
+returns that snapshot unless a different name is requested explicitly. A
+derivative is computed from current layout geometry rather than copied into the
+preset as a fixed coordinate.
+
+LG Ergo defines A, B, C, and D as `CircleRayIntersectionDerivative` values:
+each point is the intersection of the outer circle with a diagonal ray.
+`LayoutBorderGuide.derivativeAnchors` consumes those names, making the square a
+result of the circle intersections. Resizing or moving the circle therefore
+recomputes the square anchors automatically.
+
+`Layout.observables` describes groups of derivative names and their comparison
+tolerance. `LayoutDerivativeObserver` establishes a baseline on its first
+`evaluate()` call, then notifies listeners with `LayoutDerivativeChange`
+records whenever watched resolved points move beyond that tolerance. This is
+the layout equivalent of Vue computed values plus watchers: presets remain
+immutable, while runtime observers react to changed results.
+
+## Layout attributes
+
+Every `Layout` accepts a list of `LayoutAttribute` values using Flutter's
+lower-camel enum convention: `screen`, `rectangular`, `circular`, `triangular`,
+`linear`, and `safeArea`. Attributes classify behavior without string tags and
+contribute standard derivatives:
+
+- screen, rectangular, and SafeArea layouts provide center, named corners, and
+  A–D corner aliases;
+- circular layouts provide center and four cardinal circle points;
+- triangular layouts provide center and three vertices;
+- linear layouts provide start, midpoint, and end.
+
+`getDerivatives()` merges these attribute derivatives first and then the active
+explicit snapshot. Explicit derivatives therefore override defaults without
+copying the entire characteristic set.
+
+## Rays
+
+`RayLayout` has a fixed starting derivative and a `towards` derivative that
+defines its direction. A vector alone has direction and magnitude but no fixed
+origin; the scene projection has an origin, so ray is the more useful layout
+name. Both references may include a nested `layoutPath` and derivative snapshot,
+allowing rays to cross layout boundaries.
+
+LG Ergo defines screen-corner A–D derivatives and draws four rays from the
+SafeArea square's derived A–D anchors toward the corresponding physical-screen
+corners. The renderer resolves both layouts into screen coordinates before
+painting, so SafeArea padding does not distort the correspondence.
+
+## Ordered layout backgrounds
+
+Backgrounds are normal children in `Layout.layouts`. Each
+`LayoutBackgroundElement` declares an asset, `orderPosition`, fit, opacity, and
+normalized alignment. The frontend selects background children, sorts them by
+ascending `orderPosition` and then map key for deterministic ties, and paints
+them behind the parent layout's guides and content.
+
+`LayoutBackgroundElement` extends the same base `Layout` as every other
+renderable layout type. Configuration and geometry records such as
+`LayoutArea`, `LayoutDimensions`, and derivative snapshots remain value objects;
+anything that participates as a rendered layout belongs to the `Layout`
+hierarchy.
+
+LG Ergo places `assets/please-stand-by.png` at root background position `0`
+with `cover` fitting, so it fills the physical screen while preserving its
+aspect ratio. A backend may replace or periodically update configuration, but
+visual stacking remains a frontend responsibility.
+
+## Screen composition
+
+`main.dart` owns only the application shell and selects
+`LandscapeXlLayoutScreen`
+as `MaterialApp.home`. The fresh starting hierarchy is declared entirely in
+`constants/layout/presets/lg_ergo/lg_ergo_layout_config.dart`:
+
+1. `lgErgoLayoutConfig` fills the physical screen.
+2. Its `safe-area` child applies Flutter's runtime display insets.
+3. The SafeArea layout owns the inner- and outer-circle geometry and their
+   visible guide layouts.
+4. Its `inner-border` is a square inscribed in the outer circle. A, B, C, and D
+   run clockwise from the bottom-left corner, with outward directions derived
+   automatically from the square's center.
+
+The screen layout owns four configured dashed `Guideline` entries. Horizontal,
+vertical, and both corner-to-corner diagonals span the full screen and intersect
+at its center.
+
+There are intentionally no additional active layers yet. New layers are added
+to the appropriate parent `Layout.layouts` map. Existing graph, perceptual-map,
+Compass, and Time Compass models remain available but inactive.
+
+`TimeCompassScreen` consumes `defaultTimeCompassLayout`. Its default polar grid
+shares the perceptual map's screen-center origin, Cartesian grid, and
+directional guidelines. The Cartesian field uses 120x120 dimensions and a
+layout-owned intersection-mode `GuideGrid` that batches 2px dots instead of
+drawing 598 complete grid lines. Only the lower half-plane is segmented: a
+semicircle extends downward from the horizontal zero axis and remains centered
+on the vertical axis. Its radius is derived exclusively from the available X-axis
+span, so its eleven radial layers reach the horizontal viewport edges even when
+the lower arc extends beyond the screen. The layers are Relative, Hour, Day,
+Week, Month, Quarter, Season, Year, Decade, Century, and Millennia. The innermost
+Relative layer is `0.5fr`; every following radial layer is `1fr`. A dedicated
+blank `TimeCompassCenterSlot` is painted above the segmented rings with `Now`
+centered inside it. Its semicircle diameter matches the responsive SVG character
+width, providing shared space across the zero axis for later character
+animations and deliberate top-to-bottom overlap. The shared
+angular axis uses `LayoutFraction.fullSpan`: slots without explicit columns
+auto-flow by list order, and their resolved total expands across the full
+180-degree sweep.
+Independent row cursors prevent Hour and Day placements from shifting one
+another. Its edge columns are single `0.25fr` `…` slots with `rowSpan: 11`, so
+they cover every radial layer. Hour uses `3fr / 24fr / 3fr` for
+previous-day hours 21–23, current-day hours 0–23, and next-day hours 1–3. Day
+uses the same spans for Yesterday, Today, and Tomorrow. Hour and Day are each
+one `TimeCompassSlot` whose nested `LineView` owns those three subsegments.
+Radial grid lines are omitted inside
+row-spanning slots, so each full-height ellipsis is one continuous visual cell.
+Their `outermostRow` label alignment places the ellipsis text in the radial row
+farthest from the center instead of at the middle of the span. The Relative
+layer's third boundaries continue virtually through deeper layers as faint
+dashed guides; cross-layer alignment is intentionally deferred. The geometry
+exposes `rotationRadians`, so later time-driven updates can rotate the compass
+without changing its topology.
+The screen places the configured `MeepleLayout` in the upper center using
+`flutter_svg`, with its bottom edge anchored to the center origin on the
+horizontal X-axis. Its defaults live in `meeple_defaults.dart`; the placeholder
+under `assets/time_compass/` is a primitive 100x200 restroom-style silhouette
+whose solid fill comes from `MeepleLayoutConfig`. The layout occupies
+two-thirds of the upper half-plane and its content follows the SVG's `1:2`
+aspect ratio. Top, left, and right padding are visible against the configured
+layout background; default bottom padding is zero so the feet remain on the
+X-axis directly above the `Now` semicircle. The `Now` semicircle starts from
+the resulting SVG content width and adds the meeple's top padding to its radius,
+carrying the same breathing room through the origin into the lower layout.
+The generic `CompassLayout` resolves its radial boundaries against the
+responsive padded `MeepleLayout` bounds and extends them to the viewport edge.
+Time Compass currently configures Left center as `225°–315°`, Top center as
+`315°–45°`, and Right center as `45°–135°`. Their shared boundaries form the
+upper diagonal joins while the lower `135°–225°` sector remains open for the
+temporal semicircle.
+
+`PerceptualMapScreen` lives under `lib/screens/perceptual_map_screen.dart`. It consumes
+`defaultPerceptualMapLayout`, a `PerceptualMapLayout` with a 120x120
+coordinate plane, layout-owned grid styling, and four dashed directional arrows
+from the center. Four solid blue diagonal rays form a secondary X-shaped
+orientation guide behind the red cardinal arrows. The blue rays target the
+viewport corners, so their angles adapt to screen aspect ratio and are not
+forced to remain perpendicular. Both guideline families span fully to the
+viewport edges. Its `bottomCenter` slot is a full center-to-bottom triangle with
+eleven equal layers: Now, Day, Week, Month, Quarter, Season, Year, Decade,
+Century, Millennia, and Era. The neighboring `bottomLeft` and `bottomRight`
+triangles repeat the same eleven-band structure. They occupy 7:30–9 o'clock
+and 3–4:30 respectively. `Prev` and `Next` occupy apex layer zero; `Yesterday`
+and `Tomorrow` occupy layer one immediately after them. Navigation and
+screen-switching state is intentionally deferred.
 
 ## Flutter code structure
 
@@ -115,6 +437,8 @@ components just because that is where they are first used.
 - `lib/models/` contains durable interface and graph models: semantic data
   types, layout presets, dimension primitives, and other objects that describe
   the world.
+- `lib/screens/` contains complete application surfaces. Screens consume layout
+  models and rendering utilities but do not own reusable spatial rules.
 - `lib/constants/` contains shared constant values: colors, dimensions, tokens,
   layout defaults, and other literal values that are reused or define visual
   language. Update reusable layout presets in
@@ -156,19 +480,42 @@ A guideline is the interface equivalent of the Ukrainian term
 _направляюча лінія_. It is a non-content alignment aid and must therefore be
 visually distinct from graph edges and the box's perspective seams.
 
-All structural guides are red and dashed. This includes the primary horizontal
-and vertical guidelines, the box-bottom border, the corner perspective seams,
-and the wall-row divisions. Row divisions are calculated from each wall's row
-count, so walls can be split into different densities without hardcoded guide
-positions. The primary guides span the full viewport and cross at the center of
-the box bottom. They are implemented as reusable `GuidelineComponent` instances
-so later editing tools can add, remove, or reposition guides without changing
-graph rendering.
+Structural perspective guides are red and dashed. This includes the primary
+horizontal and vertical guidelines, the box-bottom border, and the corner
+perspective seams. Every alignment aid is a `Guideline` or `GuideGrid` inside
+`Layout.layouts`. Shared `GuideStyle` supports solid, dashed, and dotted
+patterns, configurable dash length and interval, stroke width, color, and cap.
+`drawGuideGrids` projects Cartesian guide grids onto rectangular and
+perspective surfaces and recursively follows nested two-dimensional layouts;
+specialized painters consume radial guide-grid entities. Explicit guidelines
+use normalized endpoints, so later editing tools can add, remove, or reposition
+them without changing layout subclasses or graph rendering.
 
 The current geometry and rendering live in
 `lib/graph/graph_field.dart`. The open-box layout model lives in
 `lib/models/open_box_spatial_layout.dart`, reusable dimension primitives live in
-`lib/models/layout.dart`, default dimensions and layout presets live in
-`lib/constants/layout_defaults.dart`, shared colors live in
-`lib/constants/interface_colors.dart`, and dashed guide drawing lives in
-`lib/utils/canvas_guides.dart`.
+`lib/models/layout.dart`, timeline-specific grid identifiers live in
+`lib/models/timeline_grid.dart`, the Past/Now/Future track lives in
+`lib/models/concept_timeline.dart`, and the BCE/CE track lives in
+`lib/models/era_timeline.dart`. The second-screen layout lives in
+`lib/models/perceptual_map_layout.dart`; the active compass layout lives in
+`lib/models/compass_layout.dart`, which also contains the Time Compass
+specialization. The recursive screen/safe-area/scene hierarchy lives in
+`lib/models/landscape_xl_layout.dart`. Default dimensions and layout presets live in
+`lib/constants/layout_defaults.dart`, reusable guide entities live in
+`lib/constants/layout_guides.dart`, perceptual-map defaults live in
+`lib/constants/perceptual_map_defaults.dart`, the active hierarchy preset lives
+in `lib/constants/layout/presets/lg_ergo/lg_ergo_layout_config.dart`,
+time-compass defaults live in
+`lib/constants/time_compass_defaults.dart`, timeline defaults live under
+`lib/constants/timeline/`, shared colors live in
+`lib/constants/interface_colors.dart`, projected guide-grid drawing lives in
+`lib/utils/guide_grid_painter.dart`, explicit guideline drawing lives in
+`lib/utils/layout_guidelines.dart`, perceptual slot drawing lives in
+`lib/utils/perceptual_map_slots.dart`, generic degree-based compass slot drawing
+lives in `lib/utils/compass_slots.dart`, generic center-figure drawing lives in
+`lib/utils/compass_figure_painter.dart`, time-compass drawing lives in
+`lib/utils/time_compass_painter.dart`, and dashed guide drawing lives in
+`lib/utils/canvas_guides.dart`. Recursive layout composition and SafeArea
+application live in
+`lib/widgets/landscape_xl_layout_view.dart`.

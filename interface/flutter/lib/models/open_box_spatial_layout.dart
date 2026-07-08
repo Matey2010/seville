@@ -1,193 +1,200 @@
-import 'dart:math' as math;
-
-import 'package:flutter/material.dart';
-
-import '../constants/interface_colors.dart';
-import '../constants/layout_defaults.dart';
 import 'layout.dart';
+import 'timeline_grid.dart';
 
-class OpenBoxSpatialLayout {
-  const OpenBoxSpatialLayout({
-    required this.globalLayout,
-    required this.desktop,
-  });
+class OpenBoxSpatialLayout extends SceneLayout {
+  const OpenBoxSpatialLayout.fromAxes({
+    required super.axes,
+    super.attributes = const [LayoutAttribute.rectangular],
+    super.layouts,
+    super.derivatives,
+    super.derivativeSnapshot,
+    super.observables,
+    super.innerCircle,
+    super.outerCircle,
+    super.columnFractions,
+    super.rowFractions,
+    super.depthFractions,
+    required super.subLayouts,
+    super.elements,
+  }) : super.fromAxes();
 
-  static const defaults = OpenBoxSpatialLayout(
-    globalLayout: OpenBoxGlobalLayout.defaults,
-    desktop: OpenBoxInterfaceLayout.desktop,
-  );
+  static const wallsLayoutId = 'walls';
+  static const topWallLayoutId = 'top-wall';
+  static const leftWallLayoutId = 'left-wall';
+  static const rightWallLayoutId = 'right-wall';
+  static const bottomWallLayoutId = 'bottom-wall';
+  static const bottomWallTimelineLayoutId = 'timeline-track';
+  static const sceneLayoutId = 'scene';
 
-  final OpenBoxGlobalLayout globalLayout;
-  final OpenBoxInterfaceLayout desktop;
-}
+  SceneLayout get wallsLayout =>
+      subLayouts[wallsLayoutId]!.layout as SceneLayout;
 
-class OpenBoxGlobalLayout {
-  const OpenBoxGlobalLayout({
-    required this.sceneLayout,
-    required this.wallGlues,
-  });
+  GridLayout get topWallLayout => _wallGridLayout(topWallLayoutId);
 
-  static const defaults = OpenBoxGlobalLayout(
-    sceneLayout: DefaultLayout.openBoxScene,
-    wallGlues: [
-      OpenBoxWallGlue(
-        wall: OpenBoxWall.top,
+  GridLayout get leftWallLayout => _wallGridLayout(leftWallLayoutId);
+
+  GridLayout get rightWallLayout => _wallGridLayout(rightWallLayoutId);
+
+  GridLayout get bottomWallLayout => _wallGridLayout(bottomWallLayoutId);
+
+  TimelineGrid get bottomWallTimelineLayout =>
+      bottomWallLayout.subLayouts[bottomWallTimelineLayoutId]!.layout
+          as TimelineGrid;
+
+  LayoutArea get bottomWallTimelineArea =>
+      bottomWallLayout.subLayouts[bottomWallTimelineLayoutId]!.area;
+
+  GridLayout get sceneSurfaceLayout =>
+      subLayouts[sceneLayoutId]!.layout as GridLayout;
+
+  LayoutDimensions get bottomWallDimensions => bottomWallLayout.dimensions;
+
+  LayoutArea get boxBottomArea => subLayouts[sceneLayoutId]!.area;
+
+  ({
+    LayoutPoint outerStart,
+    LayoutPoint outerEnd,
+    LayoutPoint innerStart,
+    LayoutPoint innerEnd,
+  })
+  wallCoordinates(OpenBoxWall wall) {
+    final scene = boxBottomArea;
+    final wallArea = wallsLayout.subLayouts[_wallLayoutId(wall)]!.area;
+    final sceneLeft = scene.column;
+    final sceneRight = scene.column + scene.columnSpan;
+    final sceneTop = scene.row;
+    final sceneBottom = scene.row + scene.rowSpan;
+    final innerDepth = wallArea.depth;
+    final outerDepth = wallArea.depth + wallArea.depthSpan;
+
+    final coordinates = switch (wall) {
+      OpenBoxWall.top => (
         outerStart: LayoutPoint(
-          column: 0,
-          row: 0,
-          depth: DefaultDimensions.bottomWallDepthTracks,
+          column: wallArea.column,
+          row: wallArea.row,
+          depth: outerDepth,
         ),
         outerEnd: LayoutPoint(
-          column: 40,
-          row: 0,
-          depth: DefaultDimensions.bottomWallDepthTracks,
+          column: wallArea.column + wallArea.columnSpan,
+          row: wallArea.row,
+          depth: outerDepth,
         ),
-        innerStart: LayoutPoint(column: 3, row: 1),
-        innerEnd: LayoutPoint(column: 37, row: 1),
+        innerStart: LayoutPoint(
+          column: sceneLeft,
+          row: sceneTop,
+          depth: innerDepth,
+        ),
+        innerEnd: LayoutPoint(
+          column: sceneRight,
+          row: sceneTop,
+          depth: innerDepth,
+        ),
       ),
-      OpenBoxWallGlue(
-        wall: OpenBoxWall.right,
+      OpenBoxWall.right => (
         outerStart: LayoutPoint(
-          column: 40,
-          row: 0,
-          depth: DefaultDimensions.bottomWallDepthTracks,
+          column: wallArea.column + wallArea.columnSpan,
+          row: wallArea.row,
+          depth: outerDepth,
         ),
         outerEnd: LayoutPoint(
-          column: 40,
-          row: 10,
-          depth: DefaultDimensions.bottomWallDepthTracks,
+          column: wallArea.column + wallArea.columnSpan,
+          row: wallArea.row + wallArea.rowSpan,
+          depth: outerDepth,
         ),
-        innerStart: LayoutPoint(column: 37, row: 1),
-        innerEnd: LayoutPoint(column: 37, row: 8),
+        innerStart: LayoutPoint(
+          column: sceneRight,
+          row: sceneTop,
+          depth: innerDepth,
+        ),
+        innerEnd: LayoutPoint(
+          column: sceneRight,
+          row: sceneBottom,
+          depth: innerDepth,
+        ),
       ),
-      OpenBoxWallGlue(
-        wall: OpenBoxWall.bottom,
+      OpenBoxWall.bottom => (
         outerStart: LayoutPoint(
-          column: 0,
-          row: 10,
-          depth: DefaultDimensions.bottomWallDepthTracks,
+          column: wallArea.column,
+          row: wallArea.row + wallArea.rowSpan,
+          depth: outerDepth,
         ),
         outerEnd: LayoutPoint(
-          column: 40,
-          row: 10,
-          depth: DefaultDimensions.bottomWallDepthTracks,
+          column: wallArea.column + wallArea.columnSpan,
+          row: wallArea.row + wallArea.rowSpan,
+          depth: outerDepth,
         ),
-        innerStart: LayoutPoint(column: 3, row: 8),
-        innerEnd: LayoutPoint(column: 37, row: 8),
+        innerStart: LayoutPoint(
+          column: sceneLeft,
+          row: sceneBottom,
+          depth: innerDepth,
+        ),
+        innerEnd: LayoutPoint(
+          column: sceneRight,
+          row: sceneBottom,
+          depth: innerDepth,
+        ),
       ),
-      OpenBoxWallGlue(
-        wall: OpenBoxWall.left,
+      OpenBoxWall.left => (
         outerStart: LayoutPoint(
-          column: 0,
-          row: 0,
-          depth: DefaultDimensions.bottomWallDepthTracks,
+          column: wallArea.column,
+          row: wallArea.row,
+          depth: outerDepth,
         ),
         outerEnd: LayoutPoint(
-          column: 0,
-          row: 10,
-          depth: DefaultDimensions.bottomWallDepthTracks,
+          column: wallArea.column,
+          row: wallArea.row + wallArea.rowSpan,
+          depth: outerDepth,
         ),
-        innerStart: LayoutPoint(column: 3, row: 1),
-        innerEnd: LayoutPoint(column: 3, row: 8),
+        innerStart: LayoutPoint(
+          column: sceneLeft,
+          row: sceneTop,
+          depth: innerDepth,
+        ),
+        innerEnd: LayoutPoint(
+          column: sceneLeft,
+          row: sceneBottom,
+          depth: innerDepth,
+        ),
       ),
-    ],
-  );
+    };
 
-  final SceneLayout sceneLayout;
-  final List<OpenBoxWallGlue> wallGlues;
-
-  LayoutDimensions get dimensions => sceneLayout.dimensions;
-
-  LayoutArea get boxBottomArea {
-    final innerPoints = [
-      for (final glue in wallGlues) ...[glue.innerStart, glue.innerEnd],
-    ];
-    final left = innerPoints.map((point) => point.column).reduce(math.min);
-    final top = innerPoints.map((point) => point.row).reduce(math.min);
-    final right = innerPoints.map((point) => point.column).reduce(math.max);
-    final bottom = innerPoints.map((point) => point.row).reduce(math.max);
-    return LayoutArea(
-      column: left.floor(),
-      row: top.floor(),
-      columnSpan: (right - left).ceil(),
-      rowSpan: (bottom - top).ceil(),
+    return (
+      outerStart: _spanToDepth(coordinates.innerStart, coordinates.outerStart),
+      outerEnd: _spanToDepth(coordinates.innerEnd, coordinates.outerEnd),
+      innerStart: coordinates.innerStart,
+      innerEnd: coordinates.innerEnd,
     );
   }
-}
 
-class OpenBoxInterfaceLayout {
-  const OpenBoxInterfaceLayout({
-    this.topWallRows = 2,
-    this.rightWallRows = 2,
-    this.bottomWallRows = 3,
-    this.leftWallRows = 2,
-    this.bottomWallLayout = DefaultLayout.bottomWallLayout,
-    this.bottomWallTimeAxisTrackInset = 1,
-    this.bottomWallNodePlacements = OpenBoxNodePlacements.bottomWallDefaults,
-    this.guidelineColor = InterfaceColors.guidelineRed,
-    this.topWallColor = InterfaceColors.topWall,
-    this.rightWallColor = InterfaceColors.rightWall,
-    this.bottomWallColor = InterfaceColors.bottomWall,
-    this.leftWallColor = InterfaceColors.leftWall,
-  });
+  GridLayout wallLayout(OpenBoxWall wall) {
+    return switch (wall) {
+      OpenBoxWall.top => topWallLayout,
+      OpenBoxWall.right => rightWallLayout,
+      OpenBoxWall.bottom => bottomWallLayout,
+      OpenBoxWall.left => leftWallLayout,
+    };
+  }
 
-  static const desktop = OpenBoxInterfaceLayout(
-    bottomWallLayout: DefaultLayout.bottomWallLayout,
-  );
+  String _wallLayoutId(OpenBoxWall wall) {
+    return switch (wall) {
+      OpenBoxWall.top => topWallLayoutId,
+      OpenBoxWall.right => rightWallLayoutId,
+      OpenBoxWall.bottom => bottomWallLayoutId,
+      OpenBoxWall.left => leftWallLayoutId,
+    };
+  }
 
-  final int topWallRows;
-  final int rightWallRows;
-  final int bottomWallRows;
-  final int leftWallRows;
-  final GridLayout bottomWallLayout;
-  LayoutDimensions get bottomWallDimensions => bottomWallLayout.dimensions;
-  final int bottomWallTimeAxisTrackInset;
-  final List<BottomWallNodePlacement> bottomWallNodePlacements;
-  final Color guidelineColor;
-  final Color topWallColor;
-  final Color rightWallColor;
-  final Color bottomWallColor;
-  final Color leftWallColor;
-}
+  GridLayout _wallGridLayout(String id) =>
+      wallsLayout.subLayouts[id]!.layout as GridLayout;
 
-abstract final class OpenBoxNodePlacements {
-  static const bottomWallDefaults = [
-    BottomWallNodePlacement(
-      vaultPath: 'time/concept/now',
-      area: LayoutArea(column: 17, row: 0, columnSpan: 2),
-      shape: BottomWallNodeShape.cellSpan,
-    ),
-  ];
-}
-
-class BottomWallNodePlacement {
-  const BottomWallNodePlacement({
-    required this.vaultPath,
-    required this.area,
-    this.shape = BottomWallNodeShape.circle,
-  });
-
-  final String vaultPath;
-  final LayoutArea area;
-  final BottomWallNodeShape shape;
-}
-
-enum BottomWallNodeShape { circle, cellSpan }
-
-class OpenBoxWallGlue {
-  const OpenBoxWallGlue({
-    required this.wall,
-    required this.outerStart,
-    required this.outerEnd,
-    required this.innerStart,
-    required this.innerEnd,
-  });
-
-  final OpenBoxWall wall;
-  final LayoutPoint outerStart;
-  final LayoutPoint outerEnd;
-  final LayoutPoint innerStart;
-  final LayoutPoint innerEnd;
+  LayoutPoint _spanToDepth(LayoutPoint inner, LayoutPoint outer) {
+    final depthPosition = dimensions.normalizedAxisPosition(2, outer.depth);
+    return LayoutPoint(
+      column: inner.column + (outer.column - inner.column) * depthPosition,
+      row: inner.row + (outer.row - inner.row) * depthPosition,
+      depth: outer.depth,
+    );
+  }
 }
 
 enum OpenBoxWall { top, right, bottom, left }

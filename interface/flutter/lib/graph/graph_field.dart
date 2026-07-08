@@ -1,17 +1,23 @@
 import 'dart:math';
+import 'dart:ui' as ui;
 
 import 'package:flame/components.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 
 import '../constants/interface_colors.dart';
+import '../constants/layout_defaults.dart';
 import '../models/knowledge_graph.dart';
 import '../models/layout.dart';
 import '../models/open_box_spatial_layout.dart';
+import '../models/timeline_grid.dart';
 import '../utils/canvas_guides.dart';
+import '../utils/guide_grid_painter.dart';
 import 'graph_layout.dart';
 
-const _layout = OpenBoxSpatialLayout.defaults;
+final _layout = defaultOpenBoxLayout;
+
+typedef _ResolvedTimelineElement = ({LayoutElement element, LayoutArea area});
 
 enum GuidelineAxis { horizontal, vertical }
 
@@ -20,7 +26,7 @@ class GuidelineComponent extends Component {
     required this.axis,
     required this.viewportSize,
     required this.sceneCenter,
-    this.color = InterfaceColors.guidelineRed,
+    this.color = guidelineRedColor,
   });
 
   final GuidelineAxis axis;
@@ -62,7 +68,7 @@ class KnowledgeGraphGame extends FlameGame {
   KnowledgeGraph _graph = const KnowledgeGraph(nodes: [], edges: []);
 
   @override
-  Color backgroundColor() => InterfaceColors.background;
+  Color backgroundColor() => interfaceBackgroundColor;
 
   @override
   Future<void> onLoad() async {
@@ -86,6 +92,15 @@ class KnowledgeGraphGame extends FlameGame {
 class _GraphField extends PositionComponent {
   KnowledgeGraph _graph = const KnowledgeGraph(nodes: [], edges: []);
   Map<String, Offset> _positions = const {};
+  Map<String, GraphNode> _nodesById = const {};
+  Map<String, List<_ResolvedTimelineElement>> _timelineElementsByNodeId =
+      const {};
+  Map<LayoutElement, GraphNode> _timelineNodesByElement = const {};
+  Set<String> _labeledNodeIds = const {};
+  final Map<String, Offset> _screenPositions = {};
+  late final List<_ResolvedTimelineElement> _timelineElements =
+      _resolvedTimelineElements().toList(growable: false);
+  ui.Picture? _timelinePicture;
 
   @override
   Future<void> onLoad() async {
@@ -95,13 +110,13 @@ class _GraphField extends PositionComponent {
         axis: GuidelineAxis.horizontal,
         viewportSize: () => size,
         sceneCenter: () => _sceneRect().center,
-        color: _layout.desktop.guidelineColor,
+        color: guidelineRedColor,
       ),
       GuidelineComponent(
         axis: GuidelineAxis.vertical,
         viewportSize: () => size,
         sceneCenter: () => _sceneRect().center,
-        color: _layout.desktop.guidelineColor,
+        color: guidelineRedColor,
       ),
     ]);
   }
@@ -109,27 +124,70 @@ class _GraphField extends PositionComponent {
   void setGraph(KnowledgeGraph graph) {
     _graph = graph;
     _positions = layoutGraph(graph);
+    _nodesById = {for (final node in graph.nodes) node.id: node};
+    _bindTimelineElements();
+    final importantNodes = [...graph.nodes]
+      ..sort((a, b) => b.weightedDegree.compareTo(a.weightedDegree));
+    _labeledNodeIds = {
+      ...importantNodes.take(24).map((node) => node.id),
+      ..._timelineElementsByNodeId.keys,
+    };
+    _screenPositions.clear();
+    _invalidateTimelinePicture();
+  }
+
+  void _bindTimelineElements() {
+    final byNodeId = <String, List<_ResolvedTimelineElement>>{};
+    final nodesByElement = <LayoutElement, GraphNode>{};
+    for (final node in _graph.nodes) {
+      final path = _normalizedVaultPath(node.path);
+      for (final resolved in _timelineElements) {
+        final defaultPath = resolved.element.defaultPath;
+        if (defaultPath == null ||
+            !_endsWithVaultPath(path, _normalizedVaultPath(defaultPath))) {
+          continue;
+        }
+        (byNodeId[node.id] ??= []).add(resolved);
+        nodesByElement[resolved.element] = node;
+      }
+    }
+    _timelineElementsByNodeId = byNodeId;
+    _timelineNodesByElement = nodesByElement;
+  }
+
+  @override
+  void onGameResize(Vector2 size) {
+    super.onGameResize(size);
+    _screenPositions.clear();
+    _invalidateTimelinePicture();
+  }
+
+  @override
+  void onRemove() {
+    _invalidateTimelinePicture();
+    super.onRemove();
+  }
+
+  void _invalidateTimelinePicture() {
+    _timelinePicture?.dispose();
+    _timelinePicture = null;
   }
 
   Offset _screenPosition(String id) {
-    GraphNode? node;
-    for (final candidate in _graph.nodes) {
-      if (candidate.id == id) {
-        node = candidate;
-        break;
-      }
-    }
-    final bottomWallPosition = node == null
-        ? null
-        : _bottomWallNodePosition(node);
-    if (bottomWallPosition != null) return bottomWallPosition;
+    return _screenPositions.putIfAbsent(id, () {
+      final node = _nodesById[id];
+      final bottomWallPosition = node == null
+          ? null
+          : _bottomWallNodePosition(node);
+      if (bottomWallPosition != null) return bottomWallPosition;
 
-    final normalized = _positions[id] ?? const Offset(0.5, 0.5);
-    final scene = _sceneRect();
-    return Offset(
-      scene.left + normalized.dx * scene.width,
-      scene.top + normalized.dy * scene.height,
-    );
+      final normalized = _positions[id] ?? const Offset(0.5, 0.5);
+      final scene = _sceneRect();
+      return Offset(
+        scene.left + normalized.dx * scene.width,
+        scene.top + normalized.dy * scene.height,
+      );
+    });
   }
 
   @override
@@ -137,7 +195,7 @@ class _GraphField extends PositionComponent {
     super.render(canvas);
     final scene = _sceneRect();
     _renderBoxWalls(canvas);
-    _renderGlobalLayoutDimensions(canvas);
+    _renderLayoutGrids(canvas);
     _renderPerspectiveGuides(canvas, scene);
 
     final edgePaint = Paint()
@@ -154,15 +212,10 @@ class _GraphField extends PositionComponent {
       );
     }
 
-    final importantNodes = [..._graph.nodes]
-      ..sort((a, b) => b.weightedDegree.compareTo(a.weightedDegree));
-    final labeled = {
-      ...importantNodes.take(24).map((node) => node.id),
-      ..._graph.nodes.where(_hasBottomWallNodePlacement).map((node) => node.id),
-    };
+    _renderCachedBottomWallElements(canvas);
 
     for (final node in _graph.nodes) {
-      if (_renderBottomWallNodePlacement(canvas, node)) continue;
+      if (_hasBottomWallNodeElement(node)) continue;
 
       final center = _screenPosition(node.id);
       canvas.drawCircle(
@@ -179,15 +232,13 @@ class _GraphField extends PositionComponent {
           ..style = PaintingStyle.stroke
           ..strokeWidth = 0.8,
       );
-      if (labeled.contains(node.id)) {
-        final isOnWall = _hasBottomWallNodePlacement(node);
+      if (_labeledNodeIds.contains(node.id)) {
+        final isOnWall = _hasBottomWallNodeElement(node);
         final painter = TextPainter(
           text: TextSpan(
             text: node.title,
             style: TextStyle(
-              color: isOnWall
-                  ? InterfaceColors.wallLabel
-                  : InterfaceColors.graphLabel,
+              color: isOnWall ? wallLabelColor : graphLabelColor,
               fontSize: 11,
               fontWeight: FontWeight.w500,
               shadows: [
@@ -211,40 +262,55 @@ class _GraphField extends PositionComponent {
   }
 
   Rect _sceneRect() {
-    return _sceneLayoutAreaRect(_layout.globalLayout.boxBottomArea);
+    return _sceneLayoutAreaRect(_layout.boxBottomArea);
   }
 
-  void _renderGlobalLayoutDimensions(Canvas canvas) {
+  void _renderLayoutGrids(Canvas canvas) {
     if (size.x <= 0 || size.y <= 0) return;
 
-    final dimensions = _layout.globalLayout.dimensions;
-    final paint = Paint()
-      ..color = InterfaceColors.globalLayoutDimensions
-      ..strokeWidth = 0.8
-      ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
+    drawGuideGrids(
+      canvas,
+      _layout,
+      GuideGridProjection(
+        topLeft: Offset.zero,
+        topRight: Offset(size.x, 0),
+        bottomLeft: Offset(0, size.y),
+        bottomRight: Offset(size.x, size.y),
+      ),
+      drawSubLayouts: false,
+    );
 
-    for (var column = 1; column < dimensions.horizontal; column += 1) {
-      final x = size.x * dimensions.normalizedHorizontalPosition(column);
-      canvas.drawLine(Offset(x, 0), Offset(x, size.y), paint);
-    }
-
-    for (var row = 1; row < dimensions.vertical; row += 1) {
-      final y = size.y * dimensions.normalizedVerticalPosition(row);
-      canvas.drawLine(Offset(0, y), Offset(size.x, y), paint);
+    for (final wall in OpenBoxWall.values) {
+      final coordinates = _layout.wallCoordinates(wall);
+      final outerStart = _sceneLayoutPointFrom(coordinates.outerStart);
+      final outerEnd = _sceneLayoutPointFrom(coordinates.outerEnd);
+      final innerStart = _sceneLayoutPointFrom(coordinates.innerStart);
+      final innerEnd = _sceneLayoutPointFrom(coordinates.innerEnd);
+      final startsAtInnerEdge = wall == OpenBoxWall.bottom;
+      drawGuideGrids(
+        canvas,
+        _layout.wallLayout(wall),
+        GuideGridProjection(
+          topLeft: startsAtInnerEdge ? innerStart : outerStart,
+          topRight: startsAtInnerEdge ? innerEnd : outerEnd,
+          bottomLeft: startsAtInnerEdge ? outerStart : innerStart,
+          bottomRight: startsAtInnerEdge ? outerEnd : innerEnd,
+        ),
+      );
     }
   }
 
   void _renderBoxWalls(Canvas canvas) {
     if (size.x <= 0 || size.y <= 0) return;
 
-    for (final glue in _layout.globalLayout.wallGlues) {
+    for (final wall in OpenBoxWall.values) {
+      final coordinates = _layout.wallCoordinates(wall);
       _drawWall(canvas, [
-        _sceneLayoutPointFrom(glue.outerStart),
-        _sceneLayoutPointFrom(glue.outerEnd),
-        _sceneLayoutPointFrom(glue.innerEnd),
-        _sceneLayoutPointFrom(glue.innerStart),
-      ], _wallColor(glue.wall));
+        _sceneLayoutPointFrom(coordinates.outerStart),
+        _sceneLayoutPointFrom(coordinates.outerEnd),
+        _sceneLayoutPointFrom(coordinates.innerEnd),
+        _sceneLayoutPointFrom(coordinates.innerStart),
+      ], _wallColor(wall));
     }
   }
 
@@ -261,99 +327,66 @@ class _GraphField extends PositionComponent {
     if (size.x <= 0 || size.y <= 0) return;
 
     final perspectivePaint = Paint()
-      ..color = _layout.desktop.guidelineColor
+      ..color = guidelineRedColor
       ..strokeWidth = 1.2
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
 
-    _renderBottomWallDimensions(canvas, scene, perspectivePaint);
     _renderBottomWallTimeAxis(canvas, scene);
-    for (final glue in _layout.globalLayout.wallGlues) {
-      final outerStart = _sceneLayoutPointFrom(glue.outerStart);
-      final outerEnd = _sceneLayoutPointFrom(glue.outerEnd);
-      final innerStart = _sceneLayoutPointFrom(glue.innerStart);
-      final innerEnd = _sceneLayoutPointFrom(glue.innerEnd);
+    for (final wall in OpenBoxWall.values) {
+      final coordinates = _layout.wallCoordinates(wall);
+      final outerStart = _sceneLayoutPointFrom(coordinates.outerStart);
+      final outerEnd = _sceneLayoutPointFrom(coordinates.outerEnd);
+      final innerStart = _sceneLayoutPointFrom(coordinates.innerStart);
+      final innerEnd = _sceneLayoutPointFrom(coordinates.innerEnd);
 
       drawDashedLine(canvas, outerStart, innerStart, perspectivePaint);
       drawDashedLine(canvas, outerEnd, innerEnd, perspectivePaint);
       drawDashedLine(canvas, innerStart, innerEnd, perspectivePaint);
     }
-    _renderWallRowGuides(canvas, perspectivePaint);
-  }
-
-  void _renderWallRowGuides(Canvas canvas, Paint paint) {
-    for (final glue in _layout.globalLayout.wallGlues) {
-      _drawWallRowGuides(
-        canvas: canvas,
-        outerStart: _sceneLayoutPointFrom(glue.outerStart),
-        outerEnd: _sceneLayoutPointFrom(glue.outerEnd),
-        innerStart: _sceneLayoutPointFrom(glue.innerStart),
-        innerEnd: _sceneLayoutPointFrom(glue.innerEnd),
-        rows: _wallRows(glue.wall),
-        paint: paint,
-      );
-    }
-  }
-
-  void _renderBottomWallDimensions(Canvas canvas, Rect scene, Paint paint) {
-    final dimensions = _layout.desktop.bottomWallDimensions;
-    final outerLeft = Offset(0, size.y);
-    final outerRight = Offset(size.x, size.y);
-
-    for (var column = 1; column < dimensions.horizontal; column += 1) {
-      final t = dimensions.normalizedHorizontalPosition(column);
-      drawDashedLine(
-        canvas,
-        Offset.lerp(outerLeft, outerRight, t)!,
-        Offset.lerp(scene.bottomLeft, scene.bottomRight, t)!,
-        paint,
-      );
-    }
-
-    for (var row = 1; row < dimensions.vertical; row += 1) {
-      final t = dimensions.normalizedVerticalPosition(row);
-      drawDashedLine(
-        canvas,
-        Offset.lerp(scene.bottomLeft, outerLeft, t)!,
-        Offset.lerp(scene.bottomRight, outerRight, t)!,
-        paint,
-      );
-    }
   }
 
   void _renderBottomWallTimeAxis(Canvas canvas, Rect scene) {
-    final dimensions = _layout.desktop.bottomWallDimensions;
-    final axisTrack =
-        dimensions.vertical - _layout.desktop.bottomWallTimeAxisTrackInset;
-    final axisY = dimensions.normalizedVerticalPosition(axisTrack);
+    final timeline = _layout.bottomWallTimelineLayout;
+    final timeAxis = timeline.element(TimelineGrid.timeAxis).area;
+    final nowPointer = timeline.element(TimelineGrid.nowPointer).area;
+    final axisY = _bottomWallTimelineY(timeAxis.row);
     final nowX = _bottomWallCurrentHourX(DateTime.now());
     final axisPaint = Paint()
-      ..color = InterfaceColors.bottomWallTimeAxis
+      ..color = bottomWallTimeAxisColor
       ..strokeWidth = 2
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
     final nowPaint = Paint()
-      ..color = InterfaceColors.bottomWallNowPointer
+      ..color = bottomWallNowPointerColor
       ..strokeWidth = 2.2
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
 
     canvas.drawLine(
-      _bottomWallPoint(scene, 0, axisY),
-      _bottomWallPoint(scene, 1, axisY),
+      _bottomWallPoint(scene, _bottomWallTimelineX(timeAxis, 0), axisY),
+      _bottomWallPoint(
+        scene,
+        _bottomWallTimelineX(timeAxis, timeline.dimensions.horizontal),
+        axisY,
+      ),
       axisPaint,
     );
     drawDashedLine(
       canvas,
-      _bottomWallPoint(scene, nowX, 0),
-      _bottomWallPoint(scene, nowX, 1),
+      _bottomWallPoint(scene, nowX, _bottomWallTimelineY(nowPointer.row)),
+      _bottomWallPoint(
+        scene,
+        nowX,
+        _bottomWallTimelineY(nowPointer.row + nowPointer.rowSpan),
+      ),
       nowPaint,
       dashLength: 10,
       gapLength: 5,
     );
 
-    for (var hour = 0; hour <= dimensions.horizontal; hour += 1) {
-      final x = dimensions.normalizedHorizontalPosition(hour);
+    for (var hour = 0; hour <= timeline.dimensions.horizontal; hour += 1) {
+      final x = _bottomWallTimelineX(timeAxis, hour);
       final isMajorTick = hour % 6 == 0;
       canvas.drawLine(
         _bottomWallPoint(scene, x, axisY),
@@ -372,7 +405,7 @@ class _GraphField extends PositionComponent {
       36: 'T 06',
     };
     for (final entry in labels.entries) {
-      final x = dimensions.normalizedHorizontalPosition(entry.key);
+      final x = _bottomWallTimelineX(timeAxis, entry.key);
       final labelPoint = _bottomWallPoint(scene, x, max(axisY - 0.08, 0));
       _paintBottomWallTimeLabel(
         canvas,
@@ -388,7 +421,36 @@ class _GraphField extends PositionComponent {
         now.minute / 60 +
         now.second / 3600 +
         now.millisecond / 3600000;
-    return ((6 + hourOfToday) / 36).clamp(0.0, 1.0);
+    return _bottomWallTimelineX(
+      _layout.bottomWallTimelineLayout.element(TimelineGrid.nowPointer).area,
+      6 + hourOfToday,
+    );
+  }
+
+  double _bottomWallTimelineX(LayoutArea element, num track) {
+    final timeline = _layout.bottomWallTimelineLayout;
+    final placement = _layout.bottomWallTimelineArea;
+    final trackPosition = timeline.dimensions.normalizedHorizontalPosition(
+      track,
+    );
+    final timelineColumn = element.column + element.columnSpan * trackPosition;
+    final timelinePosition = timeline.dimensions.normalizedHorizontalPosition(
+      timelineColumn,
+    );
+    final column = placement.column + placement.columnSpan * timelinePosition;
+    return _layout.bottomWallDimensions.normalizedHorizontalPosition(column);
+  }
+
+  double _bottomWallTimelineY(num row) {
+    final timeline = _layout.bottomWallTimelineLayout;
+    final placement = _layout.bottomWallTimelineArea;
+    final timelinePosition = timeline.dimensions.normalizedVerticalPosition(
+      row,
+    );
+    final bottomWallRow = placement.row + placement.rowSpan * timelinePosition;
+    return _layout.bottomWallDimensions.normalizedVerticalPosition(
+      bottomWallRow,
+    );
   }
 
   Offset _bottomWallPoint(Rect scene, double x, double y) {
@@ -412,7 +474,7 @@ class _GraphField extends PositionComponent {
   }
 
   Offset _sceneLayoutPoint(num column, num row) {
-    final dimensions = _layout.globalLayout.dimensions;
+    final dimensions = _layout.dimensions;
     return Offset(
       size.x * dimensions.normalizedHorizontalPosition(column),
       size.y * dimensions.normalizedVerticalPosition(row),
@@ -424,11 +486,11 @@ class _GraphField extends PositionComponent {
   }
 
   Offset? _bottomWallNodePosition(GraphNode node) {
-    final placement = _bottomWallNodePlacement(node);
-    if (placement == null) return null;
+    final element = _bottomWallNodeElement(node);
+    if (element == null) return null;
 
-    final dimensions = _layout.desktop.bottomWallDimensions;
-    final area = placement.area;
+    final dimensions = _layout.bottomWallDimensions;
+    final area = _bottomWallTimelineElementArea(element.area);
     final centerX = dimensions.normalizedHorizontalPosition(
       area.column + area.columnSpan / 2,
     );
@@ -442,46 +504,91 @@ class _GraphField extends PositionComponent {
     );
   }
 
-  bool _renderBottomWallNodePlacement(Canvas canvas, GraphNode node) {
-    final placement = _bottomWallNodePlacement(node);
-    if (placement == null || placement.shape != BottomWallNodeShape.cellSpan) {
-      return false;
-    }
+  void _renderBottomWallElements(Canvas canvas) {
+    for (final resolved in _timelineElements) {
+      if (resolved.element.defaultPath == null) continue;
+      final node = _graphNodeForTimelineElement(resolved.element);
+      final emptySlotStyle = node == null ? resolved.element.slotStyle : null;
+      final area = _bottomWallTimelineElementArea(resolved.area);
+      final path = _bottomWallLayoutAreaPath(
+        _sceneRect(),
+        area,
+        borderRadius: resolved.element.borderRadius,
+      );
+      if (emptySlotStyle == null) {
+        canvas.drawPath(
+          path,
+          Paint()
+            ..color = (node?.color ?? bottomWallTimeAxisColor).withValues(
+              alpha: 0.78,
+            ),
+        );
+        canvas.drawPath(
+          path,
+          Paint()
+            ..color = Colors.white.withValues(alpha: 0.88)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.2,
+        );
+      } else {
+        _drawDashedPolygon(
+          canvas,
+          _bottomWallLayoutAreaCorners(_sceneRect(), area),
+          emptySlotStyle,
+        );
+      }
 
-    final path = _bottomWallLayoutAreaPath(_sceneRect(), placement.area);
-    canvas.drawPath(path, Paint()..color = node.color.withValues(alpha: 0.78));
-    canvas.drawPath(
-      path,
-      Paint()
-        ..color = Colors.white.withValues(alpha: 0.88)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.2,
-    );
-
-    final center = _bottomWallLayoutAreaCenter(_sceneRect(), placement.area);
-    final painter = TextPainter(
-      text: TextSpan(
-        text: node.title,
-        style: const TextStyle(
-          color: InterfaceColors.wallLabel,
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          shadows: [Shadow(color: Colors.black54, blurRadius: 4)],
+      final center = _bottomWallLayoutAreaCenter(_sceneRect(), area);
+      final painter = TextPainter(
+        text: TextSpan(
+          text:
+              node?.title ??
+              resolved.element.defaultLabel ??
+              _timelineLabelFromPath(resolved.element.defaultPath!),
+          style: TextStyle(
+            color: emptySlotStyle?.borderColor ?? wallLabelColor,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            shadows: emptySlotStyle == null
+                ? const [Shadow(color: Colors.black54, blurRadius: 4)]
+                : const [],
+          ),
         ),
-      ),
-      textDirection: TextDirection.ltr,
-      maxLines: 1,
-      ellipsis: '…',
-    )..layout(maxWidth: 120);
-    painter.paint(
-      canvas,
-      center - Offset(painter.width / 2, painter.height / 2),
-    );
-    return true;
+        textDirection: TextDirection.ltr,
+        maxLines: 1,
+        ellipsis: '…',
+      )..layout(maxWidth: 120);
+      painter.paint(
+        canvas,
+        center - Offset(painter.width / 2, painter.height / 2),
+      );
+    }
   }
 
-  Path _bottomWallLayoutAreaPath(Rect scene, LayoutArea area) {
-    final dimensions = _layout.desktop.bottomWallDimensions;
+  void _renderCachedBottomWallElements(Canvas canvas) {
+    final picture = _timelinePicture ??= _recordBottomWallElements();
+    canvas.drawPicture(picture);
+  }
+
+  ui.Picture _recordBottomWallElements() {
+    final recorder = ui.PictureRecorder();
+    _renderBottomWallElements(Canvas(recorder));
+    return recorder.endRecording();
+  }
+
+  Path _bottomWallLayoutAreaPath(
+    Rect scene,
+    LayoutArea area, {
+    double borderRadius = 0,
+  }) {
+    return _roundedPolygonPath(
+      _bottomWallLayoutAreaCorners(scene, area),
+      borderRadius,
+    );
+  }
+
+  List<Offset> _bottomWallLayoutAreaCorners(Rect scene, LayoutArea area) {
+    final dimensions = _layout.bottomWallDimensions;
     final left = dimensions.normalizedHorizontalPosition(area.column);
     final right = dimensions.normalizedHorizontalPosition(
       area.column + area.columnSpan,
@@ -493,16 +600,33 @@ class _GraphField extends PositionComponent {
     final topRight = _bottomWallPoint(scene, right, top);
     final topLeft = _bottomWallPoint(scene, left, top);
 
-    return Path()
-      ..moveTo(bottomLeft.dx, bottomLeft.dy)
-      ..lineTo(bottomRight.dx, bottomRight.dy)
-      ..lineTo(topRight.dx, topRight.dy)
-      ..lineTo(topLeft.dx, topLeft.dy)
-      ..close();
+    return [bottomLeft, bottomRight, topRight, topLeft];
+  }
+
+  void _drawDashedPolygon(
+    Canvas canvas,
+    List<Offset> corners,
+    LayoutSlotStyle style,
+  ) {
+    final paint = Paint()
+      ..color = style.borderColor
+      ..strokeWidth = style.strokeWidth
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    for (var index = 0; index < corners.length; index += 1) {
+      drawDashedLine(
+        canvas,
+        corners[index],
+        corners[(index + 1) % corners.length],
+        paint,
+        dashLength: style.dashLength,
+        gapLength: style.gapLength,
+      );
+    }
   }
 
   Offset _bottomWallLayoutAreaCenter(Rect scene, LayoutArea area) {
-    final dimensions = _layout.desktop.bottomWallDimensions;
+    final dimensions = _layout.bottomWallDimensions;
     final centerX = dimensions.normalizedHorizontalPosition(
       area.column + area.columnSpan / 2,
     );
@@ -516,23 +640,137 @@ class _GraphField extends PositionComponent {
     );
   }
 
-  BottomWallNodePlacement? _bottomWallNodePlacement(GraphNode node) {
-    final path = _normalizedVaultPath(node.path);
-    for (final placement in _layout.desktop.bottomWallNodePlacements) {
-      if (_endsWithVaultPath(path, placement.vaultPath)) return placement;
-    }
-    return null;
+  ({LayoutElement element, LayoutArea area})? _bottomWallNodeElement(
+    GraphNode node,
+  ) {
+    final elements = _timelineElementsByNodeId[node.id];
+    return elements == null || elements.isEmpty ? null : elements.first;
   }
 
-  bool _hasBottomWallNodePlacement(GraphNode node) =>
-      _bottomWallNodePlacement(node) != null;
+  bool _hasBottomWallNodeElement(GraphNode node) =>
+      _timelineElementsByNodeId.containsKey(node.id);
+
+  GraphNode? _graphNodeForTimelineElement(LayoutElement element) =>
+      _timelineNodesByElement[element];
+
+  Iterable<_ResolvedTimelineElement> _resolvedTimelineElements() sync* {
+    final timeline = _layout.bottomWallTimelineLayout;
+    for (final element in timeline.elements.values) {
+      yield (element: element, area: element.area);
+    }
+    for (final subLayout in timeline.subLayouts.values) {
+      yield* _resolvedLayoutElements(subLayout.layout, subLayout.area);
+    }
+  }
+
+  Iterable<_ResolvedTimelineElement> _resolvedLayoutElements(
+    Layout layout,
+    LayoutArea placement,
+  ) sync* {
+    for (final element in layout.elements.values) {
+      yield (
+        element: element,
+        area: _placeLayoutArea(element.area, layout, placement),
+      );
+    }
+    for (final subLayout in layout.subLayouts.values) {
+      final nestedPlacement = _placeLayoutArea(
+        subLayout.area,
+        layout,
+        placement,
+      );
+      yield* _resolvedLayoutElements(subLayout.layout, nestedPlacement);
+    }
+  }
+
+  LayoutArea _placeLayoutArea(
+    LayoutArea area,
+    Layout layout,
+    LayoutArea placement,
+  ) {
+    final dimensions = layout.dimensions;
+    final left = dimensions.normalizedHorizontalPosition(area.column);
+    final right = dimensions.normalizedHorizontalPosition(
+      area.column + area.columnSpan,
+    );
+    final top = dimensions.dimensionCount > 1
+        ? dimensions.normalizedVerticalPosition(area.row)
+        : 0.0;
+    final bottom = dimensions.dimensionCount > 1
+        ? dimensions.normalizedVerticalPosition(area.row + area.rowSpan)
+        : 1.0;
+
+    return LayoutArea(
+      column: placement.column + placement.columnSpan * left,
+      row: placement.row + placement.rowSpan * top,
+      columnSpan: placement.columnSpan * (right - left),
+      rowSpan: placement.rowSpan * (bottom - top),
+    );
+  }
+
+  LayoutArea _bottomWallTimelineElementArea(LayoutArea elementArea) {
+    final timeline = _layout.bottomWallTimelineLayout;
+    final placement = _layout.bottomWallTimelineArea;
+    final dimensions = timeline.dimensions;
+    final left = dimensions.normalizedHorizontalPosition(elementArea.column);
+    final right = dimensions.normalizedHorizontalPosition(
+      elementArea.column + elementArea.columnSpan,
+    );
+    final top = dimensions.normalizedVerticalPosition(elementArea.row);
+    final bottom = dimensions.normalizedVerticalPosition(
+      elementArea.row + elementArea.rowSpan,
+    );
+    final column = placement.column + placement.columnSpan * left;
+    final row = placement.row + placement.rowSpan * top;
+
+    return LayoutArea(
+      column: column,
+      row: row,
+      columnSpan: placement.columnSpan * (right - left),
+      rowSpan: placement.rowSpan * (bottom - top),
+    );
+  }
+
+  Path _roundedPolygonPath(List<Offset> points, double radius) {
+    if (points.length < 3 || radius <= 0) {
+      final path = Path()..moveTo(points.first.dx, points.first.dy);
+      for (final point in points.skip(1)) {
+        path.lineTo(point.dx, point.dy);
+      }
+      return path..close();
+    }
+
+    final path = Path();
+    for (var index = 0; index < points.length; index += 1) {
+      final previous = points[(index - 1) % points.length];
+      final current = points[index];
+      final next = points[(index + 1) % points.length];
+      final previousDistance = (previous - current).distance;
+      final nextDistance = (next - current).distance;
+      final cornerRadius = min(
+        radius,
+        min(previousDistance / 2, nextDistance / 2),
+      );
+      final entry =
+          current + (previous - current) * (cornerRadius / previousDistance);
+      final exit = current + (next - current) * (cornerRadius / nextDistance);
+
+      if (index == 0) {
+        path.moveTo(entry.dx, entry.dy);
+      } else {
+        path.lineTo(entry.dx, entry.dy);
+      }
+      path.quadraticBezierTo(current.dx, current.dy, exit.dx, exit.dy);
+    }
+    return path..close();
+  }
 
   void _paintBottomWallTimeLabel(Canvas canvas, String label, Offset offset) {
     final painter = TextPainter(
       text: TextSpan(
         text: label,
         style: const TextStyle(
-          color: InterfaceColors.graphLabel,
+          color: graphLabelColor,
           fontSize: 10,
           fontWeight: FontWeight.w700,
           shadows: [Shadow(color: Colors.white, blurRadius: 3)],
@@ -544,41 +782,12 @@ class _GraphField extends PositionComponent {
     painter.paint(canvas, offset - Offset(painter.width / 2, 0));
   }
 
-  void _drawWallRowGuides({
-    required Canvas canvas,
-    required Offset outerStart,
-    required Offset outerEnd,
-    required Offset innerStart,
-    required Offset innerEnd,
-    required int rows,
-    required Paint paint,
-  }) {
-    for (var divider = 1; divider < rows; divider += 1) {
-      final t = divider / rows;
-      drawDashedLine(
-        canvas,
-        Offset.lerp(outerStart, innerStart, t)!,
-        Offset.lerp(outerEnd, innerEnd, t)!,
-        paint,
-      );
-    }
-  }
-
   Color _wallColor(OpenBoxWall wall) {
     return switch (wall) {
-      OpenBoxWall.top => _layout.desktop.topWallColor,
-      OpenBoxWall.right => _layout.desktop.rightWallColor,
-      OpenBoxWall.bottom => _layout.desktop.bottomWallColor,
-      OpenBoxWall.left => _layout.desktop.leftWallColor,
-    };
-  }
-
-  int _wallRows(OpenBoxWall wall) {
-    return switch (wall) {
-      OpenBoxWall.top => _layout.desktop.topWallRows,
-      OpenBoxWall.right => _layout.desktop.rightWallRows,
-      OpenBoxWall.bottom => _layout.desktop.bottomWallRows,
-      OpenBoxWall.left => _layout.desktop.leftWallRows,
+      OpenBoxWall.top => topWallColor,
+      OpenBoxWall.right => rightWallColor,
+      OpenBoxWall.bottom => bottomWallColor,
+      OpenBoxWall.left => leftWallColor,
     };
   }
 }
@@ -586,6 +795,15 @@ class _GraphField extends PositionComponent {
 bool _isFutureAnchor(GraphNode node) {
   final path = _normalizedVaultPath(node.path);
   return path == 'time/concept/future' || path.endsWith('/time/concept/future');
+}
+
+String _timelineLabelFromPath(String path) {
+  final name = _normalizedVaultPath(path).split('/').last;
+  return name
+      .split('-')
+      .where((word) => word.isNotEmpty)
+      .map((word) => '${word[0].toUpperCase()}${word.substring(1)}')
+      .join(' ');
 }
 
 String _normalizedVaultPath(String path) {

@@ -48,6 +48,10 @@ class SevilleApi {
     return KnowledgeSnapshot.fromBuffer(bytes);
   }
 
+  Future<void> rescan() async {
+    await _dio.post<List<int>>('/v1/admin/rescan');
+  }
+
   void close() => _dio.close();
 }
 
