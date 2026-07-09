@@ -24,7 +24,7 @@ class LayoutTapTarget {
 
   final String key;
   final Layout layout;
-  final VaultNode? node;
+  final VaultNodeUiComponent? node;
   final ResolvedVaultNode? resolvedNode;
   final String? label;
 }
@@ -63,6 +63,7 @@ class _LandscapeXlLayoutViewState extends State<LandscapeXlLayoutView> {
           children: [
             _LandscapeXlLayoutNodeView(
               layout: widget.layout,
+              selectedNode: widget.selectedNode,
               contentBuilder: widget.contentBuilder,
             ),
             IgnorePointer(
@@ -114,10 +115,12 @@ class _LandscapeXlLayoutViewState extends State<LandscapeXlLayoutView> {
 class _LandscapeXlLayoutNodeView extends StatelessWidget {
   const _LandscapeXlLayoutNodeView({
     required this.layout,
+    required this.selectedNode,
     required this.contentBuilder,
   });
 
   final LandscapeXlLayout layout;
+  final ResolvedVaultNode? selectedNode;
   final LandscapeXlLayoutContentBuilder contentBuilder;
 
   @override
@@ -146,7 +149,14 @@ class _LandscapeXlLayoutNodeView extends StatelessWidget {
           if (child is LandscapeXlLayout)
             _LandscapeXlLayoutNodeView(
               layout: child,
+              selectedNode: selectedNode,
               contentBuilder: contentBuilder,
+            )
+          else if (child is PlaneLayout)
+            _PlaneLayoutView(
+              parent: layout,
+              plane: child,
+              selectedNode: selectedNode,
             )
           else if (child is! LayoutGuide &&
               child is! LayoutBackgroundElement &&
@@ -154,6 +164,7 @@ class _LandscapeXlLayoutNodeView extends StatelessWidget {
               child is! RadialTreeLayout &&
               child is! TableLayout &&
               child is! StickmanLayout &&
+              child is! PlaneLayout &&
               child is! GraphPreviewLayout)
             contentBuilder(context, child),
       ],
@@ -193,6 +204,204 @@ class _LayoutBackgroundElementView extends StatelessWidget {
           : Opacity(opacity: element.opacity.clamp(0, 1), child: image),
     );
   }
+}
+
+class _PlaneLayoutView extends StatelessWidget {
+  const _PlaneLayoutView({
+    required this.parent,
+    required this.plane,
+    required this.selectedNode,
+  });
+
+  final Layout parent;
+  final PlaneLayout plane;
+  final ResolvedVaultNode? selectedNode;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return CustomPaint(
+            size: constraints.biggest,
+            painter: _PlanePainter(
+              parent: parent,
+              plane: plane,
+              selectedNode: selectedNode,
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _PlanePainter extends CustomPainter {
+  const _PlanePainter({
+    required this.parent,
+    required this.plane,
+    required this.selectedNode,
+  });
+
+  final Layout parent;
+  final PlaneLayout plane;
+  final ResolvedVaultNode? selectedNode;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final bounds = Offset.zero & size;
+    final sceneInnerCircleFrame = _layoutCircleFrame(
+      parent,
+      bounds,
+      LayoutCircleBoundary.inner,
+    );
+    final frame =
+        _layoutDerivativeFrame(parent, bounds, const [
+          'innerSquare.A',
+          'innerSquare.B',
+          'innerSquare.C',
+          'innerSquare.D',
+        ]) ??
+        _layoutSquareFrameForCircle(
+          sceneInnerCircleFrame ??
+              _layoutCircleFrame(parent, bounds, LayoutCircleBoundary.outer),
+          fallback: bounds,
+        );
+    if (frame.isEmpty) return;
+
+    final center = Offset(
+      frame.left + frame.width * plane.position.dx,
+      frame.top + frame.height * plane.position.dy,
+    );
+    final baseRadius = frame.shortestSide * plane.radiusFraction;
+    final availableRadius = frame.shortestSide / 2;
+    final node = selectedNode?.node;
+    final borderColor = node == null
+        ? plane.borderColor
+        : _subjectNodeColor(node.frontmatter['color']) ??
+              plane.resolvedBorderColor;
+    final ringRadii = [
+      for (final ring in plane.ringGuides)
+        baseRadius +
+            (availableRadius - baseRadius) *
+                ring.fraction.clamp(0, 1).toDouble(),
+    ];
+    final outerRingRadius = ringRadii.isEmpty
+        ? baseRadius
+        : ringRadii.reduce(math.max);
+    final wrapHalfSide = math
+        .max(outerRingRadius / math.sqrt2 - plane.wrapPadding, 0)
+        .toDouble();
+    final wrapFrame = Rect.fromCenter(
+      center: center,
+      width: wrapHalfSide * 2,
+      height: wrapHalfSide * 2,
+    );
+    final nodeRadius = wrapHalfSide;
+    if (plane.showGeometryGuides) {
+      _drawPlaneConnectors(canvas, frame, wrapFrame, plane.geometryGuideStyle);
+      for (var index = 0; index < plane.ringGuides.length; index += 1) {
+        _drawPlaneRing(
+          canvas,
+          center,
+          ringRadii[index],
+          plane.ringGuides[index].style,
+        );
+      }
+      _drawPlaneWrapSquare(canvas, wrapFrame, plane.geometryGuideStyle);
+    }
+    canvas.drawCircle(
+      center,
+      nodeRadius,
+      Paint()
+        ..color = plane.backgroundColor
+        ..style = PaintingStyle.fill,
+    );
+    canvas.drawCircle(
+      center,
+      nodeRadius,
+      Paint()
+        ..color = borderColor
+        ..strokeWidth = plane.borderWidth
+        ..style = PaintingStyle.stroke,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_PlanePainter oldDelegate) {
+    return oldDelegate.parent != parent ||
+        oldDelegate.plane != plane ||
+        oldDelegate.selectedNode != selectedNode;
+  }
+}
+
+void _drawPlaneConnectors(
+  Canvas canvas,
+  Rect frame,
+  Rect wrapFrame,
+  GuideStyle style,
+) {
+  drawGuideLine(
+    canvas,
+    Offset(frame.center.dx, frame.top),
+    Offset(wrapFrame.center.dx, wrapFrame.top),
+    style,
+  );
+  drawGuideLine(
+    canvas,
+    Offset(frame.right, frame.center.dy),
+    Offset(wrapFrame.right, wrapFrame.center.dy),
+    style,
+  );
+  drawGuideLine(
+    canvas,
+    Offset(frame.center.dx, frame.bottom),
+    Offset(wrapFrame.center.dx, wrapFrame.bottom),
+    style,
+  );
+  drawGuideLine(
+    canvas,
+    Offset(frame.left, frame.center.dy),
+    Offset(wrapFrame.left, wrapFrame.center.dy),
+    style,
+  );
+}
+
+void _drawPlaneWrapSquare(Canvas canvas, Rect frame, GuideStyle style) {
+  drawGuideLine(canvas, frame.topLeft, frame.topRight, style);
+  drawGuideLine(canvas, frame.topRight, frame.bottomRight, style);
+  drawGuideLine(canvas, frame.bottomRight, frame.bottomLeft, style);
+  drawGuideLine(canvas, frame.bottomLeft, frame.topLeft, style);
+}
+
+void _drawPlaneRing(
+  Canvas canvas,
+  Offset center,
+  double radius,
+  GuideStyle style,
+) {
+  if (radius <= 0) return;
+  const steps = 96;
+  var previous = center + Offset(radius, 0);
+  for (var index = 1; index <= steps; index += 1) {
+    final radians = math.pi * 2 * index / steps;
+    final next = center + Offset(math.cos(radians), math.sin(radians)) * radius;
+    drawGuideLine(canvas, previous, next, style);
+    previous = next;
+  }
+}
+
+Color? _subjectNodeColor(String? rawColor) {
+  if (rawColor == null || rawColor.trim().isEmpty) return null;
+  final normalized = rawColor.trim().replaceFirst('#', '');
+  final hex = switch (normalized.length) {
+    6 => 'FF$normalized',
+    8 => normalized,
+    _ => null,
+  };
+  if (hex == null) return null;
+  final value = int.tryParse(hex, radix: 16);
+  return value == null ? null : Color(value);
 }
 
 class _LayoutGuidePainter extends CustomPainter {
@@ -957,7 +1166,7 @@ bool _hitTestRadialTreeRoot(
 }
 
 ResolvedVaultNode _resolveVaultNode(
-  VaultNode node,
+  VaultNodeUiComponent node,
   VaultNodeResolver? resolver,
 ) {
   return (resolver ?? VaultNodeResolver.empty).resolve(node);
@@ -1118,7 +1327,8 @@ void _drawTableLayout(
 ) {
   if (selectedNode == null ||
       parentPoints.length < 4 ||
-      table.rows.isEmpty ||
+      table.propertyBuilder == null ||
+      table.propertyBuilder!.properties.isEmpty ||
       table.columns.isEmpty) {
     return;
   }
@@ -1154,7 +1364,7 @@ void _drawTableLayout(
   final bottomWidth = (tablePoints[2] - tablePoints[3]).distance;
   final averageWidth = (topWidth + bottomWidth) / 2;
   final rowStops = _gridTrackStops([
-    for (final row in table.rows) row.value.size,
+    for (final row in rows) row.size.size,
   ], averageHeight);
   final columnStops = _gridTrackStops([
     for (final column in table.columns) column.value.size,
@@ -1329,16 +1539,57 @@ Path _tableCellPath(
     ..close();
 }
 
-List<({String label, Object? value})> _tableLayoutRows(
+List<({String label, Object? value, GridAxisVariable size})> _tableLayoutRows(
   TableLayout table,
   ResolvedVaultNode selectedNode,
 ) {
   final values = switch (table.dataSource) {
     TableLayoutDataSource.baseNodeInfo => _baseNodeInfoValues(selectedNode),
   };
-  return [
-    for (final row in table.rows) (label: row.key, value: values[row.key]),
+  final builder = table.propertyBuilder;
+  final properties = builder?.properties ?? const [];
+  final groupIds = {for (final group in builder?.groups ?? const []) group.id};
+  final groupedProperties = [
+    for (final group in builder?.groups ?? const [])
+      ...properties.where((property) => property.groupId == group.id),
   ];
+  final orphanProperties = [
+    for (final property in properties)
+      if (property.groupId == null || !groupIds.contains(property.groupId))
+        property,
+  ];
+  _sortTableOrphanProperties(
+    orphanProperties,
+    builder?.orphanOrdering ?? TableOrphanOrdering.valueAlphabetical,
+    values,
+  );
+  return [
+    for (final property in [...groupedProperties, ...orphanProperties])
+      (
+        label: property.label ?? property.key,
+        value: values[property.key],
+        size: property.size,
+      ),
+  ];
+}
+
+void _sortTableOrphanProperties(
+  List<TableProperty> properties,
+  TableOrphanOrdering ordering,
+  Map<String, Object?> values,
+) {
+  switch (ordering) {
+    case TableOrphanOrdering.asConfigured:
+      return;
+    case TableOrphanOrdering.keyAlphabetical:
+      properties.sort((left, right) => left.key.compareTo(right.key));
+    case TableOrphanOrdering.valueAlphabetical:
+      properties.sort(
+        (left, right) => _formatBaseNodeInfoValue(
+          values[left.key],
+        ).compareTo(_formatBaseNodeInfoValue(values[right.key])),
+      );
+  }
 }
 
 Map<String, Object?> _baseNodeInfoValues(ResolvedVaultNode selectedNode) {
@@ -1402,7 +1653,7 @@ void _paintTextInTableCell(
 
 String _formatBaseNodeInfoValue(Object? value) {
   if (value == null) return '—';
-  if (value is VaultNode) {
+  if (value is VaultNodeUiComponent) {
     final label = value.label?.trim();
     return label == null || label.isEmpty
         ? value.path
@@ -1534,16 +1785,60 @@ void _drawGraphPreviewLayout(
 }
 
 Rect _stickmanFrame(Layout parent, Rect parentBounds) {
-  final circle = parent.outerCircle;
-  if (circle == null) return parentBounds;
+  return _layoutInnerSquareFrame(parent, parentBounds);
+}
 
+Rect _layoutInnerSquareFrame(Layout parent, Rect parentBounds) {
+  return _layoutSquareFrameForCircle(
+    _layoutCircleFrame(parent, parentBounds, LayoutCircleBoundary.outer),
+    fallback: parentBounds,
+  );
+}
+
+Rect? _layoutCircleFrame(
+  Layout parent,
+  Rect parentBounds,
+  LayoutCircleBoundary boundary,
+) {
+  final circle = switch (boundary) {
+    LayoutCircleBoundary.inner => parent.innerCircle,
+    LayoutCircleBoundary.outer => parent.outerCircle,
+  };
+  if (circle == null) return null;
   final center = parentBounds.topLeft + circle.resolveCenter(parentBounds.size);
-  final squareHalfSide = circle.resolveRadius(parentBounds.size) / math.sqrt(2);
+  final radius = circle.resolveRadius(parentBounds.size);
+  return Rect.fromCenter(center: center, width: radius * 2, height: radius * 2);
+}
+
+Rect _layoutSquareFrameForCircle(Rect? circleFrame, {required Rect fallback}) {
+  if (circleFrame == null) return fallback;
+  final squareHalfSide = circleFrame.shortestSide / 2 / math.sqrt(2);
   return Rect.fromCenter(
-    center: center,
+    center: circleFrame.center,
     width: squareHalfSide * 2,
     height: squareHalfSide * 2,
   );
+}
+
+Rect? _layoutDerivativeFrame(Layout layout, Rect bounds, List<String> points) {
+  final derivatives = layout.resolveDerivatives(bounds.size);
+  final resolved = [
+    for (final point in points)
+      if (derivatives[point] case final offset?) bounds.topLeft + offset,
+  ];
+  if (resolved.isEmpty) return null;
+
+  var minX = resolved.first.dx;
+  var maxX = resolved.first.dx;
+  var minY = resolved.first.dy;
+  var maxY = resolved.first.dy;
+  for (final point in resolved.skip(1)) {
+    minX = math.min(minX, point.dx);
+    maxX = math.max(maxX, point.dx);
+    minY = math.min(minY, point.dy);
+    maxY = math.max(maxY, point.dy);
+  }
+  return Rect.fromLTRB(minX, minY, maxX, maxY);
 }
 
 double _gridAreaEnd(double start, double span, int trackCount) {

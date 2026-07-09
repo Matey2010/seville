@@ -8,6 +8,16 @@ Seville separates layout data from Flutter rendering:
 4. `LayoutRendererRegistry` connects the model type to its renderer.
 5. A parent layout places it under a stable key in `Layout.layouts`.
 
+Do not start by inventing a new entity. First inspect the related layout,
+guide, derivative, path, grid, plane, and renderer types already in the
+codebase. If an existing concept can honestly represent the behavior, extend or
+configure that concept. Add a new model or renderer only when the project owner
+explicitly asks for a new thing or when reuse would make dependencies unclear.
+Geometry that depends on other geometry must be encoded as a dependency:
+wrapping squares derive from the circles or planes they wrap, rings derive from
+the plane radius they describe, and connector guides target the same anchors
+that the visible shapes use.
+
 ## 1. Define the model
 
 ```dart

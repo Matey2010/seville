@@ -71,6 +71,44 @@ void _drawBorderGuide(
   final corners = anchors.isEmpty
       ? [bounds.topLeft, bounds.topRight, bounds.bottomRight, bounds.bottomLeft]
       : [for (final anchor in anchors) anchor.position];
+
+  if (guide.shape == LayoutBorderShape.circle) {
+    Offset? center;
+    Offset? radiusPoint;
+    for (final anchor in anchors) {
+      if (anchor.id.toLowerCase().contains('center')) {
+        center ??= anchor.position;
+      } else {
+        radiusPoint ??= anchor.position;
+      }
+    }
+    if (center != null && radiusPoint != null) {
+      _drawCircleByCenterRadius(
+        canvas,
+        center,
+        (radiusPoint - center).distance,
+        guide.style,
+      );
+    } else {
+      _drawCircleByCenterRadius(
+        canvas,
+        bounds.center,
+        bounds.shortestSide / 2,
+        guide.style,
+      );
+    }
+    for (final anchor in anchors) {
+      _drawAnchorLabel(
+        canvas,
+        bounds.center,
+        anchor.position,
+        anchor.id,
+        guide,
+      );
+    }
+    return;
+  }
+
   for (var index = 0; index < corners.length; index += 1) {
     drawGuideLine(
       canvas,
@@ -170,7 +208,16 @@ void _drawCircleGuide(
   final radius = circle.resolveRadius(size, defaults: defaults);
   if (radius <= 0) return;
 
-  final style = guide.style;
+  _drawCircleByCenterRadius(canvas, center, radius, guide.style);
+}
+
+void _drawCircleByCenterRadius(
+  Canvas canvas,
+  Offset center,
+  double radius,
+  GuideStyle style,
+) {
+  if (radius <= 0) return;
   final paint = Paint()
     ..color = style.color
     ..strokeWidth = style.strokeWidth

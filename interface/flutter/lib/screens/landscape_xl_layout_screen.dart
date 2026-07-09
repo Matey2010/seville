@@ -1,18 +1,20 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:seville_proto/seville_proto.dart';
 
 import '../constants/layout/presets/lg_ergo/lg_ergo_layout_config.dart';
 import '../data/seville_api.dart';
 import '../models/landscape_xl_layout.dart';
 import '../models/layout.dart';
+import '../state/node_store.dart';
 import '../utils/common_utilities.dart';
 import '../utils/vault_node_resolver.dart';
 import '../widgets/landscape_xl_layout_view.dart';
 import '../widgets/layout_renderer_registry.dart';
 
-class LandscapeXlLayoutScreen extends StatefulWidget {
+class LandscapeXlLayoutScreen extends ConsumerStatefulWidget {
   const LandscapeXlLayoutScreen({
     this.layout,
     this.rendererRegistry = const LayoutRendererRegistry(),
@@ -23,14 +25,14 @@ class LandscapeXlLayoutScreen extends StatefulWidget {
   final LayoutRendererRegistry rendererRegistry;
 
   @override
-  State<LandscapeXlLayoutScreen> createState() =>
+  ConsumerState<LandscapeXlLayoutScreen> createState() =>
       _LandscapeXlLayoutScreenState();
 }
 
-class _LandscapeXlLayoutScreenState extends State<LandscapeXlLayoutScreen> {
+class _LandscapeXlLayoutScreenState
+    extends ConsumerState<LandscapeXlLayoutScreen> {
   final SevilleApi _api = SevilleApi();
   VaultNodeResolver? _vaultNodeResolver;
-  ResolvedVaultNode? _selectedNode;
 
   @override
   void initState() {
@@ -50,8 +52,8 @@ class _LandscapeXlLayoutScreenState extends State<LandscapeXlLayoutScreen> {
       if (!mounted) return;
       setState(() {
         _vaultNodeResolver = resolver;
-        _selectedNode ??= _resolveInitialSelectedNode(resolver);
       });
+      _selectInitialNodeIfNeeded(resolver);
     } catch (error) {
       CommonUtilities.log('[snapshot] load failed: $error');
       // Keep status unresolved when the backend is unavailable. A failed
@@ -76,7 +78,7 @@ class _LandscapeXlLayoutScreenState extends State<LandscapeXlLayoutScreen> {
     return resolvedNode.found ? resolvedNode : null;
   }
 
-  VaultNode? _firstVaultNode(Layout layout) {
+  VaultNodeUiComponent? _firstVaultNode(Layout layout) {
     if (layout is RadialTreeLayout) return layout.node;
     for (final child in layout.layouts.values) {
       final node = _firstVaultNode(child);
@@ -87,11 +89,12 @@ class _LandscapeXlLayoutScreenState extends State<LandscapeXlLayoutScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final selectedNode = ref.watch(selectedNodeProvider);
     return Scaffold(
       body: LandscapeXlLayoutView(
         layout: widget.layout ?? lgErgoLayoutConfig,
         vaultNodeResolver: _vaultNodeResolver,
-        selectedNode: _selectedNode,
+        selectedNode: selectedNode,
         onLayoutTap: _handleLayoutTap,
         contentBuilder: widget.rendererRegistry.build,
       ),
@@ -136,22 +139,20 @@ class _LandscapeXlLayoutScreenState extends State<LandscapeXlLayoutScreen> {
     }
 
     _logResolvedNodeTap(target, resolvedNode, note);
-    setState(() {
-      _selectedNode = resolvedNode;
-    });
+    ref.read(selectedNodeProvider.notifier).select(resolvedNode);
   }
 
   Future<void> _refetchAndRetryNodeTap(
     LayoutTapTarget target,
-    VaultNode node,
+    VaultNodeUiComponent node,
   ) async {
     try {
       final resolver = await _loadVaultNodeResolver(rescan: true);
       if (!mounted) return;
       setState(() {
         _vaultNodeResolver = resolver;
-        _selectedNode ??= _resolveInitialSelectedNode(resolver);
       });
+      _selectInitialNodeIfNeeded(resolver);
 
       final resolvedNode = resolver.resolve(node);
       final note = resolvedNode.note;
@@ -171,9 +172,7 @@ class _LandscapeXlLayoutScreenState extends State<LandscapeXlLayoutScreen> {
 
       CommonUtilities.log('[layout tap] ${target.key}: resolved after rescan');
       _logResolvedNodeTap(target, resolvedNode, note);
-      setState(() {
-        _selectedNode = resolvedNode;
-      });
+      ref.read(selectedNodeProvider.notifier).select(resolvedNode);
     } catch (error) {
       CommonUtilities.log(
         '[layout tap] ${target.key}: rescan/refetch failed: $error',
@@ -199,5 +198,12 @@ class _LandscapeXlLayoutScreenState extends State<LandscapeXlLayoutScreen> {
     for (final entry in note.frontmatter.entries) {
       CommonUtilities.log('- ${entry.key}: ${entry.value}');
     }
+  }
+
+  void _selectInitialNodeIfNeeded(VaultNodeResolver resolver) {
+    if (ref.read(selectedNodeProvider) != null) return;
+    final resolvedNode = _resolveInitialSelectedNode(resolver);
+    if (resolvedNode == null) return;
+    ref.read(selectedNodeProvider.notifier).select(resolvedNode);
   }
 }

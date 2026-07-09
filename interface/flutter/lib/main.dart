@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'constants/interface_colors.dart';
 import 'screens/landscape_xl_layout_screen.dart';
 
 void main() {
-  runApp(const SevilleApp());
+  runApp(const ProviderScope(child: SevilleApp()));
 }
 
 class SevilleApp extends StatelessWidget {

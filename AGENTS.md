@@ -21,6 +21,16 @@
 
 - Layout preset files expose their primary public configuration constant
   immediately after imports.
+- Do not introduce a new model, layout type, guide type, renderer concept,
+  painter helper, or configuration entity until the related existing codebase
+  elements have been inspected and reuse or extension has been ruled out.
+  If the project owner explicitly asks for a new entity, implement it; otherwise
+  prefer connecting, deriving from, or extending the nearest existing concept.
+- When two visual or layout elements are conceptually related, encode that
+  dependency in configuration or derivatives instead of making them independent
+  values that merely happen to align. A wrapped square should derive from the
+  circle it wraps; connector lines should target the same geometry used by the
+  painted shape.
 - Keep the visible hierarchy ordered from the shallowest screen layer to the
   deepest nested layer. Supporting styles, frames, and other primitives belong
   below the primary configuration.

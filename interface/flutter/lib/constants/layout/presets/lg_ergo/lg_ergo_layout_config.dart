@@ -117,7 +117,7 @@ const lgErgoLayoutConfig = LandscapeXlLayout(
         'control-plane',
         'north-plane',
       ],
-      node: VaultNode(
+      node: VaultNodeUiComponent(
         path: DefaultVaultPaths.cortex,
         color: lgErgoCortexNodeColor,
       ),
@@ -224,16 +224,33 @@ const lgErgoLayoutConfig = LandscapeXlLayout(
             columns: true,
             color: lgErgoBaseNodeInfoCellHighlightColor,
           ),
-          rows: [
-            MapEntry('id', GridAxisVariable(size: GridTrackSize.fr(1))),
-            MapEntry('version', GridAxisVariable(size: GridTrackSize.fr(1))),
-            MapEntry('aliases', GridAxisVariable(size: GridTrackSize.fr(1))),
-            MapEntry('tags', GridAxisVariable(size: GridTrackSize.fr(1))),
-            MapEntry(
-              'classification',
-              GridAxisVariable(size: GridTrackSize.fr(1)),
-            ),
-          ],
+          propertyBuilder: TablePropertyBuilder(
+            groups: [TableGroup(id: 'identity', label: 'Identity')],
+            orphanOrdering: TableOrphanOrdering.valueAlphabetical,
+            properties: [
+              TableProperty(
+                key: 'aliases',
+                groupId: 'identity',
+                size: GridAxisVariable(size: GridTrackSize.fr(1)),
+              ),
+              TableProperty(
+                key: 'id',
+                size: GridAxisVariable(size: GridTrackSize.fr(1)),
+              ),
+              TableProperty(
+                key: 'tags',
+                size: GridAxisVariable(size: GridTrackSize.fr(1)),
+              ),
+              TableProperty(
+                key: 'classification',
+                size: GridAxisVariable(size: GridTrackSize.fr(1)),
+              ),
+              TableProperty(
+                key: 'version',
+                size: GridAxisVariable(size: GridTrackSize.fr(1)),
+              ),
+            ],
+          ),
           columns: [
             MapEntry('key', GridAxisVariable(size: GridTrackSize.fr(1))),
             MapEntry('value', GridAxisVariable(size: GridTrackSize.fr(3))),
@@ -423,6 +440,69 @@ const lgErgoLayoutConfig = LandscapeXlLayout(
             'AD-center': MidpointDerivative(from: 'A', to: 'D'),
             'BC-center': MidpointDerivative(from: 'B', to: 'C'),
             'scene-BC-center': MidpointDerivative(from: 'B', to: 'C'),
+            'innerCircle.center': CircleCenterDerivative(
+              circle: LayoutCircleBoundary.inner,
+            ),
+            'innerCircle.top': CircleRayIntersectionDerivative(
+              circle: LayoutCircleBoundary.inner,
+              angleDegrees: 270,
+            ),
+            'innerCircle.right': CircleRayIntersectionDerivative(
+              circle: LayoutCircleBoundary.inner,
+              angleDegrees: 0,
+            ),
+            'innerCircle.bottom': CircleRayIntersectionDerivative(
+              circle: LayoutCircleBoundary.inner,
+              angleDegrees: 90,
+            ),
+            'innerCircle.left': CircleRayIntersectionDerivative(
+              circle: LayoutCircleBoundary.inner,
+              angleDegrees: 180,
+            ),
+            'innerSquare.A': ShapeSquareDerivative(
+              points: [
+                'innerCircle.top',
+                'innerCircle.right',
+                'innerCircle.bottom',
+                'innerCircle.left',
+              ],
+              point: ShapeSquareDerivativePoint.A,
+            ),
+            'innerSquare.B': ShapeSquareDerivative(
+              points: [
+                'innerCircle.top',
+                'innerCircle.right',
+                'innerCircle.bottom',
+                'innerCircle.left',
+              ],
+              point: ShapeSquareDerivativePoint.B,
+            ),
+            'innerSquare.C': ShapeSquareDerivative(
+              points: [
+                'innerCircle.top',
+                'innerCircle.right',
+                'innerCircle.bottom',
+                'innerCircle.left',
+              ],
+              point: ShapeSquareDerivativePoint.C,
+            ),
+            'innerSquare.D': ShapeSquareDerivative(
+              points: [
+                'innerCircle.top',
+                'innerCircle.right',
+                'innerCircle.bottom',
+                'innerCircle.left',
+              ],
+              point: ShapeSquareDerivativePoint.D,
+            ),
+            'outerCircle.center': ShapeCircleDerivative(
+              points: ['A', 'B', 'C', 'D'],
+              point: ShapeCircleDerivativePoint.center,
+            ),
+            'outerCircle.top': ShapeCircleDerivative(
+              points: ['A', 'B', 'C', 'D'],
+              point: ShapeCircleDerivativePoint.top,
+            ),
           },
         ),
       },
@@ -430,12 +510,34 @@ const lgErgoLayoutConfig = LandscapeXlLayout(
         'square-anchors': LayoutObservable(derivatives: {'A', 'B', 'C', 'D'}),
       },
       layouts: {
-        'scene-stickman': StickmanLayout(
-          aliases: ['stickman', 'person', 'human-scale'],
-          heightCm: 200,
-          rangeStart: -0.1,
-          rangeEnd: 1.1,
-          style: lgErgoStickmanStyle,
+        'scene-subject': PlaneLayout(
+          aliases: ['subject', 'scene-subject', 'project-subject'],
+          radiusFraction: 0.18,
+          backgroundColor: Color(0xFFFFFBEA),
+          borderColor: Color(0xAA303030),
+          resolvedBorderColor: Color(0xAA303030),
+          borderWidth: 2,
+          wrapPadding: 0,
+          showGeometryGuides: true,
+          geometryGuideStyle: GuideStyle(
+            color: Color(0xCC303030),
+            strokeWidth: 1.4,
+            pattern: GuideLinePattern.dashed,
+            dashLength: 6,
+            dashInterval: 4,
+          ),
+          ringGuides: [
+            PlaneRingGuide(
+              fraction: 0.5,
+              style: GuideStyle(
+                color: Color(0xFFFF9800),
+                strokeWidth: 1.4,
+                pattern: GuideLinePattern.dashed,
+                dashLength: 6,
+                dashInterval: 5,
+              ),
+            ),
+          ],
         ),
         'scene-graph-preview': GraphPreviewLayout(
           aliases: ['graph-preview', 'knowledge-preview', 'future-graph'],
@@ -466,9 +568,27 @@ const lgErgoLayoutConfig = LandscapeXlLayout(
             pattern: GuideLinePattern.dashed,
           ),
         ),
-        'inner-circle': CirleLayout(
-          boundary: LayoutCircleBoundary.inner,
+        'inner-circle': LayoutBorderGuide(
+          shape: LayoutBorderShape.circle,
+          reference: LayoutBorderReference.bounds,
+          derivativeAnchors: ['innerCircle.center', 'innerCircle.top'],
+          labelFontSize: 9,
+          anchorRadius: 1.8,
           style: lgErgoSceneInnerCircleStyle,
+        ),
+        'inner-square': LayoutBorderGuide(
+          shape: LayoutBorderShape.square,
+          reference: LayoutBorderReference.bounds,
+          derivativeAnchors: [
+            'innerSquare.A',
+            'innerSquare.B',
+            'innerSquare.C',
+            'innerSquare.D',
+          ],
+          showAnchorDirections: true,
+          labelFontSize: 9,
+          anchorRadius: 1.8,
+          style: lgErgoScenePaddingInnerBorderStyle,
         ),
         'padding-inner-border': LayoutBorderGuide(
           shape: LayoutBorderShape.square,

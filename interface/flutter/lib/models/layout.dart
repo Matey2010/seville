@@ -3,6 +3,8 @@ import 'dart:ui';
 
 import 'package:seville_proto/seville_proto.dart';
 
+import '../domain/node.dart';
+
 typedef SubLayout = ({Layout layout, LayoutArea area});
 
 abstract final class LayoutKey {
@@ -229,8 +231,8 @@ abstract final class LayoutHttpStatus {
   static const notFound = 404;
 }
 
-class VaultNode {
-  const VaultNode({
+class VaultNodeUiComponent {
+  const VaultNodeUiComponent({
     required this.path,
     this.color = const LayoutColor.fromHex('939393', opacity: 0.32),
     this.label,
@@ -243,16 +245,21 @@ class VaultNode {
   final int? status;
 }
 
-class ResolvedVaultNode extends VaultNode {
+@Deprecated('Use VaultNodeUiComponent for layout/UI config.')
+typedef VaultNode = VaultNodeUiComponent;
+
+class ResolvedVaultNode extends VaultNodeUiComponent {
   const ResolvedVaultNode({
     required super.path,
     super.color,
     super.label,
     super.status,
+    required this.node,
     required this.note,
     required this.resolvedStatus,
   });
 
+  final Node? node;
   final Note? note;
   final int resolvedStatus;
 
@@ -503,6 +510,26 @@ class CircleRayIntersectionDerivative extends LayoutDerivative {
   }
 }
 
+class CircleCenterDerivative extends LayoutDerivative {
+  const CircleCenterDerivative({required this.circle});
+
+  final LayoutCircleBoundary circle;
+
+  @override
+  Offset resolve(Layout layout, Size size) {
+    final geometry = switch (circle) {
+      LayoutCircleBoundary.inner => layout.innerCircle,
+      LayoutCircleBoundary.outer => layout.outerCircle,
+    };
+    if (geometry == null) return Offset.zero;
+    final defaults = switch (circle) {
+      LayoutCircleBoundary.inner => layout.layoutDefaults,
+      LayoutCircleBoundary.outer => null,
+    };
+    return geometry.resolveCenter(size, defaults: defaults);
+  }
+}
+
 class BoundsPointDerivative extends LayoutDerivative {
   const BoundsPointDerivative(this.position);
 
@@ -561,6 +588,94 @@ class MidpointDerivative extends LayoutDerivative {
       0.5,
     )!;
   }
+}
+
+enum ShapeCircleDerivativePoint { center, top, right, bottom, left }
+
+class ShapeCircleDerivative extends LayoutDerivative {
+  const ShapeCircleDerivative({
+    required this.points,
+    required this.point,
+    this.snapshot,
+  });
+
+  final List<String> points;
+  final ShapeCircleDerivativePoint point;
+  final String? snapshot;
+
+  @override
+  Offset resolve(Layout layout, Size size) {
+    final resolved = _resolveShapePoints(layout, size, points, snapshot);
+    if (resolved.isEmpty) return Offset.zero;
+    final bounds = _boundsForPoints(resolved);
+    final center = bounds.center;
+    final radius = math.max(bounds.width, bounds.height) / 2;
+    return switch (point) {
+      ShapeCircleDerivativePoint.center => center,
+      ShapeCircleDerivativePoint.top => center + Offset(0, -radius),
+      ShapeCircleDerivativePoint.right => center + Offset(radius, 0),
+      ShapeCircleDerivativePoint.bottom => center + Offset(0, radius),
+      ShapeCircleDerivativePoint.left => center + Offset(-radius, 0),
+    };
+  }
+}
+
+enum ShapeSquareDerivativePoint { center, A, B, C, D }
+
+class ShapeSquareDerivative extends LayoutDerivative {
+  const ShapeSquareDerivative({
+    required this.points,
+    required this.point,
+    this.snapshot,
+  });
+
+  final List<String> points;
+  final ShapeSquareDerivativePoint point;
+  final String? snapshot;
+
+  @override
+  Offset resolve(Layout layout, Size size) {
+    final resolved = _resolveShapePoints(layout, size, points, snapshot);
+    if (resolved.isEmpty) return Offset.zero;
+    final bounds = _boundsForPoints(resolved);
+    final center = bounds.center;
+    final halfSide = math.max(bounds.width, bounds.height) / 2;
+    return switch (point) {
+      ShapeSquareDerivativePoint.center => center,
+      ShapeSquareDerivativePoint.A => center + Offset(-halfSide, halfSide),
+      ShapeSquareDerivativePoint.B => center + Offset(-halfSide, -halfSide),
+      ShapeSquareDerivativePoint.C => center + Offset(halfSide, -halfSide),
+      ShapeSquareDerivativePoint.D => center + Offset(halfSide, halfSide),
+    };
+  }
+}
+
+List<Offset> _resolveShapePoints(
+  Layout layout,
+  Size size,
+  List<String> points,
+  String? snapshot,
+) {
+  final derivatives = layout.getDerivatives(snapshot).values;
+  return [
+    for (final point in points)
+      if (derivatives[point] case final derivative?)
+        derivative.resolve(layout, size),
+  ];
+}
+
+Rect _boundsForPoints(List<Offset> points) {
+  var minX = points.first.dx;
+  var maxX = points.first.dx;
+  var minY = points.first.dy;
+  var maxY = points.first.dy;
+  for (final point in points.skip(1)) {
+    minX = math.min(minX, point.dx);
+    maxX = math.max(maxX, point.dx);
+    minY = math.min(minY, point.dy);
+    maxY = math.max(maxY, point.dy);
+  }
+  return Rect.fromLTRB(minX, minY, maxX, maxY);
 }
 
 extension LayoutAttributeDerivatives on LayoutAttribute {
@@ -782,7 +897,7 @@ class PerspectiveGridArea extends Layout {
   final double columnOffset;
   final double rowSpan;
   final double columnSpan;
-  final VaultNode? node;
+  final VaultNodeUiComponent? node;
   final String? defaultPath;
   final Color? fillColor;
   final GuideStyle? borderStyle;
@@ -821,6 +936,41 @@ class PerspectiveGridLayout extends Layout {
 
 enum TableLayoutDataSource { baseNodeInfo }
 
+enum TableOrphanOrdering { asConfigured, keyAlphabetical, valueAlphabetical }
+
+class TablePropertyBuilder {
+  const TablePropertyBuilder({
+    this.groups = const [],
+    this.orphanOrdering = TableOrphanOrdering.valueAlphabetical,
+    required this.properties,
+  });
+
+  final List<TableGroup> groups;
+  final TableOrphanOrdering orphanOrdering;
+  final List<TableProperty> properties;
+}
+
+class TableGroup {
+  const TableGroup({required this.id, required this.label});
+
+  final String id;
+  final String label;
+}
+
+class TableProperty {
+  const TableProperty({
+    required this.key,
+    required this.size,
+    this.label,
+    this.groupId,
+  });
+
+  final String key;
+  final GridAxisVariable size;
+  final String? label;
+  final String? groupId;
+}
+
 class TableCellHighlightConfig {
   const TableCellHighlightConfig({
     this.rows = false,
@@ -835,10 +985,10 @@ class TableCellHighlightConfig {
 
 class TableLayout extends Layout {
   const TableLayout({
-    required this.rows,
     required this.columns,
     required this.dataSource,
     required this.guideStyle,
+    this.propertyBuilder,
     this.padding = 12,
     this.cellHighlight,
     this.labelColor = const Color(0xFFE5E7EB),
@@ -849,10 +999,10 @@ class TableLayout extends Layout {
     super.attributes = const [LayoutAttribute.rectangular],
   }) : super.fromAxes();
 
-  final List<MapEntry<String, GridAxisVariable>> rows;
   final List<MapEntry<String, GridAxisVariable>> columns;
   final TableLayoutDataSource dataSource;
   final GuideStyle guideStyle;
+  final TablePropertyBuilder? propertyBuilder;
   final double padding;
   final TableCellHighlightConfig? cellHighlight;
   final Color labelColor;
@@ -886,7 +1036,7 @@ class RadialTreeArea extends Layout {
   final double columnOffset;
   final double rowSpan;
   final double columnSpan;
-  final VaultNode? node;
+  final VaultNodeUiComponent? node;
   final Color? fillColor;
   final GuideStyle? borderStyle;
   final String? label;
@@ -946,7 +1096,7 @@ class RadialTreeLayout extends Layout {
     super.attributes = const [LayoutAttribute.circular],
   }) : super.fromAxes();
 
-  final VaultNode node;
+  final VaultNodeUiComponent node;
   final String? label;
   final Color labelColor;
   final double labelSize;
@@ -1067,6 +1217,70 @@ class StickmanLayout extends Layout {
   final GuideStyle style;
 }
 
+class PlaneLayout extends Layout {
+  const PlaneLayout({
+    this.node,
+    this.position = const Offset(0.5, 0.5),
+    this.radiusFraction = 0.18,
+    this.backgroundColor = const Color(0xFFFFFBEA),
+    this.borderColor = const Color(0xAA303030),
+    this.resolvedBorderColor = const Color(0xAA303030),
+    this.borderWidth = 2,
+    this.wrapPadding = 8,
+    this.showGeometryGuides = true,
+    this.geometryGuideStyle = const GuideStyle(
+      color: Color(0x88303030),
+      strokeWidth: 1,
+      pattern: GuideLinePattern.dashed,
+      dashLength: 4,
+      dashInterval: 4,
+    ),
+    this.ringGuides = const [],
+    super.aliases,
+    super.attributes = const [LayoutAttribute.circular],
+  }) : super.fromAxes();
+
+  final VaultNodeUiComponent? node;
+  final Offset position;
+  final double radiusFraction;
+  final Color backgroundColor;
+  final Color borderColor;
+  final Color resolvedBorderColor;
+  final double borderWidth;
+  final double wrapPadding;
+  final bool showGeometryGuides;
+  final GuideStyle geometryGuideStyle;
+  final List<PlaneRingGuide> ringGuides;
+}
+
+class PlaneRingGuide {
+  const PlaneRingGuide({required this.fraction, required this.style});
+
+  /// 0 means the base plane radius; 1 means the available plane geometry radius.
+  /// The plane wrap square is inscribed inside the farthest configured ring,
+  /// and the node circle is inscribed inside that square.
+  final double fraction;
+  final GuideStyle style;
+}
+
+class SubjectNodeLayout extends PlaneLayout {
+  const SubjectNodeLayout({
+    super.node,
+    super.position,
+    super.radiusFraction,
+    super.backgroundColor,
+    super.borderColor,
+    super.resolvedBorderColor,
+    super.borderWidth,
+    super.wrapPadding,
+    super.showGeometryGuides,
+    super.geometryGuideStyle,
+    super.ringGuides,
+    super.aliases,
+    super.attributes,
+  });
+}
+
 class GraphPreviewNode {
   const GraphPreviewNode({
     required this.id,
@@ -1111,7 +1325,7 @@ class GraphPreviewLayout extends Layout {
   final double labelSize;
 }
 
-enum LayoutBorderShape { rectangle, square }
+enum LayoutBorderShape { rectangle, square, circle }
 
 enum LayoutBorderReference { bounds, innerCircle, outerCircle }
 

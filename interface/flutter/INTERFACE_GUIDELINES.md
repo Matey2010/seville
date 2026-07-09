@@ -454,6 +454,13 @@ components just because that is where they are first used.
 
 If a concept can be named independently from the widget currently using it,
 promote it into the appropriate folder before adding more behavior around it.
+Before creating a new model, layout type, guide type, renderer concept, painter
+helper, or configuration object, first inspect the nearby layout/model/utility
+code and decide whether the existing entity should be reused or extended. New
+entities are appropriate when the project owner explicitly asks for one or when
+reuse would make the existing abstraction lie. Related geometry must stay
+related in code: derive wrappers, rings, connectors, and anchors from the same
+source shape instead of maintaining independent values that only visually align.
 
 ## Quality verification
 

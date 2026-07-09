@@ -1,5 +1,6 @@
 import 'package:seville_proto/seville_proto.dart';
 
+import '../domain/node.dart';
 import '../models/layout.dart';
 
 class VaultNodeResolver {
@@ -19,27 +20,30 @@ class VaultNodeResolver {
 
   bool get isEmpty => _notes.isEmpty;
 
-  ResolvedVaultNode resolve(VaultNode node) {
-    final configuredStatus = node.status;
+  ResolvedVaultNode resolve(VaultNodeUiComponent component) {
+    final configuredStatus = component.status;
     if (configuredStatus != null) {
+      final note = configuredStatus == LayoutHttpStatus.ok
+          ? _findNote(component.path)
+          : null;
       return ResolvedVaultNode(
-        path: node.path,
-        color: node.color,
-        label: node.label,
-        status: node.status,
-        note: configuredStatus == LayoutHttpStatus.ok
-            ? _findNote(node.path)
-            : null,
+        path: component.path,
+        color: component.color,
+        label: component.label,
+        status: component.status,
+        node: note == null ? null : Node.fromNote(note),
+        note: note,
         resolvedStatus: configuredStatus,
       );
     }
 
-    final note = _findNote(node.path);
+    final note = _findNote(component.path);
     return ResolvedVaultNode(
-      path: node.path,
-      color: node.color,
-      label: node.label,
-      status: node.status,
+      path: component.path,
+      color: component.color,
+      label: component.label,
+      status: component.status,
+      node: note == null ? null : Node.fromNote(note),
       note: note,
       resolvedStatus: note == null
           ? LayoutHttpStatus.notFound
