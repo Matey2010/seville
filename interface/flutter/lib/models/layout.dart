@@ -20,6 +20,75 @@ enum LayoutAttribute {
   safeArea,
 }
 
+enum LayoutShape { rectangle, square, circle }
+
+const randomBlueprintAesthetics = RandomBlueprintAesthetics();
+
+class RandomBlueprintAesthetics {
+  const RandomBlueprintAesthetics();
+
+  PlaneLayoutStyle get layoutStyle {
+    final random = math.Random();
+    Color nextColor({double opacity = 0.82}) {
+      return Color.fromARGB(
+        (opacity.clamp(0, 1) * 255).round(),
+        96 + random.nextInt(160),
+        96 + random.nextInt(160),
+        96 + random.nextInt(160),
+      );
+    }
+
+    return PlaneLayoutStyle(
+      borderStyle: GuideStyle(
+        color: nextColor(),
+        strokeWidth: 1,
+        pattern: GuideLinePattern.dashed,
+        dashLength: 7,
+        dashInterval: 5,
+      ),
+      diagonalStyle: GuideStyle(
+        color: nextColor(opacity: 0.68),
+        strokeWidth: 0.9,
+        pattern: GuideLinePattern.dashed,
+        dashLength: 6,
+        dashInterval: 6,
+      ),
+      centerLineStyle: GuideStyle(
+        color: nextColor(opacity: 0.72),
+        strokeWidth: 0.9,
+        pattern: GuideLinePattern.dotted,
+        dashInterval: 5,
+      ),
+      radiusStyle: GuideStyle(
+        color: nextColor(opacity: 0.72),
+        strokeWidth: 0.9,
+        pattern: GuideLinePattern.dashed,
+        dashLength: 6,
+        dashInterval: 5,
+      ),
+      centerPointColor: nextColor(opacity: 0.95),
+    );
+  }
+}
+
+class PlaneLayoutStyle {
+  const PlaneLayoutStyle({
+    required this.borderStyle,
+    this.diagonalStyle,
+    this.centerLineStyle,
+    this.radiusStyle,
+    this.centerPointColor,
+    this.centerPointRadius = 2.5,
+  });
+
+  final GuideStyle borderStyle;
+  final GuideStyle? diagonalStyle;
+  final GuideStyle? centerLineStyle;
+  final GuideStyle? radiusStyle;
+  final Color? centerPointColor;
+  final double centerPointRadius;
+}
+
 abstract final class LayoutFraction {
   /// Consumes the fraction span left after all fixed fractions are allocated.
   static const fullSpan = double.infinity;
@@ -934,83 +1003,6 @@ class PerspectiveGridLayout extends Layout {
   final int bottomEndIndex;
 }
 
-enum TableLayoutDataSource { baseNodeInfo }
-
-enum TableOrphanOrdering { asConfigured, keyAlphabetical, valueAlphabetical }
-
-class TablePropertyBuilder {
-  const TablePropertyBuilder({
-    this.groups = const [],
-    this.orphanOrdering = TableOrphanOrdering.valueAlphabetical,
-    required this.properties,
-  });
-
-  final List<TableGroup> groups;
-  final TableOrphanOrdering orphanOrdering;
-  final List<TableProperty> properties;
-}
-
-class TableGroup {
-  const TableGroup({required this.id, required this.label});
-
-  final String id;
-  final String label;
-}
-
-class TableProperty {
-  const TableProperty({
-    required this.key,
-    required this.size,
-    this.label,
-    this.groupId,
-  });
-
-  final String key;
-  final GridAxisVariable size;
-  final String? label;
-  final String? groupId;
-}
-
-class TableCellHighlightConfig {
-  const TableCellHighlightConfig({
-    this.rows = false,
-    this.columns = false,
-    this.color = const Color(0x33FFF7D6),
-  });
-
-  final bool rows;
-  final bool columns;
-  final Color color;
-}
-
-class TableLayout extends Layout {
-  const TableLayout({
-    required this.columns,
-    required this.dataSource,
-    required this.guideStyle,
-    this.propertyBuilder,
-    this.padding = 12,
-    this.cellHighlight,
-    this.labelColor = const Color(0xFFE5E7EB),
-    this.valueColor = const Color(0xFFFFFFFF),
-    this.labelSize = 11,
-    this.valueSize = 11,
-    super.aliases,
-    super.attributes = const [LayoutAttribute.rectangular],
-  }) : super.fromAxes();
-
-  final List<MapEntry<String, GridAxisVariable>> columns;
-  final TableLayoutDataSource dataSource;
-  final GuideStyle guideStyle;
-  final TablePropertyBuilder? propertyBuilder;
-  final double padding;
-  final TableCellHighlightConfig? cellHighlight;
-  final Color labelColor;
-  final Color valueColor;
-  final double labelSize;
-  final double valueSize;
-}
-
 class RadialTreeArea extends Layout {
   const RadialTreeArea({
     required this.row,
@@ -1220,8 +1212,11 @@ class StickmanLayout extends Layout {
 class PlaneLayout extends Layout {
   const PlaneLayout({
     this.node,
+    this.shape = LayoutShape.circle,
+    this.style,
     this.position = const Offset(0.5, 0.5),
-    this.radiusFraction = 0.18,
+    this.radiusFraction = 0.5,
+    this.padding = 0,
     this.backgroundColor = const Color(0xFFFFFBEA),
     this.borderColor = const Color(0xAA303030),
     this.resolvedBorderColor = const Color(0xAA303030),
@@ -1238,11 +1233,21 @@ class PlaneLayout extends Layout {
     this.ringGuides = const [],
     super.aliases,
     super.attributes = const [LayoutAttribute.circular],
+    super.layouts,
+    super.derivatives,
+    super.derivativeSnapshot,
+    super.observables,
+    super.layoutDefaults,
+    super.innerCircle,
+    super.outerCircle,
   }) : super.fromAxes();
 
   final VaultNodeUiComponent? node;
+  final LayoutShape shape;
+  final PlaneLayoutStyle? style;
   final Offset position;
   final double radiusFraction;
+  final double padding;
   final Color backgroundColor;
   final Color borderColor;
   final Color resolvedBorderColor;
@@ -1268,6 +1273,8 @@ class SubjectNodeLayout extends PlaneLayout {
     super.node,
     super.position,
     super.radiusFraction,
+    super.padding,
+    super.style,
     super.backgroundColor,
     super.borderColor,
     super.resolvedBorderColor,
@@ -1278,6 +1285,7 @@ class SubjectNodeLayout extends PlaneLayout {
     super.ringGuides,
     super.aliases,
     super.attributes,
+    super.shape,
   });
 }
 

@@ -2,10 +2,11 @@ import 'dart:ui';
 
 import '../../../../models/layout.dart';
 import '../../../../models/landscape_xl_layout.dart';
+import '../../../../models/node_property_table.dart';
 import '../../../interface_colors.dart';
 import '../../../paths/default_vault_paths.dart';
 
-const lgErgoLayoutConfig = LandscapeXlLayout(
+final lgErgoLayoutConfig = LandscapeXlLayout(
   aliases: ['screen', 'root', 'reality', 'user-space', 'user-reality'],
   attributes: [LayoutAttribute.screen, LayoutAttribute.rectangular],
   layoutDefaults: lgErgoLayoutDefaults,
@@ -215,39 +216,44 @@ const lgErgoLayoutConfig = LandscapeXlLayout(
         strokeStyle: lgErgoSpacePlaneLineStyle,
       ),
       layouts: {
-        'base-node-info': TableLayout(
+        'base-node-info': NodePropertyTable(
           aliases: ['base-node-info', 'node-info-table'],
-          dataSource: TableLayoutDataSource.baseNodeInfo,
+          dataSource: NodePropertyTableDataSource.baseNodeInfo,
           guideStyle: lgErgoBaseNodeInfoTableStyle,
           cellHighlight: TableCellHighlightConfig(
             rows: true,
             columns: true,
             color: lgErgoBaseNodeInfoCellHighlightColor,
           ),
-          propertyBuilder: TablePropertyBuilder(
-            groups: [TableGroup(id: 'identity', label: 'Identity')],
-            orphanOrdering: TableOrphanOrdering.valueAlphabetical,
-            properties: [
-              TableProperty(
+          fieldBuilder: TableFieldBuilder(
+            groups: {
+              TableGroup(id: 'identity', label: 'Public identity'),
+              TableGroup(id: null, ordering: TableFieldOrdering.asConfigured),
+              TableGroup(id: 'meta', label: 'Meta'),
+            },
+            fields: [
+              TableField(
+                key: 'id',
+                groupId: 'identity',
+                size: GridAxisVariable(size: GridTrackSize.fr(1)),
+              ),
+              TableField(
                 key: 'aliases',
                 groupId: 'identity',
                 size: GridAxisVariable(size: GridTrackSize.fr(1)),
               ),
-              TableProperty(
-                key: 'id',
-                size: GridAxisVariable(size: GridTrackSize.fr(1)),
-              ),
-              TableProperty(
+              TableField(
                 key: 'tags',
                 size: GridAxisVariable(size: GridTrackSize.fr(1)),
               ),
-              TableProperty(
+              TableField(
                 key: 'classification',
                 size: GridAxisVariable(size: GridTrackSize.fr(1)),
               ),
-              TableProperty(
+              TableField(
                 key: 'version',
-                size: GridAxisVariable(size: GridTrackSize.fr(1)),
+                groupId: 'meta',
+                size: GridAxisVariable(size: GridTrackSize.fr(0.5)),
               ),
             ],
           ),
@@ -510,55 +516,112 @@ const lgErgoLayoutConfig = LandscapeXlLayout(
         'square-anchors': LayoutObservable(derivatives: {'A', 'B', 'C', 'D'}),
       },
       layouts: {
-        'scene-subject': PlaneLayout(
-          aliases: ['subject', 'scene-subject', 'project-subject'],
-          radiusFraction: 0.18,
-          backgroundColor: Color(0xFFFFFBEA),
-          borderColor: Color(0xAA303030),
-          resolvedBorderColor: Color(0xAA303030),
-          borderWidth: 2,
+        'inner-circle-plane': PlaneLayout(
+          aliases: ['inner-circle-plane', 'scene-plane', 'circle-plane'],
+          shape: LayoutShape.circle,
+          style: randomBlueprintAesthetics.layoutStyle,
+          backgroundColor: Color(0x00000000),
+          borderColor: Color(0x00000000),
+          resolvedBorderColor: Color(0x00000000),
+          borderWidth: 0,
           wrapPadding: 0,
           showGeometryGuides: true,
-          geometryGuideStyle: GuideStyle(
-            color: Color(0xCC303030),
-            strokeWidth: 1.4,
-            pattern: GuideLinePattern.dashed,
-            dashLength: 6,
-            dashInterval: 4,
-          ),
-          ringGuides: [
-            PlaneRingGuide(
-              fraction: 0.5,
-              style: GuideStyle(
-                color: Color(0xFFFF9800),
-                strokeWidth: 1.4,
-                pattern: GuideLinePattern.dashed,
-                dashLength: 6,
-                dashInterval: 5,
-              ),
+          layouts: {
+            'wrapped-scene-square': PlaneLayout(
+              aliases: ['wrapped-scene-square', 'scene-square-plane'],
+              shape: LayoutShape.square,
+              style: randomBlueprintAesthetics.layoutStyle,
+              backgroundColor: Color(0x00000000),
+              borderColor: Color(0x00000000),
+              resolvedBorderColor: Color(0x00000000),
+              borderWidth: 0,
+              wrapPadding: 0,
+              showGeometryGuides: true,
+              layouts: {
+                'subject-field-circle': PlaneLayout(
+                  aliases: ['subject-field', 'subject-field-circle'],
+                  shape: LayoutShape.circle,
+                  style: randomBlueprintAesthetics.layoutStyle,
+                  backgroundColor: Color(0x00000000),
+                  borderColor: Color(0x00000000),
+                  resolvedBorderColor: Color(0x00000000),
+                  borderWidth: 0,
+                  wrapPadding: 0,
+                  showGeometryGuides: true,
+                  layouts: {
+                    'subject-core-square': PlaneLayout(
+                      aliases: ['subject-core', 'subject-core-square'],
+                      shape: LayoutShape.square,
+                      style: randomBlueprintAesthetics.layoutStyle,
+                      backgroundColor: Color(0x00000000),
+                      borderColor: Color(0x00000000),
+                      resolvedBorderColor: Color(0x00000000),
+                      borderWidth: 0,
+                      wrapPadding: 0,
+                      showGeometryGuides: true,
+                      layouts: {
+                        'scene-subject': PlaneLayout(
+                          aliases: [
+                            'subject',
+                            'scene-subject',
+                            'project-subject',
+                          ],
+                          shape: LayoutShape.circle,
+                          style: randomBlueprintAesthetics.layoutStyle,
+                          backgroundColor: Color(0xFFFFFBEA),
+                          borderColor: Color(0xAA303030),
+                          resolvedBorderColor: Color(0xAA303030),
+                          borderWidth: 2,
+                          wrapPadding: 0,
+                          showGeometryGuides: true,
+                        ),
+                      },
+                    ),
+                    'scene-graph-preview': GraphPreviewLayout(
+                      aliases: [
+                        'graph-preview',
+                        'knowledge-preview',
+                        'future-graph',
+                      ],
+                      nodeStyle: lgErgoGraphPreviewNodeStyle,
+                      edgeStyle: lgErgoGraphPreviewEdgeStyle,
+                      fillColor: lgErgoGraphPreviewNodeFillColor,
+                      labelColor: lgErgoGraphPreviewLabelColor,
+                      nodes: [
+                        GraphPreviewNode(
+                          id: 'self',
+                          position: Offset(0.5, 0.05),
+                        ),
+                        GraphPreviewNode(
+                          id: 'memory',
+                          position: Offset(0.34, 0.13),
+                        ),
+                        GraphPreviewNode(
+                          id: 'plan',
+                          position: Offset(0.66, 0.13),
+                        ),
+                        GraphPreviewNode(
+                          id: 'idea',
+                          position: Offset(0.43, 0.22),
+                        ),
+                        GraphPreviewNode(
+                          id: 'question',
+                          position: Offset(0.57, 0.22),
+                        ),
+                      ],
+                      edges: [
+                        GraphPreviewEdge(from: 'self', to: 'memory'),
+                        GraphPreviewEdge(from: 'self', to: 'plan'),
+                        GraphPreviewEdge(from: 'memory', to: 'idea'),
+                        GraphPreviewEdge(from: 'plan', to: 'question'),
+                        GraphPreviewEdge(from: 'idea', to: 'question'),
+                      ],
+                    ),
+                  },
+                ),
+              },
             ),
-          ],
-        ),
-        'scene-graph-preview': GraphPreviewLayout(
-          aliases: ['graph-preview', 'knowledge-preview', 'future-graph'],
-          nodeStyle: lgErgoGraphPreviewNodeStyle,
-          edgeStyle: lgErgoGraphPreviewEdgeStyle,
-          fillColor: lgErgoGraphPreviewNodeFillColor,
-          labelColor: lgErgoGraphPreviewLabelColor,
-          nodes: [
-            GraphPreviewNode(id: 'self', position: Offset(0.5, 0.05)),
-            GraphPreviewNode(id: 'memory', position: Offset(0.34, 0.13)),
-            GraphPreviewNode(id: 'plan', position: Offset(0.66, 0.13)),
-            GraphPreviewNode(id: 'idea', position: Offset(0.43, 0.22)),
-            GraphPreviewNode(id: 'question', position: Offset(0.57, 0.22)),
-          ],
-          edges: [
-            GraphPreviewEdge(from: 'self', to: 'memory'),
-            GraphPreviewEdge(from: 'self', to: 'plan'),
-            GraphPreviewEdge(from: 'memory', to: 'idea'),
-            GraphPreviewEdge(from: 'plan', to: 'question'),
-            GraphPreviewEdge(from: 'idea', to: 'question'),
-          ],
+          },
         ),
         'outer-circle': CirleLayout(
           boundary: LayoutCircleBoundary.outer,
