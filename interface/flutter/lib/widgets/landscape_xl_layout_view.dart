@@ -1,4 +1,6 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
@@ -126,25 +128,14 @@ class _LandscapeXlLayoutNodeView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final backgroundEntries =
-        layout.layouts.entries
-            .where((entry) => entry.value is LayoutBackgroundElement)
-            .map(
-              (entry) =>
-                  MapEntry(entry.key, entry.value as LayoutBackgroundElement),
-            )
-            .toList()
-          ..sort((left, right) {
-            final order = left.value.orderPosition.compareTo(
-              right.value.orderPosition,
-            );
-            return order != 0 ? order : left.key.compareTo(right.key);
-          });
+    final backgrounds = [
+      ...layout.backgrounds,
+    ]..sort((left, right) => left.orderPosition.compareTo(right.orderPosition));
     Widget view = Stack(
       fit: StackFit.expand,
       children: [
-        for (final entry in backgroundEntries)
-          _LayoutBackgroundElementView(element: entry.value),
+        for (final background in backgrounds)
+          _LayoutBackgroundView(background: background),
         IgnorePointer(child: CustomPaint(painter: _LayoutGuidePainter(layout))),
         for (final child in layout.layouts.values)
           if (child is LandscapeXlLayout)
@@ -154,7 +145,6 @@ class _LandscapeXlLayoutNodeView extends StatelessWidget {
               contentBuilder: contentBuilder,
             )
           else if (child is! LayoutGuide &&
-              child is! LayoutBackgroundElement &&
               child is! LayoutPath &&
               child is! RadialTreeLayout &&
               child is! NodePropertyTable &&
@@ -172,32 +162,68 @@ class _LandscapeXlLayoutNodeView extends StatelessWidget {
   }
 }
 
-class _LayoutBackgroundElementView extends StatelessWidget {
-  const _LayoutBackgroundElementView({required this.element});
+class _LayoutBackgroundView extends StatelessWidget {
+  const _LayoutBackgroundView({required this.background});
 
-  final LayoutBackgroundElement element;
+  final LayoutBackground background;
 
   @override
   Widget build(BuildContext context) {
+    if (background is LayoutGuidingBackground) {
+      return Positioned.fill(
+        child: Opacity(
+          opacity: background.opacity.clamp(0, 1),
+          child: CustomPaint(
+            painter: _LayoutGuidingBackgroundPainter(
+              background as LayoutGuidingBackground,
+            ),
+          ),
+        ),
+      );
+    }
+    final imageBackground = background as LayoutImageBackground;
     final image = Image.asset(
-      element.assetPath,
-      fit: switch (element.fit) {
+      imageBackground.assetPath,
+      fit: switch (imageBackground.fit) {
         LayoutBackgroundFit.cover => BoxFit.cover,
         LayoutBackgroundFit.contain => BoxFit.contain,
         LayoutBackgroundFit.fill => BoxFit.fill,
       },
       alignment: Alignment(
-        element.alignment.dx * 2 - 1,
-        element.alignment.dy * 2 - 1,
+        imageBackground.alignment.dx * 2 - 1,
+        imageBackground.alignment.dy * 2 - 1,
       ),
       width: double.infinity,
       height: double.infinity,
     );
     return Positioned.fill(
-      child: element.opacity == 1
+      child: background.opacity == 1
           ? image
-          : Opacity(opacity: element.opacity.clamp(0, 1), child: image),
+          : Opacity(opacity: background.opacity.clamp(0, 1), child: image),
     );
+  }
+}
+
+class _LayoutGuidingBackgroundPainter extends CustomPainter {
+  const _LayoutGuidingBackgroundPainter(this.background);
+
+  final LayoutGuidingBackground background;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (final guide in background.guides) {
+      drawGuideLine(
+        canvas,
+        Offset(size.width * guide.start.dx, size.height * guide.start.dy),
+        Offset(size.width * guide.end.dx, size.height * guide.end.dy),
+        guide.style,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_LayoutGuidingBackgroundPainter oldDelegate) {
+    return oldDelegate.background != background;
   }
 }
 
@@ -1488,13 +1514,6 @@ void _drawTableLayout(
   final panelBounds = _boundsForPoints(tablePoints);
   if (panelBounds.width <= 48 || panelBounds.height <= 48) return;
 
-  canvas.save();
-  canvas.clipPath(panelPath);
-
-  final tableLinePaint = Paint()
-    ..color = table.guideStyle.color
-    ..strokeWidth = table.guideStyle.strokeWidth
-    ..style = PaintingStyle.stroke;
   final leftLength = (tablePoints[3] - tablePoints[0]).distance;
   final rightLength = (tablePoints[2] - tablePoints[1]).distance;
   final averageHeight = (leftLength + rightLength) / 2;
@@ -1507,6 +1526,28 @@ void _drawTableLayout(
   final columnStops = _gridTrackStops([
     for (final column in table.columns) column.value.size,
   ], averageWidth);
+  final tableTransformPoints = [
+    _tableLayoutPoint(tablePoints, row: 0, column: 0),
+    _tableLayoutPoint(tablePoints, row: 0, column: 1),
+    _tableLayoutPoint(tablePoints, row: 1, column: 1),
+    _tableLayoutPoint(tablePoints, row: 1, column: 0),
+  ];
+  final flatTablePoints = [
+    Offset.zero,
+    Offset(averageWidth, 0),
+    Offset(averageWidth, averageHeight),
+    Offset(0, averageHeight),
+  ];
+  final recorder = ui.PictureRecorder();
+  final tableCanvas = Canvas(
+    recorder,
+    Rect.fromLTWH(0, 0, averageWidth, averageHeight),
+  )..clipRect(Rect.fromLTWH(0, 0, averageWidth, averageHeight));
+
+  final tableLinePaint = Paint()
+    ..color = table.guideStyle.color
+    ..strokeWidth = table.guideStyle.strokeWidth
+    ..style = PaintingStyle.stroke;
 
   final highlightedCell = _tableHighlightedCell(
     tablePoints,
@@ -1521,8 +1562,8 @@ void _drawTableLayout(
       ..style = PaintingStyle.fill;
     if (highlight.rows) {
       _drawTableCellFill(
-        canvas,
-        tablePoints,
+        tableCanvas,
+        flatTablePoints,
         rowStops[highlightedCell.row],
         rowStops[highlightedCell.row + 1],
         0,
@@ -1532,8 +1573,8 @@ void _drawTableLayout(
     }
     if (highlight.columns) {
       _drawTableCellFill(
-        canvas,
-        tablePoints,
+        tableCanvas,
+        flatTablePoints,
         0,
         1,
         columnStops[highlightedCell.column],
@@ -1543,31 +1584,32 @@ void _drawTableLayout(
     }
   }
 
-  final tablePath = Path()..moveTo(tablePoints.first.dx, tablePoints.first.dy);
-  for (final corner in tablePoints.skip(1)) {
+  final tablePath = Path()
+    ..moveTo(flatTablePoints.first.dx, flatTablePoints.first.dy);
+  for (final corner in flatTablePoints.skip(1)) {
     tablePath.lineTo(corner.dx, corner.dy);
   }
   tablePath.close();
-  canvas.drawPath(tablePath, tableLinePaint);
+  tableCanvas.drawPath(tablePath, tableLinePaint);
 
   for (final stop in rowStops.skip(1).take(rowStops.length - 2)) {
-    canvas.drawLine(
-      _tableLayoutPoint(tablePoints, row: stop, column: 0),
-      _tableLayoutPoint(tablePoints, row: stop, column: 1),
+    tableCanvas.drawLine(
+      _tableLayoutPoint(flatTablePoints, row: stop, column: 0),
+      _tableLayoutPoint(flatTablePoints, row: stop, column: 1),
       tableLinePaint,
     );
   }
   for (final columnStop in columnStops.skip(1).take(columnStops.length - 2)) {
     for (var rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
       if (rows[rowIndex].section) continue;
-      canvas.drawLine(
+      tableCanvas.drawLine(
         _tableLayoutPoint(
-          tablePoints,
+          flatTablePoints,
           row: rowStops[rowIndex],
           column: columnStop,
         ),
         _tableLayoutPoint(
-          tablePoints,
+          flatTablePoints,
           row: rowStops[rowIndex + 1],
           column: columnStop,
         ),
@@ -1582,8 +1624,8 @@ void _drawTableLayout(
     final rowEnd = rowStops[index + 1];
     if (row.section) {
       _drawTableCellFill(
-        canvas,
-        tablePoints,
+        tableCanvas,
+        flatTablePoints,
         rowStart,
         rowEnd,
         0,
@@ -1594,8 +1636,8 @@ void _drawTableLayout(
       );
       if (row.label.isNotEmpty) {
         _paintTextInTableCell(
-          canvas,
-          tablePoints,
+          tableCanvas,
+          flatTablePoints,
           rowStart: rowStart,
           rowEnd: rowEnd,
           columnStart: 0,
@@ -1620,8 +1662,8 @@ void _drawTableLayout(
       final column = table.columns[columnIndex];
       final isKeyColumn = column.key == 'key';
       _paintTextInTableCell(
-        canvas,
-        tablePoints,
+        tableCanvas,
+        flatTablePoints,
         rowStart: rowStart,
         rowEnd: rowEnd,
         columnStart: columnStops[columnIndex],
@@ -1638,7 +1680,15 @@ void _drawTableLayout(
     }
   }
 
+  final tablePicture = recorder.endRecording();
+  canvas.save();
+  canvas.clipPath(panelPath);
+  canvas.transform(
+    _rectToQuadTransform(averageWidth, averageHeight, tableTransformPoints),
+  );
+  canvas.drawPicture(tablePicture);
   canvas.restore();
+  tablePicture.dispose();
 }
 
 Offset _tableLayoutPoint(
@@ -1691,6 +1741,64 @@ void _drawTableCellFill(
     _tableCellPath(points, rowStart, rowEnd, columnStart, columnEnd),
     paint,
   );
+}
+
+Float64List _rectToQuadTransform(
+  double width,
+  double height,
+  List<Offset> quad,
+) {
+  final x0 = quad[0].dx;
+  final y0 = quad[0].dy;
+  final x1 = quad[1].dx;
+  final y1 = quad[1].dy;
+  final x2 = quad[2].dx;
+  final y2 = quad[2].dy;
+  final x3 = quad[3].dx;
+  final y3 = quad[3].dy;
+
+  final dx1 = x1 - x2;
+  final dy1 = y1 - y2;
+  final dx2 = x3 - x2;
+  final dy2 = y3 - y2;
+  final dx3 = x0 - x1 + x2 - x3;
+  final dy3 = y0 - y1 + y2 - y3;
+  final denominator = dx1 * dy2 - dx2 * dy1;
+
+  var g = 0.0;
+  var h = 0.0;
+  if (denominator.abs() > 0.000001) {
+    g = (dx3 * dy2 - dx2 * dy3) / denominator;
+    h = (dx1 * dy3 - dx3 * dy1) / denominator;
+  }
+
+  final a = x1 - x0 + g * x1;
+  final b = x3 - x0 + h * x3;
+  final c = x0;
+  final d = y1 - y0 + g * y1;
+  final e = y3 - y0 + h * y3;
+  final f = y0;
+  final safeWidth = math.max(width, 0.000001);
+  final safeHeight = math.max(height, 0.000001);
+
+  return Float64List.fromList([
+    a / safeWidth,
+    d / safeWidth,
+    0,
+    g / safeWidth,
+    b / safeHeight,
+    e / safeHeight,
+    0,
+    h / safeHeight,
+    0,
+    0,
+    1,
+    0,
+    c,
+    f,
+    0,
+    1,
+  ]);
 }
 
 Path _tableCellPath(

@@ -9,6 +9,37 @@ import '../../../paths/default_vault_paths.dart';
 final lgErgoLayoutConfig = LandscapeXlLayout(
   aliases: ['screen', 'root', 'reality', 'user-space', 'user-reality'],
   attributes: [LayoutAttribute.screen, LayoutAttribute.rectangular],
+  backgrounds: [
+    LayoutImageBackground(
+      assetPath: 'assets/please-stand-by.png',
+      fit: LayoutBackgroundFit.cover,
+      opacity: 0.34,
+    ),
+    LayoutGuidingBackground(
+      guides: [
+        LayoutBackgroundGuide(
+          start: Offset(0, 0.5),
+          end: Offset(1, 0.5),
+          style: lgErgoScreenGuidelineStyle,
+        ),
+        LayoutBackgroundGuide(
+          start: Offset(0.5, 0),
+          end: Offset(0.5, 1),
+          style: lgErgoScreenGuidelineStyle,
+        ),
+        LayoutBackgroundGuide(
+          start: Offset(0, 0),
+          end: Offset(1, 1),
+          style: lgErgoDiagonalGuidelineStyle,
+        ),
+        LayoutBackgroundGuide(
+          start: Offset(0, 1),
+          end: Offset(1, 0),
+          style: lgErgoDiagonalGuidelineStyle,
+        ),
+      ],
+    ),
+  ],
   layoutDefaults: lgErgoLayoutDefaults,
   derivativeSnapshot: 'screen-edge-centers',
   derivatives: {
@@ -20,32 +51,6 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
     ),
   },
   layouts: {
-    'please-stand-by-background': LayoutBackgroundElement(
-      assetPath: 'assets/please-stand-by.png',
-      orderPosition: 0,
-      fit: LayoutBackgroundFit.cover,
-      opacity: lgErgoBackgroundOpacity,
-    ),
-    'horizontal-guide': Guideline(
-      start: Offset(0, 0.5),
-      end: Offset(1, 0.5),
-      style: lgErgoScreenGuidelineStyle,
-    ),
-    'vertical-guide': Guideline(
-      start: Offset(0.5, 0),
-      end: Offset(0.5, 1),
-      style: lgErgoScreenGuidelineStyle,
-    ),
-    'descending-diagonal-guide': Guideline(
-      start: Offset(0, 0),
-      end: Offset(1, 1),
-      style: lgErgoDiagonalGuidelineStyle,
-    ),
-    // 'ascending-diagonal-guide': Guideline(
-    //   start: Offset(0, 1),
-    //   end: Offset(1, 0),
-    //   style: lgErgoDiagonalGuidelineStyle,
-    // ),
     'left-plane': LayoutPath(
       aliases: ['left-plane', 'space-plane', 'y-axis-plane'],
       points: [
@@ -692,7 +697,6 @@ const lgErgoLayoutDefaults = LayoutDefaults(
   borderWidth: lgErgoLayoutDefaultBorderWidth,
 );
 
-const lgErgoBackgroundOpacity = 0.34;
 const lgErgoPastColor = Color(0x553F51B5);
 const lgErgoNowColor = Color(0xFFDC143C);
 const lgErgoFutureColor = Color(0x552E7D32);

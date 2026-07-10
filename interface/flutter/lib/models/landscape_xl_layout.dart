@@ -4,6 +4,7 @@ class LandscapeXlLayout extends Layout {
   const LandscapeXlLayout({
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
+    super.backgrounds,
     super.layouts,
     super.derivatives,
     super.derivativeSnapshot,
@@ -21,6 +22,7 @@ class SafeAreaLayout extends LandscapeXlLayout {
       LayoutAttribute.safeArea,
       LayoutAttribute.rectangular,
     ],
+    super.backgrounds,
     super.layouts,
     super.derivatives,
     super.derivativeSnapshot,

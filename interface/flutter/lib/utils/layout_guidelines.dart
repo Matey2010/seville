@@ -10,18 +10,7 @@ void drawLayoutGuidelines(Canvas canvas, Size size, Layout layout) {
 
   for (final guide in layout.layouts.values.whereType<LayoutGuide>()) {
     if (!guide.visible) continue;
-    if (guide is Guideline) {
-      final start = Offset(
-        size.width * guide.start.dx,
-        size.height * guide.start.dy,
-      );
-      final end = Offset(size.width * guide.end.dx, size.height * guide.end.dy);
-      drawGuideLine(canvas, start, end, guide.style);
-      if (guide.showArrow) {
-        _drawArrowHead(canvas, start, end, guide);
-      }
-      _drawGuidelineMarkers(canvas, size, guide);
-    } else if (guide is CirleLayout) {
+    if (guide is CirleLayout) {
       final circle = switch (guide.boundary) {
         LayoutCircleBoundary.inner => layout.innerCircle,
         LayoutCircleBoundary.outer => layout.outerCircle,
@@ -32,25 +21,6 @@ void drawLayoutGuidelines(Canvas canvas, Size size, Layout layout) {
     } else if (guide is LayoutBorderGuide) {
       _drawBorderGuide(canvas, size, layout, guide);
     }
-  }
-}
-
-void _drawGuidelineMarkers(Canvas canvas, Size size, Guideline guideline) {
-  for (final marker in guideline.markers) {
-    final derivative = guideline.guidelineDerivatives[marker.derivative];
-    if (derivative == null) continue;
-    final position = derivative.resolve(guideline, size) + marker.offset;
-    final painter = TextPainter(
-      text: TextSpan(
-        text: marker.label,
-        style: TextStyle(color: marker.color, fontSize: marker.fontSize),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    painter.paint(
-      canvas,
-      position - Offset(painter.width / 2, painter.height / 2),
-    );
   }
 }
 
@@ -251,26 +221,4 @@ void _drawCircleByCenterRadius(
       paint,
     );
   }
-}
-
-void _drawArrowHead(
-  Canvas canvas,
-  Offset start,
-  Offset end,
-  Guideline guideline,
-) {
-  final delta = end - start;
-  final distance = delta.distance;
-  if (distance == 0) return;
-  final direction = delta / distance;
-  final base = end - direction * guideline.arrowSize;
-  final perpendicular = Offset(-direction.dy, direction.dx);
-  final halfWidth = guideline.arrowSize * 0.55;
-  final paint = Paint()
-    ..color = guideline.style.color
-    ..strokeWidth = guideline.style.strokeWidth
-    ..strokeCap = guideline.style.strokeCap
-    ..style = PaintingStyle.stroke;
-  canvas.drawLine(end, base + perpendicular * halfWidth, paint);
-  canvas.drawLine(end, base - perpendicular * halfWidth, paint);
 }

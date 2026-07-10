@@ -412,69 +412,6 @@ abstract class LayoutGuide extends Layout {
   final bool visible;
 }
 
-abstract class GuidelineDerivative {
-  const GuidelineDerivative();
-
-  Offset resolve(Guideline guideline, Size size);
-}
-
-class GuidelineFractionDerivative extends GuidelineDerivative {
-  const GuidelineFractionDerivative(this.fraction);
-
-  final double fraction;
-
-  @override
-  Offset resolve(Guideline guideline, Size size) {
-    final start = Offset(
-      size.width * guideline.start.dx,
-      size.height * guideline.start.dy,
-    );
-    final end = Offset(
-      size.width * guideline.end.dx,
-      size.height * guideline.end.dy,
-    );
-    return Offset.lerp(start, end, fraction.clamp(0, 1))!;
-  }
-}
-
-class GuidelineMarker {
-  const GuidelineMarker({
-    required this.derivative,
-    required this.label,
-    this.fontSize = 18,
-    this.color = const Color(0xFFFFFFFF),
-    this.offset = Offset.zero,
-  });
-
-  final String derivative;
-  final String label;
-  final double fontSize;
-  final Color color;
-  final Offset offset;
-}
-
-class Guideline extends LayoutGuide {
-  const Guideline({
-    required this.start,
-    required this.end,
-    required super.style,
-    super.visible,
-    this.showArrow = false,
-    this.arrowSize = 12,
-    this.guidelineDerivatives = const {},
-    this.markers = const [],
-    super.aliases,
-    super.attributes = const [LayoutAttribute.linear],
-  });
-
-  final Offset start;
-  final Offset end;
-  final bool showArrow;
-  final double arrowSize;
-  final Map<String, GuidelineDerivative> guidelineDerivatives;
-  final List<GuidelineMarker> markers;
-}
-
 class GuideGrid extends LayoutGuide {
   const GuideGrid({
     required super.style,
@@ -812,28 +749,47 @@ class LayoutObservable {
 
 enum LayoutBackgroundFit { cover, contain, fill }
 
-class LayoutBackgroundElement extends Layout {
-  const LayoutBackgroundElement({
+class LayoutBackground {
+  const LayoutBackground({this.orderPosition = 0, this.opacity = 1});
+
+  final int orderPosition;
+  final double opacity;
+}
+
+class LayoutImageBackground extends LayoutBackground {
+  const LayoutImageBackground({
     required this.assetPath,
-    required this.orderPosition,
+    super.orderPosition,
+    super.opacity,
     this.fit = LayoutBackgroundFit.cover,
-    this.opacity = 1,
     this.alignment = const Offset(0.5, 0.5),
-    super.layouts,
-    super.derivatives,
-    super.derivativeSnapshot,
-    super.observables,
-    super.innerCircle,
-    super.outerCircle,
-    super.aliases,
-    super.attributes = const [LayoutAttribute.rectangular],
-  }) : super.fromAxes();
+  });
 
   final String assetPath;
-  final int orderPosition;
   final LayoutBackgroundFit fit;
-  final double opacity;
   final Offset alignment;
+}
+
+class LayoutGuidingBackground extends LayoutBackground {
+  const LayoutGuidingBackground({
+    required this.guides,
+    super.orderPosition,
+    super.opacity,
+  });
+
+  final List<LayoutBackgroundGuide> guides;
+}
+
+class LayoutBackgroundGuide {
+  const LayoutBackgroundGuide({
+    required this.start,
+    required this.end,
+    required this.style,
+  });
+
+  final Offset start;
+  final Offset end;
+  final GuideStyle style;
 }
 
 class LayoutPathStyle {
@@ -1432,6 +1388,7 @@ abstract class Layout {
     this.axes = const [0, 0],
     this.aliases = const [],
     this.attributes = const [],
+    this.backgrounds = const [],
     this.layouts = const {},
     this.derivatives = const {},
     this.derivativeSnapshot,
@@ -1450,6 +1407,7 @@ abstract class Layout {
   final List<int> axes;
   final List<String> aliases;
   final List<LayoutAttribute> attributes;
+  final List<LayoutBackground> backgrounds;
 
   /// Recursive layout tree. Map keys are the child layouts' identities.
   final Map<String, Layout> layouts;
