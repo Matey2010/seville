@@ -70,11 +70,11 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
         LayoutDerivativeReference(derivative: 'B'),
         LayoutDerivativeReference(
           layoutPath: ['safe-area'],
-          derivative: 'innerSquare.B',
+          derivative: 'leftPlane.top',
         ),
         LayoutDerivativeReference(
           layoutPath: ['safe-area'],
-          derivative: 'innerSquare.A',
+          derivative: 'leftPlane.bottom',
         ),
         LayoutDerivativeReference(derivative: 'A'),
       ],
@@ -241,11 +241,11 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
         LayoutDerivativeReference(derivative: 'C'),
         LayoutDerivativeReference(
           layoutPath: ['safe-area'],
-          derivative: 'innerSquare.C',
+          derivative: 'rightPlane.top',
         ),
         LayoutDerivativeReference(
           layoutPath: ['safe-area'],
-          derivative: 'innerSquare.D',
+          derivative: 'rightPlane.bottom',
         ),
         LayoutDerivativeReference(derivative: 'D'),
       ],
@@ -523,6 +523,50 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
             'innerSquare.AD-center': MidpointDerivative(
               from: 'innerSquare.A',
               to: 'innerSquare.D',
+            ),
+            'leftPlane.top': ConditionalDerivative(
+              condition: LayoutSelectedModeCondition(mode: 'scene-flopped'),
+              whenTrue: MidpointDerivative(
+                from: 'innerSquare.B',
+                to: 'innerSquare.C',
+              ),
+              whenFalse: CircleRayIntersectionDerivative(
+                circle: LayoutCircleBoundary.inner,
+                angleDegrees: 135,
+              ),
+            ),
+            'leftPlane.bottom': ConditionalDerivative(
+              condition: LayoutSelectedModeCondition(mode: 'scene-flopped'),
+              whenTrue: MidpointDerivative(
+                from: 'innerSquare.A',
+                to: 'innerSquare.D',
+              ),
+              whenFalse: CircleRayIntersectionDerivative(
+                circle: LayoutCircleBoundary.inner,
+                angleDegrees: 225,
+              ),
+            ),
+            'rightPlane.top': ConditionalDerivative(
+              condition: LayoutSelectedModeCondition(mode: 'scene-flopped'),
+              whenTrue: MidpointDerivative(
+                from: 'innerSquare.B',
+                to: 'innerSquare.C',
+              ),
+              whenFalse: CircleRayIntersectionDerivative(
+                circle: LayoutCircleBoundary.inner,
+                angleDegrees: 45,
+              ),
+            ),
+            'rightPlane.bottom': ConditionalDerivative(
+              condition: LayoutSelectedModeCondition(mode: 'scene-flopped'),
+              whenTrue: MidpointDerivative(
+                from: 'innerSquare.A',
+                to: 'innerSquare.D',
+              ),
+              whenFalse: CircleRayIntersectionDerivative(
+                circle: LayoutCircleBoundary.inner,
+                angleDegrees: 315,
+              ),
             ),
           },
         ),
