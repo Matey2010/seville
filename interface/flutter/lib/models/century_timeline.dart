@@ -5,8 +5,6 @@ class CenturyTimeline extends TrackLayout {
     required List<double> columnRatio,
     required List<double> fractionSpans,
     super.attributes,
-    super.innerCircle,
-    super.outerCircle,
     required super.elements,
   }) : super.fromAxes(
          axes: const [10],

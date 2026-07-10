@@ -434,42 +434,6 @@ class GuideGrid extends LayoutGuide {
   final double intersectionSize;
 }
 
-class LayoutCircle {
-  const LayoutCircle({
-    this.center = const Offset(0.5, 0.5),
-    required this.radiusFraction,
-  });
-
-  /// Center normalized against the owning layout's current bounds.
-  final Offset center;
-
-  /// Radius measured as a fraction of the layout's shortest side.
-  final double radiusFraction;
-
-  Offset resolveCenter(Size size, {LayoutDefaults? defaults}) {
-    final inset = _resolveInset(size, defaults);
-    final availableSize = Size(
-      math.max(size.width - inset * 2, 0),
-      math.max(size.height - inset * 2, 0),
-    );
-    return Offset(
-      inset + center.dx * availableSize.width,
-      inset + center.dy * availableSize.height,
-    );
-  }
-
-  double resolveRadius(Size size, {LayoutDefaults? defaults}) {
-    final inset = _resolveInset(size, defaults);
-    return math.max(size.shortestSide - inset * 2, 0) * radiusFraction;
-  }
-
-  double _resolveInset(Size size, LayoutDefaults? defaults) {
-    final requestedInset =
-        (defaults?.padding ?? 0) + (defaults?.borderWidth ?? 0);
-    return requestedInset.clamp(0, size.shortestSide / 2).toDouble();
-  }
-}
-
 enum LayoutCircleBoundary { inner, outer }
 
 class CirleLayout extends LayoutGuide {
@@ -488,7 +452,37 @@ class CirleLayout extends LayoutGuide {
 abstract class LayoutDerivative {
   const LayoutDerivative();
 
-  Offset resolve(Layout layout, Size size);
+  Offset resolve(
+    Layout layout,
+    Size size, [
+    LayoutContext context = LayoutContext.empty,
+  ]);
+}
+
+/// Selects geometry at resolution time using the current layout context.
+///
+/// This keeps conditional scene geometry in the derivative graph, so layouts
+/// that reference the derivative automatically follow the selected branch.
+class ConditionalDerivative extends LayoutDerivative {
+  const ConditionalDerivative({
+    required this.condition,
+    required this.whenTrue,
+    required this.whenFalse,
+  });
+
+  final LayoutCondition condition;
+  final LayoutDerivative whenTrue;
+  final LayoutDerivative whenFalse;
+
+  @override
+  Offset resolve(
+    Layout layout,
+    Size size, [
+    LayoutContext context = LayoutContext.empty,
+  ]) {
+    final derivative = condition.isActive(context) ? whenTrue : whenFalse;
+    return derivative.resolve(layout, size, context);
+  }
 }
 
 class CircleRayIntersectionDerivative extends LayoutDerivative {
@@ -498,24 +492,22 @@ class CircleRayIntersectionDerivative extends LayoutDerivative {
   });
 
   final LayoutCircleBoundary circle;
+
+  /// Standard mathematical angle: 0° points right and positive angles rotate
+  /// counterclockwise. The resolver converts the mathematical Y axis to
+  /// Flutter's downward-positive screen Y axis.
   final double angleDegrees;
 
   @override
-  Offset resolve(Layout layout, Size size) {
-    final geometry = switch (circle) {
-      LayoutCircleBoundary.inner => layout.innerCircle,
-      LayoutCircleBoundary.outer => layout.outerCircle,
-    };
-    if (geometry == null) return Offset.zero;
-    final defaults = switch (circle) {
-      LayoutCircleBoundary.inner => layout.layoutDefaults,
-      LayoutCircleBoundary.outer => null,
-    };
-
+  Offset resolve(
+    Layout layout,
+    Size size, [
+    LayoutContext context = LayoutContext.empty,
+  ]) {
     final angle = angleDegrees * math.pi / 180;
-    return geometry.resolveCenter(size, defaults: defaults) +
-        Offset(math.cos(angle), math.sin(angle)) *
-            geometry.resolveRadius(size, defaults: defaults);
+    return layout.resolveCircleCenter(size, circle) +
+        Offset(math.cos(angle), -math.sin(angle)) *
+            layout.resolveCircleRadius(size, circle);
   }
 }
 
@@ -525,18 +517,11 @@ class CircleCenterDerivative extends LayoutDerivative {
   final LayoutCircleBoundary circle;
 
   @override
-  Offset resolve(Layout layout, Size size) {
-    final geometry = switch (circle) {
-      LayoutCircleBoundary.inner => layout.innerCircle,
-      LayoutCircleBoundary.outer => layout.outerCircle,
-    };
-    if (geometry == null) return Offset.zero;
-    final defaults = switch (circle) {
-      LayoutCircleBoundary.inner => layout.layoutDefaults,
-      LayoutCircleBoundary.outer => null,
-    };
-    return geometry.resolveCenter(size, defaults: defaults);
-  }
+  Offset resolve(
+    Layout layout,
+    Size size, [
+    LayoutContext context = LayoutContext.empty,
+  ]) => layout.resolveCircleCenter(size, circle);
 }
 
 class BoundsPointDerivative extends LayoutDerivative {
@@ -545,7 +530,11 @@ class BoundsPointDerivative extends LayoutDerivative {
   final Offset position;
 
   @override
-  Offset resolve(Layout layout, Size size) {
+  Offset resolve(
+    Layout layout,
+    Size size, [
+    LayoutContext context = LayoutContext.empty,
+  ]) {
     return Offset(position.dx * size.width, position.dy * size.height);
   }
 }
@@ -560,7 +549,11 @@ class PaddedBoundsPointDerivative extends LayoutDerivative {
   final double padding;
 
   @override
-  Offset resolve(Layout layout, Size size) {
+  Offset resolve(
+    Layout layout,
+    Size size, [
+    LayoutContext context = LayoutContext.empty,
+  ]) {
     final safePadding = padding.clamp(0, size.shortestSide / 2).toDouble();
     final paddedSize = Size(
       math.max(size.width - safePadding * 2, 0),
@@ -585,15 +578,19 @@ class MidpointDerivative extends LayoutDerivative {
   final String? snapshot;
 
   @override
-  Offset resolve(Layout layout, Size size) {
-    final derivatives = layout.getDerivatives(snapshot).values;
+  Offset resolve(
+    Layout layout,
+    Size size, [
+    LayoutContext context = LayoutContext.empty,
+  ]) {
+    final derivatives = layout.getDerivatives(snapshot, null, context).values;
     final fromDerivative = derivatives[from];
     final toDerivative = derivatives[to];
     if (fromDerivative == null || toDerivative == null) return Offset.zero;
 
     return Offset.lerp(
-      fromDerivative.resolve(layout, size),
-      toDerivative.resolve(layout, size),
+      fromDerivative.resolve(layout, size, context),
+      toDerivative.resolve(layout, size, context),
       0.5,
     )!;
   }
@@ -613,8 +610,18 @@ class ShapeCircleDerivative extends LayoutDerivative {
   final String? snapshot;
 
   @override
-  Offset resolve(Layout layout, Size size) {
-    final resolved = _resolveShapePoints(layout, size, points, snapshot);
+  Offset resolve(
+    Layout layout,
+    Size size, [
+    LayoutContext context = LayoutContext.empty,
+  ]) {
+    final resolved = _resolveShapePoints(
+      layout,
+      size,
+      points,
+      snapshot,
+      context,
+    );
     if (resolved.isEmpty) return Offset.zero;
     final bounds = _boundsForPoints(resolved);
     final center = bounds.center;
@@ -643,8 +650,18 @@ class ShapeSquareDerivative extends LayoutDerivative {
   final String? snapshot;
 
   @override
-  Offset resolve(Layout layout, Size size) {
-    final resolved = _resolveShapePoints(layout, size, points, snapshot);
+  Offset resolve(
+    Layout layout,
+    Size size, [
+    LayoutContext context = LayoutContext.empty,
+  ]) {
+    final resolved = _resolveShapePoints(
+      layout,
+      size,
+      points,
+      snapshot,
+      context,
+    );
     if (resolved.isEmpty) return Offset.zero;
     final bounds = _boundsForPoints(resolved);
     final center = bounds.center;
@@ -664,12 +681,13 @@ List<Offset> _resolveShapePoints(
   Size size,
   List<String> points,
   String? snapshot,
+  LayoutContext context,
 ) {
-  final derivatives = layout.getDerivatives(snapshot).values;
+  final derivatives = layout.getDerivatives(snapshot, null, context).values;
   return [
     for (final point in points)
       if (derivatives[point] case final derivative?)
-        derivative.resolve(layout, size),
+        derivative.resolve(layout, size, context),
   ];
 }
 
@@ -706,7 +724,7 @@ extension LayoutAttributeDerivatives on LayoutAttribute {
       'center': BoundsPointDerivative(Offset(0.5, 0.5)),
       'circleTop': CircleRayIntersectionDerivative(
         circle: LayoutCircleBoundary.outer,
-        angleDegrees: 270,
+        angleDegrees: 90,
       ),
       'circleRight': CircleRayIntersectionDerivative(
         circle: LayoutCircleBoundary.outer,
@@ -714,7 +732,7 @@ extension LayoutAttributeDerivatives on LayoutAttribute {
       ),
       'circleBottom': CircleRayIntersectionDerivative(
         circle: LayoutCircleBoundary.outer,
-        angleDegrees: 90,
+        angleDegrees: 270,
       ),
       'circleLeft': CircleRayIntersectionDerivative(
         circle: LayoutCircleBoundary.outer,
@@ -748,6 +766,7 @@ class LayoutMode {
     required this.id,
     this.aliases = const [],
     this.activeCondition,
+    this.visible = true,
     this.derivativeSnapshot,
     this.derivatives = const {},
   });
@@ -758,6 +777,7 @@ class LayoutMode {
   /// Modes are inactive by default. A mode applies only when this condition
   /// evaluates true for the current layout context.
   final LayoutCondition? activeCondition;
+  final bool visible;
   final String? derivativeSnapshot;
   final Map<String, LayoutDerivative> derivatives;
 
@@ -1147,8 +1167,6 @@ class LayoutPath extends Layout {
     super.derivativeSnapshot,
     super.observables,
     super.modes,
-    super.innerCircle,
-    super.outerCircle,
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
   }) : super.fromAxes();
@@ -1339,8 +1357,6 @@ class PlaneLayout extends Layout {
     super.observables,
     super.modes,
     super.layoutDefaults,
-    super.innerCircle,
-    super.outerCircle,
   }) : super.fromAxes();
 
   final VaultNodeUiComponent? node;
@@ -1543,8 +1559,6 @@ abstract class Layout {
     this.observables = const {},
     this.modes = const {},
     this.layoutDefaults,
-    this.innerCircle,
-    this.outerCircle,
     this.columnFractions,
     this.rowFractions,
     this.depthFractions,
@@ -1565,8 +1579,6 @@ abstract class Layout {
   final Map<String, LayoutObservable> observables;
   final Map<String, LayoutMode> modes;
   final LayoutDefaults? layoutDefaults;
-  final LayoutCircle? innerCircle;
-  final LayoutCircle? outerCircle;
   final List<double>? columnFractions;
   final List<double>? rowFractions;
   final List<double>? depthFractions;
@@ -1584,9 +1596,54 @@ abstract class Layout {
 
   int get dimensionCount => axes.length;
 
-  /// The inner circle is the most specific center reference when both exist.
-  Offset get center =>
-      innerCircle?.center ?? outerCircle?.center ?? const Offset(0.5, 0.5);
+  Offset get center => const Offset(0.5, 0.5);
+
+  /// The outer circle circumscribes the layout's full rectangular bounds.
+  /// The inner circle is inscribed in the bounds remaining after layout
+  /// padding and border width are applied.
+  Offset resolveCircleCenter(
+    Size size,
+    LayoutCircleBoundary boundary, {
+    bool useLayoutDefaults = false,
+  }) {
+    final inset = boundary == LayoutCircleBoundary.inner || useLayoutDefaults
+        ? _circleInset(size)
+        : 0.0;
+    return Offset(
+      inset + math.max(size.width - inset * 2, 0) / 2,
+      inset + math.max(size.height - inset * 2, 0) / 2,
+    );
+  }
+
+  double resolveCircleRadius(
+    Size size,
+    LayoutCircleBoundary boundary, {
+    bool useLayoutDefaults = false,
+  }) {
+    final inset = boundary == LayoutCircleBoundary.inner || useLayoutDefaults
+        ? _circleInset(size)
+        : 0.0;
+    final width = math.max(size.width - inset * 2, 0);
+    final height = math.max(size.height - inset * 2, 0);
+    if (boundary == LayoutCircleBoundary.outer) {
+      return math.sqrt(width * width + height * height) / 2;
+    }
+    return math.min(width, height) / 2;
+  }
+
+  Rect resolveCircleBounds(Size size, LayoutCircleBoundary boundary) {
+    final radius = resolveCircleRadius(size, boundary);
+    return Rect.fromCircle(
+      center: resolveCircleCenter(size, boundary),
+      radius: radius,
+    );
+  }
+
+  double _circleInset(Size size) {
+    final requestedInset =
+        (layoutDefaults?.padding ?? 0) + (layoutDefaults?.borderWidth ?? 0);
+    return requestedInset.clamp(0, size.shortestSide / 2).toDouble();
+  }
 
   LayoutMode? getMode(String? mode) {
     if (mode == null) return null;
@@ -1600,24 +1657,27 @@ abstract class Layout {
     return null;
   }
 
+  LayoutMode? resolveMode(LayoutContext context) {
+    final requestedMode = getMode(context.selectedMode);
+    if (requestedMode != null) {
+      return requestedMode.isActive(context) ? requestedMode : null;
+    }
+    for (final candidate in modes.values) {
+      if (candidate.isActive(context)) return candidate;
+    }
+    return null;
+  }
+
+  bool isVisible(LayoutContext context) =>
+      resolveMode(context)?.visible ?? true;
+
   LayoutDerivativeSnapshot getDerivatives([
     String? snapshot,
     String? mode,
     LayoutContext context = LayoutContext.empty,
   ]) {
     final layoutContext = context.withSelectedMode(mode);
-    final rawMode = getMode(mode);
-    LayoutMode? selectedMode;
-    if (rawMode == null) {
-      for (final candidate in modes.values) {
-        if (candidate.isActive(layoutContext)) {
-          selectedMode = candidate;
-          break;
-        }
-      }
-    } else if (rawMode.isActive(layoutContext)) {
-      selectedMode = rawMode;
-    }
+    final selectedMode = resolveMode(layoutContext);
     final selectedSnapshot =
         snapshot ?? selectedMode?.derivativeSnapshot ?? derivativeSnapshot;
     final selected = selectedSnapshot == null
@@ -1644,7 +1704,7 @@ abstract class Layout {
         mode,
         context,
       ).values.entries)
-        entry.key: entry.value.resolve(this, size),
+        entry.key: entry.value.resolve(this, size, context),
     };
   }
 }
@@ -1659,8 +1719,6 @@ class SceneLayout extends Layout {
     super.derivativeSnapshot,
     super.observables,
     super.modes,
-    super.innerCircle,
-    super.outerCircle,
     super.columnFractions,
     super.rowFractions,
     super.depthFractions,
@@ -1680,8 +1738,6 @@ class GridLayout extends Layout {
     super.derivativeSnapshot,
     super.observables,
     super.modes,
-    super.innerCircle,
-    super.outerCircle,
     super.columnFractions,
     super.rowFractions,
     super.fractionSpans,
@@ -1700,8 +1756,6 @@ class TrackLayout extends Layout {
     super.derivativeSnapshot,
     super.observables,
     super.modes,
-    super.innerCircle,
-    super.outerCircle,
     super.columnFractions,
     super.fractionSpans,
     super.subLayouts,

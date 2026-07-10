@@ -5,21 +5,20 @@ import 'package:flutter/material.dart';
 import '../models/layout.dart';
 import 'canvas_guides.dart';
 
-void drawLayoutGuidelines(Canvas canvas, Size size, Layout layout) {
+void drawLayoutGuidelines(
+  Canvas canvas,
+  Size size,
+  Layout layout, [
+  LayoutContext context = LayoutContext.empty,
+]) {
   if (size.isEmpty) return;
 
   for (final guide in layout.layouts.values.whereType<LayoutGuide>()) {
-    if (!guide.visible) continue;
+    if (!guide.visible || !guide.isVisible(context)) continue;
     if (guide is CirleLayout) {
-      final circle = switch (guide.boundary) {
-        LayoutCircleBoundary.inner => layout.innerCircle,
-        LayoutCircleBoundary.outer => layout.outerCircle,
-      };
-      if (circle != null) {
-        _drawCircleGuide(canvas, size, layout, circle, guide);
-      }
+      _drawCircleGuide(canvas, size, layout, guide);
     } else if (guide is LayoutBorderGuide) {
-      _drawBorderGuide(canvas, size, layout, guide);
+      _drawBorderGuide(canvas, size, layout, guide, context);
     }
   }
 }
@@ -29,9 +28,10 @@ void _drawBorderGuide(
   Size size,
   Layout layout,
   LayoutBorderGuide guide,
+  LayoutContext context,
 ) {
   final bounds = _resolveBorderBounds(size, layout, guide);
-  final derivatives = layout.resolveDerivatives(size);
+  final derivatives = layout.resolveDerivatives(size, null, null, context);
   final anchors = <({String id, Offset position})>[
     for (final id in guide.derivativeAnchors)
       if (derivatives[id] case final position?) (id: id, position: position),
@@ -112,20 +112,20 @@ void _drawBorderGuide(
 
 Rect _resolveBorderBounds(Size size, Layout layout, LayoutBorderGuide guide) {
   final fullBounds = Offset.zero & size;
-  final circle = switch (guide.reference) {
-    LayoutBorderReference.bounds => null,
-    LayoutBorderReference.innerCircle => layout.innerCircle,
-    LayoutBorderReference.outerCircle => layout.outerCircle,
-  };
-  if (circle == null) return fullBounds;
-
-  final defaults =
-      guide.useLayoutDefaults ||
-          guide.reference == LayoutBorderReference.innerCircle
-      ? layout.layoutDefaults
-      : null;
-  final center = circle.resolveCenter(size, defaults: defaults);
-  final radius = circle.resolveRadius(size, defaults: defaults);
+  if (guide.reference == LayoutBorderReference.bounds) return fullBounds;
+  final boundary = guide.reference == LayoutBorderReference.innerCircle
+      ? LayoutCircleBoundary.inner
+      : LayoutCircleBoundary.outer;
+  final center = layout.resolveCircleCenter(
+    size,
+    boundary,
+    useLayoutDefaults: guide.useLayoutDefaults,
+  );
+  final radius = layout.resolveCircleRadius(
+    size,
+    boundary,
+    useLayoutDefaults: guide.useLayoutDefaults,
+  );
   final halfExtent = guide.shape == LayoutBorderShape.square
       ? radius / math.sqrt2
       : radius;
@@ -167,15 +167,10 @@ void _drawCircleGuide(
   Canvas canvas,
   Size size,
   Layout layout,
-  LayoutCircle circle,
   CirleLayout guide,
 ) {
-  final defaults = switch (guide.boundary) {
-    LayoutCircleBoundary.inner => layout.layoutDefaults,
-    LayoutCircleBoundary.outer => null,
-  };
-  final center = circle.resolveCenter(size, defaults: defaults);
-  final radius = circle.resolveRadius(size, defaults: defaults);
+  final center = layout.resolveCircleCenter(size, guide.boundary);
+  final radius = layout.resolveCircleRadius(size, guide.boundary);
   if (radius <= 0) return;
 
   _drawCircleByCenterRadius(canvas, center, radius, guide.style);

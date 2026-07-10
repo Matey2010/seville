@@ -4,8 +4,6 @@ class QuarterTimeline extends TrackLayout {
   const QuarterTimeline({
     required List<double> columnRatio,
     super.attributes,
-    super.innerCircle,
-    super.outerCircle,
     required super.elements,
   }) : super.fromAxes(axes: const [6], columnFractions: columnRatio);
 

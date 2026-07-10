@@ -7,6 +7,9 @@ import '../../../interface_colors.dart';
 import '../../../paths/default_vault_paths.dart';
 
 final lgErgoLayoutConfig = LandscapeXlLayout(
+  initialActiveNode: VaultNodeUiComponent(
+    path: DefaultTimelineVaultPaths.today,
+  ),
   aliases: ['screen', 'root', 'reality', 'user-space', 'user-reality'],
   attributes: [LayoutAttribute.screen, LayoutAttribute.rectangular],
   backgrounds: [
@@ -45,7 +48,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
   modes: {
     'scene-flopped': LayoutMode(
       id: 'scene-flopped',
-      aliases: ['collapsed-scene'],
+      aliases: ['collapsed-scene', 'folded', 'folded-scene'],
       activeCondition: HasActiveNodesCondition(
         exclude: {DefaultVaultPaths.cortex},
       ),
@@ -65,8 +68,14 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
       aliases: ['left-plane', 'space-plane', 'y-axis-plane'],
       points: [
         LayoutDerivativeReference(derivative: 'B'),
-        LayoutDerivativeReference(layoutPath: ['safe-area'], derivative: 'B'),
-        LayoutDerivativeReference(layoutPath: ['safe-area'], derivative: 'A'),
+        LayoutDerivativeReference(
+          layoutPath: ['safe-area'],
+          derivative: 'innerSquare.B',
+        ),
+        LayoutDerivativeReference(
+          layoutPath: ['safe-area'],
+          derivative: 'innerSquare.A',
+        ),
         LayoutDerivativeReference(derivative: 'A'),
       ],
       style: LayoutPathStyle(
@@ -123,106 +132,121 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
         },
       ),
     ),
-    'top-plane': RadialTreeLayout(
-      aliases: [
-        'radial-tree',
-        'node-tree',
-        'cortex-tree',
-        'top-node-tree',
-        'top-plane',
-        'control-plane',
-        'north-plane',
-      ],
-      node: VaultNodeUiComponent(
-        path: DefaultVaultPaths.cortex,
-        color: lgErgoCortexNodeColor,
-      ),
-      style: lgErgoCortexNodeBorderStyle,
-      label: 'cortex',
-      labelColor: lgErgoCortexNodeLabelColor,
-      labelSize: 10,
-      layoutSize: LayoutSize.derivativeDistance(
-        from: LayoutDerivativeReference(derivative: 'BC-center'),
-        to: LayoutDerivativeReference(
+    'top-plane': LayoutPath(
+      aliases: ['top-plane', 'control-plane', 'north-plane'],
+      points: [
+        LayoutDerivativeReference(derivative: 'B'),
+        LayoutDerivativeReference(
           layoutPath: ['safe-area'],
-          derivative: 'scene-BC-center',
+          derivative: 'innerSquare.BC-center',
         ),
+        LayoutDerivativeReference(derivative: 'C'),
+      ],
+      style: LayoutPathStyle(
+        fillColor: lgErgoControlPlaneBandColor,
+        strokeStyle: lgErgoPlaneLineStyle,
       ),
-      gridStyle: lgErgoRadialTreeGridStyle,
-      rowsConfig: {
-        'root-band': GridAxisVariable(size: GridTrackSize.fr(0.9)),
-        'branch-band': GridAxisVariable(size: GridTrackSize.fr(1)),
-        'leaf-band': GridAxisVariable(size: GridTrackSize.fr(1)),
-      },
-      columnsConfig: {
-        'left-branch': GridAxisVariable(size: GridTrackSize.fr(1)),
-        'center-branch': GridAxisVariable(size: GridTrackSize.fr(1)),
-        'right-branch': GridAxisVariable(size: GridTrackSize.fr(1)),
-      },
-      areas: {
-        'cortex-root-zone': RadialTreeArea(
-          row: 'root-band',
-          column: 'center-branch',
-          aliases: ['root-zone', 'cortex-root-zone'],
-          fillColor: Color(0x18FFD54F),
-          borderStyle: lgErgoRadialTreeGridStyle,
-          label: 'root',
-        ),
-        'left-branch-zone': RadialTreeArea(
-          row: 'branch-band',
-          column: 'left-branch',
-          aliases: ['left-branch-zone'],
-          borderStyle: lgErgoRadialTreeGridStyle,
-          label: 'left',
-        ),
-        'center-branch-zone': RadialTreeArea(
-          row: 'branch-band',
-          column: 'center-branch',
-          aliases: ['center-branch-zone'],
-          borderStyle: lgErgoRadialTreeGridStyle,
-          label: 'center',
-          segments: {
-            'center-leaf-a': RadialTreeArea(
-              row: 'branch-band',
-              column: 'center-branch',
-              columnSpan: 0.5,
-              aliases: ['center-leaf-a'],
-              label: 'a',
+      layouts: {
+        'cortex-tree': RadialTreeLayout(
+          aliases: ['radial-tree', 'node-tree', 'cortex-tree', 'top-node-tree'],
+          node: VaultNodeUiComponent(
+            path: DefaultVaultPaths.cortex,
+            color: lgErgoCortexNodeColor,
+          ),
+          style: lgErgoCortexNodeBorderStyle,
+          label: 'cortex',
+          labelColor: lgErgoCortexNodeLabelColor,
+          labelSize: 10,
+          layoutSize: LayoutSize.derivativeDistance(
+            from: LayoutDerivativeReference(derivative: 'BC-center'),
+            to: LayoutDerivativeReference(
+              layoutPath: ['safe-area'],
+              derivative: 'innerSquare.BC-center',
             ),
-            'center-leaf-b': RadialTreeArea(
+          ),
+          gridStyle: lgErgoRadialTreeGridStyle,
+          rowsConfig: {
+            'root-band': GridAxisVariable(size: GridTrackSize.fr(0.9)),
+            'branch-band': GridAxisVariable(size: GridTrackSize.fr(1)),
+            'leaf-band': GridAxisVariable(size: GridTrackSize.fr(1)),
+          },
+          columnsConfig: {
+            'left-branch': GridAxisVariable(size: GridTrackSize.fr(1)),
+            'center-branch': GridAxisVariable(size: GridTrackSize.fr(1)),
+            'right-branch': GridAxisVariable(size: GridTrackSize.fr(1)),
+          },
+          areas: {
+            'cortex-root-zone': RadialTreeArea(
+              row: 'root-band',
+              column: 'center-branch',
+              aliases: ['root-zone', 'cortex-root-zone'],
+              fillColor: Color(0x18FFD54F),
+              borderStyle: lgErgoRadialTreeGridStyle,
+              label: 'root',
+            ),
+            'left-branch-zone': RadialTreeArea(
+              row: 'branch-band',
+              column: 'left-branch',
+              aliases: ['left-branch-zone'],
+              borderStyle: lgErgoRadialTreeGridStyle,
+              label: 'left',
+            ),
+            'center-branch-zone': RadialTreeArea(
               row: 'branch-band',
               column: 'center-branch',
-              columnOffset: 0.5,
-              columnSpan: 0.5,
-              aliases: ['center-leaf-b'],
-              label: 'b',
+              aliases: ['center-branch-zone'],
+              borderStyle: lgErgoRadialTreeGridStyle,
+              label: 'center',
+              segments: {
+                'center-leaf-a': RadialTreeArea(
+                  row: 'branch-band',
+                  column: 'center-branch',
+                  columnSpan: 0.5,
+                  aliases: ['center-leaf-a'],
+                  label: 'a',
+                ),
+                'center-leaf-b': RadialTreeArea(
+                  row: 'branch-band',
+                  column: 'center-branch',
+                  columnOffset: 0.5,
+                  columnSpan: 0.5,
+                  aliases: ['center-leaf-b'],
+                  label: 'b',
+                ),
+              },
+            ),
+            'right-branch-zone': RadialTreeArea(
+              row: 'branch-band',
+              column: 'right-branch',
+              aliases: ['right-branch-zone'],
+              borderStyle: lgErgoRadialTreeGridStyle,
+              label: 'right',
+            ),
+            'leaf-row-zone': RadialTreeArea(
+              row: 'leaf-band',
+              column: 'left-branch',
+              columnSpan: GridSpan.full,
+              aliases: ['leaf-row-zone'],
+              borderStyle: lgErgoRadialTreeGridStyle,
+              label: 'sub-segments',
             ),
           },
-        ),
-        'right-branch-zone': RadialTreeArea(
-          row: 'branch-band',
-          column: 'right-branch',
-          aliases: ['right-branch-zone'],
-          borderStyle: lgErgoRadialTreeGridStyle,
-          label: 'right',
-        ),
-        'leaf-row-zone': RadialTreeArea(
-          row: 'leaf-band',
-          column: 'left-branch',
-          columnSpan: GridSpan.full,
-          aliases: ['leaf-row-zone'],
-          borderStyle: lgErgoRadialTreeGridStyle,
-          label: 'sub-segments',
+          position: LayoutRelativePosition.top,
         ),
       },
-      position: LayoutRelativePosition.top,
     ),
     'right-plane': LayoutPath(
       aliases: ['right-plane', 'action-plane', 'east-plane'],
       points: [
         LayoutDerivativeReference(derivative: 'C'),
-        LayoutDerivativeReference(layoutPath: ['safe-area'], derivative: 'C'),
-        LayoutDerivativeReference(layoutPath: ['safe-area'], derivative: 'D'),
+        LayoutDerivativeReference(
+          layoutPath: ['safe-area'],
+          derivative: 'innerSquare.C',
+        ),
+        LayoutDerivativeReference(
+          layoutPath: ['safe-area'],
+          derivative: 'innerSquare.D',
+        ),
         LayoutDerivativeReference(derivative: 'D'),
       ],
       pointDerivatives: {'A': 0, 'B': 1, 'C': 2, 'D': 3},
@@ -285,8 +309,10 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
       aliases: ['bottom-plane', 'time-plane', 'x-axis-plane'],
       points: [
         LayoutDerivativeReference(derivative: 'A'),
-        LayoutDerivativeReference(layoutPath: ['safe-area'], derivative: 'A'),
-        LayoutDerivativeReference(layoutPath: ['safe-area'], derivative: 'D'),
+        LayoutDerivativeReference(
+          layoutPath: ['safe-area'],
+          derivative: 'innerSquare.AD-center',
+        ),
         LayoutDerivativeReference(derivative: 'D'),
       ],
       style: LayoutPathStyle(
@@ -296,6 +322,10 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
       grid: PerspectiveGridLayout(
         aliases: ['bottom-plane-grid', 'time-grid'],
         guideStyle: lgErgoPlaneDashStyle,
+        topStartIndex: 1,
+        topEndIndex: 1,
+        bottomStartIndex: 0,
+        bottomEndIndex: 2,
         rowsConfig: {
           'hour': GridAxisVariable(size: GridTrackSize.fr(1)),
           'day': GridAxisVariable(size: GridTrackSize.fr(1)),
@@ -429,41 +459,34 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
     'safe-area': SafeAreaLayout(
       aliases: ['safe-area', 'scene-container'],
       layoutDefaults: lgErgoLayoutDefaults,
-      innerCircle: LayoutCircle(
-        radiusFraction: lgErgoSceneInnerCircleRadiusFraction,
-      ),
-      outerCircle: LayoutCircle(
-        radiusFraction: lgErgoSceneOuterCircleRadiusFraction,
-      ),
-      derivativeSnapshot: 'square-on-outer-circle',
+      derivativeSnapshot: 'safe-area-manifold',
       derivatives: {
-        'square-on-outer-circle': LayoutDerivativeSnapshot(
+        'safe-area-manifold': LayoutDerivativeSnapshot(
           values: {
             'A': CircleRayIntersectionDerivative(
-              circle: LayoutCircleBoundary.outer,
-              angleDegrees: 135,
-            ),
-            'B': CircleRayIntersectionDerivative(
-              circle: LayoutCircleBoundary.outer,
+              circle: LayoutCircleBoundary.inner,
               angleDegrees: 225,
             ),
+            'B': CircleRayIntersectionDerivative(
+              circle: LayoutCircleBoundary.inner,
+              angleDegrees: 135,
+            ),
             'C': CircleRayIntersectionDerivative(
-              circle: LayoutCircleBoundary.outer,
-              angleDegrees: 315,
+              circle: LayoutCircleBoundary.inner,
+              angleDegrees: 45,
             ),
             'D': CircleRayIntersectionDerivative(
-              circle: LayoutCircleBoundary.outer,
-              angleDegrees: 45,
+              circle: LayoutCircleBoundary.inner,
+              angleDegrees: 315,
             ),
             'AD-center': MidpointDerivative(from: 'A', to: 'D'),
             'BC-center': MidpointDerivative(from: 'B', to: 'C'),
-            'scene-BC-center': MidpointDerivative(from: 'B', to: 'C'),
             'innerCircle.center': CircleCenterDerivative(
               circle: LayoutCircleBoundary.inner,
             ),
             'innerCircle.top': CircleRayIntersectionDerivative(
               circle: LayoutCircleBoundary.inner,
-              angleDegrees: 270,
+              angleDegrees: 90,
             ),
             'innerCircle.right': CircleRayIntersectionDerivative(
               circle: LayoutCircleBoundary.inner,
@@ -471,55 +494,35 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
             ),
             'innerCircle.bottom': CircleRayIntersectionDerivative(
               circle: LayoutCircleBoundary.inner,
-              angleDegrees: 90,
+              angleDegrees: 270,
             ),
             'innerCircle.left': CircleRayIntersectionDerivative(
               circle: LayoutCircleBoundary.inner,
               angleDegrees: 180,
             ),
-            'innerSquare.A': ShapeSquareDerivative(
-              points: [
-                'innerCircle.top',
-                'innerCircle.right',
-                'innerCircle.bottom',
-                'innerCircle.left',
-              ],
-              point: ShapeSquareDerivativePoint.A,
+            'innerSquare.A': CircleRayIntersectionDerivative(
+              circle: LayoutCircleBoundary.inner,
+              angleDegrees: 225,
             ),
-            'innerSquare.B': ShapeSquareDerivative(
-              points: [
-                'innerCircle.top',
-                'innerCircle.right',
-                'innerCircle.bottom',
-                'innerCircle.left',
-              ],
-              point: ShapeSquareDerivativePoint.B,
+            'innerSquare.B': CircleRayIntersectionDerivative(
+              circle: LayoutCircleBoundary.inner,
+              angleDegrees: 135,
             ),
-            'innerSquare.C': ShapeSquareDerivative(
-              points: [
-                'innerCircle.top',
-                'innerCircle.right',
-                'innerCircle.bottom',
-                'innerCircle.left',
-              ],
-              point: ShapeSquareDerivativePoint.C,
+            'innerSquare.C': CircleRayIntersectionDerivative(
+              circle: LayoutCircleBoundary.inner,
+              angleDegrees: 45,
             ),
-            'innerSquare.D': ShapeSquareDerivative(
-              points: [
-                'innerCircle.top',
-                'innerCircle.right',
-                'innerCircle.bottom',
-                'innerCircle.left',
-              ],
-              point: ShapeSquareDerivativePoint.D,
+            'innerSquare.D': CircleRayIntersectionDerivative(
+              circle: LayoutCircleBoundary.inner,
+              angleDegrees: 315,
             ),
-            'outerCircle.center': ShapeCircleDerivative(
-              points: ['A', 'B', 'C', 'D'],
-              point: ShapeCircleDerivativePoint.center,
+            'innerSquare.BC-center': MidpointDerivative(
+              from: 'innerSquare.B',
+              to: 'innerSquare.C',
             ),
-            'outerCircle.top': ShapeCircleDerivative(
-              points: ['A', 'B', 'C', 'D'],
-              point: ShapeCircleDerivativePoint.top,
+            'innerSquare.AD-center': MidpointDerivative(
+              from: 'innerSquare.A',
+              to: 'innerSquare.D',
             ),
           },
         ),
@@ -530,6 +533,17 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
       layouts: {
         'inner-circle-plane': PlaneLayout(
           aliases: ['inner-circle-plane', 'scene-plane', 'circle-plane'],
+          modes: {
+            'scene-flopped': LayoutMode(
+              id: 'scene-flopped',
+              aliases: ['collapsed-scene', 'folded', 'folded-scene'],
+              activeCondition: LayoutSelectedModeCondition(
+                mode: 'scene-flopped',
+                aliases: ['collapsed-scene', 'folded', 'folded-scene'],
+              ),
+              visible: false,
+            ),
+          },
           shape: LayoutShape.circle,
           style: randomBlueprintAesthetics.layoutStyle,
           backgroundColor: Color(0x00000000),
@@ -635,15 +649,18 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
             ),
           },
         ),
-        'outer-circle': CirleLayout(
-          boundary: LayoutCircleBoundary.outer,
-          style: GuideStyle(
-            color: perceptualMapSlotColor,
-            strokeWidth: 1.2,
-            pattern: GuideLinePattern.dashed,
-          ),
-        ),
         'inner-circle': LayoutBorderGuide(
+          modes: {
+            'scene-flopped': LayoutMode(
+              id: 'scene-flopped',
+              aliases: ['collapsed-scene', 'folded', 'folded-scene'],
+              activeCondition: LayoutSelectedModeCondition(
+                mode: 'scene-flopped',
+                aliases: ['collapsed-scene', 'folded', 'folded-scene'],
+              ),
+              visible: false,
+            ),
+          },
           shape: LayoutBorderShape.circle,
           reference: LayoutBorderReference.bounds,
           derivativeAnchors: ['innerCircle.center', 'innerCircle.top'],
@@ -651,35 +668,9 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
           anchorRadius: 1.8,
           style: lgErgoSceneInnerCircleStyle,
         ),
-        'inner-square': LayoutBorderGuide(
-          shape: LayoutBorderShape.square,
-          reference: LayoutBorderReference.bounds,
-          derivativeAnchors: [
-            'innerSquare.A',
-            'innerSquare.B',
-            'innerSquare.C',
-            'innerSquare.D',
-          ],
-          showAnchorDirections: true,
-          labelFontSize: 9,
-          anchorRadius: 1.8,
-          style: lgErgoScenePaddingInnerBorderStyle,
-        ),
-        'padding-inner-border': LayoutBorderGuide(
-          shape: LayoutBorderShape.square,
-          reference: LayoutBorderReference.innerCircle,
-          showAnchorDirections: true,
-          style: lgErgoScenePaddingInnerBorderStyle,
-        ),
-        'scene-square': LayoutBorderGuide(
-          shape: LayoutBorderShape.square,
-          reference: LayoutBorderReference.outerCircle,
-          useLayoutDefaults: true,
-          style: lgErgoSceneSquareStyle,
-        ),
         LayoutKey.innerBorder: LayoutBorderGuide(
           shape: LayoutBorderShape.square,
-          reference: LayoutBorderReference.outerCircle,
+          reference: LayoutBorderReference.bounds,
           derivativeAnchors: ['A', 'B', 'C', 'D'],
           showAnchorDirections: true,
           style: GuideStyle(
@@ -717,8 +708,6 @@ const lgErgoHourPassedColor = Color(0x33DC143C);
 const lgErgoHourLeftColor = Color(0x22DC143C);
 const lgErgoDayPassedColor = Color(0x335C6BC0);
 const lgErgoDayLeftColor = Color(0x2243A047);
-const lgErgoSceneOuterCircleRadiusFraction = 0.5;
-const lgErgoSceneInnerCircleRadiusFraction = 0.3535533905932738;
 
 const lgErgoPlaneLineStyle = GuideStyle(
   color: Color(0xAAC59A1A),
@@ -810,22 +799,6 @@ const lgErgoSceneInnerCircleStyle = GuideStyle(
   pattern: GuideLinePattern.dashed,
   dashLength: 6,
   dashInterval: 5,
-);
-
-const lgErgoScenePaddingInnerBorderStyle = GuideStyle(
-  color: Color(0xCC8E44AD),
-  strokeWidth: 1,
-  pattern: GuideLinePattern.dashed,
-  dashLength: 5,
-  dashInterval: 7,
-);
-
-const lgErgoSceneSquareStyle = GuideStyle(
-  color: Color(0xAA8E44AD),
-  strokeWidth: 1,
-  pattern: GuideLinePattern.dashed,
-  dashLength: 5,
-  dashInterval: 7,
 );
 
 const lgErgoStickmanStyle = GuideStyle(

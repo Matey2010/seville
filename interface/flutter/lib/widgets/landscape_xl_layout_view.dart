@@ -68,6 +68,7 @@ class _LandscapeXlLayoutViewState extends State<LandscapeXlLayoutView> {
               layout: widget.layout,
               selectedNode: widget.selectedNode,
               contentBuilder: widget.contentBuilder,
+              layoutContext: _layoutContext(widget.layout, widget.selectedNode),
             ),
             IgnorePointer(
               child: CustomPaint(
@@ -105,6 +106,7 @@ class _LandscapeXlLayoutViewState extends State<LandscapeXlLayoutView> {
               safePadding,
               details.localPosition,
               widget.vaultNodeResolver,
+              widget.selectedNode,
             );
             if (target != null) tapHandler(target);
           },
@@ -120,11 +122,13 @@ class _LandscapeXlLayoutNodeView extends StatelessWidget {
     required this.layout,
     required this.selectedNode,
     required this.contentBuilder,
+    required this.layoutContext,
   });
 
   final LandscapeXlLayout layout;
   final ResolvedVaultNode? selectedNode;
   final LandscapeXlLayoutContentBuilder contentBuilder;
+  final LayoutContext layoutContext;
 
   @override
   Widget build(BuildContext context) {
@@ -136,13 +140,18 @@ class _LandscapeXlLayoutNodeView extends StatelessWidget {
       children: [
         for (final background in backgrounds)
           _LayoutBackgroundView(background: background),
-        IgnorePointer(child: CustomPaint(painter: _LayoutGuidePainter(layout))),
+        IgnorePointer(
+          child: CustomPaint(
+            painter: _LayoutGuidePainter(layout, layoutContext),
+          ),
+        ),
         for (final child in layout.layouts.values)
           if (child is LandscapeXlLayout)
             _LandscapeXlLayoutNodeView(
               layout: child,
               selectedNode: selectedNode,
               contentBuilder: contentBuilder,
+              layoutContext: layoutContext,
             )
           else if (child is! LayoutGuide &&
               child is! LayoutPath &&
@@ -406,20 +415,7 @@ _ParentShapeFrame _parentShapeFrame(Layout parent, Rect parentBounds) {
     parentBounds,
     LayoutCircleBoundary.inner,
   );
-  if (innerCircle != null) {
-    return (frame: innerCircle, shape: LayoutShape.circle);
-  }
-
-  final outerCircle = _layoutCircleFrame(
-    parent,
-    parentBounds,
-    LayoutCircleBoundary.outer,
-  );
-  if (outerCircle != null) {
-    return (frame: outerCircle, shape: LayoutShape.circle);
-  }
-
-  return (frame: parentBounds, shape: LayoutShape.rectangle);
+  return (frame: innerCircle, shape: LayoutShape.circle);
 }
 
 typedef _PlaneGeometry = ({
@@ -558,18 +554,20 @@ Color? _subjectNodeColor(String? rawColor) {
 }
 
 class _LayoutGuidePainter extends CustomPainter {
-  const _LayoutGuidePainter(this.layout);
+  const _LayoutGuidePainter(this.layout, this.layoutContext);
 
   final Layout layout;
+  final LayoutContext layoutContext;
 
   @override
   void paint(Canvas canvas, Size size) {
-    drawLayoutGuidelines(canvas, size, layout);
+    drawLayoutGuidelines(canvas, size, layout, layoutContext);
   }
 
   @override
   bool shouldRepaint(_LayoutGuidePainter oldDelegate) {
-    return oldDelegate.layout != layout;
+    return oldDelegate.layout != layout ||
+        oldDelegate.layoutContext != layoutContext;
   }
 }
 
@@ -592,8 +590,13 @@ class _ReferenceLayoutPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final layoutContext = _layoutContext(selectedNode);
-    final resolvedLayouts = _resolveLayouts(layout, size, safePadding);
+    final layoutContext = _layoutContext(layout, selectedNode);
+    final resolvedLayouts = _resolveLayouts(
+      layout,
+      size,
+      safePadding,
+      layoutContext,
+    );
     for (final resolved in resolvedLayouts.values) {
       for (final path
           in resolved.layout.layouts.values.whereType<LayoutPath>()) {
@@ -713,12 +716,13 @@ class _ReferenceLayoutPainter extends CustomPainter {
   }
 }
 
-LayoutContext _layoutContext(ResolvedVaultNode? selectedNode) {
+LayoutContext _layoutContext(Layout layout, ResolvedVaultNode? selectedNode) {
   final selectedPath = selectedNode?.path;
-  return LayoutContext(
+  final nodeContext = LayoutContext(
     selectedNodePath: selectedPath,
     activeNodePaths: selectedPath == null ? const [] : [selectedPath],
   );
+  return nodeContext.withSelectedMode(layout.resolveMode(nodeContext)?.id);
 }
 
 void _drawLayoutPath(
@@ -786,6 +790,8 @@ void _drawLayoutPath(
     _drawPerspectiveGrid(canvas, resolvedPoints, grid, vaultNodeResolver);
   }
 
+  canvas.save();
+  canvas.clipPath(path);
   for (final radialTree
       in layoutPath.layouts.values.whereType<RadialTreeLayout>()) {
     _drawRadialTreeLayout(
@@ -809,6 +815,7 @@ void _drawLayoutPath(
       hoverPosition,
     );
   }
+  canvas.restore();
 }
 
 void _drawPathTicks(
@@ -1308,8 +1315,14 @@ LayoutTapTarget? _hitTestLayoutTapTarget(
   EdgeInsets safePadding,
   Offset position,
   VaultNodeResolver? vaultNodeResolver,
+  ResolvedVaultNode? selectedNode,
 ) {
-  final resolvedLayouts = _resolveLayouts(root, size, safePadding);
+  final resolvedLayouts = _resolveLayouts(
+    root,
+    size,
+    safePadding,
+    _layoutContext(root, selectedNode),
+  );
   for (final resolved in resolvedLayouts.values.toList().reversed) {
     final children = resolved.layout.layouts.entries.toList().reversed;
     for (final entry in children) {
@@ -2153,23 +2166,17 @@ Rect _layoutInnerSquareFrame(Layout parent, Rect parentBounds) {
   );
 }
 
-Rect? _layoutCircleFrame(
+Rect _layoutCircleFrame(
   Layout parent,
   Rect parentBounds,
   LayoutCircleBoundary boundary,
 ) {
-  final circle = switch (boundary) {
-    LayoutCircleBoundary.inner => parent.innerCircle,
-    LayoutCircleBoundary.outer => parent.outerCircle,
-  };
-  if (circle == null) return null;
-  final center = parentBounds.topLeft + circle.resolveCenter(parentBounds.size);
-  final radius = circle.resolveRadius(parentBounds.size);
-  return Rect.fromCenter(center: center, width: radius * 2, height: radius * 2);
+  return parent
+      .resolveCircleBounds(parentBounds.size, boundary)
+      .shift(parentBounds.topLeft);
 }
 
-Rect _layoutSquareFrameForCircle(Rect? circleFrame, {required Rect fallback}) {
-  if (circleFrame == null) return fallback;
+Rect _layoutSquareFrameForCircle(Rect circleFrame, {required Rect fallback}) {
   final squareHalfSide = circleFrame.shortestSide / 2 / math.sqrt(2);
   return Rect.fromCenter(
     center: circleFrame.center,
@@ -2294,8 +2301,9 @@ Offset _perspectiveGridPoint(
 Map<String, _ResolvedLayout> _resolveLayouts(
   LandscapeXlLayout root,
   Size size,
-  EdgeInsets safePadding,
-) {
+  EdgeInsets safePadding, [
+  LayoutContext layoutContext = LayoutContext.empty,
+]) {
   final resolved = <String, _ResolvedLayout>{
     '': (layout: root, bounds: Offset.zero & size),
   };
@@ -2308,6 +2316,7 @@ Map<String, _ResolvedLayout> _resolveLayouts(
   ) {
     for (final entry in parent.layouts.entries) {
       final child = entry.value;
+      if (!child.isVisible(layoutContext)) continue;
       var bounds = parentBounds;
       var childSafePadding = remainingSafePadding;
       if (child is SafeAreaLayout) {
@@ -2346,7 +2355,7 @@ Offset? _resolveReference(
       .values[reference.derivative];
   if (derivative == null) return null;
   return resolved.bounds.topLeft +
-      derivative.resolve(resolved.layout, resolved.bounds.size);
+      derivative.resolve(resolved.layout, resolved.bounds.size, layoutContext);
 }
 
 Offset? _resolvePathAreaReference(

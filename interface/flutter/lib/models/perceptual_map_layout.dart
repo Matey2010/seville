@@ -93,8 +93,6 @@ class PerceptualMapLayout extends GridLayout {
     super.derivativeSnapshot,
     super.observables,
     super.modes,
-    super.innerCircle,
-    super.outerCircle,
     super.columnFractions,
     super.rowFractions,
     super.fractionSpans,

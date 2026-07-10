@@ -72,19 +72,10 @@ class _LandscapeXlLayoutScreenState
   }
 
   ResolvedVaultNode? _resolveInitialSelectedNode(VaultNodeResolver resolver) {
-    final node = _firstVaultNode(widget.layout ?? lgErgoLayoutConfig);
+    final node = (widget.layout ?? lgErgoLayoutConfig).initialActiveNode;
     if (node == null) return null;
     final resolvedNode = resolver.resolve(node);
     return resolvedNode.found ? resolvedNode : null;
-  }
-
-  VaultNodeUiComponent? _firstVaultNode(Layout layout) {
-    if (layout is RadialTreeLayout) return layout.node;
-    for (final child in layout.layouts.values) {
-      final node = _firstVaultNode(child);
-      if (node != null) return node;
-    }
-    return null;
   }
 
   @override

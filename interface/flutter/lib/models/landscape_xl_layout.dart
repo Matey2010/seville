@@ -2,6 +2,7 @@ import 'layout.dart';
 
 class LandscapeXlLayout extends Layout {
   const LandscapeXlLayout({
+    this.initialActiveNode,
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
     super.backgrounds,
@@ -11,9 +12,10 @@ class LandscapeXlLayout extends Layout {
     super.observables,
     super.modes,
     super.layoutDefaults,
-    super.innerCircle,
-    super.outerCircle,
   }) : super.fromAxes();
+
+  /// Configured initial selection until a persisted user selection is loaded.
+  final VaultNodeUiComponent? initialActiveNode;
 }
 
 class SafeAreaLayout extends LandscapeXlLayout {
@@ -30,7 +32,5 @@ class SafeAreaLayout extends LandscapeXlLayout {
     super.observables,
     super.modes,
     super.layoutDefaults,
-    super.innerCircle,
-    super.outerCircle,
   });
 }
