@@ -406,6 +406,7 @@ abstract class LayoutGuide extends Layout {
     this.visible = true,
     super.aliases,
     super.attributes,
+    super.modes,
   }) : super.fromAxes();
 
   final GuideStyle style;
@@ -423,6 +424,7 @@ class GuideGrid extends LayoutGuide {
     this.intersectionSize = 2,
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
+    super.modes,
   });
 
   final GuideGridGeometry geometry;
@@ -477,6 +479,7 @@ class CirleLayout extends LayoutGuide {
     super.visible,
     super.aliases,
     super.attributes = const [LayoutAttribute.circular],
+    super.modes,
   });
 
   final LayoutCircleBoundary boundary;
@@ -740,6 +743,138 @@ class LayoutDerivativeSnapshot {
   static const empty = LayoutDerivativeSnapshot(values: {});
 }
 
+class LayoutMode {
+  const LayoutMode({
+    required this.id,
+    this.aliases = const [],
+    this.activeCondition,
+    this.derivativeSnapshot,
+    this.derivatives = const {},
+  });
+
+  final String id;
+  final List<String> aliases;
+
+  /// Modes are inactive by default. A mode applies only when this condition
+  /// evaluates true for the current layout context.
+  final LayoutCondition? activeCondition;
+  final String? derivativeSnapshot;
+  final Map<String, LayoutDerivative> derivatives;
+
+  bool isActive(LayoutContext context) {
+    return activeCondition?.isActive(context) ?? false;
+  }
+}
+
+class LayoutContext {
+  const LayoutContext({
+    this.selectedMode,
+    this.selectedNodePath,
+    this.activeNodePaths = const [],
+    this.layoutPath = const [],
+  });
+
+  static const empty = LayoutContext();
+
+  final String? selectedMode;
+  final String? selectedNodePath;
+  final List<String> activeNodePaths;
+  final List<String> layoutPath;
+
+  List<String> get resolvedActiveNodePaths {
+    if (activeNodePaths.isNotEmpty) return activeNodePaths;
+    final selected = selectedNodePath;
+    return selected == null ? const [] : [selected];
+  }
+
+  LayoutContext withSelectedMode(String? mode) {
+    return LayoutContext(
+      selectedMode: selectedMode ?? mode,
+      selectedNodePath: selectedNodePath,
+      activeNodePaths: activeNodePaths,
+      layoutPath: layoutPath,
+    );
+  }
+}
+
+abstract class LayoutCondition {
+  const LayoutCondition._({this.exclude = const {}});
+
+  factory LayoutCondition(
+    bool Function(LayoutContext context) test, {
+    Set<String> exclude = const {},
+  }) {
+    return LayoutPredicateCondition(test, exclude: exclude);
+  }
+
+  static const never = LayoutNeverCondition();
+
+  final Set<String> exclude;
+
+  Set<String> get normalizedExclude => {
+    for (final path in exclude) _normalizeLayoutPath(path),
+  };
+
+  bool isActive(LayoutContext context);
+}
+
+class LayoutPredicateCondition extends LayoutCondition {
+  const LayoutPredicateCondition(this.test, {super.exclude = const {}})
+    : super._();
+
+  final bool Function(LayoutContext context) test;
+
+  @override
+  bool isActive(LayoutContext context) => test(context);
+}
+
+class LayoutNeverCondition extends LayoutCondition {
+  const LayoutNeverCondition({super.exclude = const {}}) : super._();
+
+  @override
+  bool isActive(LayoutContext context) => false;
+}
+
+class LayoutSelectedModeCondition extends LayoutCondition {
+  const LayoutSelectedModeCondition({
+    required this.mode,
+    this.aliases = const [],
+    super.exclude = const {},
+  }) : super._();
+
+  final String mode;
+  final List<String> aliases;
+
+  @override
+  bool isActive(LayoutContext context) {
+    final selected = context.selectedMode;
+    return selected == mode || aliases.contains(selected);
+  }
+}
+
+class HasActiveNodesCondition extends LayoutCondition {
+  const HasActiveNodesCondition({super.exclude = const {}}) : super._();
+
+  @override
+  bool isActive(LayoutContext context) {
+    final excluded = normalizedExclude;
+    return context.resolvedActiveNodePaths.any(
+      (path) => !excluded.contains(_normalizeLayoutPath(path)),
+    );
+  }
+}
+
+String _normalizeLayoutPath(String path) {
+  return path
+      .trim()
+      .replaceAll(r'\', '/')
+      .toLowerCase()
+      .replaceAll(RegExp(r'/+'), '/')
+      .replaceFirst(RegExp(r'\.md$'), '')
+      .replaceFirst(RegExp(r'^/+'), '')
+      .replaceFirst(RegExp(r'/+$'), '');
+}
+
 class LayoutObservable {
   const LayoutObservable({required this.derivatives, this.epsilon = 0.001});
 
@@ -914,6 +1049,7 @@ class PerspectiveGridArea extends Layout {
     this.labelSize = 12,
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
+    super.modes,
   }) : super.fromAxes();
 
   final String row;
@@ -943,6 +1079,7 @@ class PerspectiveGridLayout extends Layout {
     this.bottomEndIndex = 3,
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
+    super.modes,
   }) : super.fromAxes();
 
   final Map<String, GridAxisVariable> rowsConfig;
@@ -976,6 +1113,7 @@ class RadialTreeArea extends Layout {
     this.segments = const {},
     super.aliases,
     super.attributes = const [LayoutAttribute.circular],
+    super.modes,
   }) : super.fromAxes();
 
   final String row;
@@ -1008,6 +1146,7 @@ class LayoutPath extends Layout {
     super.derivatives,
     super.derivativeSnapshot,
     super.observables,
+    super.modes,
     super.innerCircle,
     super.outerCircle,
     super.aliases,
@@ -1042,6 +1181,7 @@ class RadialTreeLayout extends Layout {
     this.gridStyle,
     super.aliases,
     super.attributes = const [LayoutAttribute.circular],
+    super.modes,
   }) : super.fromAxes();
 
   final VaultNodeUiComponent node;
@@ -1068,6 +1208,7 @@ class RayLayout extends LayoutGuide {
     super.visible,
     super.aliases,
     super.attributes = const [LayoutAttribute.linear],
+    super.modes,
   });
 
   final LayoutDerivativeReference start;
@@ -1102,6 +1243,7 @@ class LayoutAreaRayLayout extends LayoutGuide {
     super.visible,
     super.aliases,
     super.attributes = const [LayoutAttribute.linear],
+    super.modes,
   });
 
   final LayoutDerivativeReference start;
@@ -1120,6 +1262,7 @@ class LayoutAreaToDerivativeRayLayout extends LayoutGuide {
     super.visible,
     super.aliases,
     super.attributes = const [LayoutAttribute.linear],
+    super.modes,
   });
 
   final LayoutPathAreaReference start;
@@ -1145,6 +1288,7 @@ class StickmanLayout extends Layout {
     this.footHalfWidth = 0.16,
     super.aliases,
     super.attributes = const [LayoutAttribute.linear],
+    super.modes,
   }) : super.fromAxes();
 
   /// Logical body height. In this layout 1.0 vertical unit equals [heightCm].
@@ -1193,6 +1337,7 @@ class PlaneLayout extends Layout {
     super.derivatives,
     super.derivativeSnapshot,
     super.observables,
+    super.modes,
     super.layoutDefaults,
     super.innerCircle,
     super.outerCircle,
@@ -1242,6 +1387,7 @@ class SubjectNodeLayout extends PlaneLayout {
     super.aliases,
     super.attributes,
     super.shape,
+    super.modes,
   });
 }
 
@@ -1278,6 +1424,7 @@ class GraphPreviewLayout extends Layout {
     this.labelSize = 10,
     super.aliases,
     super.attributes = const [LayoutAttribute.circular],
+    super.modes,
   }) : super.fromAxes();
 
   final List<GraphPreviewNode> nodes;
@@ -1308,6 +1455,7 @@ class LayoutBorderGuide extends LayoutGuide {
     super.visible,
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
+    super.modes,
   });
 
   final LayoutBorderShape shape;
@@ -1393,6 +1541,7 @@ abstract class Layout {
     this.derivatives = const {},
     this.derivativeSnapshot,
     this.observables = const {},
+    this.modes = const {},
     this.layoutDefaults,
     this.innerCircle,
     this.outerCircle,
@@ -1414,6 +1563,7 @@ abstract class Layout {
   final Map<String, LayoutDerivativeSnapshot> derivatives;
   final String? derivativeSnapshot;
   final Map<String, LayoutObservable> observables;
+  final Map<String, LayoutMode> modes;
   final LayoutDefaults? layoutDefaults;
   final LayoutCircle? innerCircle;
   final LayoutCircle? outerCircle;
@@ -1438,8 +1588,38 @@ abstract class Layout {
   Offset get center =>
       innerCircle?.center ?? outerCircle?.center ?? const Offset(0.5, 0.5);
 
-  LayoutDerivativeSnapshot getDerivatives([String? snapshot]) {
-    final selectedSnapshot = snapshot ?? derivativeSnapshot;
+  LayoutMode? getMode(String? mode) {
+    if (mode == null) return null;
+    final direct = modes[mode];
+    if (direct != null) return direct;
+    for (final candidate in modes.values) {
+      if (candidate.id == mode || candidate.aliases.contains(mode)) {
+        return candidate;
+      }
+    }
+    return null;
+  }
+
+  LayoutDerivativeSnapshot getDerivatives([
+    String? snapshot,
+    String? mode,
+    LayoutContext context = LayoutContext.empty,
+  ]) {
+    final layoutContext = context.withSelectedMode(mode);
+    final rawMode = getMode(mode);
+    LayoutMode? selectedMode;
+    if (rawMode == null) {
+      for (final candidate in modes.values) {
+        if (candidate.isActive(layoutContext)) {
+          selectedMode = candidate;
+          break;
+        }
+      }
+    } else if (rawMode.isActive(layoutContext)) {
+      selectedMode = rawMode;
+    }
+    final selectedSnapshot =
+        snapshot ?? selectedMode?.derivativeSnapshot ?? derivativeSnapshot;
     final selected = selectedSnapshot == null
         ? LayoutDerivativeSnapshot.empty
         : derivatives[selectedSnapshot] ?? LayoutDerivativeSnapshot.empty;
@@ -1447,13 +1627,23 @@ abstract class Layout {
       values: {
         for (final attribute in attributes) ...attribute.derivatives,
         ...selected.values,
+        ...?selectedMode?.derivatives,
       },
     );
   }
 
-  Map<String, Offset> resolveDerivatives(Size size, [String? snapshot]) {
+  Map<String, Offset> resolveDerivatives(
+    Size size, [
+    String? snapshot,
+    String? mode,
+    LayoutContext context = LayoutContext.empty,
+  ]) {
     return {
-      for (final entry in getDerivatives(snapshot).values.entries)
+      for (final entry in getDerivatives(
+        snapshot,
+        mode,
+        context,
+      ).values.entries)
         entry.key: entry.value.resolve(this, size),
     };
   }
@@ -1468,6 +1658,7 @@ class SceneLayout extends Layout {
     super.derivatives,
     super.derivativeSnapshot,
     super.observables,
+    super.modes,
     super.innerCircle,
     super.outerCircle,
     super.columnFractions,
@@ -1488,6 +1679,7 @@ class GridLayout extends Layout {
     super.derivatives,
     super.derivativeSnapshot,
     super.observables,
+    super.modes,
     super.innerCircle,
     super.outerCircle,
     super.columnFractions,
@@ -1507,6 +1699,7 @@ class TrackLayout extends Layout {
     super.derivatives,
     super.derivativeSnapshot,
     super.observables,
+    super.modes,
     super.innerCircle,
     super.outerCircle,
     super.columnFractions,

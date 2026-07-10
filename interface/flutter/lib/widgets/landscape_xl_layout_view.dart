@@ -592,6 +592,7 @@ class _ReferenceLayoutPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    final layoutContext = _layoutContext(selectedNode);
     final resolvedLayouts = _resolveLayouts(layout, size, safePadding);
     for (final resolved in resolvedLayouts.values) {
       for (final path
@@ -604,6 +605,7 @@ class _ReferenceLayoutPainter extends CustomPainter {
           vaultNodeResolver,
           selectedNode,
           hoverPosition,
+          layoutContext,
         );
       }
       for (final radialTree
@@ -615,12 +617,21 @@ class _ReferenceLayoutPainter extends CustomPainter {
           radialTree,
           vaultNodeResolver,
           resolvedLayouts,
+          layoutContext,
         );
       }
       for (final ray in resolved.layout.layouts.values.whereType<RayLayout>()) {
         if (!ray.visible) continue;
-        final start = _resolveReference(ray.start, resolvedLayouts);
-        final target = _resolveReference(ray.towards, resolvedLayouts);
+        final start = _resolveReference(
+          ray.start,
+          resolvedLayouts,
+          layoutContext,
+        );
+        final target = _resolveReference(
+          ray.towards,
+          resolvedLayouts,
+          layoutContext,
+        );
         if (start == null || target == null) continue;
         drawGuideLine(canvas, start, target, ray.style);
         if (ray.showArrow) {
@@ -630,8 +641,16 @@ class _ReferenceLayoutPainter extends CustomPainter {
       for (final ray
           in resolved.layout.layouts.values.whereType<LayoutAreaRayLayout>()) {
         if (!ray.visible) continue;
-        final start = _resolveReference(ray.start, resolvedLayouts);
-        final target = _resolvePathAreaReference(ray.towards, resolvedLayouts);
+        final start = _resolveReference(
+          ray.start,
+          resolvedLayouts,
+          layoutContext,
+        );
+        final target = _resolvePathAreaReference(
+          ray.towards,
+          resolvedLayouts,
+          layoutContext,
+        );
         if (start == null || target == null) continue;
         drawGuideLine(canvas, start, target, ray.style);
         if (ray.showArrow) {
@@ -642,8 +661,16 @@ class _ReferenceLayoutPainter extends CustomPainter {
           in resolved.layout.layouts.values
               .whereType<LayoutAreaToDerivativeRayLayout>()) {
         if (!ray.visible) continue;
-        final start = _resolvePathAreaReference(ray.start, resolvedLayouts);
-        final target = _resolveReference(ray.towards, resolvedLayouts);
+        final start = _resolvePathAreaReference(
+          ray.start,
+          resolvedLayouts,
+          layoutContext,
+        );
+        final target = _resolveReference(
+          ray.towards,
+          resolvedLayouts,
+          layoutContext,
+        );
         if (start == null || target == null) continue;
         drawGuideLine(canvas, start, target, ray.style);
         if (ray.showArrow) {
@@ -686,6 +713,14 @@ class _ReferenceLayoutPainter extends CustomPainter {
   }
 }
 
+LayoutContext _layoutContext(ResolvedVaultNode? selectedNode) {
+  final selectedPath = selectedNode?.path;
+  return LayoutContext(
+    selectedNodePath: selectedPath,
+    activeNodePaths: selectedPath == null ? const [] : [selectedPath],
+  );
+}
+
 void _drawLayoutPath(
   Canvas canvas,
   Size size,
@@ -694,10 +729,11 @@ void _drawLayoutPath(
   VaultNodeResolver? vaultNodeResolver,
   ResolvedVaultNode? selectedNode,
   Offset? hoverPosition,
+  LayoutContext layoutContext,
 ) {
   final points = [
     for (final reference in layoutPath.points)
-      _resolveReference(reference, layouts),
+      _resolveReference(reference, layouts, layoutContext),
   ];
   if (points.length < 2 || points.any((point) => point == null)) return;
   final resolvedPoints = _paddedPathPoints(
@@ -759,6 +795,7 @@ void _drawLayoutPath(
       radialTree,
       vaultNodeResolver,
       layouts,
+      layoutContext,
     );
   }
 
@@ -917,19 +954,21 @@ void _drawRadialTreeLayout(
   RadialTreeLayout radialTree,
   VaultNodeResolver? vaultNodeResolver,
   Map<String, _ResolvedLayout> layouts,
+  LayoutContext layoutContext,
 ) {
   final radius = _resolveLayoutSize(
     radialTree.layoutSize,
     viewport: size,
     bounds: bounds,
     layouts: layouts,
+    layoutContext: layoutContext,
   );
   if (radius <= 0) return;
 
   final center = radialTree.position.resolve(bounds);
   final target = radialTree.growthDirection == null
       ? bounds.center
-      : _resolveReference(radialTree.growthDirection!, layouts);
+      : _resolveReference(radialTree.growthDirection!, layouts, layoutContext);
   final growthVector = (target == null || (target - center).distance == 0)
       ? const Offset(0, 1)
       : target - center;
@@ -1341,6 +1380,7 @@ double _resolveLayoutSize(
   required Size viewport,
   required Rect bounds,
   required Map<String, _ResolvedLayout> layouts,
+  LayoutContext layoutContext = LayoutContext.empty,
 }) {
   if (layoutSize.unit != LayoutSizeUnit.derivativeDistance) {
     return layoutSize.resolve(viewport: viewport, bounds: bounds);
@@ -1352,8 +1392,8 @@ double _resolveLayoutSize(
     return layoutSize.resolve(viewport: viewport, bounds: bounds);
   }
 
-  final start = _resolveReference(from, layouts);
-  final end = _resolveReference(to, layouts);
+  final start = _resolveReference(from, layouts, layoutContext);
+  final end = _resolveReference(to, layouts, layoutContext);
   if (start == null || end == null) {
     return layoutSize.resolve(viewport: viewport, bounds: bounds);
   }
@@ -2296,12 +2336,13 @@ Map<String, _ResolvedLayout> _resolveLayouts(
 
 Offset? _resolveReference(
   LayoutDerivativeReference reference,
-  Map<String, _ResolvedLayout> layouts,
-) {
+  Map<String, _ResolvedLayout> layouts, [
+  LayoutContext layoutContext = LayoutContext.empty,
+]) {
   final resolved = layouts[reference.layoutPath.join('/')];
   if (resolved == null) return null;
   final derivative = resolved.layout
-      .getDerivatives(reference.snapshot)
+      .getDerivatives(reference.snapshot, null, layoutContext)
       .values[reference.derivative];
   if (derivative == null) return null;
   return resolved.bounds.topLeft +
@@ -2310,8 +2351,9 @@ Offset? _resolveReference(
 
 Offset? _resolvePathAreaReference(
   LayoutPathAreaReference reference,
-  Map<String, _ResolvedLayout> layouts,
-) {
+  Map<String, _ResolvedLayout> layouts, [
+  LayoutContext layoutContext = LayoutContext.empty,
+]) {
   final resolved = layouts[reference.layoutPath.join('/')];
   if (resolved == null) return null;
   final path = resolved.layout.layouts[reference.path];
@@ -2322,7 +2364,7 @@ Offset? _resolvePathAreaReference(
 
   final points = [
     for (final pointReference in path.points)
-      _resolveReference(pointReference, layouts),
+      _resolveReference(pointReference, layouts, layoutContext),
   ];
   if (points.length < 2 || points.any((point) => point == null)) return null;
   final corners = _resolvePerspectiveGridAreaCorners(

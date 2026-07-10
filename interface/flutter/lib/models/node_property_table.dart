@@ -65,6 +65,7 @@ class NodePropertyTable extends Layout {
     this.valueSize = 11,
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
+    super.modes,
   }) : super.fromAxes();
 
   final List<MapEntry<String, GridAxisVariable>> columns;

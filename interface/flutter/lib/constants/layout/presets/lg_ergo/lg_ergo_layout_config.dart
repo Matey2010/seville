@@ -42,6 +42,16 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
   ],
   layoutDefaults: lgErgoLayoutDefaults,
   derivativeSnapshot: 'screen-edge-centers',
+  modes: {
+    'scene-flopped': LayoutMode(
+      id: 'scene-flopped',
+      aliases: ['collapsed-scene'],
+      activeCondition: HasActiveNodesCondition(
+        exclude: {DefaultVaultPaths.cortex},
+      ),
+      derivativeSnapshot: 'screen-edge-centers',
+    ),
+  },
   derivatives: {
     'screen-edge-centers': LayoutDerivativeSnapshot(
       values: {
@@ -233,8 +243,10 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
           fieldBuilder: TableFieldBuilder(
             groups: {
               TableGroup(id: 'identity', label: 'Public identity'),
-              TableGroup(id: null, ordering: TableFieldOrdering.asConfigured),
-              TableGroup(id: 'meta', label: 'Meta'),
+              TableGroup(
+                id: null,
+                ordering: TableFieldOrdering.keyAlphabetical,
+              ),
             },
             fields: [
               TableField(
@@ -257,7 +269,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               ),
               TableField(
                 key: 'version',
-                groupId: 'meta',
+                groupId: 'identity',
                 size: GridAxisVariable(size: GridTrackSize.fr(0.5)),
               ),
             ],
@@ -416,11 +428,6 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
     ),
     'safe-area': SafeAreaLayout(
       aliases: ['safe-area', 'scene-container'],
-      attributes: [
-        LayoutAttribute.safeArea,
-        LayoutAttribute.rectangular,
-        LayoutAttribute.circular,
-      ],
       layoutDefaults: lgErgoLayoutDefaults,
       innerCircle: LayoutCircle(
         radiusFraction: lgErgoSceneInnerCircleRadiusFraction,
