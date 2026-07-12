@@ -155,7 +155,7 @@ class _LandscapeXlLayoutNodeView extends StatelessWidget {
             )
           else if (child is! LayoutGuide &&
               child is! LayoutPath &&
-              child is! RadialTreeLayout &&
+              child is! RadialBushLayout &&
               child is! NodePropertyTable &&
               child is! StickmanLayout &&
               child is! PlaneLayout &&
@@ -611,13 +611,13 @@ class _ReferenceLayoutPainter extends CustomPainter {
           layoutContext,
         );
       }
-      for (final radialTree
-          in resolved.layout.layouts.values.whereType<RadialTreeLayout>()) {
-        _drawRadialTreeLayout(
+      for (final radialBush
+          in resolved.layout.layouts.values.whereType<RadialBushLayout>()) {
+        _drawRadialBushLayout(
           canvas,
           size,
           resolved.bounds,
-          radialTree,
+          radialBush,
           vaultNodeResolver,
           resolvedLayouts,
           layoutContext,
@@ -792,13 +792,13 @@ void _drawLayoutPath(
 
   canvas.save();
   canvas.clipPath(path);
-  for (final radialTree
-      in layoutPath.layouts.values.whereType<RadialTreeLayout>()) {
-    _drawRadialTreeLayout(
+  for (final radialBush
+      in layoutPath.layouts.values.whereType<RadialBushLayout>()) {
+    _drawRadialBushLayout(
       canvas,
       size,
       _boundsForPoints(resolvedPoints),
-      radialTree,
+      radialBush,
       vaultNodeResolver,
       layouts,
       layoutContext,
@@ -954,17 +954,17 @@ void _drawPerspectiveGrid(
   }
 }
 
-void _drawRadialTreeLayout(
+void _drawRadialBushLayout(
   Canvas canvas,
   Size size,
   Rect bounds,
-  RadialTreeLayout radialTree,
+  RadialBushLayout radialBush,
   VaultNodeResolver? vaultNodeResolver,
   Map<String, _ResolvedLayout> layouts,
   LayoutContext layoutContext,
 ) {
   final radius = _resolveLayoutSize(
-    radialTree.layoutSize,
+    radialBush.layoutSize,
     viewport: size,
     bounds: bounds,
     layouts: layouts,
@@ -972,21 +972,38 @@ void _drawRadialTreeLayout(
   );
   if (radius <= 0) return;
 
-  final center = radialTree.position.resolve(bounds);
-  final target = radialTree.growthDirection == null
+  final center = radialBush.position.resolve(bounds);
+  final target = radialBush.growthDirection == null
       ? bounds.center
-      : _resolveReference(radialTree.growthDirection!, layouts, layoutContext);
+      : _resolveReference(radialBush.growthDirection!, layouts, layoutContext);
   final growthVector = (target == null || (target - center).distance == 0)
       ? const Offset(0, 1)
       : target - center;
   final growthAngle = math.atan2(growthVector.dy, growthVector.dx);
-  final resolvedRoot = _resolveVaultNode(radialTree.node, vaultNodeResolver);
-  final rootColor = resolvedRoot.fillColor;
-  final arcRect = Rect.fromCircle(center: Offset.zero, radius: radius);
+  final resolvedRoot = _resolveVaultNode(
+    radialBush.rootNode,
+    vaultNodeResolver,
+  );
+  final rootColor = _radialBushRootBackground(
+    radialBush,
+    resolvedRoot,
+    vaultNodeResolver,
+  );
+  final rootRadius = _radialBushRootRadius(radialBush, radius);
+  final arcRect = Rect.fromCircle(center: Offset.zero, radius: rootRadius);
 
-  _drawRadialTreeGrid(
+  _drawRadialBushGrid(
     canvas,
-    radialTree,
+    radialBush,
+    center,
+    radius,
+    growthAngle,
+    vaultNodeResolver,
+  );
+  _drawRadialBushBranches(
+    canvas,
+    radialBush,
+    resolvedRoot,
     center,
     radius,
     growthAngle,
@@ -999,8 +1016,8 @@ void _drawRadialTreeLayout(
 
   if (rootColor != null) {
     final fillPath = Path()
-      ..moveTo(-radius, 0)
-      ..lineTo(radius, 0)
+      ..moveTo(-rootRadius, 0)
+      ..lineTo(rootRadius, 0)
       ..arcTo(arcRect, 0, math.pi, false)
       ..close();
     canvas.drawPath(
@@ -1011,33 +1028,31 @@ void _drawRadialTreeLayout(
     );
   }
 
-  if (resolvedRoot.resolvedStatus == LayoutHttpStatus.notFound) {
-    final strokePaint = Paint()
-      ..color = radialTree.style.color
-      ..strokeWidth = radialTree.style.strokeWidth
-      ..strokeCap = radialTree.style.strokeCap
-      ..style = PaintingStyle.stroke;
-    canvas.drawArc(arcRect, 0, math.pi, false, strokePaint);
-    canvas.drawLine(Offset(-radius, 0), Offset(radius, 0), strokePaint);
-  }
+  final strokePaint = Paint()
+    ..color = radialBush.style.color
+    ..strokeWidth = radialBush.style.strokeWidth
+    ..strokeCap = radialBush.style.strokeCap
+    ..style = PaintingStyle.stroke;
+  canvas.drawArc(arcRect, 0, math.pi, false, strokePaint);
+  canvas.drawLine(Offset(-rootRadius, 0), Offset(rootRadius, 0), strokePaint);
   canvas.restore();
 
-  final label = radialTree.label;
+  final label = radialBush.label;
   if (label == null || label.isEmpty) return;
   final textPainter = TextPainter(
     text: TextSpan(
       text: label,
       style: TextStyle(
-        color: radialTree.labelColor,
-        fontSize: radialTree.labelSize,
+        color: radialBush.labelColor,
+        fontSize: radialBush.labelSize,
         fontWeight: FontWeight.w700,
       ),
     ),
     textDirection: TextDirection.ltr,
     textAlign: TextAlign.center,
-  )..layout(maxWidth: radius * 2);
+  )..layout(maxWidth: rootRadius * 2);
   final direction = growthVector / growthVector.distance;
-  final labelCenter = center + direction * radius * 0.42;
+  final labelCenter = center + direction * rootRadius * 0.42;
   textPainter.paint(
     canvas,
     Offset(
@@ -1047,35 +1062,216 @@ void _drawRadialTreeLayout(
   );
 }
 
-void _drawRadialTreeGrid(
+Color? _radialBushRootBackground(
+  RadialBushLayout bush,
+  ResolvedVaultNode root,
+  VaultNodeResolver? resolver,
+) {
+  final extractor = bush.bushStructure.root.backgroundExtractor;
+  final note = root.note;
+  if (extractor == null || note == null || resolver == null) {
+    return root.fillColor;
+  }
+  final linkedNote = resolver
+      .findLinkedNode(note.frontmatter[extractor.rootParameter])
+      ?.note;
+  if (linkedNote == null) return root.fillColor;
+
+  for (final parameter in extractor.colorParameters) {
+    final color = _extractHexColor(linkedNote.frontmatter[parameter]);
+    if (color != null) return color;
+  }
+  for (final value in linkedNote.frontmatter.values) {
+    final color = _extractHexColor(value);
+    if (color != null) return color;
+  }
+  return root.fillColor;
+}
+
+Color? _extractHexColor(String? value) {
+  if (value == null) return null;
+  final match = RegExp(
+    r'(?:#|0x)([0-9a-fA-F]{8}|[0-9a-fA-F]{6})',
+  ).firstMatch(value);
+  final hex = match?.group(1);
+  if (hex == null) return null;
+  final parsed = int.tryParse(hex, radix: 16);
+  if (parsed == null) return null;
+  return Color(hex.length == 6 ? 0xFF000000 | parsed : parsed);
+}
+
+void _drawRadialBushBranches(
   Canvas canvas,
-  RadialTreeLayout radialTree,
+  RadialBushLayout bush,
+  ResolvedVaultNode root,
+  Offset center,
+  double radius,
+  double growthAngle,
+  VaultNodeResolver? resolver,
+) {
+  final branch = bush.bushStructure.branch;
+  final note = root.note;
+  if (branch == null || note == null) return;
+  final components = (resolver ?? VaultNodeResolver.empty).findLinkedNodes(
+    note.frontmatter[branch.rootParameter],
+  );
+  if (components.isEmpty) return;
+
+  final rootRadius = _radialBushRootRadius(bush, radius);
+  final segmentRadians = math.pi / components.length;
+  for (var index = 0; index < components.length; index += 1) {
+    final resolved = components[index];
+    final startTheta = -math.pi / 2 + segmentRadians * index;
+    final endTheta = startTheta + segmentRadians;
+    final path = _radialBushAreaPath(
+      center,
+      growthAngle,
+      rootRadius,
+      radius,
+      startTheta,
+      endTheta,
+    );
+    final fillColor = resolved.fillColor;
+    if (fillColor != null) {
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = fillColor
+          ..style = PaintingStyle.fill,
+      );
+    }
+    final borderStyle = bush.tableGuideStyle ?? bush.style;
+    _drawRadialBushAreaBorder(
+      canvas,
+      center,
+      growthAngle,
+      rootRadius,
+      radius,
+      startTheta,
+      endTheta,
+      borderStyle,
+    );
+    _drawRadialBushComponentLabel(
+      canvas,
+      center,
+      growthAngle,
+      rootRadius,
+      radius,
+      startTheta,
+      endTheta,
+      resolved.label ?? resolved.path,
+      bush,
+    );
+  }
+}
+
+void _drawRadialBushAreaBorder(
+  Canvas canvas,
+  Offset center,
+  double growthAngle,
+  double innerRadius,
+  double outerRadius,
+  double startTheta,
+  double endTheta,
+  GuideStyle style,
+) {
+  _drawRadialBushArc(
+    canvas,
+    center,
+    growthAngle,
+    innerRadius,
+    startTheta + math.pi / 2,
+    endTheta + math.pi / 2,
+    style,
+  );
+  _drawRadialBushArc(
+    canvas,
+    center,
+    growthAngle,
+    outerRadius,
+    startTheta + math.pi / 2,
+    endTheta + math.pi / 2,
+    style,
+  );
+  for (final theta in [startTheta, endTheta]) {
+    drawGuideLine(
+      canvas,
+      _radialBushPoint(center, growthAngle, innerRadius, theta),
+      _radialBushPoint(center, growthAngle, outerRadius, theta),
+      style,
+    );
+  }
+}
+
+void _drawRadialBushComponentLabel(
+  Canvas canvas,
+  Offset center,
+  double growthAngle,
+  double innerRadius,
+  double outerRadius,
+  double startTheta,
+  double endTheta,
+  String label,
+  RadialBushLayout bush,
+) {
+  final labelPoint = _radialBushPoint(
+    center,
+    growthAngle,
+    (innerRadius + outerRadius) / 2,
+    (startTheta + endTheta) / 2,
+  );
+  final painter = TextPainter(
+    text: TextSpan(
+      text: label,
+      style: TextStyle(
+        color: bush.labelColor,
+        fontSize: bush.labelSize,
+        fontWeight: FontWeight.w600,
+      ),
+    ),
+    textDirection: TextDirection.ltr,
+    textAlign: TextAlign.center,
+  )..layout();
+  painter.paint(
+    canvas,
+    labelPoint - Offset(painter.width / 2, painter.height / 2),
+  );
+}
+
+double _radialBushRootRadius(RadialBushLayout bush, double radius) =>
+    bush.bushStructure.branch == null ? radius : radius * 0.5;
+
+void _drawRadialBushGrid(
+  Canvas canvas,
+  RadialBushLayout radialBush,
   Offset center,
   double radius,
   double growthAngle,
   VaultNodeResolver? vaultNodeResolver,
 ) {
-  if (radialTree.rowsConfig.isEmpty || radialTree.columnsConfig.isEmpty) {
+  final rowsConfig = radialBush.tableRowsConfig;
+  final columnsConfig = radialBush.tableColumnsConfig;
+  if (rowsConfig.isEmpty || columnsConfig.isEmpty) {
     return;
   }
 
   final rowStops = _gridTrackStops([
-    for (final row in radialTree.rowsConfig.values) row.size,
+    for (final row in rowsConfig.values) row.size,
   ], radius);
   final columnStops = _gridTrackStops([
-    for (final column in radialTree.columnsConfig.values) column.size,
+    for (final column in columnsConfig.values) column.size,
   ], math.pi);
   if (rowStops.length < 2 || columnStops.length < 2) return;
 
-  final rowKeys = radialTree.rowsConfig.keys.toList(growable: false);
-  final columnKeys = radialTree.columnsConfig.keys.toList(growable: false);
-  for (final area in radialTree.areas.values) {
+  final rowKeys = rowsConfig.keys.toList(growable: false);
+  final columnKeys = columnsConfig.keys.toList(growable: false);
+  for (final area in radialBush.bushStructure.areas.values) {
     final rowStartIndex = rowKeys.indexOf(area.row);
     final columnStartIndex = columnKeys.indexOf(area.column);
     if (rowStartIndex < 0 || columnStartIndex < 0) continue;
-    _drawRadialTreeArea(
+    _drawRadialBushArea(
       canvas,
-      radialTree,
+      radialBush,
       center,
       growthAngle,
       rowStops,
@@ -1097,11 +1293,11 @@ void _drawRadialTreeGrid(
     );
   }
 
-  final gridStyle = radialTree.gridStyle;
+  final gridStyle = radialBush.tableGuideStyle;
   if (gridStyle == null) return;
 
   for (final rowStop in rowStops.skip(1)) {
-    _drawRadialTreeArc(
+    _drawRadialBushArc(
       canvas,
       center,
       growthAngle,
@@ -1116,15 +1312,15 @@ void _drawRadialTreeGrid(
     drawGuideLine(
       canvas,
       center,
-      _radialTreePoint(center, growthAngle, radius, theta),
+      _radialBushPoint(center, growthAngle, radius, theta),
       gridStyle,
     );
   }
 }
 
-void _drawRadialTreeArea(
+void _drawRadialBushArea(
   Canvas canvas,
-  RadialTreeLayout radialTree,
+  RadialBushLayout radialBush,
   Offset center,
   double growthAngle,
   List<double> rowStops,
@@ -1133,14 +1329,14 @@ void _drawRadialTreeArea(
   double rowEndIndex,
   double columnStartIndex,
   double columnEndIndex,
-  RadialTreeArea area,
+  RadialBushArea area,
   VaultNodeResolver? vaultNodeResolver,
 ) {
   if (rowStartIndex < 0 ||
-      rowEndIndex > radialTree.rowsConfig.length ||
+      rowEndIndex > radialBush.tableRowsConfig.length ||
       rowStartIndex >= rowEndIndex ||
       columnStartIndex < 0 ||
-      columnEndIndex > radialTree.columnsConfig.length ||
+      columnEndIndex > radialBush.tableColumnsConfig.length ||
       columnStartIndex >= columnEndIndex) {
     return;
   }
@@ -1156,7 +1352,7 @@ void _drawRadialTreeArea(
   final borderStyle = area.node == null
       ? area.borderStyle
       : resolvedNode?.resolvedStatus == LayoutHttpStatus.notFound
-      ? area.borderStyle ?? radialTree.gridStyle
+      ? area.borderStyle ?? radialBush.gridStyle
       : null;
   final label = area.label;
   if (fillColor == null &&
@@ -1165,7 +1361,7 @@ void _drawRadialTreeArea(
     return;
   }
 
-  final path = _radialTreeAreaPath(
+  final path = _radialBushAreaPath(
     center,
     growthAngle,
     innerRadius,
@@ -1182,7 +1378,7 @@ void _drawRadialTreeArea(
     );
   }
   if (borderStyle != null) {
-    _drawRadialTreeArc(
+    _drawRadialBushArc(
       canvas,
       center,
       growthAngle,
@@ -1191,7 +1387,7 @@ void _drawRadialTreeArea(
       endTheta + math.pi / 2,
       borderStyle,
     );
-    _drawRadialTreeArc(
+    _drawRadialBushArc(
       canvas,
       center,
       growthAngle,
@@ -1202,20 +1398,20 @@ void _drawRadialTreeArea(
     );
     drawGuideLine(
       canvas,
-      _radialTreePoint(center, growthAngle, innerRadius, startTheta),
-      _radialTreePoint(center, growthAngle, outerRadius, startTheta),
+      _radialBushPoint(center, growthAngle, innerRadius, startTheta),
+      _radialBushPoint(center, growthAngle, outerRadius, startTheta),
       borderStyle,
     );
     drawGuideLine(
       canvas,
-      _radialTreePoint(center, growthAngle, innerRadius, endTheta),
-      _radialTreePoint(center, growthAngle, outerRadius, endTheta),
+      _radialBushPoint(center, growthAngle, innerRadius, endTheta),
+      _radialBushPoint(center, growthAngle, outerRadius, endTheta),
       borderStyle,
     );
   }
 
   if (label == null || label.isEmpty) return;
-  final labelPoint = _radialTreePoint(
+  final labelPoint = _radialBushPoint(
     center,
     growthAngle,
     (innerRadius + outerRadius) / 2,
@@ -1239,7 +1435,7 @@ void _drawRadialTreeArea(
   );
 }
 
-Path _radialTreeAreaPath(
+Path _radialBushAreaPath(
   Offset center,
   double growthAngle,
   double innerRadius,
@@ -1251,7 +1447,7 @@ Path _radialTreeAreaPath(
   final path = Path();
   for (var index = 0; index <= steps; index += 1) {
     final theta = startTheta + (endTheta - startTheta) * index / steps;
-    final point = _radialTreePoint(center, growthAngle, outerRadius, theta);
+    final point = _radialBushPoint(center, growthAngle, outerRadius, theta);
     if (index == 0) {
       path.moveTo(point.dx, point.dy);
     } else {
@@ -1260,14 +1456,14 @@ Path _radialTreeAreaPath(
   }
   for (var index = steps; index >= 0; index -= 1) {
     final theta = startTheta + (endTheta - startTheta) * index / steps;
-    final point = _radialTreePoint(center, growthAngle, innerRadius, theta);
+    final point = _radialBushPoint(center, growthAngle, innerRadius, theta);
     path.lineTo(point.dx, point.dy);
   }
   path.close();
   return path;
 }
 
-void _drawRadialTreeArc(
+void _drawRadialBushArc(
   Canvas canvas,
   Offset center,
   double growthAngle,
@@ -1276,7 +1472,7 @@ void _drawRadialTreeArc(
   double endRadians,
   GuideStyle style,
 ) {
-  var previous = _radialTreePoint(
+  var previous = _radialBushPoint(
     center,
     growthAngle,
     radius,
@@ -1288,13 +1484,13 @@ void _drawRadialTreeArc(
         -math.pi / 2 +
         startRadians +
         (endRadians - startRadians) * index / steps;
-    final next = _radialTreePoint(center, growthAngle, radius, theta);
+    final next = _radialBushPoint(center, growthAngle, radius, theta);
     drawGuideLine(canvas, previous, next, style);
     previous = next;
   }
 }
 
-Offset _radialTreePoint(
+Offset _radialBushPoint(
   Offset center,
   double growthAngle,
   double radius,
@@ -1327,8 +1523,8 @@ LayoutTapTarget? _hitTestLayoutTapTarget(
     final children = resolved.layout.layouts.entries.toList().reversed;
     for (final entry in children) {
       final child = entry.value;
-      if (child is RadialTreeLayout &&
-          _hitTestRadialTreeRoot(
+      if (child is RadialBushLayout &&
+          _hitTestRadialBushRoot(
             child,
             resolved.bounds,
             size,
@@ -1338,8 +1534,8 @@ LayoutTapTarget? _hitTestLayoutTapTarget(
         return LayoutTapTarget(
           key: entry.key,
           layout: child,
-          node: child.node,
-          resolvedNode: vaultNodeResolver?.resolve(child.node),
+          node: child.rootNode,
+          resolvedNode: vaultNodeResolver?.resolve(child.rootNode),
           label: child.label,
         );
       }
@@ -1348,25 +1544,25 @@ LayoutTapTarget? _hitTestLayoutTapTarget(
   return null;
 }
 
-bool _hitTestRadialTreeRoot(
-  RadialTreeLayout radialTree,
+bool _hitTestRadialBushRoot(
+  RadialBushLayout radialBush,
   Rect bounds,
   Size size,
   Map<String, _ResolvedLayout> layouts,
   Offset position,
 ) {
   final radius = _resolveLayoutSize(
-    radialTree.layoutSize,
+    radialBush.layoutSize,
     viewport: size,
     bounds: bounds,
     layouts: layouts,
   );
   if (radius <= 0) return false;
 
-  final center = radialTree.position.resolve(bounds);
-  final target = radialTree.growthDirection == null
+  final center = radialBush.position.resolve(bounds);
+  final target = radialBush.growthDirection == null
       ? bounds.center
-      : _resolveReference(radialTree.growthDirection!, layouts);
+      : _resolveReference(radialBush.growthDirection!, layouts);
   final growthVector = (target == null || (target - center).distance == 0)
       ? const Offset(0, 1)
       : target - center;
@@ -1378,7 +1574,8 @@ bool _hitTestRadialTreeRoot(
     translated.dx * math.sin(-rotation) + translated.dy * math.cos(-rotation),
   );
 
-  return local.distance <= radius && local.dy >= 0;
+  return local.distance <= _radialBushRootRadius(radialBush, radius) &&
+      local.dy >= 0;
 }
 
 ResolvedVaultNode _resolveVaultNode(
@@ -1577,7 +1774,7 @@ void _drawTableLayout(
     for (final row in rows) row.size.size,
   ], averageHeight);
   final columnStops = _gridTrackStops([
-    for (final column in table.columns) column.value.size,
+    for (final column in table.tableColumnsConfig.values) column.size,
   ], averageWidth);
   final tableTransformPoints = [
     _tableLayoutPoint(tablePoints, row: 0, column: 0),
@@ -1709,10 +1906,10 @@ void _drawTableLayout(
     }
     for (
       var columnIndex = 0;
-      columnIndex < table.columns.length;
+      columnIndex < table.tableColumnsConfig.length;
       columnIndex += 1
     ) {
-      final column = table.columns[columnIndex];
+      final column = table.tableColumnsConfig.entries.elementAt(columnIndex);
       final isKeyColumn = column.key == 'key';
       _paintTextInTableCell(
         tableCanvas,

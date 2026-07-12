@@ -14,7 +14,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
   attributes: [LayoutAttribute.screen, LayoutAttribute.rectangular],
   backgrounds: [
     LayoutImageBackground(
-      assetPath: 'assets/please-stand-by.png',
+      assetPath: 'assets/wallpapers/daft-punk.jpg',
       fit: LayoutBackgroundFit.cover,
       opacity: 0.34,
     ),
@@ -64,19 +64,25 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
     ),
   },
   layouts: {
-    'left-plane': LayoutPath(
-      aliases: ['left-plane', 'space-plane', 'y-axis-plane'],
+    'action-panel': LayoutPath(
+      aliases: [
+        'action-panel',
+        'action-pane',
+        'action-plane',
+        'right-plane',
+        'east-plane',
+      ],
       points: [
-        LayoutDerivativeReference(derivative: 'B'),
+        LayoutDerivativeReference(derivative: 'C'),
         LayoutDerivativeReference(
           layoutPath: ['safe-area'],
-          derivative: 'leftPlane.top',
+          derivative: 'rightPlane.top',
         ),
         LayoutDerivativeReference(
           layoutPath: ['safe-area'],
-          derivative: 'leftPlane.bottom',
+          derivative: 'rightPlane.bottom',
         ),
-        LayoutDerivativeReference(derivative: 'A'),
+        LayoutDerivativeReference(derivative: 'D'),
       ],
       style: LayoutPathStyle(
         fillColor: Color(0x333F51B5),
@@ -84,7 +90,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
       ),
       padding: lgErgoLayoutDefaultPadding,
       grid: PerspectiveGridLayout(
-        aliases: ['left-plane-grid', 'space-grid', 'y-axis-grid'],
+        aliases: ['action-panel-grid', 'action-grid', 'right-plane-grid'],
         guideStyle: lgErgoSpacePlaneDashStyle,
         rowsConfig: {
           'space-01': GridAxisVariable(size: GridTrackSize.fr(1)),
@@ -147,12 +153,8 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
         strokeStyle: lgErgoPlaneLineStyle,
       ),
       layouts: {
-        'cortex-tree': RadialTreeLayout(
-          aliases: ['radial-tree', 'node-tree', 'cortex-tree', 'top-node-tree'],
-          node: VaultNodeUiComponent(
-            path: DefaultVaultPaths.cortex,
-            color: lgErgoCortexNodeColor,
-          ),
+        'cortex-bush': RadialBushLayout(
+          aliases: ['radial-bush', 'node-bush', 'cortex-bush', 'top-node-bush'],
           style: lgErgoCortexNodeBorderStyle,
           label: 'cortex',
           labelColor: lgErgoCortexNodeLabelColor,
@@ -164,90 +166,52 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               derivative: 'innerSquare.BC-center',
             ),
           ),
-          gridStyle: lgErgoRadialTreeGridStyle,
-          rowsConfig: {
-            'root-band': GridAxisVariable(size: GridTrackSize.fr(0.9)),
-            'branch-band': GridAxisVariable(size: GridTrackSize.fr(1)),
-            'leaf-band': GridAxisVariable(size: GridTrackSize.fr(1)),
-          },
-          columnsConfig: {
-            'left-branch': GridAxisVariable(size: GridTrackSize.fr(1)),
-            'center-branch': GridAxisVariable(size: GridTrackSize.fr(1)),
-            'right-branch': GridAxisVariable(size: GridTrackSize.fr(1)),
-          },
-          areas: {
-            'cortex-root-zone': RadialTreeArea(
-              row: 'root-band',
-              column: 'center-branch',
-              aliases: ['root-zone', 'cortex-root-zone'],
-              fillColor: Color(0x18FFD54F),
-              borderStyle: lgErgoRadialTreeGridStyle,
-              label: 'root',
+          gridStyle: lgErgoRadialBushGridStyle,
+          bushStructure: RadialBushStructure(
+            root: RadialBushRoot(
+              size: GridAxisVariable(size: GridTrackSize.fr(1)),
+              node: VaultNodeUiComponent(
+                path: DefaultVaultPaths.cortex,
+                color: lgErgoCortexNodeColor,
+              ),
+              backgroundExtractor: BackgroundExtractor(
+                rootParameter: 'background',
+              ),
             ),
-            'left-branch-zone': RadialTreeArea(
-              row: 'branch-band',
-              column: 'left-branch',
-              aliases: ['left-branch-zone'],
-              borderStyle: lgErgoRadialTreeGridStyle,
-              label: 'left',
+            branch: RadialBushBranch(
+              size: GridAxisVariable(size: GridTrackSize.fr(1)),
+              rootParameter: 'components',
             ),
-            'center-branch-zone': RadialTreeArea(
-              row: 'branch-band',
-              column: 'center-branch',
-              aliases: ['center-branch-zone'],
-              borderStyle: lgErgoRadialTreeGridStyle,
-              label: 'center',
-              segments: {
-                'center-leaf-a': RadialTreeArea(
-                  row: 'branch-band',
-                  column: 'center-branch',
-                  columnSpan: 0.5,
-                  aliases: ['center-leaf-a'],
-                  label: 'a',
-                ),
-                'center-leaf-b': RadialTreeArea(
-                  row: 'branch-band',
-                  column: 'center-branch',
-                  columnOffset: 0.5,
-                  columnSpan: 0.5,
-                  aliases: ['center-leaf-b'],
-                  label: 'b',
-                ),
-              },
-            ),
-            'right-branch-zone': RadialTreeArea(
-              row: 'branch-band',
-              column: 'right-branch',
-              aliases: ['right-branch-zone'],
-              borderStyle: lgErgoRadialTreeGridStyle,
-              label: 'right',
-            ),
-            'leaf-row-zone': RadialTreeArea(
-              row: 'leaf-band',
-              column: 'left-branch',
-              columnSpan: GridSpan.full,
-              aliases: ['leaf-row-zone'],
-              borderStyle: lgErgoRadialTreeGridStyle,
-              label: 'sub-segments',
-            ),
-          },
+            // leaves: RadialBushElement(
+            //   size: GridAxisVariable(size: GridTrackSize.fr(1)),
+            // ),
+            // flowers: RadialBushElement(
+            //   size: GridAxisVariable(size: GridTrackSize.fr(1)),
+            // ),
+          ),
           position: LayoutRelativePosition.top,
         ),
       },
     ),
-    'right-plane': LayoutPath(
-      aliases: ['right-plane', 'action-plane', 'east-plane'],
+    'info-panel': LayoutPath(
+      aliases: [
+        'info-panel',
+        'info-pane',
+        'info-plane',
+        'left-plane',
+        'west-plane',
+      ],
       points: [
-        LayoutDerivativeReference(derivative: 'C'),
+        LayoutDerivativeReference(derivative: 'B'),
         LayoutDerivativeReference(
           layoutPath: ['safe-area'],
-          derivative: 'rightPlane.top',
+          derivative: 'leftPlane.top',
         ),
         LayoutDerivativeReference(
           layoutPath: ['safe-area'],
-          derivative: 'rightPlane.bottom',
+          derivative: 'leftPlane.bottom',
         ),
-        LayoutDerivativeReference(derivative: 'D'),
+        LayoutDerivativeReference(derivative: 'A'),
       ],
       pointDerivatives: {'A': 0, 'B': 1, 'C': 2, 'D': 3},
       style: LayoutPathStyle(
@@ -743,7 +707,7 @@ const lgErgoPastColor = Color(0x553F51B5);
 const lgErgoNowColor = Color(0xFFDC143C);
 const lgErgoFutureColor = Color(0x552E7D32);
 const lgErgoSpacePlaneBandColor = Color(0x223F51B5);
-const lgErgoControlPlaneBandColor = Color(0x223F51B5);
+const lgErgoControlPlaneBandColor = Color(0x00000000);
 const lgErgoActionPlaneBandColor = Color(0x223F51B5);
 const lgErgoCortexNodeColor = LayoutColor.fromHex('FFD54F', opacity: 0.9);
 const lgErgoCortexNodeLabelColor = Color(0xFF101820);
@@ -809,7 +773,7 @@ const lgErgoCortexNodeBorderStyle = GuideStyle(
   pattern: GuideLinePattern.solid,
 );
 
-const lgErgoRadialTreeGridStyle = GuideStyle(
+const lgErgoRadialBushGridStyle = GuideStyle(
   color: Color(0x88FFD54F),
   strokeWidth: 0.9,
   pattern: GuideLinePattern.dashed,

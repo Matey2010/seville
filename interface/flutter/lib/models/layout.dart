@@ -1048,6 +1048,16 @@ class GridAxisVariable {
   final List<String> aliases;
 }
 
+/// Shared ordered track contract for layouts that present content as a table.
+///
+/// Concrete layouts keep their own content model: radial areas remain radial,
+/// while node-property fields remain node-property fields.
+mixin TableLayoutMixin on Layout {
+  Map<String, GridAxisVariable> get tableRowsConfig;
+  Map<String, GridAxisVariable> get tableColumnsConfig;
+  GuideStyle? get tableGuideStyle;
+}
+
 abstract final class GridSpan {
   static const full = double.infinity;
 }
@@ -1116,8 +1126,8 @@ class PerspectiveGridLayout extends Layout {
   final int bottomEndIndex;
 }
 
-class RadialTreeArea extends Layout {
-  const RadialTreeArea({
+class RadialBushArea extends Layout {
+  const RadialBushArea({
     required this.row,
     required this.column,
     this.rowOffset = 0,
@@ -1130,7 +1140,6 @@ class RadialTreeArea extends Layout {
     this.label,
     this.labelColor = const Color(0xFFFFFFFF),
     this.labelSize = 11,
-    this.segments = const {},
     super.aliases,
     super.attributes = const [LayoutAttribute.circular],
     super.modes,
@@ -1148,9 +1157,69 @@ class RadialTreeArea extends Layout {
   final String? label;
   final Color labelColor;
   final double labelSize;
+}
 
-  /// Optional sub-segments for the next tree depth inside this radial area.
-  final Map<String, RadialTreeArea> segments;
+class RadialBushRoot {
+  const RadialBushRoot({
+    required this.size,
+    required this.node,
+    this.backgroundExtractor,
+  });
+
+  final GridAxisVariable size;
+  final VaultNodeUiComponent node;
+  final BackgroundExtractor? backgroundExtractor;
+}
+
+class BackgroundExtractor {
+  const BackgroundExtractor({
+    required this.rootParameter,
+    this.colorParameters = const ['hex', 'color', 'background', 'aliases'],
+  });
+
+  final String rootParameter;
+  final List<String> colorParameters;
+}
+
+class RadialBushBranch {
+  const RadialBushBranch({required this.size, required this.rootParameter});
+
+  final GridAxisVariable size;
+  final String rootParameter;
+}
+
+class RadialBushElement {
+  const RadialBushElement({required this.size});
+
+  final GridAxisVariable size;
+}
+
+class RadialBushStructure {
+  const RadialBushStructure({
+    required this.root,
+    this.branch,
+    this.leaves,
+    this.flowers,
+    this.areas = const {},
+  });
+
+  static const rootRow = 'root';
+  static const branchRow = 'branch';
+  static const leavesRow = 'leaves';
+  static const flowersRow = 'flowers';
+
+  final RadialBushRoot root;
+  final RadialBushBranch? branch;
+  final RadialBushElement? leaves;
+  final RadialBushElement? flowers;
+  final Map<String, RadialBushArea> areas;
+
+  Map<String, GridAxisVariable> get rowsConfig => {
+    rootRow: root.size,
+    if (branch case final branch?) branchRow: branch.size,
+    if (leaves case final leaves?) leavesRow: leaves.size,
+    if (flowers case final flowers?) flowersRow: flowers.size,
+  };
 }
 
 class LayoutPath extends Layout {
@@ -1183,37 +1252,42 @@ class LayoutPath extends Layout {
       pathPadding ?? LayoutPathPadding.all(padding);
 }
 
-class RadialTreeLayout extends Layout {
-  const RadialTreeLayout({
-    required this.node,
+class RadialBushLayout extends Layout with TableLayoutMixin {
+  const RadialBushLayout({
     required this.style,
+    required this.bushStructure,
     this.label,
     this.labelColor = const Color(0xFFFFFFFF),
     this.labelSize = 12,
     this.layoutSize = const LayoutSize.px(20),
     this.position = LayoutRelativePosition.top,
     this.growthDirection,
-    this.rowsConfig = const {},
-    this.columnsConfig = const {},
-    this.areas = const {},
     this.gridStyle,
     super.aliases,
     super.attributes = const [LayoutAttribute.circular],
     super.modes,
   }) : super.fromAxes();
 
-  final VaultNodeUiComponent node;
   final String? label;
   final Color labelColor;
   final double labelSize;
   final LayoutSize layoutSize;
   final LayoutRelativePosition position;
   final LayoutDerivativeReference? growthDirection;
-  final Map<String, GridAxisVariable> rowsConfig;
-  final Map<String, GridAxisVariable> columnsConfig;
-  final Map<String, RadialTreeArea> areas;
+  final RadialBushStructure bushStructure;
   final GuideStyle? gridStyle;
   final GuideStyle style;
+
+  @override
+  Map<String, GridAxisVariable> get tableRowsConfig => bushStructure.rowsConfig;
+
+  @override
+  Map<String, GridAxisVariable> get tableColumnsConfig => const {};
+
+  @override
+  GuideStyle? get tableGuideStyle => gridStyle;
+
+  VaultNodeUiComponent get rootNode => bushStructure.root.node;
 }
 
 class RayLayout extends LayoutGuide {

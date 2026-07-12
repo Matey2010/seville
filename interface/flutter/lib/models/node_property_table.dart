@@ -51,7 +51,7 @@ class TableCellHighlightConfig {
   final Color color;
 }
 
-class NodePropertyTable extends Layout {
+class NodePropertyTable extends Layout with TableLayoutMixin {
   const NodePropertyTable({
     required this.columns,
     required this.dataSource,
@@ -78,4 +78,17 @@ class NodePropertyTable extends Layout {
   final Color valueColor;
   final double labelSize;
   final double valueSize;
+
+  @override
+  Map<String, GridAxisVariable> get tableRowsConfig => {
+    for (final field in fieldBuilder?.fields ?? const <TableField>[])
+      field.key: field.size,
+  };
+
+  @override
+  Map<String, GridAxisVariable> get tableColumnsConfig =>
+      Map.fromEntries(columns);
+
+  @override
+  GuideStyle get tableGuideStyle => guideStyle;
 }

@@ -51,6 +51,31 @@ class VaultNodeResolver {
     );
   }
 
+  ResolvedVaultNode? findLinkedNode(String? value) {
+    final components = linkedNodeComponents(value);
+    return components.isEmpty ? null : resolve(components.first);
+  }
+
+  List<ResolvedVaultNode> findLinkedNodes(String? value) => [
+    for (final component in linkedNodeComponents(value)) resolve(component),
+  ];
+
+  static List<VaultNodeUiComponent> linkedNodeComponents(String? value) {
+    if (value == null || value.isEmpty) return const [];
+    final links = RegExp(r'\[\[([^\]|]+)(?:\|([^\]]+))?\]\]');
+    return [
+      for (final match in links.allMatches(value))
+        if ((match.group(1)?.trim() ?? '') case final path when path.isNotEmpty)
+          VaultNodeUiComponent(
+            path: path,
+            label: switch (match.group(2)?.trim()) {
+              final label? when label.isNotEmpty => label,
+              _ => null,
+            },
+          ),
+    ];
+  }
+
   Iterable<String> pathSample({int count = 12}) =>
       _notes.map((note) => note.path).take(count);
 
