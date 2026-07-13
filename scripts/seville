@@ -16,7 +16,7 @@ load_env() {
       key=${line%%=*}
       raw=${line#*=}
       case "$key" in
-        SEVILLE_ADDR|SEVILLE_VAULT_PATH|SEVILLE_DB_PATH|SEVILLE_TOKEN) ;;
+        SEVILLE_ADDR|SEVILLE_SOURCE|SEVILLE_VAULT_PATH|SEVILLE_GIT_REPOSITORY_PATH|SEVILLE_GIT_VAULT_SUBPATH|SEVILLE_NEO4J_URI|SEVILLE_NEO4J_USERNAME|SEVILLE_NEO4J_PASSWORD|SEVILLE_NEO4J_DATABASE|SEVILLE_TOKEN) ;;
         *) continue ;;
       esac
 
@@ -29,19 +29,69 @@ load_env() {
   fi
   : "${SEVILLE_ADDR:=127.0.0.1:8787}"
   : "${SEVILLE_TOKEN:=local-seville-token}"
+  : "${SEVILLE_SOURCE:=vault}"
+  : "${SEVILLE_NEO4J_URI:=bolt://127.0.0.1:7687}"
+  : "${SEVILLE_NEO4J_USERNAME:=neo4j}"
+  : "${SEVILLE_NEO4J_PASSWORD:=seville-local-password}"
+  : "${SEVILLE_NEO4J_DATABASE:=neo4j}"
+  export SEVILLE_ADDR SEVILLE_TOKEN SEVILLE_SOURCE SEVILLE_NEO4J_URI
+  export SEVILLE_NEO4J_USERNAME SEVILLE_NEO4J_PASSWORD SEVILLE_NEO4J_DATABASE
 }
 
 is_running() {
   [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null
 }
 
+api_healthy() {
+  curl --fail --silent --max-time 1 "http://$SEVILLE_ADDR/healthz" >/dev/null 2>&1
+}
+
+ensure_local_neo4j() {
+  case "${SEVILLE_NEO4J_URI:-bolt://127.0.0.1:7687}" in
+    neo4j://127.0.0.1:*|neo4j://localhost:*|bolt://127.0.0.1:*|bolt://localhost:*) ;;
+    *) return 0 ;;
+  esac
+
+  if ! command -v docker >/dev/null 2>&1; then
+    echo "Local Neo4j is configured, but Docker is unavailable." >&2
+    echo "Install/start Docker Desktop or set SEVILLE_NEO4J_URI to the remote database." >&2
+    exit 1
+  fi
+  attempts=0
+  while ! docker info >/dev/null 2>&1; do
+    attempts=$((attempts + 1))
+    if [ "$attempts" -ge 30 ]; then
+      echo "Docker Desktop is installed, but its engine did not become ready within 30 seconds." >&2
+      echo "Docker's diagnostic follows:" >&2
+      docker info >&2 || true
+      echo "Set SEVILLE_NEO4J_URI to the remote database to bypass local Docker." >&2
+      exit 1
+    fi
+    if [ "$attempts" -eq 1 ]; then
+      echo "Waiting for the Docker Desktop engine..."
+    fi
+    sleep 1
+  done
+  (
+    cd "$ROOT"
+    docker compose up --detach neo4j
+  )
+}
+
 start() {
   mkdir -p "$ROOT/.local"
-  if is_running; then
+  load_env
+  if is_running && api_healthy; then
     echo "Seville is already running (PID $(cat "$PID_FILE"))."
     exit 0
   fi
-  load_env
+  if is_running; then
+    echo "Seville PID file exists, but the API is unhealthy; refusing to replace an unknown process." >&2
+    echo "Inspect $PID_FILE and $LOG_FILE, then run './scripts/seville stop' if appropriate." >&2
+    exit 1
+  fi
+  rm -f "$PID_FILE"
+  ensure_local_neo4j
   (
     cd "$ROOT"
     go build -o "$BINARY" ./backend/cmd/seville
@@ -51,14 +101,23 @@ start() {
     nohup "$BINARY" >>"$LOG_FILE" 2>&1 &
     echo $! >"$PID_FILE"
   )
-  sleep 1
-  if is_running; then
-    echo "Seville started at http://$SEVILLE_ADDR"
-    echo "Log: $LOG_FILE"
-  else
-    echo "Seville did not start. Check $LOG_FILE" >&2
-    exit 1
-  fi
+  attempts=0
+  while [ "$attempts" -lt 45 ]; do
+    if api_healthy; then
+      echo "Seville started at http://$SEVILLE_ADDR"
+      echo "Log: $LOG_FILE"
+      return 0
+    fi
+    if ! is_running; then
+      rm -f "$PID_FILE"
+      echo "Seville did not start. Check $LOG_FILE" >&2
+      exit 1
+    fi
+    attempts=$((attempts + 1))
+    sleep 1
+  done
+  echo "Seville API did not become healthy within 45 seconds. Check $LOG_FILE" >&2
+  exit 1
 }
 
 serve() {
@@ -96,8 +155,8 @@ stop() {
 
 status() {
   load_env
-  if ! is_running; then
-    echo "Seville process is not running."
+  if ! is_running || ! api_healthy; then
+    echo "Seville API is not running or unhealthy."
     exit 1
   fi
   echo "Seville process is running (PID $(cat "$PID_FILE"))."
@@ -133,9 +192,8 @@ case "${1:-}" in
   status) status ;;
   rescan) rescan ;;
   logs) logs ;;
-  test) cd "$ROOT"; go test ./backend/... ;;
   *)
-    echo "Usage: $0 {start|serve|serve-built|stop|restart|status|rescan|logs|test}" >&2
+    echo "Usage: $0 {start|serve|serve-built|stop|restart|status|rescan|logs}" >&2
     exit 2
     ;;
 esac

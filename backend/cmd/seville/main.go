@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"os"
@@ -17,7 +18,13 @@ func main() {
 		slog.Error("configuration failed", "error", err)
 		os.Exit(1)
 	}
-	database, err := store.Open(cfg.DBPath)
+	database, err := store.OpenNeo4j(
+		context.Background(),
+		cfg.Neo4jURI,
+		cfg.Neo4jUsername,
+		cfg.Neo4jPassword,
+		cfg.Neo4jDatabase,
+	)
 	if err != nil {
 		slog.Error("database failed", "error", err)
 		os.Exit(1)
@@ -38,7 +45,7 @@ func main() {
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
-	slog.Info("seville backend listening", "addr", cfg.Addr, "vault", cfg.VaultPath)
+	slog.Info("seville backend listening", "addr", cfg.Addr, "source", cfg.Source, "vault", cfg.VaultPath)
 	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		slog.Error("server stopped", "error", err)
 		os.Exit(1)

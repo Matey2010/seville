@@ -1,148 +1,117 @@
-# Graph Recovery Sprint
+# Graph Recovery and Synchronization Runbook
 
-## Outcome
+## Current recovery boundary
 
-Seville now has a complete read-only path from an Obsidian vault to a Flutter
-graph:
+Seville's canonical live data is the Neo4j `neo4j-data` volume. Markdown and a
+local Git checkout are import/synchronization sources; they are not complete
+backups of edits made directly in Seville.
 
-```text
-Markdown files -> Go scanner -> SQLite -> protobuf HTTP snapshot
-               -> Flutter graph model -> deterministic layout -> Flame canvas
-```
-
-The backend recognizes `[[wikilinks]]`, `[[target|aliases]]`, heading
-fragments, embeds, and local Markdown links. It resolves links by vault-relative
-path, source-relative path, and unique filename. The Flutter client draws only
-resolved links whose two notes pass the current tag filter.
-
-## Fast path
-
-1. Copy configuration and point it at the real vault:
-
-   ```sh
-   cp .env.example .env
-   ```
-
-   Set `SEVILLE_VAULT_PATH` in `.env`. Keep the default local URL and token for
-   a local-only run.
-
-2. Start and inspect the backend:
-
-   ```sh
-   ./scripts/seville start
-   ./scripts/seville status
-   ```
-
-3. Start the macOS graph:
-
-   ```sh
-   ./scripts/seville-interface
-   ```
-
-4. After changing vault files, refresh the backend and click the refresh icon
-   in the client:
-
-   ```sh
-   ./scripts/seville rescan
-   ```
-
-5. Stop the background service:
-
-   ```sh
-   ./scripts/seville stop
-   ```
-
-## The two-hour scope
-
-The sprint deliberately favors one demonstrable vertical slice:
-
-| Time box | Deliverable |
-| --- | --- |
-| 0–20 min | Confirm repository, scanner, API, and Flutter build health |
-| 20–65 min | Convert protobuf notes and resolved links into a graph model |
-| 65–95 min | Render weighted, colored nodes and typed edges with stable layout |
-| 95–115 min | Add model tests and run Go/Flutter checks |
-| 115–120 min | Record commands, rules, limits, and the next cut |
-
-## Visual rules
-
-Edit `interface/flutter/lib/graph/graph_rules.dart` and hot-reload Flutter.
-`sevilleGraphRules` is the single policy object.
-
-### Color
-
-`tagColors` is ordered. The first tag in that map which exists on a note wins.
-A note without a configured tag gets `fallbackColor`.
-
-### Size
-
-Each visible resolved edge adds its kind's `edgeWeights` value to both endpoint
-notes. Radius is:
+Current data path:
 
 ```text
-baseNodeRadius + weightedDegree * radiusPerWeight
+local source -> Go ingestion -> Neo4j -> authenticated API -> Seville client
 ```
 
-The result is capped at `maxNodeRadius`. The defaults count wiki links as
-`1.0`, Markdown links as `0.75`, and embeds as `1.5`.
+## Normal macOS workflow
 
-### Edges
-
-`edgeColors` controls color by protobuf `LinkKind`. Thickness also increases
-with the link weight. Unresolved links remain in the snapshot for diagnostics
-but are intentionally absent from the graph.
-
-### Position and labels
-
-Positions are seeded from stable note IDs and refined with a deterministic
-force simulation, so reloads do not randomly reshuffle the vault. The 24 notes
-with the highest visible weighted degree receive labels. Above 250 visible
-notes, the prototype skips the quadratic force simulation and uses stable
-seeded positions to remain responsive.
-
-Three Cortex timeline concepts are fixed as world anchors:
-`cortex/time/concept/past` at bottom-left, `now` at bottom-center, and `future`
-at bottom-right. They occupy a dedicated rail near the physical bottom of the
-viewport. Other nodes are constrained above that rail, leaving the timeline
-visually distinct while their links still connect into the graph.
-
-## Code map
-
-| File | Responsibility |
-| --- | --- |
-| `backend/internal/scanner/scanner.go` | Parse notes, tags, and links; resolve targets |
-| `interface/flutter/lib/data/seville_api.dart` | Fetch and decode the snapshot |
-| `interface/flutter/lib/graph/graph_rules.dart` | User-owned visual policy |
-| `interface/flutter/lib/graph/graph_model.dart` | Snapshot-to-graph conversion |
-| `interface/flutter/lib/graph/graph_layout.dart` | Stable force layout |
-| `interface/flutter/lib/graph/graph_field.dart` | Flame canvas rendering |
-| `interface/flutter/lib/main.dart` | Loading, filtering, status, and legend |
-
-## Verification
-
-Run all current automated checks:
+Configure `.env`, then use the single supported launcher:
 
 ```sh
-go test ./backend/...
-cd interface/flutter
-flutter analyze
-flutter test
+./scripts/seville-interface
 ```
 
-The Flutter model tests cover visibility, unresolved-link exclusion, edge-kind
-weighting, node sizing, and ordered tag-color rules.
+It verifies Docker for a local Neo4j URI, starts the Neo4j container, starts
+the Go API, waits for health, and then starts the macOS client. The project
+owner performs final runtime verification.
 
-## Known limits and next cut
+Backend-only controls are:
 
-This is the recovered prototype, not the final navigation experience.
+```sh
+./scripts/seville start
+./scripts/seville status
+./scripts/seville rescan
+./scripts/seville stop
+```
 
-- There is no node selection, pan/zoom, hover card, or note opening yet.
-- The client reload is manual; it does not poll the snapshot ETag.
-- Color rules are Dart constants rather than user-editable JSON/YAML.
-- Ambiguous same-name wikilinks stay unresolved unless their path disambiguates
-  them.
-- Large-vault layout needs a spatial index or an offline/precomputed layout.
+## Inspect the graph
 
-The highest-value next slice is pan/zoom plus tap-to-inspect, followed by a
-small external rules file. Those additions can build on the current graph
-model without changing the scanner or API contract.
+For local development, Neo4j Browser is available through the loopback-bound
+HTTP port configured by Compose, normally `http://127.0.0.1:7474`.
+
+Query by Seville's stable ID:
+
+```cypher
+MATCH (n:SevilleNote {id: $id})
+RETURN n;
+```
+
+Do not query a frontmatter ID with `elementId(n)`. `elementId()` is a Neo4j
+internal locator and is not Seville identity.
+
+Useful checks:
+
+```cypher
+MATCH (n:SevilleNote) RETURN count(n);
+
+MATCH (n:SevilleNote)-[r:TAGGED_WITH]->(t:Tag)
+RETURN n.id, t.name, r.weight
+LIMIT 100;
+
+MATCH (a:SevilleNote)-[:LINKS_TO]->(b:SevilleNote)
+RETURN a.id, b.id
+LIMIT 100;
+```
+
+## Rescan semantics
+
+A rescan discovers source state but is not a destructive mirror operation:
+
+- new stable IDs are imported;
+- existing canonical notes are preserved;
+- source disappearance does not delete a graph node;
+- duplicate IDs fail the scan;
+- missing IDs produce warnings and are skipped.
+
+Check `.local/seville.log` after failures. Duplicate-ID errors include both
+paths so the source can be repaired safely.
+
+## What is protected today
+
+- Docker preserves Neo4j data in its named volume across container restarts.
+- Git can preserve source Markdown history and help merge independent file
+  changes.
+- Stable frontmatter IDs let repeated scans recognize records.
+- Conservative ingestion prevents a stale source file from overwriting an
+  existing Neo4j record.
+
+This is not yet decentralized recovery. A destroyed Neo4j volume can lose
+Seville-native edits that were never represented in a source dataset.
+
+## Backup before risky operations
+
+Treat volume deletion, Compose project renaming, database upgrades, and manual
+Cypher mutations as data operations. Before them, create and verify an
+appropriate Neo4j backup/export for the deployed edition and environment. Do
+not assume a Git repository contains all canonical graph state.
+
+Never commit `.env`, database dumps containing private knowledge, or copied
+service credentials.
+
+## Planned recovery model
+
+The next safety layer adds source checkpoints, content hashes, provenance,
+conflict records, and tombstones. Later, signed append-only change events and
+content-addressed blobs allow multiple peers to retain verifiable subsets and
+restore missing material.
+
+Recovery success should eventually mean:
+
+1. compare stable-ID and content-hash inventories;
+2. identify missing nodes, relationships, events, and attachments;
+3. retrieve them from authorized surviving peers;
+4. verify signatures and hashes;
+5. replay accepted changes into Neo4j; and
+6. report gaps that no peer can supply.
+
+The architectural plan is documented in
+[`seville-architecture-plan.md`](seville-architecture-plan.md).

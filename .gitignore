@@ -42,6 +42,6 @@ app.*.symbols
 app.*.map.json
 
 # Android Studio will place build artifacts here
-/interface/flutter/android/app/debug
-/interface/flutter/android/app/profile
-/interface/flutter/android/app/release
+/seville/flutter/android/app/debug
+/seville/flutter/android/app/profile
+/seville/flutter/android/app/release

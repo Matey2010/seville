@@ -1,706 +1,302 @@
-# Seville Architecture Plan
+# Seville Architecture
 
 ## Purpose
 
-This is a living design document for Seville. It records the current direction,
-the decisions behind it, and the questions that still need proper analysis.
+This is the living architecture document for Seville. It distinguishes the
+system that exists now from the direction we are deliberately building toward.
 
-It is not an implementation checklist yet. Each layer must be reviewed,
-understood, and accepted before implementation begins. Decisions can be
-replaced when analysis shows a better path.
+Seville is a graph-native knowledge environment: a personal system today, and
+eventually a shared, durable knowledge world. Markdown, Git repositories, and
+future datasets are ways to introduce or synchronize knowledge. They are not
+the permanent application database. Neo4j is Seville's canonical live graph.
 
-## Product Goal
+## Product direction
 
-Seville is a visual interface for a knowledge base stored in an Obsidian vault.
-The Flutter application will use Flame to present notes and their relationships
-as an interactive visual space.
+The long-term goal is closer to a persistent multiplayer world or a
+decentralized Wikipedia than to a note viewer:
 
-The first version is read-only:
+- people explore and change a shared knowledge graph in real time;
+- durable knowledge survives individual machines and services;
+- transient presence and UI state do not pollute durable knowledge;
+- personal layouts and preferences remain separable from shared facts;
+- every durable change can eventually carry authorship and provenance;
+- peers can retain enough replicated data to recover missing parts;
+- no blockchain or global consensus is required for ordinary editing.
 
-1. An existing external tool synchronizes a selected vault folder to a private
-   server.
-2. A Go backend scans that folder and interprets the Obsidian Markdown files.
-3. The backend stores a queryable representation in an embedded database.
-4. The backend exposes a small HTTPS API.
-5. The Flutter application fetches a typed knowledge snapshot with Dio.
-6. The visualization converts that snapshot into its own display model.
+The implementation should reach that goal incrementally. The current local
+system remains useful at every stage.
 
-Editing the vault from Seville is explicitly deferred until the read pipeline
-works reliably.
-
-## Current Direction
-
-These are product-level choices already selected:
-
-| Area | Current decision | Status |
-| --- | --- | --- |
-| Repository | Single monorepo | Accepted direction |
-| Top-level layout | `interface`, `docs`, `backend`, `proto`, `scripts` | Accepted direction |
-| Contract ownership | Dedicated `proto` workspace | Accepted direction |
-| Contract format | Protocol Buffers | Accepted direction |
-| Backend language | Go | Accepted direction |
-| Frontend | Flutter, Flame, and Dio | Accepted direction |
-| Backend location | Private remote server | Accepted direction |
-| Vault transfer | External folder synchronization | Accepted direction |
-| Storage | SQLite with JSON for flexible metadata | Accepted direction |
-| API payload | Binary protobuf over HTTP | Accepted direction |
-| Authentication | Static bearer token over HTTPS | Accepted for V1 |
-| Synchronization | Scan at startup and on explicit request | Accepted for V1 |
-| Dataset delivery | One revisioned knowledge snapshot | Accepted for V1 |
-| Deployment | Docker Compose with Caddy | Accepted direction |
-| Write-back | Deferred | Accepted for V1 |
-
-Technical details below are proposals until their layer has been reviewed.
-
-## System Boundary
+## Architecture today
 
 ```text
-Obsidian vault
-      |
-      | external synchronization
-      v
-Remote vault folder
-      |
-      | scan and parse
-      v
-Go backend ----> SQLite
-      |
-      | HTTPS + binary protobuf
-      v
-Flutter data layer ----> Flame visualization
+Git checkout or Markdown folder
+              |
+              v
+     Go source adapters and parser
+              |
+              v
+       normalization/reconciliation
+              |
+              v
+     Neo4j canonical live graph
+              |
+              v
+ authenticated Go protobuf HTTP API
+              |
+              v
+       Seville Flutter client
 ```
-
-Seville does not own folder synchronization in V1. Syncthing, Git, or another
-existing mechanism is responsible for placing the selected vault folder on the
-server.
-
-## Monorepo Model
-
-### Current layout
-
-User-facing clients live in `interface/`, with the Flutter project in
-`interface/flutter/`. Documentation, backend, contract, and utility workspaces
-live beside `interface/` at the repository root.
-
-```text
-seville/
-├── interface/          User-facing clients
-│   └── flutter/        Flutter and Flame application
-├── docs/               Architecture, decisions, and project documentation
-├── backend/            Go ingestion service, database, and HTTP API
-├── proto/              Protobuf source, generation config, and generated code
-├── scripts/            Project automation and Obsidian utility programs
-└── README.md           Monorepo overview and entry points
-```
-
-The top-level structure is implemented. `backend/` is a Go module,
-`proto/gen/go/` is a generated Go module, and the root `go.work` connects them.
-Stable local commands live in `scripts/seville`; protobuf generation is exposed
-through `scripts/generate-proto`.
-
-### `interface/`
-
-Owns:
-
-- User-facing clients and their client-specific documentation.
-- Shared conventions for consuming Seville's public API.
-
-### `interface/flutter/`
-
-Owns:
-
-- The Flutter project and platform directories.
-- Dio transport configuration.
-- Local snapshot caching.
-- Conversion from protobuf messages to application models.
-- Flutter interface and Flame visualization.
-
-The Flutter application consumes generated Dart code through a local path
-dependency on the Dart package under `proto/`. It must not parse vault files or
-depend on backend database models.
-
-### `docs/`
-
-Owns:
-
-- This architecture plan.
-- Accepted architecture decision records.
-- Contract and data-model explanations.
-- Development, deployment, and operational documentation.
-
-Documentation should describe decisions and workflows. It must not become a
-second source of truth for schemas that already exist in code.
-
-### `backend/`
-
-Owns:
-
-- Production vault scanning and parsing.
-- Obsidian-specific interpretation.
-- SQLite schema and migrations.
-- Snapshot construction.
-- HTTP API and authentication.
-- Backend container and deployment behavior.
-
-The current proposal is for `backend/` to become an independent Go module
-inside the monorepo. Whether generated Go code is a separate module and whether
-the root uses `go.work` remain decisions for the workspace review.
-
-### `proto/`
-
-Owns:
-
-- Canonical `.proto` files.
-- Buf formatting, linting, generation, and compatibility configuration.
-- Generated Go message package.
-- Generated Dart message package.
-- Contract fixtures used by both languages.
-
-Proposed internal layout:
-
-```text
-proto/
-├── buf.yaml
-├── buf.gen.yaml
-├── seville/knowledge/v1/
-│   └── knowledge.proto
-├── gen/go/             Generated Go module
-└── gen/dart/           Generated Dart package
-```
-
-Generated code is committed. A normal backend or Flutter build must not require
-developers to install `protoc`, Buf, or language generators.
-
-The generated Go and Dart packages are private monorepo packages in V1. They
-are not independently published or tagged. The repository commit is the
-version shared by the contract, backend, and interface.
-
-### `scripts/`
-
-Owns project-level utilities that do not belong in a runtime application:
-
-- Contract generation and verification wrappers.
-- Development setup and fixture generation.
-- One-off vault inspection, import, export, and migration tools.
-- Experiments for understanding Obsidian data.
-- Deployment and maintenance helpers where shell automation is appropriate.
-
-Production parsing rules must live in reusable Go packages under `backend/`,
-not only in scripts. A script may call those packages or prototype behavior,
-but the backend remains the source of truth for ingestion.
-
-Scripts should be small and documented. Stable workflows should eventually be
-exposed through one root task runner rather than requiring contributors to
-remember individual script paths.
-
-### Dependency rules
-
-```text
-proto source
-  ├──> generated Go package ──> backend
-  └──> generated Dart package ──> interface/flutter
-
-backend ──HTTP/protobuf──> interface clients
-scripts ──may invoke tooling──> proto/backend fixtures
-docs ──describes all areas but is not a runtime dependency
-```
-
-- `backend/` must not import code from `interface/`.
-- `interface/` clients must not import backend implementation packages.
-- `proto/` must not contain backend or interface business logic.
-- `scripts/` must not become an undeclared runtime requirement.
-- Cross-language communication occurs only through the protobuf contract and
-  documented HTTP behavior.
-
-### Atomic contract changes
-
-Because all components live in one repository, a contract change must update
-the following in one pull request:
-
-1. Protobuf source.
-2. Generated Go and Dart code.
-3. Backend producer code and tests.
-4. Flutter consumer code and tests.
-5. Compatibility fixtures or documentation when behavior changes.
-
-CI must reject stale generated code and incompatible schema changes. Separate
-contract releases, Git dependencies, and temporary cross-repository version
-drift are no longer required.
-
-### Questions for this layer
-
-- Should the root automation use `Makefile`, `just`, or another task runner?
-- Should `go.work` be committed or generated during setup?
-- What exact generated package names and module paths should be used?
-- Should deployment files live at the root or under `backend/deploy/`?
-- Which scripts deserve long-term support versus remaining disposable
-  experiments?
-
-## Contract Layer
-
-### Goal
-
-Protocol Buffers define the data exchanged between the backend and Flutter.
-They should not define database tables, Flame components, or every internal Go
-type.
-
-The contract is a stable boundary, not a universal model for the whole system.
-
-### Proposed package
-
-Use the protobuf package:
-
-```proto
-package seville.knowledge.v1;
-```
-
-The initial contract should define:
-
-- `KnowledgeSnapshot`
-- `Note`
-- `Link`
-- `ScanStatus`
-- `ScanWarning`
-- `ApiError`
-
-### Proposed data responsibilities
-
-`KnowledgeSnapshot` contains:
-
-- Snapshot revision.
-- Generation timestamp.
-- Notes.
-- Links.
-- Non-fatal scan warnings.
-
-`Note` contains:
-
-- Stable identifier for the current path.
-- Vault-relative path.
-- Display title.
-- Markdown body.
-- Tags.
-- Frontmatter.
-- File modification time.
-
-`Link` contains:
-
-- Source note identifier.
-- Original target text.
-- Resolved target identifier when available.
-- Optional display text.
-- Link kind.
-- Optional heading or block fragment.
-
-### Compatibility rules
-
-- Never reuse a protobuf field number.
-- Reserve numbers and names of removed fields.
-- Prefer additive fields.
-- Use explicit presence where absence differs from a default value.
-- Include an `UNSPECIFIED` zero value in every enum.
-- Do not expose storage-specific fields without an API reason.
-- Run breaking-change detection against the contract on the main branch.
-- Pin generator and runtime versions.
-
-### Generation proposal
-
-Use Buf for:
-
-- Formatting.
-- Linting.
-- Reproducible generation.
-- Breaking-change detection.
-
-Generate plain protobuf messages for Go and Dart. Do not generate gRPC or
-Connect clients in V1.
-
-Use one containerized generation command so contributors do not manually align
-different `protoc` and plugin versions.
-
-### Questions for this layer
-
-- Is sending complete Markdown body content necessary for the first
-  visualization?
-- Should frontmatter use `google.protobuf.Struct` or a smaller typed subset?
-- Which fields require presence rather than protobuf defaults?
-- What constitutes a breaking semantic change even when Buf considers the wire
-  format compatible?
-- Should scan warnings be returned inside every snapshot or through a separate
-  status endpoint?
-
-## Vault Interpretation
-
-### Scan scope
-
-The backend scans `.md` files beneath one configured root folder.
-
-Proposed exclusions:
-
-- `.obsidian`
-- Hidden directories
-- Non-Markdown attachments
-
-These exclusions require validation against the real vault before they are
-fixed.
-
-### Proposed parsing behavior
-
-- Parse YAML frontmatter.
-- Determine title from frontmatter `title`, then the first heading, then the
-  filename.
-- Extract frontmatter tags and inline `#tags`.
-- Extract standard Markdown links.
-- Extract Obsidian wiki links such as `[[Note]]`.
-- Preserve aliases such as `[[Note|Display text]]`.
-- Preserve heading and block fragments.
-- Keep unresolved and ambiguous links instead of discarding them.
-
-Use a Markdown AST parser rather than regular expressions for standard Markdown
-structure. Obsidian-specific wiki syntax may require a focused extension or
-separate parser.
-
-### Proposed link resolution
-
-Resolve a link in this order:
-
-1. Explicit vault-relative path.
-2. Path relative to the source note.
-3. Unique filename match.
-4. Otherwise mark it unresolved or ambiguous.
-
-This algorithm must be checked against Obsidian's actual resolution behavior
-before implementation.
-
-### Identity proposal
-
-In V1, derive a note ID deterministically from its normalized vault-relative
-path. A rename is therefore represented as deletion plus creation.
-
-Persistent identity across renames is deferred because it requires metadata
-inside the vault or a reliable reconciliation strategy.
-
-### Failure behavior
-
-- One malformed file should produce a warning, not destroy the whole snapshot.
-- A filesystem or database failure should fail the scan.
-- A failed scan must leave the previous successful snapshot available.
-- The backend must never modify vault files in V1.
-
-### Questions for this layer
-
-- Which real frontmatter fields are important to the visualization?
-- Does the selected folder contain links to notes outside that folder?
-- Should links outside the selected folder become unresolved external nodes?
-- Are embeds different from normal links for visualization purposes?
-- Are aliases, block references, canvases, or attachments needed in V1?
-- How closely must behavior match Obsidian's own link resolver?
-
-## Storage Layer
-
-### Proposed engine
-
-Use embedded SQLite rather than operating a separate database service.
-
-Reasons:
-
-- One backend instance and one knowledge base.
-- Simple backup and deployment.
-- Transactions protect the last valid snapshot.
-- Good indexing and query support.
-- JSON columns can preserve flexible frontmatter.
-
-### Proposed normalized model
-
-Tables:
-
-- `notes`
-- `links`
-- `scan_state`
-- `schema_migrations`
-
-Store commonly queried values in typed columns. Store flexible frontmatter as
-JSON. Do not mirror protobuf binary blobs as the primary database model.
-
-### Scan transaction
-
-1. Read and parse candidate files.
-2. Resolve relationships.
-3. Validate the candidate dataset.
-4. Begin a database transaction.
-5. Replace or reconcile notes and links.
-6. Update scan metadata and revision.
-7. Commit atomically.
-
-The snapshot revision should be deterministic for identical normalized content.
-
-### Questions for this layer
-
-- Is full replacement fast enough for the actual vault size?
-- Which queries will the backend need besides producing the full snapshot?
-- Should Markdown bodies live in SQLite or be read from disk when building a
-  snapshot?
-- What backup and restore procedure is required?
-- Which SQLite driver has the best portability and maintenance tradeoff?
-
-## HTTP API
-
-### Transport decision
-
-Use ordinary HTTP endpoints with binary protobuf request and response bodies.
-Dio can request bytes and generated Dart messages can decode them directly.
-
-This avoids adopting an RPC framework before the project requires RPC
-features.
-
-### Proposed endpoints
-
-```text
-GET  /healthz
-GET  /v1/snapshot
-POST /v1/admin/rescan
-```
-
-`GET /healthz`:
-
-- No authentication.
-- Reports process availability only.
-
-`GET /v1/snapshot`:
-
-- Requires bearer authentication.
-- Returns `KnowledgeSnapshot`.
-- Uses `Content-Type: application/x-protobuf`.
-- Returns an `ETag` derived from the snapshot revision.
-- Honors `If-None-Match` with `304 Not Modified`.
-
-`POST /v1/admin/rescan`:
-
-- Requires bearer authentication.
-- Runs or requests a vault scan.
-- Returns `ScanStatus`.
-
-### Error behavior
-
-- API failures return an appropriate HTTP status.
-- Structured API error details use protobuf `ApiError`.
-- Internal details and filesystem paths must not be exposed to clients.
-- A scan with non-fatal file warnings may still return success.
-
-### Questions for this layer
-
-- Should rescan be synchronous or queued?
-- What maximum snapshot size is acceptable?
-- Should HTTP compression be mandatory?
-- Should scan status have its own read endpoint?
-- What timeout limits are appropriate for the actual deployment?
-
-## Authentication And Security
-
-### V1 proposal
-
-- One long random bearer token.
-- HTTPS is mandatory.
-- Caddy terminates TLS.
-- The backend compares tokens in constant time.
-- The token comes from deployment secrets, never source control or images.
-- Flutter stores the token with platform secure storage.
-
-This is intentionally a single-user authentication model. Accounts, refresh
-tokens, and permissions are deferred.
-
-### Required protections
-
-- Mount the synchronized vault read-only.
-- Run the backend as a non-root user.
-- Keep SQLite on a separate writable persistent volume.
-- Expose only Caddy publicly.
-- Apply HTTP server timeouts and request-size limits.
-- Avoid logging tokens, complete note bodies, or sensitive frontmatter.
-
-### Questions for this layer
-
-- How is the token initially transferred to each Flutter installation?
-- Is the server reachable from the public internet or only through a VPN?
-- Is bearer-token rotation required in V1?
-- Does the knowledge base contain data requiring encrypted backups?
-
-## Flutter Data Layer
 
 ### Responsibilities
 
-The Flutter application should keep transport and visualization separate:
+| Layer | Owns |
+| --- | --- |
+| Source adapters | Reading a local Git checkout or direct Markdown folder |
+| Go ingestion | YAML parsing, stable identity, normalization, validation, link resolution, and reconciliation policy |
+| Neo4j | Canonical notes, tags, relationships, scan state, and live graph queries |
+| Go API | Authentication, application rules, snapshots, status, and administrative rescan operations |
+| Seville client | Interaction, layout, rendering, local UI state, and graph presentation |
+| Protocol Buffers | Current Go-to-client wire contract |
+
+SQLite and SQL are not part of Seville. Neo4j is the only application
+persistence layer.
+
+## Repository boundaries
 
 ```text
-Dio client
-    -> protobuf messages
-    -> application/domain models
-    -> visualization model
-    -> Flame components
+seville/          User-facing clients; Flutter is the current macOS client
+backend/          Go ingestion, graph storage, and API
+proto/            Canonical protobuf contracts and generated packages
+scripts/          macOS process control and focused maintenance utilities
+docs/             Cross-workspace architecture and operational documentation
+compose.yaml      Local Neo4j service wiring
 ```
 
-Flame components must not make network requests or depend directly on generated
-protobuf classes.
+The product is named Seville. `seville/flutter` is one client implementation,
+not the identity of the whole project and not a generic `interface` folder.
 
-### Proposed client behavior
+## Knowledge sources
 
-- Configure Dio with the server URL, bearer-token interceptor, byte response
-  type, and explicit timeouts.
-- Decode successful responses with generated Dart protobuf classes.
-- Decode protobuf `ApiError` responses where possible.
-- Cache the latest successful snapshot bytes and ETag.
-- Send `If-None-Match` on later requests.
-- Use the cached snapshot during startup or temporary network failure.
-- Reject corrupt or undecodable snapshots without deleting the last valid
-  cache.
+Seville currently accepts two source modes:
 
-### Questions for this layer
+- `git`: Markdown below a configured subfolder of an existing local Git
+  checkout;
+- `vault`: Markdown directly below a configured folder.
 
-- Which state-management approach should own loading and cache state?
-- What local cache package fits all intended Flutter platforms?
-- Should the first screen wait for a snapshot or render progressively?
-- How should stale cached data be shown to the user?
-- Which contract fields become domain types instead of passing through?
+The Git adapter reads a checkout. It does not yet fetch, pull, merge, commit,
+or push. Git can provide early collaboration, history, and per-file conflict
+handling, while Seville remains responsible for graph semantics.
 
-## Deployment
+The configured knowledge root is either:
 
-### Proposed shape
+- `SEVILLE_GIT_REPOSITORY_PATH` + `SEVILLE_GIT_VAULT_SUBPATH`; or
+- `SEVILLE_VAULT_PATH`.
 
-Use Docker Compose with:
+There is intentionally no Neo4j-to-Markdown exporter in the architecture.
+Once imported, a note is edited through Seville and Neo4j. Sources remain
+useful for discovering new records and later for governed synchronization.
 
-- A Go backend container.
-- A Caddy reverse-proxy container.
-- A read-only vault mount.
-- A persistent SQLite volume.
-- Deployment secrets supplied outside the repository.
+## Identity and parsing
 
-External synchronization updates the server-side vault folder. The backend
-does not participate in transfer or conflict resolution.
+Every durable source note must define a stable frontmatter `id`. It becomes
+`SevilleNote.id` and is the domain identity across imports, APIs, and future
+replicas.
 
-### Questions for this layer
+Neo4j's `elementId()` is an internal database locator. It must never be stored,
+shared, or queried as Seville's durable identity.
 
-- Which external synchronization tool will be used?
-- How does synchronization signal that a set of writes is complete?
-- Where will backups be stored?
-- Which host platform and CPU architecture must the image support?
-- What logging and basic monitoring are required?
+The parser:
 
-## Test Strategy
+1. reads Markdown and typed YAML frontmatter;
+2. requires a unique frontmatter `id`;
+3. preserves structured frontmatter as JSON and exposes a flattened
+   compatibility representation to the current protobuf contract;
+4. normalizes tags into stable lowercase tag IDs;
+5. extracts wiki links, Markdown links, and embeds; and
+6. records warnings for invalid or incomplete source records.
 
-### Contract tests
+Duplicate IDs stop the scan because silently choosing one would corrupt
+identity. Notes without IDs are skipped and reported.
 
-- Protobuf formatting and linting.
-- Reproducible generation.
-- No uncommitted generated differences.
-- Breaking-change detection against the main branch.
-- Generated Go package compiles.
-- Generated Dart package passes analysis.
+## Neo4j graph model
 
-### Scanner tests
+The current core graph uses:
 
-Use fixture vaults covering:
+```cypher
+(:SevilleNote {
+  id, path, title, body, tags, frontmatter_json
+})
 
-- YAML frontmatter.
-- Heading-derived titles.
-- Frontmatter and inline tags.
-- Wiki links, aliases, and fragments.
-- Standard Markdown links.
-- Duplicate filenames.
-- Missing targets.
-- Malformed YAML.
-- Unicode filenames and content.
-- Deleted and renamed files.
+(:Tag {id, name})
 
-### Backend tests
+(:SevilleNote)-[:TAGGED_WITH {
+  weight: 1.0,
+  source: "markdown"
+}]->(:Tag)
 
-- Successful atomic scan.
-- Rollback after fatal scan failure.
-- Previous snapshot remains available after failure.
-- Deterministic revisions.
-- Stale database records are removed.
-- Authentication success and failure.
-- Protobuf content types and decoding.
-- ETag and `304` behavior.
-- Rescan behavior.
-
-### Flutter tests
-
-- Bearer-token interceptor.
-- Byte response decoding.
-- Protobuf error decoding.
-- `304` handling.
-- Local cache fallback.
-- Corrupt response handling.
-- Contract-to-domain conversion.
-
-### End-to-end test
-
-Run one fixture through:
-
-```text
-vault files
-  -> scanner
-  -> SQLite
-  -> HTTP protobuf response
-  -> Dart protobuf decode
-  -> Flutter domain model
+(:SevilleNote)-[:LINKS_TO]->(:SevilleNote)
 ```
 
-## Explicitly Deferred
+`SevilleNote.id` and `Tag.id` are unique. Unresolved targets are retained as
+`SevilleUnresolvedLink` records rather than discarded. `SevilleScanState`
+stores ingestion status and diagnostics.
 
-The following are not part of V1:
+Tags are graph entities, not merely strings. Weighted `TAGGED_WITH`
+relationships create a foundation for ranked search and later source-specific
+confidence.
 
-- Editing vault files from Flutter.
-- Multi-user accounts and permissions.
-- Automatic conflict resolution.
-- Stable note identity across renames.
-- Filesystem watchers.
-- Incremental change streams.
-- Pagination.
-- gRPC or Connect.
-- Attachments and media transfer.
-- Full Obsidian plugin compatibility.
-- Offline client edits.
+## Current ingestion policy
 
-Deferral does not mean these are impossible. It means V1 should avoid choices
-that unnecessarily block them.
+Startup and `POST /v1/admin/rescan` scan the configured source. Today the
+operation is deliberately conservative:
 
-## Review Order
+- unseen IDs are created;
+- existing Neo4j notes are not overwritten by source files;
+- tags are merged and normalized for scanned notes;
+- resolved links are created for newly imported notes;
+- absent source files do not delete graph nodes;
+- duplicate IDs fail the scan;
+- malformed or ID-less notes are reported.
 
-We will analyze and approve one layer at a time:
+This is import-plus-discovery, not complete bidirectional synchronization.
 
-1. Monorepo layout, workspace boundaries, and dependency rules.
-2. Protobuf model and compatibility policy.
-3. Vault parsing and link-resolution semantics.
-4. SQLite model and scan transaction.
-5. HTTP API behavior.
-6. Authentication and remote deployment.
-7. Flutter client and cache boundary.
-8. End-to-end delivery sequence.
+## Synchronization direction
 
-For each layer:
+The next reconciliation model should attach provenance and a content hash to
+every incoming record. A source checkpoint identifies what each adapter has
+already observed.
 
-1. State the problem and required behavior.
-2. Examine realistic alternatives.
-3. Identify dependencies and compatibility risks.
-4. Test assumptions against the actual vault or a representative fixture.
-5. Record the decision and rejected alternatives here.
-6. Convert only the accepted decision into implementation tasks.
+Default policy:
 
-## Current Implementation Slice
+| Incoming state | Action |
+| --- | --- |
+| New stable ID | Create a canonical graph record with provenance |
+| Same ID and same content hash | No-op |
+| Source changed, canonical record unchanged since last checkpoint | Apply the update |
+| Source and canonical record both changed | Record a conflict; never overwrite silently |
+| Record missing from source | Mark missing/tombstoned according to policy; do not immediately delete |
+| Invalid record or duplicate ID | Quarantine/report it without contaminating valid data |
 
-The first local backend slice is implemented:
+Adapters should converge on a common ingestion record containing stable ID,
+content, relationships, source identity, source revision, observed time, and
+content hash. Git, local folders, remote APIs, archives, and future peer data
+then use the same reconciliation engine.
 
-- Independent Go modules for `backend/` and generated Go protobuf code.
-- A root `go.work` workspace.
-- Markdown scanning with basic frontmatter, tags, wiki links, and Markdown
-  links.
-- Atomic SQLite snapshot replacement.
-- Bearer-authenticated protobuf HTTP endpoints with ETag support.
-- Docker Compose and Caddy deployment files.
-- Stable local development commands.
+## API boundary
 
-The parser is intentionally an initial implementation. YAML completeness,
-Markdown AST adoption, Obsidian-compatible resolution edge cases, generated
-Dart code, Flutter integration, and CI compatibility checks remain for the
-next reviews.
+The current authenticated API is:
+
+- `GET /healthz` — process health;
+- `GET /v1/status` — latest ingestion status;
+- `GET /v1/snapshot` — live Neo4j graph as protobuf;
+- `POST /v1/admin/rescan` — scan for source changes and unseen IDs.
+
+The client never connects directly to Neo4j. Go is the security and application
+boundary.
+
+GraphQL is the planned CRUD/query boundary because it fits selective graph
+reads and evolving clients. WebSockets will provide presence and live change
+notifications. Protocol Buffers can remain useful for efficient snapshots and
+internal contracts while GraphQL becomes the interactive application API.
+
+## Security model
+
+Two current secrets have separate jobs:
+
+- `SEVILLE_TOKEN` authenticates a client request to the Go API. It does not
+  encrypt or decrypt passwords.
+- `SEVILLE_NEO4J_PASSWORD` authenticates Go to Neo4j.
+
+Real values live only in the ignored `.env` for local development. Compose
+contains variable wiring, not secrets. Local Neo4j ports bind to loopback.
+
+For remote deployment:
+
+- expose Go through HTTPS, not Neo4j directly;
+- keep Neo4j on a private network;
+- replace one shared API token with per-user authentication and authorization;
+- store service secrets in the host's secret manager;
+- rotate secrets independently;
+- audit durable mutations.
+
+A password manager such as Bitwarden can protect a developer's credentials.
+A server-side secret manager or injected deployment secret should protect
+production service credentials; user vault contents should not be treated as
+application configuration.
+
+## Durable, transient, and personal state
+
+The multiplayer design separates three categories:
+
+| State | Examples | Durability |
+| --- | --- | --- |
+| Durable shared knowledge | Nodes, relationships, tags, edits, provenance | Persist and replicate |
+| Transient collaboration | Cursor, presence, temporary selection, typing indicators | Broadcast with expiry; do not preserve as knowledge |
+| Personal configuration | Layout, theme, filters, private workspace choices | Store per user and sync independently |
+
+This boundary prevents real-time activity from becoming permanent graph noise
+and lets privacy policies differ from shared knowledge policy.
+
+## Recovery and decentralization direction
+
+Neo4j remains the canonical live/materialized graph. Long-term durability can
+be strengthened with an append-only change history containing stable event ID,
+actor, timestamp, operation, affected stable IDs, previous/current hashes, and
+signature.
+
+Content-addressed attachments and signed events enable peers to compare compact
+hash inventories, request missing material, verify what they receive, and
+retain configured subsets. Recovery then reconstructs missing graph state from
+surviving event and content replicas.
+
+This is not cryptocurrency consensus. Seville needs provenance, signatures,
+content addressing, replication, and conflict policies—not proof-of-work or a
+single globally ordered blockchain.
+
+Federation comes after the central multiplayer semantics are stable. Trust,
+moderation, authorization, erasure policy, and conflicting histories must be
+explicit before independent servers exchange durable changes.
+
+## Search direction
+
+Search should combine graph and text signals rather than spend an LLM request
+on ordinary retrieval. Initial ranking can weight:
+
+1. exact ID/title/alias matches;
+2. explicit tag weights;
+3. title and body text relevance;
+4. graph proximity and relationship type; and
+5. user/context signals that do not mutate shared knowledge.
+
+LLMs may later interpret or summarize results, but they should not replace the
+deterministic search index and graph query path.
+
+## Delivery roadmap
+
+1. **Standalone foundation — current.** Local source adapters, Go ingestion,
+   Neo4j, authenticated snapshot API, and macOS Flutter client.
+2. **Safe reconciliation.** Source identities, checkpoints, content hashes,
+   provenance, tombstones, and explicit conflict records.
+3. **Application CRUD and search.** Go GraphQL API, mutations, weighted search,
+   and graph-native editing.
+4. **Central multiplayer.** User accounts, permissions, WebSockets, presence,
+   and server-side secret management.
+5. **Verifiable history.** Immutable signed change events and
+   content-addressed attachments.
+6. **Replication and recovery.** Peer inventories, configurable replication,
+   partial datasets, and reconstruction tooling.
+7. **Federation.** Independent Seville servers exchanging governed,
+   verifiable knowledge.
+
+## Non-negotiable design rules
+
+- Neo4j is the canonical application database; do not reintroduce SQL.
+- Stable frontmatter IDs are domain identity; never depend on Neo4j internal
+  IDs.
+- Clients use Go APIs; they do not receive database credentials.
+- Source adapters may propose changes but may not silently overwrite newer
+  canonical edits.
+- Deletion and conflict are explicit states, not accidental side effects.
+- Durable shared knowledge, transient presence, and personal configuration
+  remain separate.
+- Current production support is macOS only until the project owner expands it.

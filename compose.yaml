@@ -1,4 +1,15 @@
 services:
+  neo4j:
+    image: neo4j:5.26.28
+    environment:
+      NEO4J_AUTH: neo4j/${SEVILLE_NEO4J_PASSWORD:?Set SEVILLE_NEO4J_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:7474:7474"
+      - "127.0.0.1:7687:7687"
+    volumes:
+      - neo4j-data:/data
+    restart: unless-stopped
+
   backend:
     build:
       context: .
@@ -6,11 +17,15 @@ services:
     environment:
       SEVILLE_ADDR: 0.0.0.0:8787
       SEVILLE_VAULT_PATH: /vault
-      SEVILLE_DB_PATH: /data/seville.db
+      SEVILLE_NEO4J_URI: neo4j://neo4j:7687
+      SEVILLE_NEO4J_USERNAME: neo4j
+      SEVILLE_NEO4J_PASSWORD: ${SEVILLE_NEO4J_PASSWORD:?Set SEVILLE_NEO4J_PASSWORD in .env}
+      SEVILLE_NEO4J_DATABASE: neo4j
       SEVILLE_TOKEN: ${SEVILLE_TOKEN:?Set SEVILLE_TOKEN in .env}
+    depends_on:
+      - neo4j
     volumes:
-      - ${SEVILLE_VAULT_PATH:?Set SEVILLE_VAULT_PATH in .env}:/vault:ro
-      - seville-data:/data
+      - ${SEVILLE_VAULT_PATH:-.}:/vault:ro
     restart: unless-stopped
 
   caddy:
@@ -24,4 +39,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  seville-data:
+  neo4j-data:

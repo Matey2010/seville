@@ -306,12 +306,14 @@ class VaultNodeUiComponent {
     this.color = const LayoutColor.fromHex('939393', opacity: 0.32),
     this.label,
     this.status,
+    this.backgrounds = const [],
   });
 
   final String path;
   final LayoutColor color;
   final String? label;
   final int? status;
+  final List<LayoutBackground> backgrounds;
 }
 
 @Deprecated('Use VaultNodeUiComponent for layout/UI config.')
@@ -323,6 +325,7 @@ class ResolvedVaultNode extends VaultNodeUiComponent {
     super.color,
     super.label,
     super.status,
+    super.backgrounds,
     required this.node,
     required this.note,
     required this.resolvedStatus,
@@ -790,6 +793,9 @@ class LayoutContext {
   const LayoutContext({
     this.selectedMode,
     this.selectedNodePath,
+    this.selectedNodePaths = const [],
+    this.highlightedNodePaths = const [],
+    this.currentNodePath,
     this.activeNodePaths = const [],
     this.layoutPath = const [],
   });
@@ -798,6 +804,9 @@ class LayoutContext {
 
   final String? selectedMode;
   final String? selectedNodePath;
+  final List<String> selectedNodePaths;
+  final List<String> highlightedNodePaths;
+  final String? currentNodePath;
   final List<String> activeNodePaths;
   final List<String> layoutPath;
 
@@ -811,6 +820,21 @@ class LayoutContext {
     return LayoutContext(
       selectedMode: selectedMode ?? mode,
       selectedNodePath: selectedNodePath,
+      selectedNodePaths: selectedNodePaths,
+      highlightedNodePaths: highlightedNodePaths,
+      currentNodePath: currentNodePath,
+      activeNodePaths: activeNodePaths,
+      layoutPath: layoutPath,
+    );
+  }
+
+  LayoutContext withCurrentNodePath(String? path) {
+    return LayoutContext(
+      selectedMode: selectedMode,
+      selectedNodePath: selectedNodePath,
+      selectedNodePaths: selectedNodePaths,
+      highlightedNodePaths: highlightedNodePaths,
+      currentNodePath: path,
       activeNodePaths: activeNodePaths,
       layoutPath: layoutPath,
     );
@@ -828,6 +852,16 @@ abstract class LayoutCondition {
   }
 
   static const never = LayoutNeverCondition();
+
+  const factory LayoutCondition.noSelectedNode() = NoSelectedNodesCondition;
+
+  const factory LayoutCondition.nodeHighlighted({String? nodePath}) =
+      LayoutNodeHighlightedCondition;
+
+  const factory LayoutCondition.modeActive(
+    String mode, {
+    List<String> aliases,
+  }) = LayoutModeActiveCondition;
 
   final Set<String> exclude;
 
@@ -872,6 +906,36 @@ class LayoutSelectedModeCondition extends LayoutCondition {
   }
 }
 
+class LayoutModeActiveCondition extends LayoutCondition {
+  const LayoutModeActiveCondition(this.mode, {this.aliases = const []})
+    : super._();
+
+  final String mode;
+  final List<String> aliases;
+
+  @override
+  bool isActive(LayoutContext context) {
+    final selected = context.selectedMode;
+    return selected == mode || aliases.contains(selected);
+  }
+}
+
+class LayoutNodeHighlightedCondition extends LayoutCondition {
+  const LayoutNodeHighlightedCondition({this.nodePath}) : super._();
+
+  final String? nodePath;
+
+  @override
+  bool isActive(LayoutContext context) {
+    final path = nodePath ?? context.currentNodePath;
+    if (path == null) return false;
+    final normalized = _normalizeLayoutPath(path);
+    return context.highlightedNodePaths.any(
+      (candidate) => _normalizeLayoutPath(candidate) == normalized,
+    );
+  }
+}
+
 class HasActiveNodesCondition extends LayoutCondition {
   const HasActiveNodesCondition({super.exclude = const {}}) : super._();
 
@@ -882,6 +946,13 @@ class HasActiveNodesCondition extends LayoutCondition {
       (path) => !excluded.contains(_normalizeLayoutPath(path)),
     );
   }
+}
+
+class NoSelectedNodesCondition extends LayoutCondition {
+  const NoSelectedNodesCondition({super.exclude = const {}}) : super._();
+
+  @override
+  bool isActive(LayoutContext context) => context.selectedNodePaths.isEmpty;
 }
 
 String _normalizeLayoutPath(String path) {
@@ -909,6 +980,28 @@ class LayoutBackground {
 
   final int orderPosition;
   final double opacity;
+}
+
+class ConditionalLayoutBackground extends LayoutBackground {
+  const ConditionalLayoutBackground({
+    required this.activeCondition,
+    required this.background,
+    super.orderPosition,
+    super.opacity,
+  });
+
+  final LayoutCondition activeCondition;
+  final LayoutBackground background;
+}
+
+class LayoutBorderBackground extends LayoutBackground {
+  const LayoutBorderBackground({
+    required this.style,
+    super.orderPosition,
+    super.opacity,
+  });
+
+  final GuideStyle style;
 }
 
 class LayoutImageBackground extends LayoutBackground {

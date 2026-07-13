@@ -1,10 +1,12 @@
 # Scripts
 
-This directory owns project automation and focused Obsidian import, export,
-inspection, and migration utilities.
+This directory owns macOS project automation and focused source ingestion,
+graph inspection, and migration utilities.
 
-Production vault parsing will remain owned by the backend rather than living
-only in scripts.
+Production parsing and reconciliation remain owned by the backend rather than
+living only in scripts. Git and Markdown directories are source adapters;
+Neo4j is the canonical database. There is no SQL persistence or planned
+Neo4j-to-Markdown export path.
 
 Stable local commands:
 
@@ -13,5 +15,9 @@ Stable local commands:
 ./scripts/seville status
 ./scripts/seville rescan
 ./scripts/seville stop
-./scripts/seville test
 ```
+
+`./scripts/seville-interface` now verifies the complete dependency chain before
+starting Flutter. For a localhost Neo4j URI it starts the bundled Neo4j
+Community container, starts the Go API, waits for `/healthz`, and only then
+hands control to Flutter. A remote `SEVILLE_NEO4J_URI` skips Docker.

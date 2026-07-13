@@ -145,8 +145,10 @@
 
 ## Vault paths
 
-- Backend graph paths are relative to `SEVILLE_VAULT_PATH`.
-- Shared vault path constants live in `interface/flutter/lib/constants/paths/`.
+- Backend graph paths are relative to the configured knowledge root:
+  `SEVILLE_VAULT_PATH`, or `SEVILLE_GIT_REPOSITORY_PATH` plus
+  `SEVILLE_GIT_VAULT_SUBPATH` when the Git source adapter is active.
+- Shared vault path constants live in `seville/flutter/lib/constants/paths/`.
   Timeline paths belong to `DefaultTimelineVaultPaths` there; broader vault
   roots or concepts belong to sibling static classes such as `DefaultVaultPaths`.
 - The current vault root directory is already `cortex`; never prefix configured

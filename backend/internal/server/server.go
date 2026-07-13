@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"crypto/subtle"
-	"database/sql"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -17,13 +16,13 @@ import (
 )
 
 type Server struct {
-	store     *store.Store
+	store     store.Backend
 	vaultPath string
 	token     string
 	scanMu    sync.Mutex
 }
 
-func New(store *store.Store, vaultPath, token string) *Server {
+func New(store store.Backend, vaultPath, token string) *Server {
 	return &Server{store: store, vaultPath: vaultPath, token: token}
 }
 
@@ -68,7 +67,16 @@ func (s *Server) scan() error {
 	if err != nil {
 		return err
 	}
-	return s.store.Replace(context.Background(), snapshot)
+	for _, warning := range snapshot.Warnings {
+		slog.Warn("vault scan skipped file", "path", warning.Path, "reason", warning.Message)
+	}
+	slog.Info(
+		"vault scan complete",
+		"notes", len(snapshot.Notes),
+		"links", len(snapshot.Links),
+		"warnings", len(snapshot.Warnings),
+	)
+	return s.store.ImportNew(context.Background(), snapshot)
 }
 
 func (s *Server) status(w http.ResponseWriter, r *http.Request) {
@@ -127,7 +135,7 @@ func (s *Server) auth(next http.Handler) http.Handler {
 }
 
 func (s *Server) writeStoreError(w http.ResponseWriter, err error) {
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, store.ErrSnapshotUnavailable) {
 		s.writeError(w, http.StatusServiceUnavailable, "snapshot_unavailable", "No successful scan is available.")
 		return
 	}

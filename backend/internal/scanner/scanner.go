@@ -3,23 +3,27 @@ package scanner
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
 	knowledgev1 "github.com/Matey2010/seville/proto/gen/go/seville/knowledge/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"gopkg.in/yaml.v3"
 )
 
 var (
-	headingPattern   = regexp.MustCompile(`(?m)^#\s+(.+?)\s*$`)
-	inlineTagPattern = regexp.MustCompile(`(?:^|[\s(])#([\pL\pN_/-]+)`)
-	wikiPattern      = regexp.MustCompile(`(!?)\[\[([^\]]+)\]\]`)
-	markdownPattern  = regexp.MustCompile(`!?\[([^\]]*)\]\(([^)]+)\)`)
+	headingPattern     = regexp.MustCompile(`(?m)^#\s+(.+?)\s*$`)
+	inlineTagPattern   = regexp.MustCompile(`(?:^|[\s(])#([\pL\pN_/-]+)`)
+	wikiPattern        = regexp.MustCompile(`(!?)\[\[([^\]]+)\]\]`)
+	markdownPattern    = regexp.MustCompile(`!?\[([^\]]*)\]\(([^)]+)\)`)
+	frontmatterPattern = regexp.MustCompile(`(?s)\A---\r?\n(.*?)\r?\n---(?:\r?\n|$)`)
 )
 
 type candidate struct {
@@ -75,6 +79,13 @@ func Scan(root string) (*knowledgev1.KnowledgeSnapshot, error) {
 	slices.SortFunc(candidates, func(a, b candidate) int {
 		return strings.Compare(a.note.Path, b.note.Path)
 	})
+	ids := make(map[string]string, len(candidates))
+	for _, item := range candidates {
+		if previous, exists := ids[item.note.Id]; exists {
+			return nil, fmt.Errorf("duplicate frontmatter id %q in %s and %s", item.note.Id, previous, item.note.Path)
+		}
+		ids[item.note.Id] = item.note.Path
+	}
 	resolveLinks(candidates)
 
 	snapshot := &knowledgev1.KnowledgeSnapshot{
@@ -100,8 +111,13 @@ func parseFile(path, relative string) (candidate, string, error) {
 	}
 
 	body := string(content)
-	frontmatter, bodyWithoutFrontmatter, warning := parseFrontmatter(body)
-	title := strings.TrimSpace(frontmatter["title"])
+	typedFrontmatter, bodyWithoutFrontmatter, warning := parseFrontmatter(body)
+	frontmatter := flattenFrontmatter(typedFrontmatter)
+	id := scalarString(typedFrontmatter["id"])
+	if id == "" {
+		return candidate{}, warning, fmt.Errorf("frontmatter id is required")
+	}
+	title := scalarString(typedFrontmatter["title"])
 	if title == "" {
 		if match := headingPattern.FindStringSubmatch(bodyWithoutFrontmatter); match != nil {
 			title = strings.TrimSpace(match[1])
@@ -111,9 +127,9 @@ func parseFile(path, relative string) (candidate, string, error) {
 		title = strings.TrimSuffix(filepath.Base(relative), filepath.Ext(relative))
 	}
 
-	tags := collectTags(frontmatter["tags"], bodyWithoutFrontmatter)
+	tags := collectTags(typedFrontmatter["tags"], bodyWithoutFrontmatter)
 	note := &knowledgev1.Note{
-		Id:          noteID(relative),
+		Id:          id,
 		Path:        relative,
 		Title:       title,
 		Body:        body,
@@ -124,60 +140,91 @@ func parseFile(path, relative string) (candidate, string, error) {
 	return candidate{note: note, links: extractLinks(note.Id, bodyWithoutFrontmatter)}, warning, nil
 }
 
-func parseFrontmatter(body string) (map[string]string, string, string) {
-	values := make(map[string]string)
-	if !strings.HasPrefix(body, "---\n") {
+func parseFrontmatter(body string) (map[string]any, string, string) {
+	values := make(map[string]any)
+	match := frontmatterPattern.FindStringSubmatchIndex(body)
+	if match == nil {
+		if strings.HasPrefix(body, "---\n") || strings.HasPrefix(body, "---\r\n") {
+			return values, body, "frontmatter starts but has no closing delimiter"
+		}
 		return values, body, ""
 	}
-	end := strings.Index(body[4:], "\n---")
-	if end < 0 {
-		return values, body, "frontmatter starts but has no closing delimiter"
+	if err := yaml.Unmarshal([]byte(body[match[2]:match[3]]), &values); err != nil {
+		return map[string]any{}, body[match[1]:], "invalid YAML frontmatter: " + err.Error()
 	}
-	end += 4
-	block := body[4:end]
-	currentKey := ""
-	for _, line := range strings.Split(block, "\n") {
-		trimmedLine := strings.TrimSpace(line)
-		if len(line) > len(strings.TrimLeft(line, " \t")) {
-			if currentKey != "" && strings.HasPrefix(trimmedLine, "-") {
-				item := strings.Trim(strings.TrimSpace(strings.TrimPrefix(trimmedLine, "-")), `"'`)
-				if item != "" {
-					if values[currentKey] != "" {
-						values[currentKey] += ","
-					}
-					values[currentKey] += item
-				}
-			}
-			continue
-		}
-		key, value, ok := strings.Cut(line, ":")
-		if !ok || strings.TrimSpace(key) == "" {
-			currentKey = ""
-			continue
-		}
-		currentKey = strings.TrimSpace(key)
-		values[currentKey] = strings.Trim(strings.TrimSpace(value), `"'`)
-	}
-	bodyStart := end + len("\n---")
-	if bodyStart < len(body) && body[bodyStart] == '\n' {
-		bodyStart++
-	}
-	return values, body[bodyStart:], ""
+	return values, body[match[1]:], ""
 }
 
-func collectTags(frontmatterTags, body string) []string {
-	set := make(map[string]struct{})
-	trimmed := strings.Trim(frontmatterTags, "[]")
-	for _, tag := range strings.FieldsFunc(trimmed, func(r rune) bool {
-		return r == ',' || r == ' '
-	}) {
-		tag = strings.Trim(strings.TrimSpace(tag), `"'#`)
-		if tag != "" {
-			set[tag] = struct{}{}
+func flattenFrontmatter(values map[string]any) map[string]string {
+	flattened := make(map[string]string, len(values))
+	for key, value := range values {
+		if text := scalarString(value); text != "" {
+			flattened[key] = text
+			continue
+		}
+		if items, ok := value.([]any); ok {
+			parts := make([]string, 0, len(items))
+			for _, item := range items {
+				if text := scalarString(item); text != "" {
+					parts = append(parts, text)
+				}
+			}
+			if len(parts) == len(items) {
+				flattened[key] = strings.Join(parts, ",")
+				continue
+			}
+		}
+		if encoded, err := json.Marshal(value); err == nil {
+			flattened[key] = string(encoded)
 		}
 	}
+	return flattened
+}
+
+func scalarString(value any) string {
+	switch typed := value.(type) {
+	case string:
+		return strings.TrimSpace(typed)
+	case int:
+		return strconv.Itoa(typed)
+	case int64:
+		return strconv.FormatInt(typed, 10)
+	case uint64:
+		return strconv.FormatUint(typed, 10)
+	case float64:
+		return strconv.FormatFloat(typed, 'g', -1, 64)
+	case bool:
+		return strconv.FormatBool(typed)
+	default:
+		return ""
+	}
+}
+
+func collectTags(frontmatterTags any, body string) []string {
+	set := make(map[string]struct{})
+	add := func(value string) {
+		for _, tag := range strings.FieldsFunc(strings.Trim(value, "[]"), func(r rune) bool {
+			return r == ',' || r == ' '
+		}) {
+			if tag = normalizeTag(tag); tag != "" {
+				set[tag] = struct{}{}
+			}
+		}
+	}
+	switch values := frontmatterTags.(type) {
+	case []any:
+		for _, value := range values {
+			add(scalarString(value))
+		}
+	case []string:
+		for _, value := range values {
+			add(value)
+		}
+	default:
+		add(scalarString(values))
+	}
 	for _, match := range inlineTagPattern.FindAllStringSubmatch(body, -1) {
-		set[match[1]] = struct{}{}
+		add(match[1])
 	}
 	tags := make([]string, 0, len(set))
 	for tag := range set {
@@ -185,6 +232,10 @@ func collectTags(frontmatterTags, body string) []string {
 	}
 	slices.Sort(tags)
 	return tags
+}
+
+func normalizeTag(value string) string {
+	return strings.ToLower(strings.Trim(strings.TrimSpace(value), `"'#`))
 }
 
 func extractLinks(sourceID, body string) []*knowledgev1.Link {
@@ -274,11 +325,6 @@ func splitFragment(value string) (string, string) {
 		return strings.TrimSpace(target), ""
 	}
 	return strings.TrimSpace(target), strings.TrimSpace(fragment)
-}
-
-func noteID(path string) string {
-	sum := sha256.Sum256([]byte(filepath.ToSlash(path)))
-	return hex.EncodeToString(sum[:16])
 }
 
 func revision(snapshot *knowledgev1.KnowledgeSnapshot) string {

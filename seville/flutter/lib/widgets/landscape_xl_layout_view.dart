@@ -37,7 +37,8 @@ class LandscapeXlLayoutView extends StatefulWidget {
     required this.layout,
     required this.contentBuilder,
     this.vaultNodeResolver,
-    this.selectedNode,
+    this.highlightedNodes = const [],
+    this.selectedNodes = const [],
     this.onLayoutTap,
     super.key,
   });
@@ -45,7 +46,8 @@ class LandscapeXlLayoutView extends StatefulWidget {
   final LandscapeXlLayout layout;
   final LandscapeXlLayoutContentBuilder contentBuilder;
   final VaultNodeResolver? vaultNodeResolver;
-  final ResolvedVaultNode? selectedNode;
+  final List<ResolvedVaultNode> highlightedNodes;
+  final List<ResolvedVaultNode> selectedNodes;
   final LandscapeXlLayoutTapCallback? onLayoutTap;
 
   @override
@@ -58,6 +60,12 @@ class _LandscapeXlLayoutViewState extends State<LandscapeXlLayoutView> {
   @override
   Widget build(BuildContext context) {
     final safePadding = MediaQuery.paddingOf(context);
+    final selectedNode = widget.selectedNodes.lastOrNull;
+    final layoutContext = _layoutContext(
+      widget.layout,
+      widget.highlightedNodes,
+      widget.selectedNodes,
+    );
     return LayoutBuilder(
       builder: (context, constraints) {
         final size = constraints.biggest;
@@ -66,9 +74,9 @@ class _LandscapeXlLayoutViewState extends State<LandscapeXlLayoutView> {
           children: [
             _LandscapeXlLayoutNodeView(
               layout: widget.layout,
-              selectedNode: widget.selectedNode,
+              selectedNode: selectedNode,
               contentBuilder: widget.contentBuilder,
-              layoutContext: _layoutContext(widget.layout, widget.selectedNode),
+              layoutContext: layoutContext,
             ),
             IgnorePointer(
               child: CustomPaint(
@@ -76,7 +84,8 @@ class _LandscapeXlLayoutViewState extends State<LandscapeXlLayoutView> {
                   widget.layout,
                   safePadding,
                   widget.vaultNodeResolver,
-                  widget.selectedNode,
+                  widget.highlightedNodes,
+                  widget.selectedNodes,
                   _hoverPosition,
                 ),
               ),
@@ -106,7 +115,8 @@ class _LandscapeXlLayoutViewState extends State<LandscapeXlLayoutView> {
               safePadding,
               details.localPosition,
               widget.vaultNodeResolver,
-              widget.selectedNode,
+              widget.highlightedNodes,
+              widget.selectedNodes,
             );
             if (target != null) tapHandler(target);
           },
@@ -139,7 +149,10 @@ class _LandscapeXlLayoutNodeView extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         for (final background in backgrounds)
-          _LayoutBackgroundView(background: background),
+          _LayoutBackgroundView(
+            background: background,
+            layoutContext: layoutContext,
+          ),
         IgnorePointer(
           child: CustomPaint(
             painter: _LayoutGuidePainter(layout, layoutContext),
@@ -172,25 +185,37 @@ class _LandscapeXlLayoutNodeView extends StatelessWidget {
 }
 
 class _LayoutBackgroundView extends StatelessWidget {
-  const _LayoutBackgroundView({required this.background});
+  const _LayoutBackgroundView({
+    required this.background,
+    required this.layoutContext,
+  });
 
   final LayoutBackground background;
+  final LayoutContext layoutContext;
 
   @override
   Widget build(BuildContext context) {
-    if (background is LayoutGuidingBackground) {
+    var resolvedBackground = background;
+    if (resolvedBackground is ConditionalLayoutBackground) {
+      if (!resolvedBackground.activeCondition.isActive(layoutContext)) {
+        return const SizedBox.shrink();
+      }
+      resolvedBackground = resolvedBackground.background;
+    }
+    if (resolvedBackground is LayoutGuidingBackground) {
       return Positioned.fill(
         child: Opacity(
-          opacity: background.opacity.clamp(0, 1),
+          opacity: resolvedBackground.opacity.clamp(0, 1),
           child: CustomPaint(
-            painter: _LayoutGuidingBackgroundPainter(
-              background as LayoutGuidingBackground,
-            ),
+            painter: _LayoutGuidingBackgroundPainter(resolvedBackground),
           ),
         ),
       );
     }
-    final imageBackground = background as LayoutImageBackground;
+    if (resolvedBackground is! LayoutImageBackground) {
+      return const SizedBox.shrink();
+    }
+    final imageBackground = resolvedBackground;
     final image = Image.asset(
       imageBackground.assetPath,
       fit: switch (imageBackground.fit) {
@@ -206,9 +231,12 @@ class _LayoutBackgroundView extends StatelessWidget {
       height: double.infinity,
     );
     return Positioned.fill(
-      child: background.opacity == 1
+      child: resolvedBackground.opacity == 1
           ? image
-          : Opacity(opacity: background.opacity.clamp(0, 1), child: image),
+          : Opacity(
+              opacity: resolvedBackground.opacity.clamp(0, 1),
+              child: image,
+            ),
     );
   }
 }
@@ -578,19 +606,26 @@ class _ReferenceLayoutPainter extends CustomPainter {
     this.layout,
     this.safePadding,
     this.vaultNodeResolver,
-    this.selectedNode,
+    this.highlightedNodes,
+    this.selectedNodes,
     this.hoverPosition,
   );
 
   final LandscapeXlLayout layout;
   final EdgeInsets safePadding;
   final VaultNodeResolver? vaultNodeResolver;
-  final ResolvedVaultNode? selectedNode;
+  final List<ResolvedVaultNode> highlightedNodes;
+  final List<ResolvedVaultNode> selectedNodes;
   final Offset? hoverPosition;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final layoutContext = _layoutContext(layout, selectedNode);
+    final selectedNode = selectedNodes.lastOrNull;
+    final layoutContext = _layoutContext(
+      layout,
+      highlightedNodes,
+      selectedNodes,
+    );
     final resolvedLayouts = _resolveLayouts(
       layout,
       size,
@@ -711,16 +746,24 @@ class _ReferenceLayoutPainter extends CustomPainter {
     return oldDelegate.layout != layout ||
         oldDelegate.safePadding != safePadding ||
         oldDelegate.vaultNodeResolver != vaultNodeResolver ||
-        oldDelegate.selectedNode != selectedNode ||
+        oldDelegate.highlightedNodes != highlightedNodes ||
+        oldDelegate.selectedNodes != selectedNodes ||
         oldDelegate.hoverPosition != hoverPosition;
   }
 }
 
-LayoutContext _layoutContext(Layout layout, ResolvedVaultNode? selectedNode) {
-  final selectedPath = selectedNode?.path;
+LayoutContext _layoutContext(
+  Layout layout,
+  List<ResolvedVaultNode> highlightedNodes,
+  List<ResolvedVaultNode> selectedNodes,
+) {
+  final selectedPath = selectedNodes.lastOrNull?.path;
+  final selectedPaths = [for (final node in selectedNodes) node.path];
   final nodeContext = LayoutContext(
     selectedNodePath: selectedPath,
-    activeNodePaths: selectedPath == null ? const [] : [selectedPath],
+    selectedNodePaths: selectedPaths,
+    highlightedNodePaths: [for (final node in highlightedNodes) node.path],
+    activeNodePaths: selectedPaths,
   );
   return nodeContext.withSelectedMode(layout.resolveMode(nodeContext)?.id);
 }
@@ -1035,6 +1078,30 @@ void _drawRadialBushLayout(
     ..style = PaintingStyle.stroke;
   canvas.drawArc(arcRect, 0, math.pi, false, strokePaint);
   canvas.drawLine(Offset(-rootRadius, 0), Offset(rootRadius, 0), strokePaint);
+  final nodeContext = layoutContext.withCurrentNodePath(
+    radialBush.rootNode.path,
+  );
+  for (final background in radialBush.rootNode.backgrounds) {
+    final resolvedBackground = _resolveConditionalBackground(
+      background,
+      nodeContext,
+    );
+    if (resolvedBackground is! LayoutBorderBackground) continue;
+    final style = resolvedBackground.style;
+    final overlayPaint = Paint()
+      ..color = style.color.withValues(
+        alpha: style.color.a * resolvedBackground.opacity.clamp(0, 1),
+      )
+      ..strokeWidth = style.strokeWidth
+      ..strokeCap = style.strokeCap
+      ..style = PaintingStyle.stroke;
+    canvas.drawArc(arcRect, 0, math.pi, false, overlayPaint);
+    canvas.drawLine(
+      Offset(-rootRadius, 0),
+      Offset(rootRadius, 0),
+      overlayPaint,
+    );
+  }
   canvas.restore();
 
   final label = radialBush.label;
@@ -1060,6 +1127,18 @@ void _drawRadialBushLayout(
       labelCenter.dy - textPainter.height / 2,
     ),
   );
+}
+
+LayoutBackground? _resolveConditionalBackground(
+  LayoutBackground background,
+  LayoutContext context,
+) {
+  var current = background;
+  while (current is ConditionalLayoutBackground) {
+    if (!current.activeCondition.isActive(context)) return null;
+    current = current.background;
+  }
+  return current;
 }
 
 Color? _radialBushRootBackground(
@@ -1511,13 +1590,14 @@ LayoutTapTarget? _hitTestLayoutTapTarget(
   EdgeInsets safePadding,
   Offset position,
   VaultNodeResolver? vaultNodeResolver,
-  ResolvedVaultNode? selectedNode,
+  List<ResolvedVaultNode> highlightedNodes,
+  List<ResolvedVaultNode> selectedNodes,
 ) {
   final resolvedLayouts = _resolveLayouts(
     root,
     size,
     safePadding,
-    _layoutContext(root, selectedNode),
+    _layoutContext(root, highlightedNodes, selectedNodes),
   );
   for (final resolved in resolvedLayouts.values.toList().reversed) {
     final children = resolved.layout.layouts.entries.toList().reversed;

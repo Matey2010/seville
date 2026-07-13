@@ -7,9 +7,7 @@ import '../../../interface_colors.dart';
 import '../../../paths/default_vault_paths.dart';
 
 final lgErgoLayoutConfig = LandscapeXlLayout(
-  initialActiveNode: VaultNodeUiComponent(
-    path: DefaultTimelineVaultPaths.today,
-  ),
+  initialHighlightedNode: VaultNodeUiComponent(path: DefaultVaultPaths.cortex),
   aliases: ['screen', 'root', 'reality', 'user-space', 'user-reality'],
   attributes: [LayoutAttribute.screen, LayoutAttribute.rectangular],
   backgrounds: [
@@ -49,9 +47,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
     'scene-flopped': LayoutMode(
       id: 'scene-flopped',
       aliases: ['collapsed-scene', 'folded', 'folded-scene'],
-      activeCondition: HasActiveNodesCondition(
-        exclude: {DefaultVaultPaths.cortex},
-      ),
+      activeCondition: LayoutCondition.noSelectedNode(),
       derivativeSnapshot: 'screen-edge-centers',
     ),
   },
@@ -173,6 +169,14 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               node: VaultNodeUiComponent(
                 path: DefaultVaultPaths.cortex,
                 color: lgErgoCortexNodeColor,
+                backgrounds: [
+                  ConditionalLayoutBackground(
+                    activeCondition: LayoutCondition.nodeHighlighted(),
+                    background: LayoutBorderBackground(
+                      style: lgErgoHighlightedNodeBorderStyle,
+                    ),
+                  ),
+                ],
               ),
               backgroundExtractor: BackgroundExtractor(
                 rootParameter: 'background',
@@ -489,7 +493,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               to: 'innerSquare.D',
             ),
             'leftPlane.top': ConditionalDerivative(
-              condition: LayoutSelectedModeCondition(mode: 'scene-flopped'),
+              condition: LayoutCondition.modeActive('scene-flopped'),
               whenTrue: MidpointDerivative(
                 from: 'innerSquare.B',
                 to: 'innerSquare.C',
@@ -500,7 +504,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               ),
             ),
             'leftPlane.bottom': ConditionalDerivative(
-              condition: LayoutSelectedModeCondition(mode: 'scene-flopped'),
+              condition: LayoutCondition.modeActive('scene-flopped'),
               whenTrue: MidpointDerivative(
                 from: 'innerSquare.A',
                 to: 'innerSquare.D',
@@ -511,7 +515,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               ),
             ),
             'rightPlane.top': ConditionalDerivative(
-              condition: LayoutSelectedModeCondition(mode: 'scene-flopped'),
+              condition: LayoutCondition.modeActive('scene-flopped'),
               whenTrue: MidpointDerivative(
                 from: 'innerSquare.B',
                 to: 'innerSquare.C',
@@ -522,7 +526,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               ),
             ),
             'rightPlane.bottom': ConditionalDerivative(
-              condition: LayoutSelectedModeCondition(mode: 'scene-flopped'),
+              condition: LayoutCondition.modeActive('scene-flopped'),
               whenTrue: MidpointDerivative(
                 from: 'innerSquare.A',
                 to: 'innerSquare.D',
@@ -545,8 +549,8 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
             'scene-flopped': LayoutMode(
               id: 'scene-flopped',
               aliases: ['collapsed-scene', 'folded', 'folded-scene'],
-              activeCondition: LayoutSelectedModeCondition(
-                mode: 'scene-flopped',
+              activeCondition: LayoutCondition.modeActive(
+                'scene-flopped',
                 aliases: ['collapsed-scene', 'folded', 'folded-scene'],
               ),
               visible: false,
@@ -662,8 +666,8 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
             'scene-flopped': LayoutMode(
               id: 'scene-flopped',
               aliases: ['collapsed-scene', 'folded', 'folded-scene'],
-              activeCondition: LayoutSelectedModeCondition(
-                mode: 'scene-flopped',
+              activeCondition: LayoutCondition.modeActive(
+                'scene-flopped',
                 aliases: ['collapsed-scene', 'folded', 'folded-scene'],
               ),
               visible: false,
@@ -770,6 +774,12 @@ const lgErgoBaseNodeInfoCellHighlightColor = Color(0x66374A9B);
 const lgErgoCortexNodeBorderStyle = GuideStyle(
   color: Color(0xFFFFF7D6),
   strokeWidth: 1.8,
+  pattern: GuideLinePattern.solid,
+);
+
+const lgErgoHighlightedNodeBorderStyle = GuideStyle(
+  color: Color(0xFF2196F3),
+  strokeWidth: 4,
   pattern: GuideLinePattern.solid,
 );
 

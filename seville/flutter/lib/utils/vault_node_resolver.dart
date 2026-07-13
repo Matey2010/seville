@@ -31,6 +31,7 @@ class VaultNodeResolver {
         color: component.color,
         label: component.label,
         status: component.status,
+        backgrounds: component.backgrounds,
         node: note == null ? null : Node.fromNote(note),
         note: note,
         resolvedStatus: configuredStatus,
@@ -43,6 +44,7 @@ class VaultNodeResolver {
       color: component.color,
       label: component.label,
       status: component.status,
+      backgrounds: component.backgrounds,
       node: note == null ? null : Node.fromNote(note),
       note: note,
       resolvedStatus: note == null

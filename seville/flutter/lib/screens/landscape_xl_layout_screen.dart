@@ -53,7 +53,7 @@ class _LandscapeXlLayoutScreenState
       setState(() {
         _vaultNodeResolver = resolver;
       });
-      _selectInitialNodeIfNeeded(resolver);
+      _highlightInitialNodeIfNeeded(resolver);
     } catch (error) {
       CommonUtilities.log('[snapshot] load failed: $error');
       // Keep status unresolved when the backend is unavailable. A failed
@@ -71,8 +71,10 @@ class _LandscapeXlLayoutScreenState
     return VaultNodeResolver.fromNotes(snapshot.notes);
   }
 
-  ResolvedVaultNode? _resolveInitialSelectedNode(VaultNodeResolver resolver) {
-    final node = (widget.layout ?? lgErgoLayoutConfig).initialActiveNode;
+  ResolvedVaultNode? _resolveInitialHighlightedNode(
+    VaultNodeResolver resolver,
+  ) {
+    final node = (widget.layout ?? lgErgoLayoutConfig).initialHighlightedNode;
     if (node == null) return null;
     final resolvedNode = resolver.resolve(node);
     return resolvedNode.found ? resolvedNode : null;
@@ -80,12 +82,14 @@ class _LandscapeXlLayoutScreenState
 
   @override
   Widget build(BuildContext context) {
-    final selectedNode = ref.watch(selectedNodeProvider);
+    final highlightedNodes = ref.watch(highlightedNodesProvider);
+    final selectedNodes = ref.watch(selectedNodesProvider);
     return Scaffold(
       body: LandscapeXlLayoutView(
         layout: widget.layout ?? lgErgoLayoutConfig,
         vaultNodeResolver: _vaultNodeResolver,
-        selectedNode: selectedNode,
+        highlightedNodes: highlightedNodes,
+        selectedNodes: selectedNodes,
         onLayoutTap: _handleLayoutTap,
         contentBuilder: widget.rendererRegistry.build,
       ),
@@ -130,7 +134,7 @@ class _LandscapeXlLayoutScreenState
     }
 
     _logResolvedNodeTap(target, resolvedNode, note);
-    ref.read(selectedNodeProvider.notifier).select(resolvedNode);
+    ref.read(selectedNodesProvider.notifier).select(resolvedNode);
   }
 
   Future<void> _refetchAndRetryNodeTap(
@@ -143,7 +147,7 @@ class _LandscapeXlLayoutScreenState
       setState(() {
         _vaultNodeResolver = resolver;
       });
-      _selectInitialNodeIfNeeded(resolver);
+      _highlightInitialNodeIfNeeded(resolver);
 
       final resolvedNode = resolver.resolve(node);
       final note = resolvedNode.note;
@@ -163,7 +167,7 @@ class _LandscapeXlLayoutScreenState
 
       CommonUtilities.log('[layout tap] ${target.key}: resolved after rescan');
       _logResolvedNodeTap(target, resolvedNode, note);
-      ref.read(selectedNodeProvider.notifier).select(resolvedNode);
+      ref.read(selectedNodesProvider.notifier).select(resolvedNode);
     } catch (error) {
       CommonUtilities.log(
         '[layout tap] ${target.key}: rescan/refetch failed: $error',
@@ -191,10 +195,10 @@ class _LandscapeXlLayoutScreenState
     }
   }
 
-  void _selectInitialNodeIfNeeded(VaultNodeResolver resolver) {
-    if (ref.read(selectedNodeProvider) != null) return;
-    final resolvedNode = _resolveInitialSelectedNode(resolver);
+  void _highlightInitialNodeIfNeeded(VaultNodeResolver resolver) {
+    if (ref.read(highlightedNodesProvider).isNotEmpty) return;
+    final resolvedNode = _resolveInitialHighlightedNode(resolver);
     if (resolvedNode == null) return;
-    ref.read(selectedNodeProvider.notifier).select(resolvedNode);
+    ref.read(highlightedNodesProvider.notifier).setNodes([resolvedNode]);
   }
 }

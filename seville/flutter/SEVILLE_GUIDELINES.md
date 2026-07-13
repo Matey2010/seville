@@ -1,4 +1,4 @@
-# Seville Flutter Interface Guidelines
+# Seville Flutter Guidelines
 
 See `CUSTOM_LAYOUTS.md` for the complete model → constants → renderer registry
 workflow, including nesting, radial slots, perspective surfaces, responsive
