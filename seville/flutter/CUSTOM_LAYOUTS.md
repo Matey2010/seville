@@ -262,17 +262,17 @@ LayoutPath(
   grid: PerspectiveGridLayout(
     guideStyle: dashedGridStyle,
     rowsConfig: {
-      'timeline': GridAxisVariable(size: GridTrackSize.pt(20)),
-      'hour': GridAxisVariable(size: GridTrackSize.fr(1)),
-      'day': GridAxisVariable(size: GridTrackSize.fr(1)),
-      'week': GridAxisVariable(size: GridTrackSize.fr(1)),
+      'timeline': GridAxisVariable(size: LayoutSize.pt(20)),
+      'hour': GridAxisVariable(size: LayoutSize.fr(1)),
+      'day': GridAxisVariable(size: LayoutSize.fr(1)),
+      'week': GridAxisVariable(size: LayoutSize.fr(1)),
     },
     columnsConfig: {
-      'past-pointer': GridAxisVariable(size: GridTrackSize.pt(20)),
-      'previous': GridAxisVariable(size: GridTrackSize.fr(1)),
-      'current': GridAxisVariable(size: GridTrackSize.fr(1)),
-      'next': GridAxisVariable(size: GridTrackSize.fr(1)),
-      'future-pointer': GridAxisVariable(size: GridTrackSize.pt(20)),
+      'past-pointer': GridAxisVariable(size: LayoutSize.pt(20)),
+      'previous': GridAxisVariable(size: LayoutSize.fr(1)),
+      'current': GridAxisVariable(size: LayoutSize.fr(1)),
+      'next': GridAxisVariable(size: LayoutSize.fr(1)),
+      'future-pointer': GridAxisVariable(size: LayoutSize.pt(20)),
     },
     areas: {
       'current-day': PerspectiveGridArea(
@@ -289,9 +289,9 @@ LayoutPath(
 `rowsConfig` and `columnsConfig` are ordered maps of the same `GridAxisVariable`
 type. The map key is the track identity, so identity and measurement cannot
 drift apart as they could with parallel ID and fraction lists.
-`GridTrackSize.fr` divides remaining space, while `GridTrackSize.px` preserves a
-fixed logical-pixel width; `GridTrackSize.pt` is its readable alias.
-`GridTrackSize.calculatedFr` is a Vue-like calculated track: it behaves like its
+`LayoutSize.fr` divides remaining space, while `LayoutSize.px` preserves a
+fixed logical-pixel width; `LayoutSize.pt` is its readable alias.
+`LayoutSize.calculatedFr` is a Vue-like calculated track: it behaves like its
 fallback fraction today, and its `derivative` names the future layout/context
 value that should drive it.
 
@@ -304,8 +304,9 @@ example
 bottom time grid keeps the base plane simpler: rows `hour`, `day`, and `week`
 share `previous`, `current`, and `next` columns, while fine passed/left
 adjustment belongs to a later timeline-point layer. The surrounding screen
-and safe-area anchors stay unpadded; each plane owns its own padding tracks via
-`LayoutPath.padding` with `lgErgoLayoutDefaults.padding`. The `left-plane`
+and safe-area anchors stay unpadded; each plane owns its own side-specific
+`LayoutPath.padding`, derived from `lgErgoLayoutDefaults.padding` where needed.
+The `left-plane`
 provides the 12-segment x/space plane between scene-left and screen-left; its
 grid contains only the real space rows, not fake padding tracks. The scene inner
 circle uses the owning layout's `padding + borderWidth` as an inset, while the

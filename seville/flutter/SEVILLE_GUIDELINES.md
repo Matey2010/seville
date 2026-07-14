@@ -428,11 +428,42 @@ and 3–4:30 respectively. `Prev` and `Next` occupy apex layer zero; `Yesterday`
 and `Tomorrow` occupy layer one immediately after them. Navigation and
 screen-switching state is intentionally deferred.
 
+## Row and column composition
+
+Use `ColumnLayout` and `RowLayout` when content has semantic interface order
+that must remain independent from a plane's perspective-grid axes. Their
+children remain in `Map<String, Layout> layouts`, where each map key is the
+child's stable identity.
+
+Every `Layout` owns a `GridAxisVariable size`. A row resolves child sizes along
+its horizontal main axis; a column resolves them along its vertical main axis.
+Use the same track vocabulary used elsewhere:
+
+- `LayoutSize.fr(value)` consumes a weighted share of remaining space;
+- `LayoutSize.px(value)` (or `pt`) consumes a fixed visual extent; and
+- `LayoutSize.calculatedFr(...)` keeps computed fractional sizing available.
+
+`LayoutSize` is the global axis-sizing entity formerly named `GridTrackSize`.
+The former viewport/derivative-distance `LayoutSize` is now `LayoutExtent`, so
+axis allocation and resolved geometric extent have distinct vocabulary.
+
+Do not add parallel `flex`, `extent`, width, or height fields to composition
+layouts. For example, a browser-like action surface is expressed as a column
+containing fixed-pixel navigation and action rows around a `1fr` content panel.
+Nested row children use their own `size` values for button proportions.
+
 ## Flutter code structure
 
 The Flutter interface is built from explicit models, constants, utilities, and
 rendering components. Do not spread design-system concepts across widgets and
 components just because that is where they are first used.
+
+Model files are ordered around their reason for existence. After imports, put
+the primary public model first, followed by its modes, context, and immediately
+related definitions. Supporting typedefs, key constants, enums, helper value
+objects, and concrete variants follow the headliner. File organization should
+let a reader understand the stable public shape before encountering its
+interchangeable implementation vocabulary.
 
 - `lib/models/` contains durable interface and graph models: semantic data
   types, layout presets, dimension primitives, and other objects that describe
@@ -464,22 +495,15 @@ source shape instead of maintaining independent values that only visually align.
 
 ## Quality verification
 
-Seville does not use unit tests as a quality gate for the interface. Do not add
-unit tests by default. The project favors higher-level verification:
+The Flutter interface does not contain or run automated tests. Do not add unit,
+widget, integration, golden, snapshot, or system tests. Do not add test
+dependencies, test directories, Xcode test targets, test runners, or pipeline
+steps that execute tests. Test coverage is not accepted as evidence that a
+layout or interaction still behaves correctly after a change.
 
-- static analysis for code correctness and lint-level feedback
-- real builds to prove the application still compiles as an application
-- manual visual review for spatial/interface decisions
-- integral and system testing for full user flows when those flows stabilize
-
-Verification ownership belongs to the project owner. After each Codex task,
-Codex should provide concrete directions for how the project owner can verify
-the change manually or through integral/system checks. Codex may report commands
-it ran, but the final verification result is decided by the project owner.
-
-Avoid adding narrow widget, function, or unit tests. If an automated check is
-added later, it should protect a stable integration contract or a system-level
-behavior rather than freeze temporary implementation details.
+Automated verification is limited to formatting and static analysis. The
+project owner exclusively performs final visual, interaction, build, and
+runtime verification in the real macOS application.
 
 ## Guidelines
 

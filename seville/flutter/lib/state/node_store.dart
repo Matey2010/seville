@@ -15,7 +15,7 @@ final vaultNodeResolverProvider = FutureProvider<VaultNodeResolver>((
 ) async {
   final api = ref.watch(sevilleApiProvider);
   final snapshot = await api.snapshot();
-  return VaultNodeResolver.fromNotes(snapshot.notes);
+  return VaultNodeResolver.fromNodes(snapshot.nodes);
 });
 
 final highlightedNodesProvider =

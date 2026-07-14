@@ -1,7 +1,7 @@
 # Scripts
 
-This directory owns macOS project automation and focused source ingestion,
-graph inspection, and migration utilities.
+This directory owns macOS project automation, graph inspection, and explicit
+migration utilities.
 
 Production parsing and reconciliation remain owned by the backend rather than
 living only in scripts. Git and Markdown directories are source adapters;
@@ -13,9 +13,13 @@ Stable local commands:
 ```sh
 ./scripts/seville start
 ./scripts/seville status
-./scripts/seville rescan
 ./scripts/seville stop
 ```
+
+Legacy source migration tools live below `scripts/migrations/` so they cannot
+be confused with normal process control. The documented Obsidian/Markdown
+importer is in [`migrations/obsidian/`](migrations/obsidian/). It is manual and
+is never invoked by Seville startup.
 
 `./scripts/seville-interface` now verifies the complete dependency chain before
 starting Flutter. For a localhost Neo4j URI it starts the bundled Neo4j

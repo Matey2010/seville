@@ -3,7 +3,416 @@ import 'dart:ui';
 
 import 'package:seville_proto/seville_proto.dart';
 
-import '../domain/node.dart';
+abstract class Layout {
+  const Layout.fromAxes({
+    this.size = const GridAxisVariable(size: LayoutSize.fr(1)),
+    this.axes = const [0, 0],
+    this.aliases = const [],
+    this.attributes = const [],
+    this.backgrounds = const [],
+    this.layouts = const {},
+    this.derivatives = const {},
+    this.derivativeSnapshot,
+    this.observables = const {},
+    this.modes = const {},
+    this.inputSources = LayoutInputSource.values,
+    this.layoutDefaults,
+    this.columnFractions,
+    this.rowFractions,
+    this.depthFractions,
+    this.fractionSpans,
+    this.subLayouts = const {},
+    this.elements = const {},
+  });
+
+  /// Main-axis size when this layout is a child of a row or column.
+  final GridAxisVariable size;
+  final List<int> axes;
+  final List<String> aliases;
+  final List<LayoutAttribute> attributes;
+  final List<LayoutBackground> backgrounds;
+
+  /// Recursive layout tree. Map keys are the child layouts' identities.
+  final Map<String, Layout> layouts;
+  final Map<String, LayoutDerivativeSnapshot> derivatives;
+  final String? derivativeSnapshot;
+  final Map<String, LayoutObservable> observables;
+  final Map<String, LayoutMode> modes;
+
+  /// Input channels allowed to originate interactions with this layout.
+  final List<LayoutInputSource> inputSources;
+  final LayoutDefaults? layoutDefaults;
+  final List<double>? columnFractions;
+  final List<double>? rowFractions;
+  final List<double>? depthFractions;
+  final List<double>? fractionSpans;
+  final Map<String, SubLayout> subLayouts;
+  final Map<String, LayoutElement> elements;
+
+  LayoutDimensions get dimensions => LayoutDimensions.fromAxes(
+    axes,
+    columnFractions: columnFractions,
+    rowFractions: rowFractions,
+    depthFractions: depthFractions,
+    fractionSpans: fractionSpans,
+  );
+
+  int get dimensionCount => axes.length;
+
+  bool supportsInputSource(LayoutInputSource source) =>
+      inputSources.contains(source);
+
+  Offset get center => const Offset(0.5, 0.5);
+
+  /// The outer circle circumscribes the layout's full rectangular bounds.
+  /// The inner circle is inscribed in the bounds remaining after layout
+  /// padding and border width are applied.
+  Offset resolveCircleCenter(
+    Size size,
+    LayoutCircleBoundary boundary, {
+    bool useLayoutDefaults = false,
+  }) {
+    final inset = boundary == LayoutCircleBoundary.inner || useLayoutDefaults
+        ? _circleInset(size)
+        : 0.0;
+    return Offset(
+      inset + math.max(size.width - inset * 2, 0) / 2,
+      inset + math.max(size.height - inset * 2, 0) / 2,
+    );
+  }
+
+  double resolveCircleRadius(
+    Size size,
+    LayoutCircleBoundary boundary, {
+    bool useLayoutDefaults = false,
+  }) {
+    final inset = boundary == LayoutCircleBoundary.inner || useLayoutDefaults
+        ? _circleInset(size)
+        : 0.0;
+    final width = math.max(size.width - inset * 2, 0);
+    final height = math.max(size.height - inset * 2, 0);
+    if (boundary == LayoutCircleBoundary.outer) {
+      return math.sqrt(width * width + height * height) / 2;
+    }
+    return math.min(width, height) / 2;
+  }
+
+  Rect resolveCircleBounds(Size size, LayoutCircleBoundary boundary) {
+    final radius = resolveCircleRadius(size, boundary);
+    return Rect.fromCircle(
+      center: resolveCircleCenter(size, boundary),
+      radius: radius,
+    );
+  }
+
+  double _circleInset(Size size) {
+    final requestedInset =
+        (layoutDefaults?.padding ?? 0) + (layoutDefaults?.borderWidth ?? 0);
+    return requestedInset.clamp(0, size.shortestSide / 2).toDouble();
+  }
+
+  LayoutMode? getMode(String? mode) {
+    if (mode == null) return null;
+    final direct = modes[mode];
+    if (direct != null) return direct;
+    for (final candidate in modes.values) {
+      if (candidate.id == mode || candidate.aliases.contains(mode)) {
+        return candidate;
+      }
+    }
+    return null;
+  }
+
+  LayoutMode? resolveMode(LayoutContext context) {
+    final requestedMode = getMode(context.selectedMode);
+    if (requestedMode != null) {
+      return requestedMode.isActive(context) ? requestedMode : null;
+    }
+    for (final candidate in modes.values) {
+      if (candidate.isActive(context)) return candidate;
+    }
+    return null;
+  }
+
+  bool isVisible(LayoutContext context) =>
+      resolveMode(context)?.visible ?? true;
+
+  LayoutDerivativeSnapshot getDerivatives([
+    String? snapshot,
+    String? mode,
+    LayoutContext context = LayoutContext.empty,
+  ]) {
+    final layoutContext = context.withSelectedMode(mode);
+    final selectedMode = resolveMode(layoutContext);
+    final selectedSnapshot =
+        snapshot ?? selectedMode?.derivativeSnapshot ?? derivativeSnapshot;
+    final selected = selectedSnapshot == null
+        ? LayoutDerivativeSnapshot.empty
+        : derivatives[selectedSnapshot] ?? LayoutDerivativeSnapshot.empty;
+    return LayoutDerivativeSnapshot(
+      values: {
+        for (final attribute in attributes) ...attribute.derivatives,
+        ...selected.values,
+        ...?selectedMode?.derivatives,
+      },
+    );
+  }
+
+  Map<String, Offset> resolveDerivatives(
+    Size size, [
+    String? snapshot,
+    String? mode,
+    LayoutContext context = LayoutContext.empty,
+  ]) {
+    return {
+      for (final entry in getDerivatives(
+        snapshot,
+        mode,
+        context,
+      ).values.entries)
+        entry.key: entry.value.resolve(this, size, context),
+    };
+  }
+}
+
+/// Stable interaction channels, independent of specific hardware models.
+enum LayoutInputSource {
+  cursor,
+  touch,
+  stylus,
+  keyboard,
+  terminal,
+  streamDeck,
+  gameController,
+}
+
+class LayoutDerivativeSnapshot {
+  const LayoutDerivativeSnapshot({required this.values});
+
+  final Map<String, LayoutDerivative> values;
+
+  static const empty = LayoutDerivativeSnapshot(values: {});
+}
+
+class LayoutMode {
+  const LayoutMode({
+    required this.id,
+    this.aliases = const [],
+    this.activeCondition,
+    this.visible = true,
+    this.derivativeSnapshot,
+    this.derivatives = const {},
+  });
+
+  final String id;
+  final List<String> aliases;
+
+  /// Modes are inactive by default. A mode applies only when this condition
+  /// evaluates true for the current layout context.
+  final LayoutCondition? activeCondition;
+  final bool visible;
+  final String? derivativeSnapshot;
+  final Map<String, LayoutDerivative> derivatives;
+
+  bool isActive(LayoutContext context) {
+    return activeCondition?.isActive(context) ?? false;
+  }
+}
+
+class LayoutContext {
+  const LayoutContext({
+    this.selectedMode,
+    this.inputSource,
+    this.selectedNodePath,
+    this.selectedNodePaths = const [],
+    this.highlightedNodePaths = const [],
+    this.currentNodePath,
+    this.activeNodePaths = const [],
+    this.layoutPath = const [],
+  });
+
+  static const empty = LayoutContext();
+
+  final String? selectedMode;
+
+  /// Source of the interaction currently being evaluated, when applicable.
+  final LayoutInputSource? inputSource;
+  final String? selectedNodePath;
+  final List<String> selectedNodePaths;
+  final List<String> highlightedNodePaths;
+  final String? currentNodePath;
+  final List<String> activeNodePaths;
+  final List<String> layoutPath;
+
+  List<String> get resolvedActiveNodePaths {
+    if (activeNodePaths.isNotEmpty) return activeNodePaths;
+    final selected = selectedNodePath;
+    return selected == null ? const [] : [selected];
+  }
+
+  LayoutContext withSelectedMode(String? mode) {
+    return LayoutContext(
+      selectedMode: selectedMode ?? mode,
+      inputSource: inputSource,
+      selectedNodePath: selectedNodePath,
+      selectedNodePaths: selectedNodePaths,
+      highlightedNodePaths: highlightedNodePaths,
+      currentNodePath: currentNodePath,
+      activeNodePaths: activeNodePaths,
+      layoutPath: layoutPath,
+    );
+  }
+
+  LayoutContext withCurrentNodePath(String? path) {
+    return LayoutContext(
+      selectedMode: selectedMode,
+      inputSource: inputSource,
+      selectedNodePath: selectedNodePath,
+      selectedNodePaths: selectedNodePaths,
+      highlightedNodePaths: highlightedNodePaths,
+      currentNodePath: path,
+      activeNodePaths: activeNodePaths,
+      layoutPath: layoutPath,
+    );
+  }
+}
+
+abstract class LayoutCondition {
+  const LayoutCondition._({this.exclude = const {}});
+
+  factory LayoutCondition(
+    bool Function(LayoutContext context) test, {
+    Set<String> exclude = const {},
+  }) {
+    return LayoutPredicateCondition(test, exclude: exclude);
+  }
+
+  static const never = LayoutNeverCondition();
+
+  const factory LayoutCondition.noSelectedNode() = NoSelectedNodesCondition;
+
+  const factory LayoutCondition.nodeHighlighted({String? nodePath}) =
+      LayoutNodeHighlightedCondition;
+
+  const factory LayoutCondition.modeActive(
+    String mode, {
+    List<String> aliases,
+  }) = LayoutModeActiveCondition;
+
+  const factory LayoutCondition.inputSource(LayoutInputSource source) =
+      LayoutInputSourceCondition;
+
+  final Set<String> exclude;
+
+  Set<String> get normalizedExclude => {
+    for (final path in exclude) _normalizeLayoutPath(path),
+  };
+
+  bool isActive(LayoutContext context);
+}
+
+class LayoutPredicateCondition extends LayoutCondition {
+  const LayoutPredicateCondition(this.test, {super.exclude = const {}})
+    : super._();
+
+  final bool Function(LayoutContext context) test;
+
+  @override
+  bool isActive(LayoutContext context) => test(context);
+}
+
+class LayoutNeverCondition extends LayoutCondition {
+  const LayoutNeverCondition({super.exclude = const {}}) : super._();
+
+  @override
+  bool isActive(LayoutContext context) => false;
+}
+
+class LayoutSelectedModeCondition extends LayoutCondition {
+  const LayoutSelectedModeCondition({
+    required this.mode,
+    this.aliases = const [],
+    super.exclude = const {},
+  }) : super._();
+
+  final String mode;
+  final List<String> aliases;
+
+  @override
+  bool isActive(LayoutContext context) {
+    final selected = context.selectedMode;
+    return selected == mode || aliases.contains(selected);
+  }
+}
+
+class LayoutModeActiveCondition extends LayoutCondition {
+  const LayoutModeActiveCondition(this.mode, {this.aliases = const []})
+    : super._();
+
+  final String mode;
+  final List<String> aliases;
+
+  @override
+  bool isActive(LayoutContext context) {
+    final selected = context.selectedMode;
+    return selected == mode || aliases.contains(selected);
+  }
+}
+
+class LayoutInputSourceCondition extends LayoutCondition {
+  const LayoutInputSourceCondition(this.source) : super._();
+
+  final LayoutInputSource source;
+
+  @override
+  bool isActive(LayoutContext context) => context.inputSource == source;
+}
+
+class LayoutNodeHighlightedCondition extends LayoutCondition {
+  const LayoutNodeHighlightedCondition({this.nodePath}) : super._();
+
+  final String? nodePath;
+
+  @override
+  bool isActive(LayoutContext context) {
+    final path = nodePath ?? context.currentNodePath;
+    if (path == null) return false;
+    final normalized = _normalizeLayoutPath(path);
+    return context.highlightedNodePaths.any(
+      (candidate) => _normalizeLayoutPath(candidate) == normalized,
+    );
+  }
+}
+
+class HasActiveNodesCondition extends LayoutCondition {
+  const HasActiveNodesCondition({super.exclude = const {}}) : super._();
+
+  @override
+  bool isActive(LayoutContext context) {
+    final excluded = normalizedExclude;
+    return context.resolvedActiveNodePaths.any(
+      (path) => !excluded.contains(_normalizeLayoutPath(path)),
+    );
+  }
+}
+
+class NoSelectedNodesCondition extends LayoutCondition {
+  const NoSelectedNodesCondition({super.exclude = const {}}) : super._();
+
+  @override
+  bool isActive(LayoutContext context) => context.selectedNodePaths.isEmpty;
+}
+
+String _normalizeLayoutPath(String path) {
+  return path
+      .trim()
+      .replaceAll(r'\', '/')
+      .toLowerCase()
+      .replaceAll(RegExp(r'/+'), '/')
+      .replaceFirst(RegExp(r'\.md$'), '')
+      .replaceFirst(RegExp(r'^/+'), '')
+      .replaceFirst(RegExp(r'/+$'), '');
+}
 
 typedef SubLayout = ({Layout layout, LayoutArea area});
 
@@ -224,7 +633,7 @@ class LayoutColor {
   }
 }
 
-enum LayoutSizeUnit {
+enum LayoutExtentUnit {
   pixels,
   percent,
   viewportWidth,
@@ -234,61 +643,61 @@ enum LayoutSizeUnit {
   derivativeDistance,
 }
 
-class LayoutSize {
-  const LayoutSize(this.amount, {this.unit = LayoutSizeUnit.pixels})
+class LayoutExtent {
+  const LayoutExtent(this.amount, {this.unit = LayoutExtentUnit.pixels})
     : from = null,
       to = null;
 
-  const LayoutSize.px(this.amount)
-    : unit = LayoutSizeUnit.pixels,
+  const LayoutExtent.px(this.amount)
+    : unit = LayoutExtentUnit.pixels,
       from = null,
       to = null;
 
-  const LayoutSize.percent(this.amount)
-    : unit = LayoutSizeUnit.percent,
+  const LayoutExtent.percent(this.amount)
+    : unit = LayoutExtentUnit.percent,
       from = null,
       to = null;
 
-  const LayoutSize.vw(this.amount)
-    : unit = LayoutSizeUnit.viewportWidth,
+  const LayoutExtent.vw(this.amount)
+    : unit = LayoutExtentUnit.viewportWidth,
       from = null,
       to = null;
 
-  const LayoutSize.vh(this.amount)
-    : unit = LayoutSizeUnit.viewportHeight,
+  const LayoutExtent.vh(this.amount)
+    : unit = LayoutExtentUnit.viewportHeight,
       from = null,
       to = null;
 
-  const LayoutSize.vmin(this.amount)
-    : unit = LayoutSizeUnit.viewportMin,
+  const LayoutExtent.vmin(this.amount)
+    : unit = LayoutExtentUnit.viewportMin,
       from = null,
       to = null;
 
-  const LayoutSize.vmax(this.amount)
-    : unit = LayoutSizeUnit.viewportMax,
+  const LayoutExtent.vmax(this.amount)
+    : unit = LayoutExtentUnit.viewportMax,
       from = null,
       to = null;
 
-  const LayoutSize.derivativeDistance({
+  const LayoutExtent.derivativeDistance({
     required this.from,
     required this.to,
     this.amount = 1,
-  }) : unit = LayoutSizeUnit.derivativeDistance;
+  }) : unit = LayoutExtentUnit.derivativeDistance;
 
   final double amount;
-  final LayoutSizeUnit unit;
+  final LayoutExtentUnit unit;
   final LayoutDerivativeReference? from;
   final LayoutDerivativeReference? to;
 
   double resolve({required Size viewport, required Rect bounds}) {
     final value = switch (unit) {
-      LayoutSizeUnit.pixels => amount,
-      LayoutSizeUnit.percent => bounds.shortestSide * amount / 100,
-      LayoutSizeUnit.viewportWidth => viewport.width * amount / 100,
-      LayoutSizeUnit.viewportHeight => viewport.height * amount / 100,
-      LayoutSizeUnit.viewportMin => viewport.shortestSide * amount / 100,
-      LayoutSizeUnit.viewportMax => viewport.longestSide * amount / 100,
-      LayoutSizeUnit.derivativeDistance => amount,
+      LayoutExtentUnit.pixels => amount,
+      LayoutExtentUnit.percent => bounds.shortestSide * amount / 100,
+      LayoutExtentUnit.viewportWidth => viewport.width * amount / 100,
+      LayoutExtentUnit.viewportHeight => viewport.height * amount / 100,
+      LayoutExtentUnit.viewportMin => viewport.shortestSide * amount / 100,
+      LayoutExtentUnit.viewportMax => viewport.longestSide * amount / 100,
+      LayoutExtentUnit.derivativeDistance => amount,
     };
     return math.max(value, 0);
   }
@@ -327,12 +736,10 @@ class ResolvedVaultNode extends VaultNodeUiComponent {
     super.status,
     super.backgrounds,
     required this.node,
-    required this.note,
     required this.resolvedStatus,
   });
 
   final Node? node;
-  final Note? note;
   final int resolvedStatus;
 
   bool get found => resolvedStatus == LayoutHttpStatus.ok;
@@ -410,6 +817,7 @@ abstract class LayoutGuide extends Layout {
     super.aliases,
     super.attributes,
     super.modes,
+    super.inputSources,
   }) : super.fromAxes();
 
   final GuideStyle style;
@@ -428,6 +836,7 @@ class GuideGrid extends LayoutGuide {
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
     super.modes,
+    super.inputSources,
   });
 
   final GuideGridGeometry geometry;
@@ -447,6 +856,7 @@ class CirleLayout extends LayoutGuide {
     super.aliases,
     super.attributes = const [LayoutAttribute.circular],
     super.modes,
+    super.inputSources,
   });
 
   final LayoutCircleBoundary boundary;
@@ -756,216 +1166,6 @@ extension LayoutAttributeDerivatives on LayoutAttribute {
   };
 }
 
-class LayoutDerivativeSnapshot {
-  const LayoutDerivativeSnapshot({required this.values});
-
-  final Map<String, LayoutDerivative> values;
-
-  static const empty = LayoutDerivativeSnapshot(values: {});
-}
-
-class LayoutMode {
-  const LayoutMode({
-    required this.id,
-    this.aliases = const [],
-    this.activeCondition,
-    this.visible = true,
-    this.derivativeSnapshot,
-    this.derivatives = const {},
-  });
-
-  final String id;
-  final List<String> aliases;
-
-  /// Modes are inactive by default. A mode applies only when this condition
-  /// evaluates true for the current layout context.
-  final LayoutCondition? activeCondition;
-  final bool visible;
-  final String? derivativeSnapshot;
-  final Map<String, LayoutDerivative> derivatives;
-
-  bool isActive(LayoutContext context) {
-    return activeCondition?.isActive(context) ?? false;
-  }
-}
-
-class LayoutContext {
-  const LayoutContext({
-    this.selectedMode,
-    this.selectedNodePath,
-    this.selectedNodePaths = const [],
-    this.highlightedNodePaths = const [],
-    this.currentNodePath,
-    this.activeNodePaths = const [],
-    this.layoutPath = const [],
-  });
-
-  static const empty = LayoutContext();
-
-  final String? selectedMode;
-  final String? selectedNodePath;
-  final List<String> selectedNodePaths;
-  final List<String> highlightedNodePaths;
-  final String? currentNodePath;
-  final List<String> activeNodePaths;
-  final List<String> layoutPath;
-
-  List<String> get resolvedActiveNodePaths {
-    if (activeNodePaths.isNotEmpty) return activeNodePaths;
-    final selected = selectedNodePath;
-    return selected == null ? const [] : [selected];
-  }
-
-  LayoutContext withSelectedMode(String? mode) {
-    return LayoutContext(
-      selectedMode: selectedMode ?? mode,
-      selectedNodePath: selectedNodePath,
-      selectedNodePaths: selectedNodePaths,
-      highlightedNodePaths: highlightedNodePaths,
-      currentNodePath: currentNodePath,
-      activeNodePaths: activeNodePaths,
-      layoutPath: layoutPath,
-    );
-  }
-
-  LayoutContext withCurrentNodePath(String? path) {
-    return LayoutContext(
-      selectedMode: selectedMode,
-      selectedNodePath: selectedNodePath,
-      selectedNodePaths: selectedNodePaths,
-      highlightedNodePaths: highlightedNodePaths,
-      currentNodePath: path,
-      activeNodePaths: activeNodePaths,
-      layoutPath: layoutPath,
-    );
-  }
-}
-
-abstract class LayoutCondition {
-  const LayoutCondition._({this.exclude = const {}});
-
-  factory LayoutCondition(
-    bool Function(LayoutContext context) test, {
-    Set<String> exclude = const {},
-  }) {
-    return LayoutPredicateCondition(test, exclude: exclude);
-  }
-
-  static const never = LayoutNeverCondition();
-
-  const factory LayoutCondition.noSelectedNode() = NoSelectedNodesCondition;
-
-  const factory LayoutCondition.nodeHighlighted({String? nodePath}) =
-      LayoutNodeHighlightedCondition;
-
-  const factory LayoutCondition.modeActive(
-    String mode, {
-    List<String> aliases,
-  }) = LayoutModeActiveCondition;
-
-  final Set<String> exclude;
-
-  Set<String> get normalizedExclude => {
-    for (final path in exclude) _normalizeLayoutPath(path),
-  };
-
-  bool isActive(LayoutContext context);
-}
-
-class LayoutPredicateCondition extends LayoutCondition {
-  const LayoutPredicateCondition(this.test, {super.exclude = const {}})
-    : super._();
-
-  final bool Function(LayoutContext context) test;
-
-  @override
-  bool isActive(LayoutContext context) => test(context);
-}
-
-class LayoutNeverCondition extends LayoutCondition {
-  const LayoutNeverCondition({super.exclude = const {}}) : super._();
-
-  @override
-  bool isActive(LayoutContext context) => false;
-}
-
-class LayoutSelectedModeCondition extends LayoutCondition {
-  const LayoutSelectedModeCondition({
-    required this.mode,
-    this.aliases = const [],
-    super.exclude = const {},
-  }) : super._();
-
-  final String mode;
-  final List<String> aliases;
-
-  @override
-  bool isActive(LayoutContext context) {
-    final selected = context.selectedMode;
-    return selected == mode || aliases.contains(selected);
-  }
-}
-
-class LayoutModeActiveCondition extends LayoutCondition {
-  const LayoutModeActiveCondition(this.mode, {this.aliases = const []})
-    : super._();
-
-  final String mode;
-  final List<String> aliases;
-
-  @override
-  bool isActive(LayoutContext context) {
-    final selected = context.selectedMode;
-    return selected == mode || aliases.contains(selected);
-  }
-}
-
-class LayoutNodeHighlightedCondition extends LayoutCondition {
-  const LayoutNodeHighlightedCondition({this.nodePath}) : super._();
-
-  final String? nodePath;
-
-  @override
-  bool isActive(LayoutContext context) {
-    final path = nodePath ?? context.currentNodePath;
-    if (path == null) return false;
-    final normalized = _normalizeLayoutPath(path);
-    return context.highlightedNodePaths.any(
-      (candidate) => _normalizeLayoutPath(candidate) == normalized,
-    );
-  }
-}
-
-class HasActiveNodesCondition extends LayoutCondition {
-  const HasActiveNodesCondition({super.exclude = const {}}) : super._();
-
-  @override
-  bool isActive(LayoutContext context) {
-    final excluded = normalizedExclude;
-    return context.resolvedActiveNodePaths.any(
-      (path) => !excluded.contains(_normalizeLayoutPath(path)),
-    );
-  }
-}
-
-class NoSelectedNodesCondition extends LayoutCondition {
-  const NoSelectedNodesCondition({super.exclude = const {}}) : super._();
-
-  @override
-  bool isActive(LayoutContext context) => context.selectedNodePaths.isEmpty;
-}
-
-String _normalizeLayoutPath(String path) {
-  return path
-      .trim()
-      .replaceAll(r'\', '/')
-      .toLowerCase()
-      .replaceAll(RegExp(r'/+'), '/')
-      .replaceFirst(RegExp(r'\.md$'), '')
-      .replaceFirst(RegExp(r'^/+'), '')
-      .replaceFirst(RegExp(r'/+$'), '');
-}
-
 class LayoutObservable {
   const LayoutObservable({required this.derivatives, this.epsilon = 0.001});
 
@@ -1111,33 +1311,33 @@ class LayoutPathPadding {
   bool get isEmpty => left <= 0 && top <= 0 && right <= 0 && bottom <= 0;
 }
 
-enum GridTrackUnit { fraction, pixels, calculatedFraction }
+enum LayoutSizeUnit { fraction, pixels, calculatedFraction }
 
-class GridTrackSize {
-  const GridTrackSize.fr(this.value)
-    : unit = GridTrackUnit.fraction,
+class LayoutSize {
+  const LayoutSize.fr(this.value)
+    : unit = LayoutSizeUnit.fraction,
       derivative = null;
 
-  const GridTrackSize.px(this.value)
-    : unit = GridTrackUnit.pixels,
+  const LayoutSize.px(this.value)
+    : unit = LayoutSizeUnit.pixels,
       derivative = null;
 
-  const GridTrackSize.pt(this.value)
-    : unit = GridTrackUnit.pixels,
+  const LayoutSize.pt(this.value)
+    : unit = LayoutSizeUnit.pixels,
       derivative = null;
 
-  const GridTrackSize.calculatedFr(this.value, {required this.derivative})
-    : unit = GridTrackUnit.calculatedFraction;
+  const LayoutSize.calculatedFr(this.value, {required this.derivative})
+    : unit = LayoutSizeUnit.calculatedFraction;
 
   final double value;
-  final GridTrackUnit unit;
+  final LayoutSizeUnit unit;
   final String? derivative;
 }
 
 class GridAxisVariable {
   const GridAxisVariable({required this.size, this.aliases = const []});
 
-  final GridTrackSize size;
+  final LayoutSize size;
   final List<String> aliases;
 }
 
@@ -1173,6 +1373,7 @@ class PerspectiveGridArea extends Layout {
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
     super.modes,
+    super.inputSources,
   }) : super.fromAxes();
 
   final String row;
@@ -1203,6 +1404,7 @@ class PerspectiveGridLayout extends Layout {
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
     super.modes,
+    super.inputSources,
   }) : super.fromAxes();
 
   final Map<String, GridAxisVariable> rowsConfig;
@@ -1217,6 +1419,48 @@ class PerspectiveGridLayout extends Layout {
   /// Edge used as the spatial bottom of the perspective grid.
   final int bottomStartIndex;
   final int bottomEndIndex;
+}
+
+/// Vertical composition whose children retain their identity in [layouts].
+class ColumnLayout extends Layout {
+  const ColumnLayout({
+    super.layouts,
+    super.size,
+    super.aliases,
+    super.modes,
+    super.inputSources,
+  }) : super.fromAxes(attributes: const [LayoutAttribute.rectangular]);
+}
+
+/// Horizontal composition whose children retain their identity in [layouts].
+class RowLayout extends Layout {
+  const RowLayout({
+    super.layouts,
+    super.size,
+    super.aliases,
+    super.modes,
+    super.inputSources,
+  }) : super.fromAxes(attributes: const [LayoutAttribute.rectangular]);
+}
+
+/// Paintable leaf used inside row/column composition.
+class PanelLayout extends Layout {
+  const PanelLayout({
+    super.size,
+    this.fillColor,
+    this.borderStyle,
+    this.label,
+    this.labelColor = const Color(0xFFFFFFFF),
+    this.labelSize = 12,
+    super.aliases,
+    super.modes,
+    super.inputSources,
+  }) : super.fromAxes(attributes: const [LayoutAttribute.rectangular]);
+  final Color? fillColor;
+  final GuideStyle? borderStyle;
+  final String? label;
+  final Color labelColor;
+  final double labelSize;
 }
 
 class RadialBushArea extends Layout {
@@ -1236,6 +1480,7 @@ class RadialBushArea extends Layout {
     super.aliases,
     super.attributes = const [LayoutAttribute.circular],
     super.modes,
+    super.inputSources,
   }) : super.fromAxes();
 
   final String row;
@@ -1321,14 +1566,14 @@ class LayoutPath extends Layout {
     this.style,
     this.ticks,
     this.grid,
-    this.padding = 0,
-    this.pathPadding,
+    this.padding = const LayoutPathPadding(),
     this.pointDerivatives = const {'A': 0, 'B': 1, 'C': 2, 'D': 3},
     super.layouts,
     super.derivatives,
     super.derivativeSnapshot,
     super.observables,
     super.modes,
+    super.inputSources,
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
   }) : super.fromAxes();
@@ -1337,12 +1582,8 @@ class LayoutPath extends Layout {
   final LayoutPathStyle? style;
   final LayoutPathTickStyle? ticks;
   final PerspectiveGridLayout? grid;
-  final double padding;
-  final LayoutPathPadding? pathPadding;
+  final LayoutPathPadding padding;
   final Map<String, int> pointDerivatives;
-
-  LayoutPathPadding get resolvedPadding =>
-      pathPadding ?? LayoutPathPadding.all(padding);
 }
 
 class RadialBushLayout extends Layout with TableLayoutMixin {
@@ -1352,19 +1593,20 @@ class RadialBushLayout extends Layout with TableLayoutMixin {
     this.label,
     this.labelColor = const Color(0xFFFFFFFF),
     this.labelSize = 12,
-    this.layoutSize = const LayoutSize.px(20),
+    this.layoutSize = const LayoutExtent.px(20),
     this.position = LayoutRelativePosition.top,
     this.growthDirection,
     this.gridStyle,
     super.aliases,
     super.attributes = const [LayoutAttribute.circular],
     super.modes,
+    super.inputSources,
   }) : super.fromAxes();
 
   final String? label;
   final Color labelColor;
   final double labelSize;
-  final LayoutSize layoutSize;
+  final LayoutExtent layoutSize;
   final LayoutRelativePosition position;
   final LayoutDerivativeReference? growthDirection;
   final RadialBushStructure bushStructure;
@@ -1394,6 +1636,7 @@ class RayLayout extends LayoutGuide {
     super.aliases,
     super.attributes = const [LayoutAttribute.linear],
     super.modes,
+    super.inputSources,
   });
 
   final LayoutDerivativeReference start;
@@ -1429,6 +1672,7 @@ class LayoutAreaRayLayout extends LayoutGuide {
     super.aliases,
     super.attributes = const [LayoutAttribute.linear],
     super.modes,
+    super.inputSources,
   });
 
   final LayoutDerivativeReference start;
@@ -1448,6 +1692,7 @@ class LayoutAreaToDerivativeRayLayout extends LayoutGuide {
     super.aliases,
     super.attributes = const [LayoutAttribute.linear],
     super.modes,
+    super.inputSources,
   });
 
   final LayoutPathAreaReference start;
@@ -1474,6 +1719,7 @@ class StickmanLayout extends Layout {
     super.aliases,
     super.attributes = const [LayoutAttribute.linear],
     super.modes,
+    super.inputSources,
   }) : super.fromAxes();
 
   /// Logical body height. In this layout 1.0 vertical unit equals [heightCm].
@@ -1523,6 +1769,7 @@ class PlaneLayout extends Layout {
     super.derivativeSnapshot,
     super.observables,
     super.modes,
+    super.inputSources,
     super.layoutDefaults,
   }) : super.fromAxes();
 
@@ -1571,6 +1818,7 @@ class SubjectNodeLayout extends PlaneLayout {
     super.attributes,
     super.shape,
     super.modes,
+    super.inputSources,
   });
 }
 
@@ -1608,6 +1856,7 @@ class GraphPreviewLayout extends Layout {
     super.aliases,
     super.attributes = const [LayoutAttribute.circular],
     super.modes,
+    super.inputSources,
   }) : super.fromAxes();
 
   final List<GraphPreviewNode> nodes;
@@ -1639,6 +1888,7 @@ class LayoutBorderGuide extends LayoutGuide {
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
     super.modes,
+    super.inputSources,
   });
 
   final LayoutBorderShape shape;
@@ -1714,168 +1964,6 @@ class LayoutElement {
   final double borderRadius;
 }
 
-abstract class Layout {
-  const Layout.fromAxes({
-    this.axes = const [0, 0],
-    this.aliases = const [],
-    this.attributes = const [],
-    this.backgrounds = const [],
-    this.layouts = const {},
-    this.derivatives = const {},
-    this.derivativeSnapshot,
-    this.observables = const {},
-    this.modes = const {},
-    this.layoutDefaults,
-    this.columnFractions,
-    this.rowFractions,
-    this.depthFractions,
-    this.fractionSpans,
-    this.subLayouts = const {},
-    this.elements = const {},
-  });
-
-  final List<int> axes;
-  final List<String> aliases;
-  final List<LayoutAttribute> attributes;
-  final List<LayoutBackground> backgrounds;
-
-  /// Recursive layout tree. Map keys are the child layouts' identities.
-  final Map<String, Layout> layouts;
-  final Map<String, LayoutDerivativeSnapshot> derivatives;
-  final String? derivativeSnapshot;
-  final Map<String, LayoutObservable> observables;
-  final Map<String, LayoutMode> modes;
-  final LayoutDefaults? layoutDefaults;
-  final List<double>? columnFractions;
-  final List<double>? rowFractions;
-  final List<double>? depthFractions;
-  final List<double>? fractionSpans;
-  final Map<String, SubLayout> subLayouts;
-  final Map<String, LayoutElement> elements;
-
-  LayoutDimensions get dimensions => LayoutDimensions.fromAxes(
-    axes,
-    columnFractions: columnFractions,
-    rowFractions: rowFractions,
-    depthFractions: depthFractions,
-    fractionSpans: fractionSpans,
-  );
-
-  int get dimensionCount => axes.length;
-
-  Offset get center => const Offset(0.5, 0.5);
-
-  /// The outer circle circumscribes the layout's full rectangular bounds.
-  /// The inner circle is inscribed in the bounds remaining after layout
-  /// padding and border width are applied.
-  Offset resolveCircleCenter(
-    Size size,
-    LayoutCircleBoundary boundary, {
-    bool useLayoutDefaults = false,
-  }) {
-    final inset = boundary == LayoutCircleBoundary.inner || useLayoutDefaults
-        ? _circleInset(size)
-        : 0.0;
-    return Offset(
-      inset + math.max(size.width - inset * 2, 0) / 2,
-      inset + math.max(size.height - inset * 2, 0) / 2,
-    );
-  }
-
-  double resolveCircleRadius(
-    Size size,
-    LayoutCircleBoundary boundary, {
-    bool useLayoutDefaults = false,
-  }) {
-    final inset = boundary == LayoutCircleBoundary.inner || useLayoutDefaults
-        ? _circleInset(size)
-        : 0.0;
-    final width = math.max(size.width - inset * 2, 0);
-    final height = math.max(size.height - inset * 2, 0);
-    if (boundary == LayoutCircleBoundary.outer) {
-      return math.sqrt(width * width + height * height) / 2;
-    }
-    return math.min(width, height) / 2;
-  }
-
-  Rect resolveCircleBounds(Size size, LayoutCircleBoundary boundary) {
-    final radius = resolveCircleRadius(size, boundary);
-    return Rect.fromCircle(
-      center: resolveCircleCenter(size, boundary),
-      radius: radius,
-    );
-  }
-
-  double _circleInset(Size size) {
-    final requestedInset =
-        (layoutDefaults?.padding ?? 0) + (layoutDefaults?.borderWidth ?? 0);
-    return requestedInset.clamp(0, size.shortestSide / 2).toDouble();
-  }
-
-  LayoutMode? getMode(String? mode) {
-    if (mode == null) return null;
-    final direct = modes[mode];
-    if (direct != null) return direct;
-    for (final candidate in modes.values) {
-      if (candidate.id == mode || candidate.aliases.contains(mode)) {
-        return candidate;
-      }
-    }
-    return null;
-  }
-
-  LayoutMode? resolveMode(LayoutContext context) {
-    final requestedMode = getMode(context.selectedMode);
-    if (requestedMode != null) {
-      return requestedMode.isActive(context) ? requestedMode : null;
-    }
-    for (final candidate in modes.values) {
-      if (candidate.isActive(context)) return candidate;
-    }
-    return null;
-  }
-
-  bool isVisible(LayoutContext context) =>
-      resolveMode(context)?.visible ?? true;
-
-  LayoutDerivativeSnapshot getDerivatives([
-    String? snapshot,
-    String? mode,
-    LayoutContext context = LayoutContext.empty,
-  ]) {
-    final layoutContext = context.withSelectedMode(mode);
-    final selectedMode = resolveMode(layoutContext);
-    final selectedSnapshot =
-        snapshot ?? selectedMode?.derivativeSnapshot ?? derivativeSnapshot;
-    final selected = selectedSnapshot == null
-        ? LayoutDerivativeSnapshot.empty
-        : derivatives[selectedSnapshot] ?? LayoutDerivativeSnapshot.empty;
-    return LayoutDerivativeSnapshot(
-      values: {
-        for (final attribute in attributes) ...attribute.derivatives,
-        ...selected.values,
-        ...?selectedMode?.derivatives,
-      },
-    );
-  }
-
-  Map<String, Offset> resolveDerivatives(
-    Size size, [
-    String? snapshot,
-    String? mode,
-    LayoutContext context = LayoutContext.empty,
-  ]) {
-    return {
-      for (final entry in getDerivatives(
-        snapshot,
-        mode,
-        context,
-      ).values.entries)
-        entry.key: entry.value.resolve(this, size, context),
-    };
-  }
-}
-
 class SceneLayout extends Layout {
   const SceneLayout.fromAxes({
     required super.axes,
@@ -1886,6 +1974,7 @@ class SceneLayout extends Layout {
     super.derivativeSnapshot,
     super.observables,
     super.modes,
+    super.inputSources,
     super.columnFractions,
     super.rowFractions,
     super.depthFractions,
@@ -1905,6 +1994,7 @@ class GridLayout extends Layout {
     super.derivativeSnapshot,
     super.observables,
     super.modes,
+    super.inputSources,
     super.columnFractions,
     super.rowFractions,
     super.fractionSpans,
@@ -1923,6 +2013,7 @@ class TrackLayout extends Layout {
     super.derivativeSnapshot,
     super.observables,
     super.modes,
+    super.inputSources,
     super.columnFractions,
     super.fractionSpans,
     super.subLayouts,

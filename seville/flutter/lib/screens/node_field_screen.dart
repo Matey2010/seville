@@ -4,7 +4,7 @@ import 'package:seville_proto/seville_proto.dart';
 
 import '../data/seville_api.dart';
 import '../graph/graph_field.dart';
-import '../models/knowledge_graph.dart';
+import '../models/node_graph.dart';
 
 const _legendOverlay = 'legend';
 const _legendToggleOverlay = 'legend-toggle';
@@ -17,15 +17,15 @@ class NodeFieldScreen extends StatefulWidget {
 }
 
 class _NodeFieldScreenState extends State<NodeFieldScreen> {
-  late final KnowledgeGraphGame _game = KnowledgeGraphGame();
+  late final NodeGraphGame _game = NodeGraphGame();
   late final SevilleApi _api = SevilleApi();
 
-  KnowledgeSnapshot? _snapshot;
+  NodeSnapshot? _snapshot;
   Object? _error;
   bool _loading = true;
   bool _matchAll = false;
   String _tagQuery = '';
-  List<Note> _visibleNotes = const [];
+  List<Node> _visibleNodes = const [];
 
   @override
   void initState() {
@@ -44,7 +44,7 @@ class _NodeFieldScreenState extends State<NodeFieldScreen> {
       setState(() {
         _snapshot = snapshot;
         _loading = false;
-        _visibleNotes = _filter(snapshot.notes);
+        _visibleNodes = _filter(snapshot.nodes);
       });
       _updateGraph();
     } catch (error) {
@@ -62,7 +62,7 @@ class _NodeFieldScreenState extends State<NodeFieldScreen> {
     final snapshot = _snapshot;
     if (snapshot == null) return;
     setState(() {
-      _visibleNotes = _filter(snapshot.notes);
+      _visibleNodes = _filter(snapshot.nodes);
     });
     _updateGraph();
   }
@@ -71,24 +71,24 @@ class _NodeFieldScreenState extends State<NodeFieldScreen> {
     final snapshot = _snapshot;
     if (snapshot == null) return;
     _game.setGraph(
-      KnowledgeGraph.fromSnapshot(
+      NodeGraph.fromSnapshot(
         snapshot,
-        visibleNoteIds: _visibleNotes.map((note) => note.id).toSet(),
+        visibleNodeIds: _visibleNodes.map((node) => node.id).toSet(),
       ),
     );
   }
 
-  List<Note> _filter(List<Note> notes) {
+  List<Node> _filter(List<Node> nodes) {
     final wanted = _tagQuery
         .split(',')
         .map(_normalizeTag)
         .where((tag) => tag.isNotEmpty)
         .toSet();
-    if (wanted.isEmpty) return List.unmodifiable(notes);
+    if (wanted.isEmpty) return List.unmodifiable(nodes);
 
     return List.unmodifiable(
-      notes.where((note) {
-        final tags = note.tags.map(_normalizeTag).toSet();
+      nodes.where((node) {
+        final tags = node.tags.map(_normalizeTag).toSet();
         return _matchAll
             ? wanted.every(tags.contains)
             : wanted.any(tags.contains);
@@ -110,7 +110,7 @@ class _NodeFieldScreenState extends State<NodeFieldScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: GameWidget<KnowledgeGraphGame>(
+      body: GameWidget<NodeGraphGame>(
         game: _game,
         initialActiveOverlays: const [_legendToggleOverlay],
         overlayBuilderMap: {
@@ -145,11 +145,11 @@ class _NodeFieldScreenState extends State<NodeFieldScreen> {
                 child: FilterPanel(
                   loading: _loading,
                   error: _error,
-                  totalCount: _snapshot?.notes.length ?? 0,
-                  visibleCount: _visibleNotes.length,
-                  linkCount:
-                      _snapshot?.links
-                          .where((link) => link.hasResolvedTargetId())
+                  totalCount: _snapshot?.nodes.length ?? 0,
+                  visibleCount: _visibleNodes.length,
+                  connectionCount:
+                      _snapshot?.connections
+                          .where((connection) => connection.hasTargetNodeId())
                           .length ??
                       0,
                   matchAll: _matchAll,
@@ -172,7 +172,7 @@ class FilterPanel extends StatelessWidget {
     required this.error,
     required this.totalCount,
     required this.visibleCount,
-    required this.linkCount,
+    required this.connectionCount,
     required this.matchAll,
     required this.onQueryChanged,
     required this.onMatchAllChanged,
@@ -184,7 +184,7 @@ class FilterPanel extends StatelessWidget {
   final Object? error;
   final int totalCount;
   final int visibleCount;
-  final int linkCount;
+  final int connectionCount;
   final bool matchAll;
   final ValueChanged<String> onQueryChanged;
   final ValueChanged<bool> onMatchAllChanged;
@@ -209,10 +209,10 @@ class FilterPanel extends StatelessWidget {
                     Expanded(
                       child: Text(
                         loading
-                            ? 'Fetching knowledge snapshot…'
+                            ? 'Fetching node snapshot…'
                             : error != null
                             ? 'Backend unavailable'
-                            : '$visibleCount of $totalCount notes · $linkCount resolved links',
+                            : '$visibleCount of $totalCount nodes · $connectionCount resolved connections',
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                     ),
@@ -269,7 +269,7 @@ class FilterPanel extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Node size = weighted links · embeds count ${1.5}×',
+                    'Node size = weighted connections · embeds count ${1.5}×',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),

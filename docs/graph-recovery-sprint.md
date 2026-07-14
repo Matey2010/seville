@@ -29,7 +29,6 @@ Backend-only controls are:
 ```sh
 ./scripts/seville start
 ./scripts/seville status
-./scripts/seville rescan
 ./scripts/seville stop
 ```
 
@@ -62,18 +61,19 @@ RETURN a.id, b.id
 LIMIT 100;
 ```
 
-## Rescan semantics
+## Legacy migration semantics
 
-A rescan discovers source state but is not a destructive mirror operation:
+The manual tool at `scripts/migrations/obsidian/import-vault-to-neo4j`
+discovers source state but is not a destructive mirror operation:
 
 - new stable IDs are imported;
-- existing canonical notes are preserved;
+- existing canonical nodes are preserved;
 - source disappearance does not delete a graph node;
 - duplicate IDs fail the scan;
 - missing IDs produce warnings and are skipped.
 
-Check `.local/seville.log` after failures. Duplicate-ID errors include both
-paths so the source can be repaired safely.
+Migration diagnostics are written to the command's standard output and error.
+Duplicate-ID errors include both paths so the source can be repaired safely.
 
 ## What is protected today
 

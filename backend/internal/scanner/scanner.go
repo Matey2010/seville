@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	knowledgev1 "github.com/Matey2010/seville/proto/gen/go/seville/knowledge/v1"
+	nodev2 "github.com/Matey2010/seville/proto/gen/go/seville/node/v2"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"gopkg.in/yaml.v3"
 )
@@ -27,11 +27,11 @@ var (
 )
 
 type candidate struct {
-	note  *knowledgev1.Note
-	links []*knowledgev1.Link
+	node        *nodev2.Node
+	connections []*nodev2.NodeConnection
 }
 
-func Scan(root string) (*knowledgev1.KnowledgeSnapshot, error) {
+func Scan(root string) (*nodev2.NodeSnapshot, error) {
 	info, err := os.Stat(root)
 	if err != nil {
 		return nil, fmt.Errorf("open vault: %w", err)
@@ -41,7 +41,7 @@ func Scan(root string) (*knowledgev1.KnowledgeSnapshot, error) {
 	}
 
 	var candidates []candidate
-	var warnings []*knowledgev1.ScanWarning
+	var warnings []*nodev2.ImportWarning
 	err = filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -63,11 +63,11 @@ func Scan(root string) (*knowledgev1.KnowledgeSnapshot, error) {
 		relative = filepath.ToSlash(relative)
 		parsed, warning, err := parseFile(path, relative)
 		if err != nil {
-			warnings = append(warnings, &knowledgev1.ScanWarning{Path: relative, Message: err.Error()})
+			warnings = append(warnings, &nodev2.ImportWarning{Path: relative, Message: err.Error()})
 			return nil
 		}
 		if warning != "" {
-			warnings = append(warnings, &knowledgev1.ScanWarning{Path: relative, Message: warning})
+			warnings = append(warnings, &nodev2.ImportWarning{Path: relative, Message: warning})
 		}
 		candidates = append(candidates, parsed)
 		return nil
@@ -77,24 +77,24 @@ func Scan(root string) (*knowledgev1.KnowledgeSnapshot, error) {
 	}
 
 	slices.SortFunc(candidates, func(a, b candidate) int {
-		return strings.Compare(a.note.Path, b.note.Path)
+		return strings.Compare(a.node.Path, b.node.Path)
 	})
 	ids := make(map[string]string, len(candidates))
 	for _, item := range candidates {
-		if previous, exists := ids[item.note.Id]; exists {
-			return nil, fmt.Errorf("duplicate frontmatter id %q in %s and %s", item.note.Id, previous, item.note.Path)
+		if previous, exists := ids[item.node.Id]; exists {
+			return nil, fmt.Errorf("duplicate frontmatter id %q in %s and %s", item.node.Id, previous, item.node.Path)
 		}
-		ids[item.note.Id] = item.note.Path
+		ids[item.node.Id] = item.node.Path
 	}
-	resolveLinks(candidates)
+	resolveConnections(candidates)
 
-	snapshot := &knowledgev1.KnowledgeSnapshot{
+	snapshot := &nodev2.NodeSnapshot{
 		GeneratedAt: timestamppb.New(time.Now().UTC()),
 		Warnings:    warnings,
 	}
 	for _, item := range candidates {
-		snapshot.Notes = append(snapshot.Notes, item.note)
-		snapshot.Links = append(snapshot.Links, item.links...)
+		snapshot.Nodes = append(snapshot.Nodes, item.node)
+		snapshot.Connections = append(snapshot.Connections, item.connections...)
 	}
 	snapshot.Revision = revision(snapshot)
 	return snapshot, nil
@@ -103,11 +103,11 @@ func Scan(root string) (*knowledgev1.KnowledgeSnapshot, error) {
 func parseFile(path, relative string) (candidate, string, error) {
 	content, err := os.ReadFile(path)
 	if err != nil {
-		return candidate{}, "", fmt.Errorf("read note: %w", err)
+		return candidate{}, "", fmt.Errorf("read node: %w", err)
 	}
 	info, err := os.Stat(path)
 	if err != nil {
-		return candidate{}, "", fmt.Errorf("stat note: %w", err)
+		return candidate{}, "", fmt.Errorf("stat node: %w", err)
 	}
 
 	body := string(content)
@@ -128,7 +128,7 @@ func parseFile(path, relative string) (candidate, string, error) {
 	}
 
 	tags := collectTags(typedFrontmatter["tags"], bodyWithoutFrontmatter)
-	note := &knowledgev1.Note{
+	node := &nodev2.Node{
 		Id:          id,
 		Path:        relative,
 		Title:       title,
@@ -137,7 +137,7 @@ func parseFile(path, relative string) (candidate, string, error) {
 		Frontmatter: frontmatter,
 		ModifiedAt:  timestamppb.New(info.ModTime().UTC()),
 	}
-	return candidate{note: note, links: extractLinks(note.Id, bodyWithoutFrontmatter)}, warning, nil
+	return candidate{node: node, connections: extractConnections(node.Id, bodyWithoutFrontmatter)}, warning, nil
 }
 
 func parseFrontmatter(body string) (map[string]any, string, string) {
@@ -238,73 +238,73 @@ func normalizeTag(value string) string {
 	return strings.ToLower(strings.Trim(strings.TrimSpace(value), `"'#`))
 }
 
-func extractLinks(sourceID, body string) []*knowledgev1.Link {
-	var links []*knowledgev1.Link
+func extractConnections(sourceID, body string) []*nodev2.NodeConnection {
+	var connections []*nodev2.NodeConnection
 	for _, match := range wikiPattern.FindAllStringSubmatch(body, -1) {
 		target, display := splitAlias(match[2])
 		target, fragment := splitFragment(target)
-		kind := knowledgev1.LinkKind_LINK_KIND_WIKI
+		kind := nodev2.NodeConnectionKind_NODE_CONNECTION_KIND_WIKI
 		if match[1] == "!" {
-			kind = knowledgev1.LinkKind_LINK_KIND_EMBED
+			kind = nodev2.NodeConnectionKind_NODE_CONNECTION_KIND_EMBED
 		}
-		link := &knowledgev1.Link{SourceNoteId: sourceID, TargetText: target, Kind: kind}
+		connection := &nodev2.NodeConnection{SourceNodeId: sourceID, TargetText: target, Kind: kind}
 		if display != "" {
-			link.DisplayText = &display
+			connection.DisplayText = &display
 		}
 		if fragment != "" {
-			link.Fragment = &fragment
+			connection.Fragment = &fragment
 		}
-		links = append(links, link)
+		connections = append(connections, connection)
 	}
 	for _, match := range markdownPattern.FindAllStringSubmatch(body, -1) {
 		target, fragment := splitFragment(match[2])
 		if strings.Contains(target, "://") {
 			continue
 		}
-		link := &knowledgev1.Link{
-			SourceNoteId: sourceID,
+		connection := &nodev2.NodeConnection{
+			SourceNodeId: sourceID,
 			TargetText:   strings.TrimSuffix(target, ".md"),
-			Kind:         knowledgev1.LinkKind_LINK_KIND_MARKDOWN,
+			Kind:         nodev2.NodeConnectionKind_NODE_CONNECTION_KIND_MARKDOWN,
 		}
 		if match[1] != "" {
 			display := match[1]
-			link.DisplayText = &display
+			connection.DisplayText = &display
 		}
 		if fragment != "" {
-			link.Fragment = &fragment
+			connection.Fragment = &fragment
 		}
-		links = append(links, link)
+		connections = append(connections, connection)
 	}
-	return links
+	return connections
 }
 
-func resolveLinks(candidates []candidate) {
+func resolveConnections(candidates []candidate) {
 	byPath := make(map[string]string)
 	byName := make(map[string][]string)
 	for _, item := range candidates {
-		withoutExtension := strings.TrimSuffix(item.note.Path, ".md")
-		byPath[strings.ToLower(withoutExtension)] = item.note.Id
+		withoutExtension := strings.TrimSuffix(item.node.Path, ".md")
+		byPath[strings.ToLower(withoutExtension)] = item.node.Id
 		name := strings.ToLower(filepath.Base(withoutExtension))
-		byName[name] = append(byName[name], item.note.Id)
+		byName[name] = append(byName[name], item.node.Id)
 	}
 
 	for _, item := range candidates {
-		sourceDir := filepath.ToSlash(filepath.Dir(item.note.Path))
-		for _, link := range item.links {
-			target := strings.TrimSuffix(filepath.ToSlash(link.TargetText), ".md")
+		sourceDir := filepath.ToSlash(filepath.Dir(item.node.Path))
+		for _, connection := range item.connections {
+			target := strings.TrimSuffix(filepath.ToSlash(connection.TargetText), ".md")
 			keys := []string{strings.ToLower(strings.TrimPrefix(target, "/"))}
 			if sourceDir != "." {
 				keys = append(keys, strings.ToLower(filepath.ToSlash(filepath.Clean(filepath.Join(sourceDir, target)))))
 			}
 			for _, key := range keys {
 				if id, ok := byPath[key]; ok {
-					link.ResolvedTargetId = &id
+					connection.TargetNodeId = &id
 					break
 				}
 			}
-			if link.ResolvedTargetId == nil {
+			if connection.TargetNodeId == nil {
 				if ids := byName[strings.ToLower(filepath.Base(target))]; len(ids) == 1 {
-					link.ResolvedTargetId = &ids[0]
+					connection.TargetNodeId = &ids[0]
 				}
 			}
 		}
@@ -327,16 +327,16 @@ func splitFragment(value string) (string, string) {
 	return strings.TrimSpace(target), strings.TrimSpace(fragment)
 }
 
-func revision(snapshot *knowledgev1.KnowledgeSnapshot) string {
+func revision(snapshot *nodev2.NodeSnapshot) string {
 	hash := sha256.New()
-	for _, note := range snapshot.Notes {
-		fmt.Fprintf(hash, "n\x00%s\x00%s\x00%s\x00%s\x00", note.Id, note.Path, note.Title, note.Body)
-		for _, tag := range note.Tags {
+	for _, node := range snapshot.Nodes {
+		fmt.Fprintf(hash, "n\x00%s\x00%s\x00%s\x00%s\x00", node.Id, node.Path, node.Title, node.Body)
+		for _, tag := range node.Tags {
 			fmt.Fprintf(hash, "t\x00%s\x00", tag)
 		}
 	}
-	for _, link := range snapshot.Links {
-		fmt.Fprintf(hash, "l\x00%s\x00%s\x00%s\x00%d\x00", link.SourceNoteId, link.TargetText, link.GetResolvedTargetId(), link.Kind)
+	for _, connection := range snapshot.Connections {
+		fmt.Fprintf(hash, "l\x00%s\x00%s\x00%s\x00%d\x00", connection.SourceNodeId, connection.TargetText, connection.GetTargetNodeId(), connection.Kind)
 	}
 	return hex.EncodeToString(hash.Sum(nil))
 }

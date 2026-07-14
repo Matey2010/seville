@@ -5,6 +5,7 @@ class DecadeTimeline extends TrackLayout {
     required List<double> columnRatio,
     required List<double> fractionSpans,
     super.attributes,
+    super.inputSources,
     required super.elements,
   }) : super.fromAxes(
          axes: const [14],

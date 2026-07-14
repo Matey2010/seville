@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 
 import '../constants/interface_colors.dart';
 import '../constants/layout_defaults.dart';
-import '../models/knowledge_graph.dart';
+import '../models/node_graph.dart';
 import '../models/layout.dart';
 import '../models/open_box_spatial_layout.dart';
 import '../models/timeline_grid.dart';
@@ -63,9 +63,9 @@ class GuidelineComponent extends Component {
   }
 }
 
-class KnowledgeGraphGame extends FlameGame {
+class NodeGraphGame extends FlameGame {
   late final _GraphField _field;
-  KnowledgeGraph _graph = const KnowledgeGraph(nodes: [], edges: []);
+  NodeGraph _graph = const NodeGraph(nodes: [], edges: []);
 
   @override
   Color backgroundColor() => interfaceBackgroundColor;
@@ -83,14 +83,14 @@ class KnowledgeGraphGame extends FlameGame {
     if (isLoaded) _field.size = size;
   }
 
-  void setGraph(KnowledgeGraph graph) {
+  void setGraph(NodeGraph graph) {
     _graph = graph;
     if (isLoaded) _field.setGraph(graph);
   }
 }
 
 class _GraphField extends PositionComponent {
-  KnowledgeGraph _graph = const KnowledgeGraph(nodes: [], edges: []);
+  NodeGraph _graph = const NodeGraph(nodes: [], edges: []);
   Map<String, Offset> _positions = const {};
   Map<String, GraphNode> _nodesById = const {};
   Map<String, List<_ResolvedTimelineElement>> _timelineElementsByNodeId =
@@ -121,7 +121,7 @@ class _GraphField extends PositionComponent {
     ]);
   }
 
-  void setGraph(KnowledgeGraph graph) {
+  void setGraph(NodeGraph graph) {
     _graph = graph;
     _positions = layoutGraph(graph);
     _nodesById = {for (final node in graph.nodes) node.id: node};

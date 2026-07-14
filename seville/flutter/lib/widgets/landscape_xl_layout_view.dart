@@ -785,7 +785,7 @@ void _drawLayoutPath(
   if (points.length < 2 || points.any((point) => point == null)) return;
   final resolvedPoints = _paddedPathPoints(
     points.cast<Offset>(),
-    layoutPath.resolvedPadding,
+    layoutPath.padding,
   );
   final path = Path()..moveTo(resolvedPoints.first.dx, resolvedPoints.first.dy);
   for (final point in resolvedPoints.skip(1)) {
@@ -835,6 +835,23 @@ void _drawLayoutPath(
 
   canvas.save();
   canvas.clipPath(path);
+  for (final composition
+      in layoutPath.layouts.values.whereType<ColumnLayout>()) {
+    _drawFlexComposition(
+      canvas,
+      _screenOrderedQuadrilateral(resolvedPoints),
+      composition,
+      layoutContext,
+    );
+  }
+  for (final composition in layoutPath.layouts.values.whereType<RowLayout>()) {
+    _drawFlexComposition(
+      canvas,
+      _screenOrderedQuadrilateral(resolvedPoints),
+      composition,
+      layoutContext,
+    );
+  }
   for (final radialBush
       in layoutPath.layouts.values.whereType<RadialBushLayout>()) {
     _drawRadialBushLayout(
@@ -1006,7 +1023,7 @@ void _drawRadialBushLayout(
   Map<String, _ResolvedLayout> layouts,
   LayoutContext layoutContext,
 ) {
-  final radius = _resolveLayoutSize(
+  final radius = _resolveLayoutExtent(
     radialBush.layoutSize,
     viewport: size,
     bounds: bounds,
@@ -1147,20 +1164,20 @@ Color? _radialBushRootBackground(
   VaultNodeResolver? resolver,
 ) {
   final extractor = bush.bushStructure.root.backgroundExtractor;
-  final note = root.note;
-  if (extractor == null || note == null || resolver == null) {
+  final node = root.node;
+  if (extractor == null || node == null || resolver == null) {
     return root.fillColor;
   }
-  final linkedNote = resolver
-      .findLinkedNode(note.frontmatter[extractor.rootParameter])
-      ?.note;
-  if (linkedNote == null) return root.fillColor;
+  final linkedNode = resolver
+      .findLinkedNode(node.frontmatter[extractor.rootParameter])
+      ?.node;
+  if (linkedNode == null) return root.fillColor;
 
   for (final parameter in extractor.colorParameters) {
-    final color = _extractHexColor(linkedNote.frontmatter[parameter]);
+    final color = _extractHexColor(linkedNode.frontmatter[parameter]);
     if (color != null) return color;
   }
-  for (final value in linkedNote.frontmatter.values) {
+  for (final value in linkedNode.frontmatter.values) {
     final color = _extractHexColor(value);
     if (color != null) return color;
   }
@@ -1189,10 +1206,10 @@ void _drawRadialBushBranches(
   VaultNodeResolver? resolver,
 ) {
   final branch = bush.bushStructure.branch;
-  final note = root.note;
-  if (branch == null || note == null) return;
+  final node = root.node;
+  if (branch == null || node == null) return;
   final components = (resolver ?? VaultNodeResolver.empty).findLinkedNodes(
-    note.frontmatter[branch.rootParameter],
+    node.frontmatter[branch.rootParameter],
   );
   if (components.isEmpty) return;
 
@@ -1593,16 +1610,45 @@ LayoutTapTarget? _hitTestLayoutTapTarget(
   List<ResolvedVaultNode> highlightedNodes,
   List<ResolvedVaultNode> selectedNodes,
 ) {
+  final layoutContext = _layoutContext(root, highlightedNodes, selectedNodes);
   final resolvedLayouts = _resolveLayouts(
     root,
     size,
     safePadding,
-    _layoutContext(root, highlightedNodes, selectedNodes),
+    layoutContext,
   );
   for (final resolved in resolvedLayouts.values.toList().reversed) {
     final children = resolved.layout.layouts.entries.toList().reversed;
     for (final entry in children) {
       final child = entry.value;
+      if (child is LayoutPath && child.layouts.isNotEmpty) {
+        final points = [
+          for (final reference in child.points)
+            _resolveReference(reference, resolvedLayouts, layoutContext),
+        ];
+        if (points.length == 4 && points.every((point) => point != null)) {
+          final paddedPoints = _paddedPathPoints(
+            points.cast<Offset>(),
+            child.padding,
+          );
+          final compositionPoints = _screenOrderedQuadrilateral(paddedPoints);
+          for (final compositionEntry
+              in child.layouts.entries.toList().reversed) {
+            final composition = compositionEntry.value;
+            if (composition is! ColumnLayout && composition is! RowLayout) {
+              continue;
+            }
+            final target = _hitTestFlexComposition(
+              composition,
+              compositionPoints,
+              position,
+              '${entry.key}/${compositionEntry.key}',
+              layoutContext,
+            );
+            if (target != null) return target;
+          }
+        }
+      }
       if (child is RadialBushLayout &&
           _hitTestRadialBushRoot(
             child,
@@ -1624,6 +1670,239 @@ LayoutTapTarget? _hitTestLayoutTapTarget(
   return null;
 }
 
+bool _polygonContains(List<Offset> points, Offset position) {
+  if (points.length < 3) return false;
+  final path = Path()..moveTo(points.first.dx, points.first.dy);
+  for (final point in points.skip(1)) {
+    path.lineTo(point.dx, point.dy);
+  }
+  path.close();
+  return path.contains(position);
+}
+
+void _drawFlexComposition(
+  Canvas canvas,
+  List<Offset> points,
+  Layout composition,
+  LayoutContext layoutContext,
+) {
+  if (points.length != 4) return;
+
+  final leftHeight = (points[3] - points[0]).distance;
+  final rightHeight = (points[2] - points[1]).distance;
+  final topWidth = (points[1] - points[0]).distance;
+  final bottomWidth = (points[2] - points[3]).distance;
+  final flatWidth = (topWidth + bottomWidth) / 2;
+  final flatHeight = (leftHeight + rightHeight) / 2;
+  if (flatWidth <= 0 || flatHeight <= 0) return;
+
+  final flatPoints = [
+    Offset.zero,
+    Offset(flatWidth, 0),
+    Offset(flatWidth, flatHeight),
+    Offset(0, flatHeight),
+  ];
+  final recorder = ui.PictureRecorder();
+  final flatCanvas = Canvas(
+    recorder,
+    Rect.fromLTWH(0, 0, flatWidth, flatHeight),
+  )..clipRect(Rect.fromLTWH(0, 0, flatWidth, flatHeight));
+  _drawFlatFlexComposition(flatCanvas, flatPoints, composition, layoutContext);
+
+  final picture = recorder.endRecording();
+  final clipPath = Path()..moveTo(points.first.dx, points.first.dy);
+  for (final point in points.skip(1)) {
+    clipPath.lineTo(point.dx, point.dy);
+  }
+  clipPath.close();
+  canvas.save();
+  canvas.clipPath(clipPath);
+  canvas.transform(_rectToQuadTransform(flatWidth, flatHeight, points));
+  canvas.drawPicture(picture);
+  canvas.restore();
+  picture.dispose();
+}
+
+void _drawFlatFlexComposition(
+  Canvas canvas,
+  List<Offset> points,
+  Layout composition,
+  LayoutContext layoutContext,
+) {
+  for (final child in _resolveFlexChildren(
+    composition,
+    points,
+    layoutContext,
+  )) {
+    final layout = child.layout;
+    if (layout is PanelLayout) {
+      _drawPanelLayout(canvas, child.points, layout);
+    } else if (layout is ColumnLayout || layout is RowLayout) {
+      _drawFlatFlexComposition(canvas, child.points, layout, layoutContext);
+    }
+  }
+}
+
+LayoutTapTarget? _hitTestFlexComposition(
+  Layout composition,
+  List<Offset> points,
+  Offset position,
+  String path,
+  LayoutContext layoutContext,
+) {
+  final children = _resolveFlexChildren(
+    composition,
+    points,
+    layoutContext,
+  ).toList().reversed;
+  for (final child in children) {
+    final childPath = '$path/${child.key}';
+    final layout = child.layout;
+    if (layout is ColumnLayout || layout is RowLayout) {
+      final nested = _hitTestFlexComposition(
+        layout,
+        child.points,
+        position,
+        childPath,
+        layoutContext,
+      );
+      if (nested != null) return nested;
+    }
+    if (layout is PanelLayout &&
+        layout.aliases.contains('action-button') &&
+        _polygonContains(child.points, position)) {
+      return LayoutTapTarget(
+        key: childPath,
+        layout: layout,
+        label: layout.label,
+      );
+    }
+  }
+  return null;
+}
+
+Iterable<({String key, Layout layout, List<Offset> points})>
+_resolveFlexChildren(
+  Layout composition,
+  List<Offset> points,
+  LayoutContext layoutContext,
+) sync* {
+  final vertical = composition is ColumnLayout;
+  if (!vertical && composition is! RowLayout) return;
+  final children = composition.layouts.entries
+      .where((entry) => entry.value.isVisible(layoutContext))
+      .toList(growable: false);
+  if (children.isEmpty) return;
+
+  final mainPixels = vertical
+      ? ((points[3] - points[0]).distance + (points[2] - points[1]).distance) /
+            2
+      : ((points[1] - points[0]).distance + (points[2] - points[3]).distance) /
+            2;
+  if (mainPixels <= 0) return;
+
+  final stops = _gridTrackStops([
+    for (final child in children) child.value.size.size,
+  ], mainPixels);
+  for (var index = 0; index < children.length; index += 1) {
+    final entry = children[index];
+    final start = stops[index];
+    final end = stops[index + 1];
+    yield (
+      key: entry.key,
+      layout: entry.value,
+      points: vertical
+          ? _quadrilateralSlice(points, top: start, bottom: end)
+          : _quadrilateralSlice(points, left: start, right: end),
+    );
+  }
+}
+
+List<Offset> _quadrilateralSlice(
+  List<Offset> points, {
+  double left = 0,
+  double right = 1,
+  double top = 0,
+  double bottom = 1,
+}) {
+  return [
+    _projectiveQuadrilateralPoint(points, left, top),
+    _projectiveQuadrilateralPoint(points, right, top),
+    _projectiveQuadrilateralPoint(points, right, bottom),
+    _projectiveQuadrilateralPoint(points, left, bottom),
+  ];
+}
+
+Offset _projectiveQuadrilateralPoint(List<Offset> points, double x, double y) {
+  final transform = _rectToQuadTransform(1, 1, points);
+  final transformedX = transform[0] * x + transform[4] * y + transform[12];
+  final transformedY = transform[1] * x + transform[5] * y + transform[13];
+  final transformedW = transform[3] * x + transform[7] * y + transform[15];
+  if (transformedW.abs() <= 0.000001) {
+    return Offset(transformedX, transformedY);
+  }
+  return Offset(transformedX / transformedW, transformedY / transformedW);
+}
+
+List<Offset> _screenOrderedQuadrilateral(List<Offset> points) {
+  if (points.length != 4) return points;
+  final byVertical = [...points]
+    ..sort((left, right) => left.dy.compareTo(right.dy));
+  final top = byVertical.take(2).toList()
+    ..sort((left, right) => left.dx.compareTo(right.dx));
+  final bottom = byVertical.skip(2).toList()
+    ..sort((left, right) => left.dx.compareTo(right.dx));
+  return [top[0], top[1], bottom[1], bottom[0]];
+}
+
+void _drawPanelLayout(Canvas canvas, List<Offset> points, PanelLayout panel) {
+  if (points.length != 4) return;
+  final path = Path()..moveTo(points.first.dx, points.first.dy);
+  for (final point in points.skip(1)) {
+    path.lineTo(point.dx, point.dy);
+  }
+  path.close();
+  if (panel.fillColor case final fillColor?) {
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = fillColor
+        ..style = PaintingStyle.fill,
+    );
+  }
+  if (panel.borderStyle case final borderStyle?) {
+    for (var index = 0; index < points.length; index += 1) {
+      drawGuideLine(
+        canvas,
+        points[index],
+        points[(index + 1) % points.length],
+        borderStyle,
+      );
+    }
+  }
+  final label = panel.label;
+  if (label == null || label.isEmpty) return;
+  final center =
+      points.fold<Offset>(Offset.zero, (sum, point) => sum + point) /
+      points.length.toDouble();
+  final textPainter = TextPainter(
+    text: TextSpan(
+      text: label,
+      style: TextStyle(
+        color: panel.labelColor,
+        fontSize: panel.labelSize,
+        fontWeight: FontWeight.w600,
+      ),
+    ),
+    textDirection: TextDirection.ltr,
+    textAlign: TextAlign.center,
+  )..layout();
+  textPainter.paint(
+    canvas,
+    center - Offset(textPainter.width / 2, textPainter.height / 2),
+  );
+}
+
 bool _hitTestRadialBushRoot(
   RadialBushLayout radialBush,
   Rect bounds,
@@ -1631,7 +1910,7 @@ bool _hitTestRadialBushRoot(
   Map<String, _ResolvedLayout> layouts,
   Offset position,
 ) {
-  final radius = _resolveLayoutSize(
+  final radius = _resolveLayoutExtent(
     radialBush.layoutSize,
     viewport: size,
     bounds: bounds,
@@ -1665,14 +1944,14 @@ ResolvedVaultNode _resolveVaultNode(
   return (resolver ?? VaultNodeResolver.empty).resolve(node);
 }
 
-double _resolveLayoutSize(
-  LayoutSize layoutSize, {
+double _resolveLayoutExtent(
+  LayoutExtent layoutSize, {
   required Size viewport,
   required Rect bounds,
   required Map<String, _ResolvedLayout> layouts,
   LayoutContext layoutContext = LayoutContext.empty,
 }) {
-  if (layoutSize.unit != LayoutSizeUnit.derivativeDistance) {
+  if (layoutSize.unit != LayoutExtentUnit.derivativeDistance) {
     return layoutSize.resolve(viewport: viewport, bounds: bounds);
   }
 
@@ -2206,9 +2485,9 @@ GridAxisVariable _tableSeparatorSize(TableField firstField) {
   final size = firstField.size.size;
   return GridAxisVariable(
     size: switch (size.unit) {
-      GridTrackUnit.fraction => GridTrackSize.fr(size.value * separatorScale),
-      GridTrackUnit.pixels => GridTrackSize.px(size.value * separatorScale),
-      GridTrackUnit.calculatedFraction => GridTrackSize.calculatedFr(
+      LayoutSizeUnit.fraction => LayoutSize.fr(size.value * separatorScale),
+      LayoutSizeUnit.pixels => LayoutSize.px(size.value * separatorScale),
+      LayoutSizeUnit.calculatedFraction => LayoutSize.calculatedFr(
         size.value * separatorScale,
         derivative: size.derivative ?? '',
       ),
@@ -2236,17 +2515,17 @@ void _sortTableFields(
 }
 
 Map<String, Object?> _baseNodeInfoValues(ResolvedVaultNode selectedNode) {
-  final note = selectedNode.note;
-  final frontmatter = note?.frontmatter ?? const <String, String>{};
+  final node = selectedNode.node;
+  final frontmatter = node?.frontmatter ?? const <String, String>{};
   return {
-    'id': note?.id ?? selectedNode.path,
+    'id': node?.id ?? selectedNode.path,
     'version':
         frontmatter['version'] ??
         frontmatter['node_version'] ??
         frontmatter['schema_version'],
     'aliases':
         frontmatter['aliases'] ?? frontmatter['alias'] ?? selectedNode.label,
-    'tags': note?.tags,
+    'tags': node?.tags,
     'classification':
         frontmatter['classification'] ??
         frontmatter['class'] ??
@@ -2493,16 +2772,13 @@ bool _hasPoint(List<Offset> points, int index) {
   return index >= 0 && index < points.length;
 }
 
-List<double> _gridTrackStops(
-  List<GridTrackSize> tracks,
-  double availablePixels,
-) {
+List<double> _gridTrackStops(List<LayoutSize> tracks, double availablePixels) {
   final safePixels = math.max(availablePixels, 0);
   final fixedPixels = tracks
-      .where((track) => track.unit == GridTrackUnit.pixels)
+      .where((track) => track.unit == LayoutSizeUnit.pixels)
       .fold<double>(0, (sum, track) => sum + math.max(track.value, 0));
   final fractionTotal = tracks
-      .where((track) => track.unit != GridTrackUnit.pixels)
+      .where((track) => track.unit != LayoutSizeUnit.pixels)
       .fold<double>(
         0,
         (sum, track) => sum + math.max(_gridTrackFractionValue(track), 0),
@@ -2510,7 +2786,7 @@ List<double> _gridTrackStops(
   final fractionPixels = math.max(safePixels - fixedPixels, 0);
   final rawSizes = [
     for (final track in tracks)
-      track.unit == GridTrackUnit.pixels
+      track.unit == LayoutSizeUnit.pixels
           ? math.max(track.value, 0)
           : fractionTotal == 0
           ? 0
@@ -2530,8 +2806,8 @@ List<double> _gridTrackStops(
   return stops;
 }
 
-double _gridTrackFractionValue(GridTrackSize track) {
-  if (track.unit != GridTrackUnit.calculatedFraction) return track.value;
+double _gridTrackFractionValue(LayoutSize track) {
+  if (track.unit != LayoutSizeUnit.calculatedFraction) return track.value;
 
   final now = DateTime.now();
   final hourPassed =
@@ -2654,7 +2930,7 @@ Offset? _resolvePathAreaReference(
   ];
   if (points.length < 2 || points.any((point) => point == null)) return null;
   final corners = _resolvePerspectiveGridAreaCorners(
-    _paddedPathPoints(points.cast<Offset>(), path.resolvedPadding),
+    _paddedPathPoints(points.cast<Offset>(), path.padding),
     grid,
     area,
   );

@@ -16,14 +16,26 @@ This README is an index to the repository. Detailed documentation belongs in
 Each functional workspace owns its implementation details, development
 instructions, and workspace-specific documentation.
 
+## Verification policy
+
+Seville applications and services do not contain or run automated tests. Do
+not add test suites, test dependencies, test runners, test targets, or pipeline
+steps that execute tests. Automated tests are not treated as evidence that
+product behavior remains correct after a change. Use static analysis and
+formatting checks for automated feedback; the project owner verifies behavior
+in the real application.
+
 ## Documentation
 
 The `docs/` folder contains documentation that applies across workspace
 boundaries:
 
+- [`vocabulary.md`](docs/vocabulary.md) defines the canonical language shared
+  by Neo4j, Go, protobuf, Flutter layouts, and renderers.
 - [`seville-architecture-plan.md`](docs/seville-architecture-plan.md) records
   the product goal, current architecture direction, accepted decisions, and
   open design questions.
+- [`TODO.md`](TODO.md) records the repository-wide near-term product goals.
 
 ## Architecture at a glance
 

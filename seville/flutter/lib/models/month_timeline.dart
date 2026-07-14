@@ -4,6 +4,7 @@ class MonthTimeline extends TrackLayout {
   const MonthTimeline({
     required List<double> columnRatio,
     super.attributes,
+    super.inputSources,
     required super.elements,
   }) : super.fromAxes(axes: const [14], columnFractions: columnRatio);
 

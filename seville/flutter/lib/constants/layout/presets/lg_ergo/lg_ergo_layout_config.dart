@@ -65,6 +65,9 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
         'action-panel',
         'action-pane',
         'action-plane',
+        'form-panel',
+        'form-pane',
+        'form-plane',
         'right-plane',
         'east-plane',
       ],
@@ -84,55 +87,71 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
         fillColor: Color(0x333F51B5),
         strokeStyle: lgErgoSpacePlaneLineStyle,
       ),
-      padding: lgErgoLayoutDefaultPadding,
-      grid: PerspectiveGridLayout(
-        aliases: ['action-panel-grid', 'action-grid', 'right-plane-grid'],
-        guideStyle: lgErgoSpacePlaneDashStyle,
-        rowsConfig: {
-          'space-01': GridAxisVariable(size: GridTrackSize.fr(1)),
-          'space-02': GridAxisVariable(size: GridTrackSize.fr(1)),
-          'space-03': GridAxisVariable(size: GridTrackSize.fr(1)),
-          'space-04': GridAxisVariable(size: GridTrackSize.fr(1)),
-          'space-05': GridAxisVariable(size: GridTrackSize.fr(1)),
-          'space-06': GridAxisVariable(size: GridTrackSize.fr(1)),
-          'space-07': GridAxisVariable(size: GridTrackSize.fr(1)),
-          'space-08': GridAxisVariable(size: GridTrackSize.fr(1)),
-          'space-09': GridAxisVariable(size: GridTrackSize.fr(1)),
-          'space-10': GridAxisVariable(size: GridTrackSize.fr(1)),
-          'space-11': GridAxisVariable(size: GridTrackSize.fr(1)),
-          'space-12': GridAxisVariable(size: GridTrackSize.fr(1)),
-        },
-        columnsConfig: {
-          'scene-height': GridAxisVariable(size: GridTrackSize.fr(1)),
-        },
-        areas: {
-          'outer-rim': PerspectiveGridArea(
-            row: 'space-01',
-            column: 'scene-height',
-            rowSpan: GridSpan.full,
-            columnSpan: GridSpan.full,
-            aliases: ['outer-rim', 'with-padding-rim'],
-            borderStyle: lgErgoSpacePlaneRimStyle,
-          ),
-          'inner-rim': PerspectiveGridArea(
-            row: 'space-01',
-            column: 'scene-height',
-            rowOffset: 0.5,
-            columnOffset: 0.08,
-            rowSpan: 11,
-            columnSpan: 0.84,
-            aliases: ['inner-rim', 'without-padding-rim'],
-            borderStyle: lgErgoSpacePlaneRimStyle,
-          ),
-          'space-band': PerspectiveGridArea(
-            row: 'space-01',
-            column: 'scene-height',
-            rowSpan: 12,
-            aliases: ['space-band', 'x-axis-band'],
-            fillColor: lgErgoSpacePlaneBandColor,
-          ),
-        },
+      padding: LayoutPathPadding(
+        top: lgErgoLayoutDefaultPadding,
+        bottom: lgErgoLayoutDefaultPadding,
+        left: lgErgoLayoutDefaultPadding,
       ),
+      layouts: {
+        'action-column': ColumnLayout(
+          aliases: ['action-column', 'action-panel-column', 'form-column'],
+          layouts: {
+            'navigation-row': RowLayout(
+              size: GridAxisVariable(size: LayoutSize.px(48)),
+              aliases: ['navigation-row', 'browser-navigation'],
+              layouts: {
+                'back': PanelLayout(
+                  size: GridAxisVariable(size: LayoutSize.fr(1)),
+                  aliases: ['action-button', 'back-action'],
+                  fillColor: lgErgoActionButtonColor,
+                  borderStyle: lgErgoActionButtonBorderStyle,
+                  label: '‹',
+                  labelColor: lgErgoActionButtonLabelColor,
+                  labelSize: 18,
+                ),
+                'forward': PanelLayout(
+                  size: GridAxisVariable(size: LayoutSize.fr(1)),
+                  aliases: ['action-button', 'forward-action'],
+                  fillColor: lgErgoActionButtonColor,
+                  borderStyle: lgErgoActionButtonBorderStyle,
+                  label: '›',
+                  labelColor: lgErgoActionButtonLabelColor,
+                  labelSize: 18,
+                ),
+              },
+            ),
+            'browser-content': PanelLayout(
+              size: GridAxisVariable(size: LayoutSize.fr(1)),
+              aliases: ['browser-content', 'web-view', 'change-reference'],
+              borderStyle: lgErgoSpacePlaneRimStyle,
+              label: 'Browser',
+              labelColor: lgErgoActionButtonLabelColor,
+            ),
+            'action-row': RowLayout(
+              size: GridAxisVariable(size: LayoutSize.px(56)),
+              aliases: ['actions', 'action-row'],
+              layouts: {
+                'submit': PanelLayout(
+                  size: GridAxisVariable(size: LayoutSize.fr(1)),
+                  aliases: ['action-button', 'submit-action'],
+                  fillColor: lgErgoSubmitButtonColor,
+                  borderStyle: lgErgoActionButtonBorderStyle,
+                  label: 'Submit',
+                  labelColor: lgErgoActionButtonLabelColor,
+                ),
+                'reject': PanelLayout(
+                  size: GridAxisVariable(size: LayoutSize.fr(1)),
+                  aliases: ['action-button', 'reject-action'],
+                  fillColor: lgErgoRejectButtonColor,
+                  borderStyle: lgErgoActionButtonBorderStyle,
+                  label: 'Reject',
+                  labelColor: lgErgoActionButtonLabelColor,
+                ),
+              },
+            ),
+          },
+        ),
+      },
     ),
     'top-plane': LayoutPath(
       aliases: ['top-plane', 'control-plane', 'north-plane'],
@@ -155,7 +174,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
           label: 'cortex',
           labelColor: lgErgoCortexNodeLabelColor,
           labelSize: 10,
-          layoutSize: LayoutSize.derivativeDistance(
+          layoutSize: LayoutExtent.derivativeDistance(
             from: LayoutDerivativeReference(derivative: 'BC-center'),
             to: LayoutDerivativeReference(
               layoutPath: ['safe-area'],
@@ -165,7 +184,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
           gridStyle: lgErgoRadialBushGridStyle,
           bushStructure: RadialBushStructure(
             root: RadialBushRoot(
-              size: GridAxisVariable(size: GridTrackSize.fr(1)),
+              size: GridAxisVariable(size: LayoutSize.fr(1)),
               node: VaultNodeUiComponent(
                 path: DefaultVaultPaths.cortex,
                 color: lgErgoCortexNodeColor,
@@ -183,14 +202,14 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               ),
             ),
             branch: RadialBushBranch(
-              size: GridAxisVariable(size: GridTrackSize.fr(1)),
+              size: GridAxisVariable(size: LayoutSize.fr(1)),
               rootParameter: 'components',
             ),
             // leaves: RadialBushElement(
-            //   size: GridAxisVariable(size: GridTrackSize.fr(1)),
+            //   size: GridAxisVariable(size: LayoutSize.fr(1)),
             // ),
             // flowers: RadialBushElement(
-            //   size: GridAxisVariable(size: GridTrackSize.fr(1)),
+            //   size: GridAxisVariable(size: LayoutSize.fr(1)),
             // ),
           ),
           position: LayoutRelativePosition.top,
@@ -244,31 +263,31 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               TableField(
                 key: 'id',
                 groupId: 'identity',
-                size: GridAxisVariable(size: GridTrackSize.fr(1)),
+                size: GridAxisVariable(size: LayoutSize.fr(1)),
               ),
               TableField(
                 key: 'aliases',
                 groupId: 'identity',
-                size: GridAxisVariable(size: GridTrackSize.fr(1)),
+                size: GridAxisVariable(size: LayoutSize.fr(1)),
               ),
               TableField(
                 key: 'tags',
-                size: GridAxisVariable(size: GridTrackSize.fr(1)),
+                size: GridAxisVariable(size: LayoutSize.fr(1)),
               ),
               TableField(
                 key: 'classification',
-                size: GridAxisVariable(size: GridTrackSize.fr(1)),
+                size: GridAxisVariable(size: LayoutSize.fr(1)),
               ),
               TableField(
                 key: 'version',
                 groupId: 'identity',
-                size: GridAxisVariable(size: GridTrackSize.fr(0.5)),
+                size: GridAxisVariable(size: LayoutSize.fr(0.5)),
               ),
             ],
           ),
           columns: [
-            MapEntry('key', GridAxisVariable(size: GridTrackSize.fr(1))),
-            MapEntry('value', GridAxisVariable(size: GridTrackSize.fr(3))),
+            MapEntry('key', GridAxisVariable(size: LayoutSize.fr(1))),
+            MapEntry('value', GridAxisVariable(size: LayoutSize.fr(3))),
           ],
         ),
       },
@@ -295,19 +314,19 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
         bottomStartIndex: 0,
         bottomEndIndex: 2,
         rowsConfig: {
-          'hour': GridAxisVariable(size: GridTrackSize.fr(1)),
-          'day': GridAxisVariable(size: GridTrackSize.fr(1)),
-          'week': GridAxisVariable(size: GridTrackSize.fr(1)),
+          'hour': GridAxisVariable(size: LayoutSize.fr(1)),
+          'day': GridAxisVariable(size: LayoutSize.fr(1)),
+          'week': GridAxisVariable(size: LayoutSize.fr(1)),
         },
         columnsConfig: {
           'past-padding': GridAxisVariable(
-            size: GridTrackSize.pt(lgErgoLayoutDefaultPadding),
+            size: LayoutSize.pt(lgErgoLayoutDefaultPadding),
           ),
-          'previous': GridAxisVariable(size: GridTrackSize.fr(1)),
-          'current': GridAxisVariable(size: GridTrackSize.fr(1)),
-          'next': GridAxisVariable(size: GridTrackSize.fr(1)),
+          'previous': GridAxisVariable(size: LayoutSize.fr(1)),
+          'current': GridAxisVariable(size: LayoutSize.fr(1)),
+          'next': GridAxisVariable(size: LayoutSize.fr(1)),
           'future-padding': GridAxisVariable(
-            size: GridTrackSize.pt(lgErgoLayoutDefaultPadding),
+            size: LayoutSize.pt(lgErgoLayoutDefaultPadding),
           ),
         },
         areas: {
@@ -713,6 +732,10 @@ const lgErgoFutureColor = Color(0x552E7D32);
 const lgErgoSpacePlaneBandColor = Color(0x223F51B5);
 const lgErgoControlPlaneBandColor = Color(0x00000000);
 const lgErgoActionPlaneBandColor = Color(0x223F51B5);
+const lgErgoActionButtonColor = Color(0x553F51B5);
+const lgErgoSubmitButtonColor = Color(0x6652A66B);
+const lgErgoRejectButtonColor = Color(0x668F3E4B);
+const lgErgoActionButtonLabelColor = Color(0xFFF5F7FF);
 const lgErgoCortexNodeColor = LayoutColor.fromHex('FFD54F', opacity: 0.9);
 const lgErgoCortexNodeLabelColor = Color(0xFF101820);
 const lgErgoCurrentTimeBackgroundColor = Color(0x18DC143C);
@@ -761,6 +784,12 @@ const lgErgoSpacePlaneRimStyle = GuideStyle(
   pattern: GuideLinePattern.dashed,
   dashLength: 5,
   dashInterval: 7,
+);
+
+const lgErgoActionButtonBorderStyle = GuideStyle(
+  color: Color(0xCCB7C2FF),
+  strokeWidth: 1,
+  pattern: GuideLinePattern.solid,
 );
 
 const lgErgoBaseNodeInfoTableStyle = GuideStyle(

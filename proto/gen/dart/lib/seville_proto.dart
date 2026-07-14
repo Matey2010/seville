@@ -1,1 +1,1 @@
-export 'src/seville/knowledge/v1/knowledge.pb.dart';
+export 'src/seville/node/v2/node.pb.dart';

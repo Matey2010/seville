@@ -2,13 +2,13 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../models/knowledge_graph.dart';
+import '../models/node_graph.dart';
 
 /// Small deterministic force layout intended for the first useful prototype.
 ///
 /// The quadratic simulation is capped; large vaults keep deterministic seeded
 /// positions until a spatial-indexed layout is introduced.
-Map<String, Offset> layoutGraph(KnowledgeGraph graph) {
+Map<String, Offset> layoutGraph(NodeGraph graph) {
   if (graph.nodes.isEmpty) return const {};
 
   final positions = <String, Offset>{

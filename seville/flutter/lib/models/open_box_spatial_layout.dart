@@ -10,6 +10,7 @@ class OpenBoxSpatialLayout extends SceneLayout {
     super.derivativeSnapshot,
     super.observables,
     super.modes,
+    super.inputSources,
     super.columnFractions,
     super.rowFractions,
     super.depthFractions,

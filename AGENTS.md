@@ -1,5 +1,13 @@
 # Seville project context
 
+## Canonical vocabulary
+
+- Read and follow [`docs/vocabulary.md`](docs/vocabulary.md) before naming a
+  domain entity, API message, database label, or node-backed layout concept.
+- `Node` is Seville's primary data unit across Neo4j, Go, protobuf, and Flutter.
+  Do not introduce `Note`, `SevilleNote`, or a redundant `Knowledge` container
+  as the core entity.
+
 ## Supported runtime
 
 - Seville currently runs in production on macOS only.
@@ -17,8 +25,22 @@
 - Codex must not launch, build-run, or runtime-debug Seville, and must not
   request permission to do so.
 
+## Automated testing policy
+
+- Seville applications and services do not use automated tests. Do not add or
+  retain unit, widget, integration, snapshot, or system tests.
+- Do not add test dependencies, test targets, test runners, or CI/pipeline
+  steps that execute tests.
+- Use non-mutating static analysis and formatting checks where appropriate.
+  The project owner verifies final behavior in the real application.
+
 ## Dart configuration style
 
+- Model files put their primary public model immediately after imports. Follow
+  it with that model's modes, context, and directly associated definitions;
+  supporting typedefs, keys, enums, helpers, and concrete specializations come
+  afterward. Do not make readers cross a soup of implementation vocabulary to
+  find the model that gives the file its name and reason to exist.
 - Layout preset files expose their primary public configuration constant
   immediately after imports.
 - Do not introduce a new model, layout type, guide type, renderer concept,
@@ -37,6 +59,9 @@
 - Layout composition uses `Map<String, Layout> layouts`: the key is identity
   and the value is another layout. Frames, content, guidelines, and guide grids
   share this tree; do not introduce separate root, node, or guide collections.
+- Every `Layout` owns a `GridAxisVariable size`. `ColumnLayout` and `RowLayout`
+  resolve child sizes along their main axis using `LayoutSize.fr`, `px`/`pt`,
+  or `calculatedFr`; do not introduce separate flex or extent properties.
 - Use `Layout.aliases` for extra human/config vocabulary. The layout map key
   remains the stable address; aliases are alternative names, not identity.
 - Generic layouts have default axes `[0, 0]`. Do not add axes, role tags, or
@@ -66,18 +91,18 @@
 - Use `LayoutPath` for filled/vector-like planes and polygons. Its points
   should be `LayoutDerivativeReference` values, so SVG-like path structures stay
   configurable instead of becoming painter-only geometry.
-- Use `LayoutPath.pathPadding` with `LayoutPathPadding` when a plane needs
-  side-specific visual insets. Keep legacy `LayoutPath.padding` only for
-  uniform insets.
+- Every `LayoutPath.padding` is a `LayoutPathPadding`. Configure its `left`,
+  `top`, `right`, and `bottom` values independently, or use
+  `LayoutPathPadding.all(...)` for a uniform inset.
 - Use `RadialTreeLayout` for graph-like content that grows from a root point
   instead of a grid. Its `root` is a vault path resolved by the same node
   folder/file conventions as `PerspectiveGridArea.node`. By default it grows
   inward, opposite to its `position` in the owning layout bounds; set
   `growthDirection: LayoutDerivativeReference(...)` only when a specific target
   derivative must override that natural direction. Use
-  `layoutSize: LayoutSize.px/%/vw/vh/vmin/vmax(...)` to size its root without
+  `layoutSize: LayoutExtent.px/%/vw/vh/vmin/vmax(...)` to size its root without
   baking screen math into the painter. Use
-  `LayoutSize.derivativeDistance(from: ..., to: ...)` when the tree size must
+  `LayoutExtent.derivativeDistance(from: ..., to: ...)` when the tree size must
   follow actual geometry between two layout derivatives. Radial tree
   `rowsConfig` are radial bands from root outward, `columnsConfig` are angular
   segments across the tree fan, and `areas` are `RadialTreeArea` cells that can
@@ -87,8 +112,8 @@
   rows and columns projected inside its quadrilateral. `rowsConfig` and
   `columnsConfig` must be ordered maps of the same `GridAxisVariable` type; the
   map key owns identity, preventing IDs and measurements from drifting apart.
-  Use `GridTrackSize.fr` for flexible space, `GridTrackSize.pt` (`px` alias)
-  for fixed gaps, and `GridTrackSize.calculatedFr` when a track is a computed
+  Use `LayoutSize.fr` for flexible space, `LayoutSize.pt` (`px` alias)
+  for fixed gaps, and `LayoutSize.calculatedFr` when a track is a computed
   fraction with a fallback value. The current LG Ergo bottom time grid is
   intentionally simple: rows `hour`, `day`, and `week` use shared `previous`,
   `current`, and `next` columns. `now` itself is not a grid column in this
@@ -116,7 +141,7 @@
   backed by knowledge-base data should own a `VaultNode`; runtime lookup belongs
   only to `VaultNodeResolver`, which returns `ResolvedVaultNode extends
   VaultNode`. Do not duplicate node path resolution in screens or painters.
-  `ResolvedVaultNode.note` is the single source for tap/frontmatter behavior,
+  `ResolvedVaultNode.node` is the single source for tap/frontmatter behavior,
   and `ResolvedVaultNode.fillColor` is the single source for found/missing
   visuals. Node-backed layout visuals must not be optimistic: render a full
   background only when the configured node resolves against the snapshot; render
@@ -153,7 +178,7 @@
   roots or concepts belong to sibling static classes such as `DefaultVaultPaths`.
 - The current vault root directory is already `cortex`; never prefix configured
   default paths with `cortex/`.
-- Use `DefaultVaultPaths.cortex` for the explicit cortex note path. It should
+- Use `DefaultVaultPaths.cortex` for the explicit cortex Node path. It should
   resolve to a real clickable graph node, not an empty vault-root sentinel.
   The renderer still treats empty root as a forgiving alias for older config,
   but new interactive node config should point at a concrete path.

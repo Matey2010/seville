@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:seville_proto/seville_proto.dart';
 
-/// All visual decisions for the knowledge graph live here.
+/// All visual decisions for the Node graph live here.
 ///
 /// Change [sevilleGraphRules] to tune the graph without touching parsing,
 /// filtering, layout, or rendering code.
@@ -21,8 +21,8 @@ class GraphRules {
   final double baseNodeRadius;
   final double radiusPerWeight;
   final double maxNodeRadius;
-  final Map<LinkKind, double> edgeWeights;
-  final Map<LinkKind, Color> edgeColors;
+  final Map<NodeConnectionKind, double> edgeWeights;
+  final Map<NodeConnectionKind, Color> edgeColors;
 
   Color colorFor(Iterable<String> tags) {
     final normalized = tags.map((tag) => tag.toLowerCase()).toSet();
@@ -32,9 +32,9 @@ class GraphRules {
     return fallbackColor;
   }
 
-  double weightFor(LinkKind kind) => edgeWeights[kind] ?? 1;
+  double weightFor(NodeConnectionKind kind) => edgeWeights[kind] ?? 1;
 
-  Color edgeColorFor(LinkKind kind) =>
+  Color edgeColorFor(NodeConnectionKind kind) =>
       edgeColors[kind] ?? const Color(0x557D8BA6);
 
   double radiusFor(double weightedDegree) {
@@ -59,13 +59,13 @@ const sevilleGraphRules = GraphRules(
   radiusPerWeight: 1.7,
   maxNodeRadius: 19,
   edgeWeights: {
-    LinkKind.LINK_KIND_WIKI: 1,
-    LinkKind.LINK_KIND_MARKDOWN: 0.75,
-    LinkKind.LINK_KIND_EMBED: 1.5,
+    NodeConnectionKind.NODE_CONNECTION_KIND_WIKI: 1,
+    NodeConnectionKind.NODE_CONNECTION_KIND_MARKDOWN: 0.75,
+    NodeConnectionKind.NODE_CONNECTION_KIND_EMBED: 1.5,
   },
   edgeColors: {
-    LinkKind.LINK_KIND_WIKI: Color(0x9976B7FF),
-    LinkKind.LINK_KIND_MARKDOWN: Color(0x807D8BA6),
-    LinkKind.LINK_KIND_EMBED: Color(0xA6B18CFE),
+    NodeConnectionKind.NODE_CONNECTION_KIND_WIKI: Color(0x9976B7FF),
+    NodeConnectionKind.NODE_CONNECTION_KIND_MARKDOWN: Color(0x807D8BA6),
+    NodeConnectionKind.NODE_CONNECTION_KIND_EMBED: Color(0xA6B18CFE),
   },
 );

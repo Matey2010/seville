@@ -1,6 +1,6 @@
 // This is a generated file - do not edit.
 //
-// Generated from seville/knowledge/v1/knowledge.proto.
+// Generated from seville/node/v2/node.proto.
 
 // @dart = 3.3
 
@@ -16,70 +16,71 @@ import 'package:protobuf/protobuf.dart' as $pb;
 import 'package:protobuf/well_known_types/google/protobuf/timestamp.pb.dart'
     as $0;
 
-import 'knowledge.pbenum.dart';
+import 'node.pbenum.dart';
 
 export 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
 
-export 'knowledge.pbenum.dart';
+export 'node.pbenum.dart';
 
-class KnowledgeSnapshot extends $pb.GeneratedMessage {
-  factory KnowledgeSnapshot({
+class NodeSnapshot extends $pb.GeneratedMessage {
+  factory NodeSnapshot({
     $core.String? revision,
     $0.Timestamp? generatedAt,
-    $core.Iterable<Note>? notes,
-    $core.Iterable<Link>? links,
-    $core.Iterable<ScanWarning>? warnings,
+    $core.Iterable<Node>? nodes,
+    $core.Iterable<NodeConnection>? connections,
+    $core.Iterable<ImportWarning>? warnings,
   }) {
     final result = create();
     if (revision != null) result.revision = revision;
     if (generatedAt != null) result.generatedAt = generatedAt;
-    if (notes != null) result.notes.addAll(notes);
-    if (links != null) result.links.addAll(links);
+    if (nodes != null) result.nodes.addAll(nodes);
+    if (connections != null) result.connections.addAll(connections);
     if (warnings != null) result.warnings.addAll(warnings);
     return result;
   }
 
-  KnowledgeSnapshot._();
+  NodeSnapshot._();
 
-  factory KnowledgeSnapshot.fromBuffer($core.List<$core.int> data,
+  factory NodeSnapshot.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromBuffer(data, registry);
-  factory KnowledgeSnapshot.fromJson($core.String json,
+  factory NodeSnapshot.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'KnowledgeSnapshot',
-      package: const $pb.PackageName(
-          _omitMessageNames ? '' : 'seville.knowledge.v1'),
+      _omitMessageNames ? '' : 'NodeSnapshot',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'seville.node.v2'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'revision')
     ..aOM<$0.Timestamp>(2, _omitFieldNames ? '' : 'generatedAt',
         subBuilder: $0.Timestamp.create)
-    ..pPM<Note>(3, _omitFieldNames ? '' : 'notes', subBuilder: Note.create)
-    ..pPM<Link>(4, _omitFieldNames ? '' : 'links', subBuilder: Link.create)
-    ..pPM<ScanWarning>(5, _omitFieldNames ? '' : 'warnings',
-        subBuilder: ScanWarning.create)
+    ..pPM<Node>(3, _omitFieldNames ? '' : 'nodes', subBuilder: Node.create)
+    ..pPM<NodeConnection>(4, _omitFieldNames ? '' : 'connections',
+        subBuilder: NodeConnection.create)
+    ..pPM<ImportWarning>(5, _omitFieldNames ? '' : 'warnings',
+        subBuilder: ImportWarning.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  KnowledgeSnapshot clone() => deepCopy();
+  NodeSnapshot clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  KnowledgeSnapshot copyWith(void Function(KnowledgeSnapshot) updates) =>
-      super.copyWith((message) => updates(message as KnowledgeSnapshot))
-          as KnowledgeSnapshot;
+  NodeSnapshot copyWith(void Function(NodeSnapshot) updates) =>
+      super.copyWith((message) => updates(message as NodeSnapshot))
+          as NodeSnapshot;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  static KnowledgeSnapshot create() => KnowledgeSnapshot._();
+  static NodeSnapshot create() => NodeSnapshot._();
   @$core.override
-  KnowledgeSnapshot createEmptyInstance() => create();
+  NodeSnapshot createEmptyInstance() => create();
   @$core.pragma('dart2js:noInline')
-  static KnowledgeSnapshot getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<KnowledgeSnapshot>(create);
-  static KnowledgeSnapshot? _defaultInstance;
+  static NodeSnapshot getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<NodeSnapshot>(create);
+  static NodeSnapshot? _defaultInstance;
 
   @$pb.TagNumber(1)
   $core.String get revision => $_getSZ(0);
@@ -102,17 +103,17 @@ class KnowledgeSnapshot extends $pb.GeneratedMessage {
   $0.Timestamp ensureGeneratedAt() => $_ensure(1);
 
   @$pb.TagNumber(3)
-  $pb.PbList<Note> get notes => $_getList(2);
+  $pb.PbList<Node> get nodes => $_getList(2);
 
   @$pb.TagNumber(4)
-  $pb.PbList<Link> get links => $_getList(3);
+  $pb.PbList<NodeConnection> get connections => $_getList(3);
 
   @$pb.TagNumber(5)
-  $pb.PbList<ScanWarning> get warnings => $_getList(4);
+  $pb.PbList<ImportWarning> get warnings => $_getList(4);
 }
 
-class Note extends $pb.GeneratedMessage {
-  factory Note({
+class Node extends $pb.GeneratedMessage {
+  factory Node({
     $core.String? id,
     $core.String? path,
     $core.String? title,
@@ -132,19 +133,19 @@ class Note extends $pb.GeneratedMessage {
     return result;
   }
 
-  Note._();
+  Node._();
 
-  factory Note.fromBuffer($core.List<$core.int> data,
+  factory Node.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromBuffer(data, registry);
-  factory Note.fromJson($core.String json,
+  factory Node.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'Note',
-      package: const $pb.PackageName(
-          _omitMessageNames ? '' : 'seville.knowledge.v1'),
+      _omitMessageNames ? '' : 'Node',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'seville.node.v2'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'id')
     ..aOS(2, _omitFieldNames ? '' : 'path')
@@ -152,31 +153,31 @@ class Note extends $pb.GeneratedMessage {
     ..aOS(4, _omitFieldNames ? '' : 'body')
     ..pPS(5, _omitFieldNames ? '' : 'tags')
     ..m<$core.String, $core.String>(6, _omitFieldNames ? '' : 'frontmatter',
-        entryClassName: 'Note.FrontmatterEntry',
+        entryClassName: 'Node.FrontmatterEntry',
         keyFieldType: $pb.PbFieldType.OS,
         valueFieldType: $pb.PbFieldType.OS,
-        packageName: const $pb.PackageName('seville.knowledge.v1'))
+        packageName: const $pb.PackageName('seville.node.v2'))
     ..aOM<$0.Timestamp>(7, _omitFieldNames ? '' : 'modifiedAt',
         subBuilder: $0.Timestamp.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  Note clone() => deepCopy();
+  Node clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  Note copyWith(void Function(Note) updates) =>
-      super.copyWith((message) => updates(message as Note)) as Note;
+  Node copyWith(void Function(Node) updates) =>
+      super.copyWith((message) => updates(message as Node)) as Node;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  static Note create() => Note._();
+  static Node create() => Node._();
   @$core.override
-  Note createEmptyInstance() => create();
+  Node createEmptyInstance() => create();
   @$core.pragma('dart2js:noInline')
-  static Note getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Note>(create);
-  static Note? _defaultInstance;
+  static Node getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Node>(create);
+  static Node? _defaultInstance;
 
   @$pb.TagNumber(1)
   $core.String get id => $_getSZ(0);
@@ -232,74 +233,75 @@ class Note extends $pb.GeneratedMessage {
   $0.Timestamp ensureModifiedAt() => $_ensure(6);
 }
 
-class Link extends $pb.GeneratedMessage {
-  factory Link({
-    $core.String? sourceNoteId,
+class NodeConnection extends $pb.GeneratedMessage {
+  factory NodeConnection({
+    $core.String? sourceNodeId,
     $core.String? targetText,
-    $core.String? resolvedTargetId,
+    $core.String? targetNodeId,
     $core.String? displayText,
-    LinkKind? kind,
+    NodeConnectionKind? kind,
     $core.String? fragment,
   }) {
     final result = create();
-    if (sourceNoteId != null) result.sourceNoteId = sourceNoteId;
+    if (sourceNodeId != null) result.sourceNodeId = sourceNodeId;
     if (targetText != null) result.targetText = targetText;
-    if (resolvedTargetId != null) result.resolvedTargetId = resolvedTargetId;
+    if (targetNodeId != null) result.targetNodeId = targetNodeId;
     if (displayText != null) result.displayText = displayText;
     if (kind != null) result.kind = kind;
     if (fragment != null) result.fragment = fragment;
     return result;
   }
 
-  Link._();
+  NodeConnection._();
 
-  factory Link.fromBuffer($core.List<$core.int> data,
+  factory NodeConnection.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromBuffer(data, registry);
-  factory Link.fromJson($core.String json,
+  factory NodeConnection.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'Link',
-      package: const $pb.PackageName(
-          _omitMessageNames ? '' : 'seville.knowledge.v1'),
+      _omitMessageNames ? '' : 'NodeConnection',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'seville.node.v2'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'sourceNoteId')
+    ..aOS(1, _omitFieldNames ? '' : 'sourceNodeId')
     ..aOS(2, _omitFieldNames ? '' : 'targetText')
-    ..aOS(3, _omitFieldNames ? '' : 'resolvedTargetId')
+    ..aOS(3, _omitFieldNames ? '' : 'targetNodeId')
     ..aOS(4, _omitFieldNames ? '' : 'displayText')
-    ..aE<LinkKind>(5, _omitFieldNames ? '' : 'kind',
-        enumValues: LinkKind.values)
+    ..aE<NodeConnectionKind>(5, _omitFieldNames ? '' : 'kind',
+        enumValues: NodeConnectionKind.values)
     ..aOS(6, _omitFieldNames ? '' : 'fragment')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  Link clone() => deepCopy();
+  NodeConnection clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  Link copyWith(void Function(Link) updates) =>
-      super.copyWith((message) => updates(message as Link)) as Link;
+  NodeConnection copyWith(void Function(NodeConnection) updates) =>
+      super.copyWith((message) => updates(message as NodeConnection))
+          as NodeConnection;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  static Link create() => Link._();
+  static NodeConnection create() => NodeConnection._();
   @$core.override
-  Link createEmptyInstance() => create();
+  NodeConnection createEmptyInstance() => create();
   @$core.pragma('dart2js:noInline')
-  static Link getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Link>(create);
-  static Link? _defaultInstance;
+  static NodeConnection getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<NodeConnection>(create);
+  static NodeConnection? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.String get sourceNoteId => $_getSZ(0);
+  $core.String get sourceNodeId => $_getSZ(0);
   @$pb.TagNumber(1)
-  set sourceNoteId($core.String value) => $_setString(0, value);
+  set sourceNodeId($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
-  $core.bool hasSourceNoteId() => $_has(0);
+  $core.bool hasSourceNodeId() => $_has(0);
   @$pb.TagNumber(1)
-  void clearSourceNoteId() => $_clearField(1);
+  void clearSourceNodeId() => $_clearField(1);
 
   @$pb.TagNumber(2)
   $core.String get targetText => $_getSZ(1);
@@ -311,13 +313,13 @@ class Link extends $pb.GeneratedMessage {
   void clearTargetText() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  $core.String get resolvedTargetId => $_getSZ(2);
+  $core.String get targetNodeId => $_getSZ(2);
   @$pb.TagNumber(3)
-  set resolvedTargetId($core.String value) => $_setString(2, value);
+  set targetNodeId($core.String value) => $_setString(2, value);
   @$pb.TagNumber(3)
-  $core.bool hasResolvedTargetId() => $_has(2);
+  $core.bool hasTargetNodeId() => $_has(2);
   @$pb.TagNumber(3)
-  void clearResolvedTargetId() => $_clearField(3);
+  void clearTargetNodeId() => $_clearField(3);
 
   @$pb.TagNumber(4)
   $core.String get displayText => $_getSZ(3);
@@ -329,9 +331,9 @@ class Link extends $pb.GeneratedMessage {
   void clearDisplayText() => $_clearField(4);
 
   @$pb.TagNumber(5)
-  LinkKind get kind => $_getN(4);
+  NodeConnectionKind get kind => $_getN(4);
   @$pb.TagNumber(5)
-  set kind(LinkKind value) => $_setField(5, value);
+  set kind(NodeConnectionKind value) => $_setField(5, value);
   @$pb.TagNumber(5)
   $core.bool hasKind() => $_has(4);
   @$pb.TagNumber(5)
@@ -347,8 +349,8 @@ class Link extends $pb.GeneratedMessage {
   void clearFragment() => $_clearField(6);
 }
 
-class ScanWarning extends $pb.GeneratedMessage {
-  factory ScanWarning({
+class ImportWarning extends $pb.GeneratedMessage {
+  factory ImportWarning({
     $core.String? path,
     $core.String? message,
   }) {
@@ -358,42 +360,42 @@ class ScanWarning extends $pb.GeneratedMessage {
     return result;
   }
 
-  ScanWarning._();
+  ImportWarning._();
 
-  factory ScanWarning.fromBuffer($core.List<$core.int> data,
+  factory ImportWarning.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromBuffer(data, registry);
-  factory ScanWarning.fromJson($core.String json,
+  factory ImportWarning.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'ScanWarning',
-      package: const $pb.PackageName(
-          _omitMessageNames ? '' : 'seville.knowledge.v1'),
+      _omitMessageNames ? '' : 'ImportWarning',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'seville.node.v2'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'path')
     ..aOS(2, _omitFieldNames ? '' : 'message')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ScanWarning clone() => deepCopy();
+  ImportWarning clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ScanWarning copyWith(void Function(ScanWarning) updates) =>
-      super.copyWith((message) => updates(message as ScanWarning))
-          as ScanWarning;
+  ImportWarning copyWith(void Function(ImportWarning) updates) =>
+      super.copyWith((message) => updates(message as ImportWarning))
+          as ImportWarning;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  static ScanWarning create() => ScanWarning._();
+  static ImportWarning create() => ImportWarning._();
   @$core.override
-  ScanWarning createEmptyInstance() => create();
+  ImportWarning createEmptyInstance() => create();
   @$core.pragma('dart2js:noInline')
-  static ScanWarning getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ScanWarning>(create);
-  static ScanWarning? _defaultInstance;
+  static ImportWarning getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ImportWarning>(create);
+  static ImportWarning? _defaultInstance;
 
   @$pb.TagNumber(1)
   $core.String get path => $_getSZ(0);
@@ -414,63 +416,65 @@ class ScanWarning extends $pb.GeneratedMessage {
   void clearMessage() => $_clearField(2);
 }
 
-class ScanStatus extends $pb.GeneratedMessage {
-  factory ScanStatus({
+class ImportStatus extends $pb.GeneratedMessage {
+  factory ImportStatus({
     $core.String? revision,
-    $0.Timestamp? scannedAt,
-    $core.int? noteCount,
-    $core.int? linkCount,
+    $0.Timestamp? importedAt,
+    $core.int? nodeCount,
+    $core.int? connectionCount,
     $core.int? warningCount,
   }) {
     final result = create();
     if (revision != null) result.revision = revision;
-    if (scannedAt != null) result.scannedAt = scannedAt;
-    if (noteCount != null) result.noteCount = noteCount;
-    if (linkCount != null) result.linkCount = linkCount;
+    if (importedAt != null) result.importedAt = importedAt;
+    if (nodeCount != null) result.nodeCount = nodeCount;
+    if (connectionCount != null) result.connectionCount = connectionCount;
     if (warningCount != null) result.warningCount = warningCount;
     return result;
   }
 
-  ScanStatus._();
+  ImportStatus._();
 
-  factory ScanStatus.fromBuffer($core.List<$core.int> data,
+  factory ImportStatus.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromBuffer(data, registry);
-  factory ScanStatus.fromJson($core.String json,
+  factory ImportStatus.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
       create()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
-      _omitMessageNames ? '' : 'ScanStatus',
-      package: const $pb.PackageName(
-          _omitMessageNames ? '' : 'seville.knowledge.v1'),
+      _omitMessageNames ? '' : 'ImportStatus',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'seville.node.v2'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'revision')
-    ..aOM<$0.Timestamp>(2, _omitFieldNames ? '' : 'scannedAt',
+    ..aOM<$0.Timestamp>(2, _omitFieldNames ? '' : 'importedAt',
         subBuilder: $0.Timestamp.create)
-    ..aI(3, _omitFieldNames ? '' : 'noteCount', fieldType: $pb.PbFieldType.OU3)
-    ..aI(4, _omitFieldNames ? '' : 'linkCount', fieldType: $pb.PbFieldType.OU3)
+    ..aI(3, _omitFieldNames ? '' : 'nodeCount', fieldType: $pb.PbFieldType.OU3)
+    ..aI(4, _omitFieldNames ? '' : 'connectionCount',
+        fieldType: $pb.PbFieldType.OU3)
     ..aI(5, _omitFieldNames ? '' : 'warningCount',
         fieldType: $pb.PbFieldType.OU3)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ScanStatus clone() => deepCopy();
+  ImportStatus clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ScanStatus copyWith(void Function(ScanStatus) updates) =>
-      super.copyWith((message) => updates(message as ScanStatus)) as ScanStatus;
+  ImportStatus copyWith(void Function(ImportStatus) updates) =>
+      super.copyWith((message) => updates(message as ImportStatus))
+          as ImportStatus;
 
   @$core.override
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  static ScanStatus create() => ScanStatus._();
+  static ImportStatus create() => ImportStatus._();
   @$core.override
-  ScanStatus createEmptyInstance() => create();
+  ImportStatus createEmptyInstance() => create();
   @$core.pragma('dart2js:noInline')
-  static ScanStatus getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ScanStatus>(create);
-  static ScanStatus? _defaultInstance;
+  static ImportStatus getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ImportStatus>(create);
+  static ImportStatus? _defaultInstance;
 
   @$pb.TagNumber(1)
   $core.String get revision => $_getSZ(0);
@@ -482,33 +486,33 @@ class ScanStatus extends $pb.GeneratedMessage {
   void clearRevision() => $_clearField(1);
 
   @$pb.TagNumber(2)
-  $0.Timestamp get scannedAt => $_getN(1);
+  $0.Timestamp get importedAt => $_getN(1);
   @$pb.TagNumber(2)
-  set scannedAt($0.Timestamp value) => $_setField(2, value);
+  set importedAt($0.Timestamp value) => $_setField(2, value);
   @$pb.TagNumber(2)
-  $core.bool hasScannedAt() => $_has(1);
+  $core.bool hasImportedAt() => $_has(1);
   @$pb.TagNumber(2)
-  void clearScannedAt() => $_clearField(2);
+  void clearImportedAt() => $_clearField(2);
   @$pb.TagNumber(2)
-  $0.Timestamp ensureScannedAt() => $_ensure(1);
+  $0.Timestamp ensureImportedAt() => $_ensure(1);
 
   @$pb.TagNumber(3)
-  $core.int get noteCount => $_getIZ(2);
+  $core.int get nodeCount => $_getIZ(2);
   @$pb.TagNumber(3)
-  set noteCount($core.int value) => $_setUnsignedInt32(2, value);
+  set nodeCount($core.int value) => $_setUnsignedInt32(2, value);
   @$pb.TagNumber(3)
-  $core.bool hasNoteCount() => $_has(2);
+  $core.bool hasNodeCount() => $_has(2);
   @$pb.TagNumber(3)
-  void clearNoteCount() => $_clearField(3);
+  void clearNodeCount() => $_clearField(3);
 
   @$pb.TagNumber(4)
-  $core.int get linkCount => $_getIZ(3);
+  $core.int get connectionCount => $_getIZ(3);
   @$pb.TagNumber(4)
-  set linkCount($core.int value) => $_setUnsignedInt32(3, value);
+  set connectionCount($core.int value) => $_setUnsignedInt32(3, value);
   @$pb.TagNumber(4)
-  $core.bool hasLinkCount() => $_has(3);
+  $core.bool hasConnectionCount() => $_has(3);
   @$pb.TagNumber(4)
-  void clearLinkCount() => $_clearField(4);
+  void clearConnectionCount() => $_clearField(4);
 
   @$pb.TagNumber(5)
   $core.int get warningCount => $_getIZ(4);
@@ -542,8 +546,8 @@ class ApiError extends $pb.GeneratedMessage {
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'ApiError',
-      package: const $pb.PackageName(
-          _omitMessageNames ? '' : 'seville.knowledge.v1'),
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'seville.node.v2'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'code')
     ..aOS(2, _omitFieldNames ? '' : 'message')

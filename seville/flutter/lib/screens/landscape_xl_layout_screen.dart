@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:seville_proto/seville_proto.dart';
@@ -61,14 +59,9 @@ class _LandscapeXlLayoutScreenState
     }
   }
 
-  Future<VaultNodeResolver> _loadVaultNodeResolver({
-    bool rescan = false,
-  }) async {
-    if (rescan) {
-      await _api.rescan();
-    }
+  Future<VaultNodeResolver> _loadVaultNodeResolver() async {
     final snapshot = await _api.snapshot();
-    return VaultNodeResolver.fromNotes(snapshot.notes);
+    return VaultNodeResolver.fromNodes(snapshot.nodes);
   }
 
   ResolvedVaultNode? _resolveInitialHighlightedNode(
@@ -97,8 +90,16 @@ class _LandscapeXlLayoutScreenState
   }
 
   void _handleLayoutTap(LayoutTapTarget target) {
-    final node = target.node;
-    if (node == null) {
+    if (target.layout is PanelLayout &&
+        target.layout.aliases.contains('action-button')) {
+      CommonUtilities.log(
+        '[action panel] ${target.label ?? target.key} button pressed',
+      );
+      return;
+    }
+
+    final component = target.node;
+    if (component == null) {
       CommonUtilities.log('[layout tap] ${target.key}: no node path');
       return;
     }
@@ -106,91 +107,51 @@ class _LandscapeXlLayoutScreenState
     final resolver = _vaultNodeResolver;
     if (resolver == null) {
       CommonUtilities.log(
-        '[layout tap] ${target.key}: snapshot is not loaded yet; cannot resolve "${node.path}"',
+        '[layout tap] ${target.key}: snapshot is not loaded yet; cannot resolve "${component.path}"',
       );
       return;
     }
 
-    final resolvedNode = target.resolvedNode ?? resolver.resolve(node);
-    final note = resolvedNode.note;
-    if (note == null) {
+    final resolvedNode = target.resolvedNode ?? resolver.resolve(component);
+    final resolvedGraphNode = resolvedNode.node;
+    if (resolvedGraphNode == null) {
       if (resolver.isEmpty) {
         CommonUtilities.log(
-          '[layout tap] ${target.key}: snapshot is empty; cannot resolve "${node.path}"',
+          '[layout tap] ${target.key}: snapshot is empty; cannot resolve "${component.path}"',
         );
         return;
       }
       CommonUtilities.log(
-        '[layout tap] ${target.key}: node "${node.path}" was not resolved',
+        '[layout tap] ${target.key}: node "${component.path}" was not resolved',
       );
       CommonUtilities.log(
-        'candidate paths: ${VaultNodeResolver.pathCandidates(node.path)}',
+        'candidate paths: ${VaultNodeResolver.pathCandidates(component.path)}',
       );
       CommonUtilities.log('snapshot paths sample: ${resolver.pathSample()}');
       CommonUtilities.log('snapshot titles sample: ${resolver.titleSample()}');
-      CommonUtilities.log('[layout tap] ${target.key}: refetching snapshot…');
-      unawaited(_refetchAndRetryNodeTap(target, node));
       return;
     }
 
-    _logResolvedNodeTap(target, resolvedNode, note);
+    _logResolvedNodeTap(target, resolvedNode, resolvedGraphNode);
     ref.read(selectedNodesProvider.notifier).select(resolvedNode);
-  }
-
-  Future<void> _refetchAndRetryNodeTap(
-    LayoutTapTarget target,
-    VaultNodeUiComponent node,
-  ) async {
-    try {
-      final resolver = await _loadVaultNodeResolver(rescan: true);
-      if (!mounted) return;
-      setState(() {
-        _vaultNodeResolver = resolver;
-      });
-      _highlightInitialNodeIfNeeded(resolver);
-
-      final resolvedNode = resolver.resolve(node);
-      final note = resolvedNode.note;
-      if (note == null) {
-        CommonUtilities.log(
-          '[layout tap] ${target.key}: still unresolved after rescan: "${node.path}"',
-        );
-        CommonUtilities.log(
-          'candidate paths: ${VaultNodeResolver.pathCandidates(node.path)}',
-        );
-        CommonUtilities.log('snapshot paths sample: ${resolver.pathSample()}');
-        CommonUtilities.log(
-          'snapshot titles sample: ${resolver.titleSample()}',
-        );
-        return;
-      }
-
-      CommonUtilities.log('[layout tap] ${target.key}: resolved after rescan');
-      _logResolvedNodeTap(target, resolvedNode, note);
-      ref.read(selectedNodesProvider.notifier).select(resolvedNode);
-    } catch (error) {
-      CommonUtilities.log(
-        '[layout tap] ${target.key}: rescan/refetch failed: $error',
-      );
-    }
   }
 
   void _logResolvedNodeTap(
     LayoutTapTarget target,
     ResolvedVaultNode resolvedNode,
-    Note note,
+    Node node,
   ) {
-    CommonUtilities.log('[layout tap] ${target.key}: ${note.title}');
+    CommonUtilities.log('[layout tap] ${target.key}: ${node.title}');
     CommonUtilities.log('node: ${resolvedNode.path}');
-    CommonUtilities.log('path: ${note.path}');
+    CommonUtilities.log('path: ${node.path}');
 
-    if (note.frontmatter.isEmpty) {
+    if (node.frontmatter.isEmpty) {
       CommonUtilities.log('frontmatter: <empty>');
       return;
     }
 
     CommonUtilities.log('frontmatter:');
-    for (final entry in note.frontmatter.entries) {
+    for (final entry in node.frontmatter.entries) {
       CommonUtilities.log('- ${entry.key}: ${entry.value}');
     }
   }

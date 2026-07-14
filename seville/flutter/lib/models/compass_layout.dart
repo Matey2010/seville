@@ -232,6 +232,7 @@ class CompassLayout extends PerceptualMapLayout {
     super.derivativeSnapshot,
     super.observables,
     super.modes,
+    super.inputSources,
     super.slotConfigs,
     super.columnFractions,
     super.rowFractions,
@@ -252,6 +253,7 @@ class CompassLayout extends PerceptualMapLayout {
     CompassGeometry? compassGeometry,
     CompassSlotStyle? compassSlotStyle,
     CompassFrame? frame,
+    List<LayoutInputSource>? inputSources,
   }) {
     return CompassLayout.fromAxes(
       axes: axes,
@@ -266,6 +268,7 @@ class CompassLayout extends PerceptualMapLayout {
       derivativeSnapshot: derivativeSnapshot,
       observables: observables,
       modes: modes,
+      inputSources: inputSources ?? this.inputSources,
       slotConfigs: slotConfigs,
       columnFractions: columnFractions,
       rowFractions: rowFractions,
@@ -356,6 +359,7 @@ class TimeCompassLayout extends CompassLayout {
     super.derivativeSnapshot,
     super.observables,
     super.modes,
+    super.inputSources,
     super.frame,
     super.slotConfigs,
     super.columnFractions,

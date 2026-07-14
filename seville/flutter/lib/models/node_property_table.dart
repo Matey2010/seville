@@ -66,6 +66,7 @@ class NodePropertyTable extends Layout with TableLayoutMixin {
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
     super.modes,
+    super.inputSources,
   }) : super.fromAxes();
 
   final List<MapEntry<String, GridAxisVariable>> columns;

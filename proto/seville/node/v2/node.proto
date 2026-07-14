@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package seville.node.v2;
+
+option go_package = "github.com/Matey2010/seville/proto/gen/go/seville/node/v2;nodev2";
+
+import "google/protobuf/timestamp.proto";
+
+message NodeSnapshot {
+  string revision = 1;
+  google.protobuf.Timestamp generated_at = 2;
+  repeated Node nodes = 3;
+  repeated NodeConnection connections = 4;
+  repeated ImportWarning warnings = 5;
+}
+
+message Node {
+  string id = 1;
+  string path = 2;
+  string title = 3;
+  string body = 4;
+  repeated string tags = 5;
+  map<string, string> frontmatter = 6;
+  google.protobuf.Timestamp modified_at = 7;
+}
+
+message NodeConnection {
+  string source_node_id = 1;
+  string target_text = 2;
+  optional string target_node_id = 3;
+  optional string display_text = 4;
+  NodeConnectionKind kind = 5;
+  optional string fragment = 6;
+}
+
+enum NodeConnectionKind {
+  NODE_CONNECTION_KIND_UNSPECIFIED = 0;
+  NODE_CONNECTION_KIND_WIKI = 1;
+  NODE_CONNECTION_KIND_MARKDOWN = 2;
+  NODE_CONNECTION_KIND_EMBED = 3;
+}
+
+message ImportWarning {
+  string path = 1;
+  string message = 2;
+}
+
+message ImportStatus {
+  string revision = 1;
+  google.protobuf.Timestamp imported_at = 2;
+  uint32 node_count = 3;
+  uint32 connection_count = 4;
+  uint32 warning_count = 5;
+}
+
+message ApiError {
+  string code = 1;
+  string message = 2;
+}

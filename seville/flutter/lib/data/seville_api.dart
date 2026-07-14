@@ -25,12 +25,12 @@ class SevilleApi {
   Future<BackendSummary> summary() async {
     await _dio.get<List<int>>('/healthz');
     try {
-      final response = await _dio.get<List<int>>('/v1/status');
+      final response = await _dio.get<List<int>>('/v2/status');
       final bytes = response.data;
       if (bytes == null) {
         throw const FormatException('The backend returned an empty status.');
       }
-      return BackendSummary(status: ScanStatus.fromBuffer(bytes));
+      return BackendSummary(status: ImportStatus.fromBuffer(bytes));
     } on DioException catch (error) {
       if (error.response?.statusCode == 401) {
         return const BackendSummary();
@@ -39,17 +39,13 @@ class SevilleApi {
     }
   }
 
-  Future<KnowledgeSnapshot> snapshot() async {
-    final response = await _dio.get<List<int>>('/v1/snapshot');
+  Future<NodeSnapshot> snapshot() async {
+    final response = await _dio.get<List<int>>('/v2/snapshot');
     final bytes = response.data;
     if (bytes == null) {
       throw const FormatException('The backend returned an empty snapshot.');
     }
-    return KnowledgeSnapshot.fromBuffer(bytes);
-  }
-
-  Future<void> rescan() async {
-    await _dio.post<List<int>>('/v1/admin/rescan');
+    return NodeSnapshot.fromBuffer(bytes);
   }
 
   void close() => _dio.close();
@@ -58,5 +54,5 @@ class SevilleApi {
 class BackendSummary {
   const BackendSummary({this.status});
 
-  final ScanStatus? status;
+  final ImportStatus? status;
 }

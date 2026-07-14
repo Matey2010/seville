@@ -31,11 +31,7 @@ func main() {
 	}
 	defer database.Close()
 
-	app := server.New(database, cfg.VaultPath, cfg.Token)
-	if err := app.InitialScan(); err != nil {
-		slog.Error("initial scan failed", "error", err)
-		os.Exit(1)
-	}
+	app := server.New(database, cfg.Token)
 
 	httpServer := &http.Server{
 		Addr:              cfg.Addr,
@@ -45,7 +41,7 @@ func main() {
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
-	slog.Info("seville backend listening", "addr", cfg.Addr, "source", cfg.Source, "vault", cfg.VaultPath)
+	slog.Info("seville backend listening", "addr", cfg.Addr)
 	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		slog.Error("server stopped", "error", err)
 		os.Exit(1)

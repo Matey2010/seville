@@ -4,6 +4,7 @@ class EraTimeline extends TrackLayout {
   const EraTimeline({
     required List<double> columnRatio,
     super.attributes,
+    super.inputSources,
     required super.elements,
   }) : super.fromAxes(axes: const [2], columnFractions: columnRatio);
 

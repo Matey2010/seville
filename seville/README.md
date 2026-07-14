@@ -22,13 +22,12 @@ flutter analyze
 flutter build macos
 ```
 
-Seville does not use unit tests as its client quality gate. Client
-quality is verified through static analysis, real application builds, manual
-visual review, and later integral/system testing around full user flows. Codex
-handoffs should include directions for manual verification; the final
-verification result belongs to the project owner.
+Seville clients do not contain or run automated tests. Do not add test suites,
+test dependencies, test targets, or test runners. Automated feedback is limited
+to formatting and static analysis. The project owner verifies final behavior
+in the real application.
 
-The application fetches the generated protobuf `KnowledgeSnapshot`, turns
+The application fetches the generated protobuf `NodeSnapshot`, turns
 resolved graph links into edges, and renders the result with Flame. Visual
 rules are deliberately centralized in
 [`flutter/lib/graph/graph_rules.dart`](flutter/lib/graph/graph_rules.dart):
@@ -36,7 +35,7 @@ rules are deliberately centralized in
 - the first matching tag determines node color;
 - weighted link degree determines node radius;
 - wiki links, Markdown links, and embeds have independent weights and colors;
-- unresolved links and links to filtered-out notes are not drawn.
+- unresolved connections and connections to filtered-out nodes are not drawn.
 
 The Flutter composition follows the open-box spatial model documented in
 [`flutter/SEVILLE_GUIDELINES.md`](flutter/SEVILLE_GUIDELINES.md).

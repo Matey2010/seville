@@ -4,6 +4,7 @@ class ConceptTimeline extends TrackLayout {
   const ConceptTimeline({
     required List<double> columnRatio,
     super.attributes,
+    super.inputSources,
     required super.elements,
   }) : super.fromAxes(axes: const [3], columnFractions: columnRatio);
 

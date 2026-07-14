@@ -29,7 +29,7 @@ system remains useful at every stage.
 ## Architecture today
 
 ```text
-Git checkout or Markdown folder
+Git checkout or Markdown folder (explicit migration only)
               |
               v
      Go source adapters and parser
@@ -53,8 +53,8 @@ Git checkout or Markdown folder
 | --- | --- |
 | Source adapters | Reading a local Git checkout or direct Markdown folder |
 | Go ingestion | YAML parsing, stable identity, normalization, validation, link resolution, and reconciliation policy |
-| Neo4j | Canonical notes, tags, relationships, scan state, and live graph queries |
-| Go API | Authentication, application rules, snapshots, status, and administrative rescan operations |
+| Neo4j | Canonical nodes, tags, relationships, scan state, and live graph queries |
+| Go API | Authentication, application rules, snapshots, status, and live graph reads |
 | Seville client | Interaction, layout, rendering, local UI state, and graph presentation |
 | Protocol Buffers | Current Go-to-client wire contract |
 
@@ -77,15 +77,16 @@ not the identity of the whole project and not a generic `interface` folder.
 
 ## Knowledge sources
 
-Seville currently accepts two source modes:
+The legacy migration accepts two source modes:
 
 - `git`: Markdown below a configured subfolder of an existing local Git
   checkout;
 - `vault`: Markdown directly below a configured folder.
 
-The Git adapter reads a checkout. It does not yet fetch, pull, merge, commit,
-or push. Git can provide early collaboration, history, and per-file conflict
-handling, while Seville remains responsible for graph semantics.
+The Git adapter reads a checkout only when the migration is run. It does not
+fetch, pull, merge, commit, or push. Git can provide early collaboration,
+history, and per-file conflict handling, while Seville remains responsible for
+graph semantics.
 
 The configured knowledge root is either:
 
@@ -93,12 +94,12 @@ The configured knowledge root is either:
 - `SEVILLE_VAULT_PATH`.
 
 There is intentionally no Neo4j-to-Markdown exporter in the architecture.
-Once imported, a note is edited through Seville and Neo4j. Sources remain
+Once imported, a Node is edited through Seville and Neo4j. Sources remain
 useful for discovering new records and later for governed synchronization.
 
 ## Identity and parsing
 
-Every durable source note must define a stable frontmatter `id`. It becomes
+Every durable source document must define a stable frontmatter `id`. It becomes
 `Node.id` and is the domain identity across imports, APIs, and future
 replicas.
 
@@ -147,16 +148,17 @@ confidence.
 
 ## Current ingestion policy
 
-Startup and `POST /v1/admin/rescan` scan the configured source. Today the
-operation is deliberately conservative:
+The legacy manual Obsidian migration scans its configured source. It is kept
+outside normal startup and the running API. Its operation is deliberately
+conservative:
 
 - unseen IDs are created;
-- existing Neo4j notes are not overwritten by source files;
-- tags are merged and normalized for scanned notes;
-- resolved links are created for newly imported notes;
+- existing Neo4j nodes are not overwritten by source files;
+- tags are merged and normalized for scanned nodes;
+- resolved connections are created for newly imported nodes;
 - absent source files do not delete graph nodes;
 - duplicate IDs fail the scan;
-- malformed or ID-less notes are reported.
+- malformed or ID-less source records are reported.
 
 This is import-plus-discovery, not complete bidirectional synchronization.
 
@@ -187,9 +189,12 @@ then use the same reconciliation engine.
 The current authenticated API is:
 
 - `GET /healthz` — process health;
-- `GET /v1/status` — latest ingestion status;
-- `GET /v1/snapshot` — live Neo4j graph as protobuf;
-- `POST /v1/admin/rescan` — scan for source changes and unseen IDs.
+- `GET /v2/status` — latest ingestion status;
+- `GET /v2/snapshot` — live Neo4j graph as `NodeSnapshot` protobuf;
+
+Migration is not currently an API operation. A future user-facing migration
+workflow should add preview, provenance, source checkpoints, and explicit
+duplicate/conflict handling before it writes to the canonical graph.
 
 The client never connects directly to Neo4j. Go is the security and application
 boundary.

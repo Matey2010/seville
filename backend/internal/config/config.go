@@ -32,7 +32,16 @@ func Load() (Config, error) {
 		Neo4jDatabase: value("SEVILLE_NEO4J_DATABASE", "neo4j"),
 		Token:         value("SEVILLE_TOKEN", "local-seville-token"),
 	}
+	return cfg, nil
+}
 
+// LoadMigration validates and resolves the source-specific paths used only by
+// explicit migration commands. The running backend must not require a source.
+func LoadMigration() (Config, error) {
+	cfg, err := Load()
+	if err != nil {
+		return Config{}, err
+	}
 	switch cfg.Source {
 	case "vault":
 		var err error

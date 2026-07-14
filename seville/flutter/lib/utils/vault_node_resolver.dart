@@ -1,30 +1,29 @@
 import 'package:seville_proto/seville_proto.dart';
 
-import '../domain/node.dart';
 import '../models/layout.dart';
 
 class VaultNodeResolver {
-  const VaultNodeResolver._(this._notesByPath, this._notes);
+  const VaultNodeResolver._(this._nodesByPath, this._nodes);
 
-  factory VaultNodeResolver.fromNotes(Iterable<Note> notes) {
-    final noteList = List<Note>.unmodifiable(notes);
+  factory VaultNodeResolver.fromNodes(Iterable<Node> nodes) {
+    final nodeList = List<Node>.unmodifiable(nodes);
     return VaultNodeResolver._({
-      for (final note in noteList) normalizePath(note.path): note,
-    }, noteList);
+      for (final node in nodeList) normalizePath(node.path): node,
+    }, nodeList);
   }
 
   static const empty = VaultNodeResolver._({}, []);
 
-  final Map<String, Note> _notesByPath;
-  final List<Note> _notes;
+  final Map<String, Node> _nodesByPath;
+  final List<Node> _nodes;
 
-  bool get isEmpty => _notes.isEmpty;
+  bool get isEmpty => _nodes.isEmpty;
 
   ResolvedVaultNode resolve(VaultNodeUiComponent component) {
     final configuredStatus = component.status;
     if (configuredStatus != null) {
-      final note = configuredStatus == LayoutHttpStatus.ok
-          ? _findNote(component.path)
+      final node = configuredStatus == LayoutHttpStatus.ok
+          ? _findNode(component.path)
           : null;
       return ResolvedVaultNode(
         path: component.path,
@@ -32,22 +31,20 @@ class VaultNodeResolver {
         label: component.label,
         status: component.status,
         backgrounds: component.backgrounds,
-        node: note == null ? null : Node.fromNote(note),
-        note: note,
+        node: node,
         resolvedStatus: configuredStatus,
       );
     }
 
-    final note = _findNote(component.path);
+    final node = _findNode(component.path);
     return ResolvedVaultNode(
       path: component.path,
       color: component.color,
       label: component.label,
       status: component.status,
       backgrounds: component.backgrounds,
-      node: note == null ? null : Node.fromNote(note),
-      note: note,
-      resolvedStatus: note == null
+      node: node,
+      resolvedStatus: node == null
           ? LayoutHttpStatus.notFound
           : LayoutHttpStatus.ok,
     );
@@ -79,20 +76,20 @@ class VaultNodeResolver {
   }
 
   Iterable<String> pathSample({int count = 12}) =>
-      _notes.map((note) => note.path).take(count);
+      _nodes.map((node) => node.path).take(count);
 
   Iterable<String> titleSample({int count = 12}) =>
-      _notes.map((note) => note.title).take(count);
+      _nodes.map((node) => node.title).take(count);
 
-  Note? _findNote(String path) {
+  Node? _findNode(String path) {
     for (final candidate in pathCandidates(path)) {
-      final note = _notesByPath[candidate];
-      if (note != null) return note;
+      final node = _nodesByPath[candidate];
+      if (node != null) return node;
     }
 
     if (isCortexRootPath(path)) {
-      for (final note in _notes) {
-        if (_isCortexRootNote(note)) return note;
+      for (final node in _nodes) {
+        if (_isCortexRootNode(node)) return node;
       }
     }
 
@@ -125,9 +122,9 @@ class VaultNodeResolver {
     return normalized.isEmpty || normalized == 'cortex';
   }
 
-  static bool _isCortexRootNote(Note note) {
-    final path = normalizePath(note.path);
-    final title = normalizePath(note.title);
+  static bool _isCortexRootNode(Node node) {
+    final path = normalizePath(node.path);
+    final title = normalizePath(node.title);
     return path == 'cortex' ||
         path == 'cortex/cortex' ||
         title == 'cortex' ||
