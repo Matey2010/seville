@@ -23,7 +23,7 @@ At backend startup and on `POST /v1/admin/rescan`, the importer:
 
 1. parses Markdown and typed YAML frontmatter using a YAML 1.2 parser;
 2. normalizes frontmatter and inline tags into canonical lowercase tag IDs;
-3. stores tags as `(:SevilleNote)-[:TAGGED_WITH {weight: 1.0}]->(:Tag)`;
+3. stores tags as `(:Node)-[:TAGGED_WITH {weight: 1.0}]->(:Tag)`;
 4. rejects duplicate IDs and reports notes without IDs as scan warnings;
 5. creates only IDs that do not already exist in Neo4j;
 6. creates resolved `LINKS_TO` relationships for newly imported notes; and

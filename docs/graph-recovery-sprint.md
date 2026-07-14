@@ -41,7 +41,7 @@ HTTP port configured by Compose, normally `http://127.0.0.1:7474`.
 Query by Seville's stable ID:
 
 ```cypher
-MATCH (n:SevilleNote {id: $id})
+MATCH (n:Node {id: $id})
 RETURN n;
 ```
 
@@ -51,13 +51,13 @@ internal locator and is not Seville identity.
 Useful checks:
 
 ```cypher
-MATCH (n:SevilleNote) RETURN count(n);
+MATCH (n:Node) RETURN count(n);
 
-MATCH (n:SevilleNote)-[r:TAGGED_WITH]->(t:Tag)
+MATCH (n:Node)-[r:TAGGED_WITH]->(t:Tag)
 RETURN n.id, t.name, r.weight
 LIMIT 100;
 
-MATCH (a:SevilleNote)-[:LINKS_TO]->(b:SevilleNote)
+MATCH (a:Node)-[:LINKS_TO]->(b:Node)
 RETURN a.id, b.id
 LIMIT 100;
 ```

@@ -67,24 +67,20 @@ func (s *Neo4jStore) session(ctx context.Context, mode neo4j.AccessMode) neo4j.S
 func (s *Neo4jStore) migrate(ctx context.Context) error {
 	session := s.session(ctx, neo4j.AccessModeWrite)
 	defer session.Close(ctx)
-	_, err := session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
-		constraints := []string{
-			`CREATE CONSTRAINT seville_note_id IF NOT EXISTS FOR (note:SevilleNote) REQUIRE note.id IS UNIQUE`,
-			`CREATE CONSTRAINT seville_tag_id IF NOT EXISTS FOR (tag:Tag) REQUIRE tag.id IS UNIQUE`,
+	statements := []string{
+		`MATCH (node:SevilleNote) SET node:Node REMOVE node:SevilleNote`,
+		`DROP CONSTRAINT seville_note_id IF EXISTS`,
+		`CREATE CONSTRAINT node_id IF NOT EXISTS FOR (node:Node) REQUIRE node.id IS UNIQUE`,
+		`CREATE CONSTRAINT seville_tag_id IF NOT EXISTS FOR (tag:Tag) REQUIRE tag.id IS UNIQUE`,
+	}
+	for _, statement := range statements {
+		result, err := session.Run(ctx, statement, nil)
+		if err != nil {
+			return fmt.Errorf("migrate neo4j: %w", err)
 		}
-		for _, constraint := range constraints {
-			result, err := tx.Run(ctx, constraint, nil)
-			if err != nil {
-				return nil, err
-			}
-			if _, err := result.Consume(ctx); err != nil {
-				return nil, err
-			}
+		if _, err := result.Consume(ctx); err != nil {
+			return fmt.Errorf("migrate neo4j: %w", err)
 		}
-		return nil, nil
-	})
-	if err != nil {
-		return fmt.Errorf("migrate neo4j: %w", err)
 	}
 	return nil
 }
@@ -142,22 +138,22 @@ func (s *Neo4jStore) ImportNew(ctx context.Context, snapshot *knowledgev1.Knowle
 			params map[string]any
 		}{
 			{`UNWIND $notes AS row
-MERGE (note:SevilleNote {id: row.id})
+MERGE (note:Node {id: row.id})
 ON CREATE SET note = row, note.import_revision = $revision`, map[string]any{"notes": notes, "revision": snapshot.Revision}},
 			{`UNWIND $taggings AS row
-MATCH (note:SevilleNote {id: row.note_id})
+MATCH (note:Node {id: row.note_id})
 MERGE (tag:Tag {id: row.tag_id})
 ON CREATE SET tag.name = row.tag_id
 MERGE (note)-[tagging:TAGGED_WITH]->(tag)
 ON CREATE SET tagging.weight = row.weight, tagging.source = 'markdown'`, map[string]any{"taggings": taggings}},
 			{`UNWIND $links AS row
-MATCH (source:SevilleNote {id: row.source})
-MATCH (target:SevilleNote {id: row.target})
+MATCH (source:Node {id: row.source})
+MATCH (target:Node {id: row.target})
 WHERE source.import_revision = $revision
 MERGE (source)-[link:LINKS_TO {index: row.index}]->(target)
 SET link = row`, map[string]any{"links": resolvedLinks, "revision": snapshot.Revision}},
 			{`UNWIND $links AS row
-MATCH (source:SevilleNote {id: row.source})
+MATCH (source:Node {id: row.source})
 WHERE source.import_revision = $revision
 MERGE (link:SevilleUnresolvedLink {source: row.source, index: row.index})
 SET link = row
@@ -223,7 +219,7 @@ RETURN state.revision AS revision, state.generated_at AS generated_at,
 }
 
 func (s *Neo4jStore) readNotes(ctx context.Context, session neo4j.Session, snapshot *knowledgev1.KnowledgeSnapshot) error {
-	result, err := session.Run(ctx, `MATCH (note:SevilleNote)
+	result, err := session.Run(ctx, `MATCH (note:Node)
 OPTIONAL MATCH (note)-[:TAGGED_WITH]->(tag:Tag)
 WITH note, [tagId IN collect(tag.id) WHERE tagId IS NOT NULL] AS graphTags
 RETURN note.id AS id, note.path AS path, note.title AS title, note.body AS body,
@@ -288,11 +284,11 @@ func isStoredNoteField(key string) bool {
 }
 
 func (s *Neo4jStore) readLinks(ctx context.Context, session neo4j.Session, snapshot *knowledgev1.KnowledgeSnapshot) error {
-	result, err := session.Run(ctx, `MATCH (source:SevilleNote)-[link:LINKS_TO]->(target:SevilleNote)
+	result, err := session.Run(ctx, `MATCH (source:Node)-[link:LINKS_TO]->(target:Node)
 RETURN source.id AS source, target.id AS target, link.target_text AS target_text,
        link.display_text AS display_text, link.kind AS kind, link.fragment AS fragment, link.index AS index
 UNION ALL
-MATCH (source:SevilleNote)-[:HAS_UNRESOLVED_LINK]->(link:SevilleUnresolvedLink)
+MATCH (source:Node)-[:HAS_UNRESOLVED_LINK]->(link:SevilleUnresolvedLink)
 RETURN source.id AS source, null AS target, link.target_text AS target_text,
        link.display_text AS display_text, link.kind AS kind, link.fragment AS fragment, link.index AS index
 ORDER BY source, index`, nil)

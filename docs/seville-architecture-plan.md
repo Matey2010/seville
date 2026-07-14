@@ -99,7 +99,7 @@ useful for discovering new records and later for governed synchronization.
 ## Identity and parsing
 
 Every durable source note must define a stable frontmatter `id`. It becomes
-`SevilleNote.id` and is the domain identity across imports, APIs, and future
+`Node.id` and is the domain identity across imports, APIs, and future
 replicas.
 
 Neo4j's `elementId()` is an internal database locator. It must never be stored,
@@ -123,21 +123,21 @@ identity. Notes without IDs are skipped and reported.
 The current core graph uses:
 
 ```cypher
-(:SevilleNote {
+(:Node {
   id, path, title, body, tags, frontmatter_json
 })
 
 (:Tag {id, name})
 
-(:SevilleNote)-[:TAGGED_WITH {
+(:Node)-[:TAGGED_WITH {
   weight: 1.0,
   source: "markdown"
 }]->(:Tag)
 
-(:SevilleNote)-[:LINKS_TO]->(:SevilleNote)
+(:Node)-[:LINKS_TO]->(:Node)
 ```
 
-`SevilleNote.id` and `Tag.id` are unique. Unresolved targets are retained as
+`Node.id` and `Tag.id` are unique. Unresolved targets are retained as
 `SevilleUnresolvedLink` records rather than discarded. `SevilleScanState`
 stores ingestion status and diagnostics.
 
