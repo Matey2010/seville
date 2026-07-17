@@ -37,7 +37,7 @@
 ## Dart configuration style
 
 - Model files put their primary public model immediately after imports. Follow
-  it with that model's modes, context, and directly associated definitions;
+  it with that model's conditions, context, and directly associated definitions;
   supporting typedefs, keys, enums, helpers, and concrete specializations come
   afterward. Do not make readers cross a soup of implementation vocabulary to
   find the model that gives the file its name and reason to exist.

@@ -10,7 +10,7 @@ class LandscapeXlLayout extends Layout {
     super.derivatives,
     super.derivativeSnapshot,
     super.observables,
-    super.modes,
+    super.visibility,
     super.inputSources,
     super.layoutDefaults,
   }) : super.fromAxes();
@@ -31,7 +31,7 @@ class SafeAreaLayout extends LandscapeXlLayout {
     super.derivatives,
     super.derivativeSnapshot,
     super.observables,
-    super.modes,
+    super.visibility,
     super.inputSources,
     super.layoutDefaults,
   });

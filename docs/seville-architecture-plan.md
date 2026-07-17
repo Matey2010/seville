@@ -192,6 +192,12 @@ The current authenticated API is:
 - `GET /v2/status` — latest ingestion status;
 - `GET /v2/snapshot` — live Neo4j graph as `NodeSnapshot` protobuf;
 
+The read-only system endpoint `GET /system/v1/info` reports the
+stable Node count and total Node property-assignment count directly from Neo4j.
+Its contract and the conventions for group-local versions, protobuf fields,
+generated casing, and count types are defined in
+[`http-api-conventions.md`](http-api-conventions.md).
+
 Migration is not currently an API operation. A future user-facing migration
 workflow should add preview, provenance, source checkpoints, and explicit
 duplicate/conflict handling before it writes to the canonical graph.

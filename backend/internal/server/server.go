@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/Matey2010/seville/backend/internal/store"
@@ -13,12 +14,13 @@ import (
 )
 
 type Server struct {
-	store store.SnapshotReader
-	token string
+	store      store.Reader
+	token      string
+	rootNodeID string
 }
 
-func New(store store.SnapshotReader, token string) *Server {
-	return &Server{store: store, token: token}
+func New(store store.Reader, token, rootNodeID string) *Server {
+	return &Server{store: store, token: token, rootNodeID: rootNodeID}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -30,7 +32,51 @@ func (s *Server) Handler() http.Handler {
 	})
 	mux.Handle("GET /v2/status", s.auth(http.HandlerFunc(s.status)))
 	mux.Handle("GET /v2/snapshot", s.auth(http.HandlerFunc(s.snapshot)))
+	mux.Handle("GET /system/v1/info", s.auth(http.HandlerFunc(s.systemInfo)))
+	mux.Handle("GET /nodes/v1/tree", s.auth(http.HandlerFunc(s.nodeTree)))
 	return localCORS(mux)
+}
+
+func (s *Server) nodeTree(w http.ResponseWriter, r *http.Request) {
+	rootNodeID := strings.TrimSpace(r.URL.Query().Get("root_node_id"))
+	if rootNodeID == "" {
+		rootNodeID = strings.TrimSpace(s.rootNodeID)
+	}
+	if rootNodeID == "" {
+		s.writeError(w, http.StatusBadRequest, "root_node_id_required", "root_node_id is required when SEVILLE_ROOT_NODE_ID is not configured.")
+		return
+	}
+
+	depth := uint64(3)
+	if rawDepth := strings.TrimSpace(r.URL.Query().Get("depth")); rawDepth != "" {
+		parsedDepth, err := strconv.ParseUint(rawDepth, 10, 32)
+		if err != nil {
+			s.writeError(w, http.StatusBadRequest, "invalid_depth", "depth must be an unsigned integer.")
+			return
+		}
+		depth = parsedDepth
+	}
+	tree, err := s.store.NodeTree(r.Context(), rootNodeID, uint32(depth))
+	if errors.Is(err, store.ErrNodeNotFound) {
+		s.writeError(w, http.StatusNotFound, "root_node_not_found", "The requested root Node does not exist.")
+		return
+	}
+	if err != nil {
+		slog.Error("read node tree failed", "error", err, "root_node_id", rootNodeID, "depth", depth)
+		s.writeError(w, http.StatusInternalServerError, "storage_error", "The Node tree could not be read.")
+		return
+	}
+	s.writeProto(w, http.StatusOK, tree)
+}
+
+func (s *Server) systemInfo(w http.ResponseWriter, r *http.Request) {
+	info, err := s.store.SystemInfo(r.Context())
+	if err != nil {
+		slog.Error("read system info failed", "error", err)
+		s.writeError(w, http.StatusInternalServerError, "storage_error", "System information could not be read.")
+		return
+	}
+	s.writeProto(w, http.StatusOK, info)
 }
 
 func localCORS(next http.Handler) http.Handler {

@@ -1,0 +1,6 @@
+name: table_data
+description: Renderer-independent table data, grouping, and ordering logic.
+version: 0.1.0
+
+environment:
+  sdk: ^3.12.0

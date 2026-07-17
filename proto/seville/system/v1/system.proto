@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package seville.system.v1;
+
+option go_package = "github.com/Matey2010/seville/proto/gen/go/seville/system/v1;systemv1";
+
+message SystemInfo {
+  uint64 node_count = 1;
+  uint64 node_property_count = 2;
+}

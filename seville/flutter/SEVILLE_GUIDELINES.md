@@ -208,6 +208,14 @@ preserving the five-surface composition and top-down spectator perspective.
 
 ## Layout parameters
 
+Every `Layout` accepts `visibility: List<LayoutCondition>`. A layout is visible
+only when every configured condition is active for the current `LayoutContext`.
+The default empty list is visible because there are no failed conditions. Use
+`visibility` for direct show/hide configuration such as no-Node-selected or
+has-active-Nodes UI. Use `ConditionalDerivative` when geometry must select
+between alternatives. Compose these condition-bearing primitives directly;
+layouts do not introduce an intermediate mode or named condition-group layer.
+
 `defaultOpenBoxLayout` is the complete default composition.
 `OpenBoxSpatialLayout` is a reusable `SceneLayout` subtype, so it can itself be
 placed in another layout's `subLayouts`. Its immediate children are deliberately
@@ -459,11 +467,11 @@ rendering components. Do not spread design-system concepts across widgets and
 components just because that is where they are first used.
 
 Model files are ordered around their reason for existence. After imports, put
-the primary public model first, followed by its modes, context, and immediately
-related definitions. Supporting typedefs, key constants, enums, helper value
-objects, and concrete variants follow the headliner. File organization should
-let a reader understand the stable public shape before encountering its
-interchangeable implementation vocabulary.
+the primary public model first, followed by its conditions, context, and
+immediately related definitions. Supporting typedefs, key constants, enums,
+helper value objects, and concrete variants follow the headliner. File
+organization should let a reader understand the stable public shape before
+encountering its interchangeable implementation vocabulary.
 
 - `lib/models/` contains durable interface and graph models: semantic data
   types, layout presets, dimension primitives, and other objects that describe

@@ -7,6 +7,8 @@ import (
 	"time"
 
 	nodev2 "github.com/Matey2010/seville/proto/gen/go/seville/node/v2"
+	nodesv1 "github.com/Matey2010/seville/proto/gen/go/seville/nodes/v1"
+	systemv1 "github.com/Matey2010/seville/proto/gen/go/seville/system/v1"
 	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -81,6 +83,132 @@ func (s *Neo4jStore) migrate(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func (s *Neo4jStore) SystemInfo(ctx context.Context) (*systemv1.SystemInfo, error) {
+	session := s.session(ctx, neo4j.AccessModeRead)
+	defer session.Close(ctx)
+	result, err := session.Run(ctx, `MATCH (node:Node)
+WHERE node.id IS NOT NULL AND trim(toString(node.id)) <> ''
+RETURN count(node) AS node_count,
+       sum(size(keys(node))) AS node_property_count`, nil)
+	if err != nil {
+		return nil, fmt.Errorf("query neo4j system info: %w", err)
+	}
+	if !result.Next(ctx) {
+		if err := result.Err(); err != nil {
+			return nil, fmt.Errorf("read neo4j system info: %w", err)
+		}
+		return nil, fmt.Errorf("read neo4j system info: empty result")
+	}
+	record := result.Record()
+	nodeCount, ok := recordInt64(record, "node_count")
+	if !ok || nodeCount < 0 {
+		return nil, fmt.Errorf("read neo4j system info: invalid node_count")
+	}
+	nodePropertyCount, ok := recordInt64(record, "node_property_count")
+	if !ok || nodePropertyCount < 0 {
+		return nil, fmt.Errorf("read neo4j system info: invalid node_property_count")
+	}
+	return &systemv1.SystemInfo{
+		NodeCount:         uint64(nodeCount),
+		NodePropertyCount: uint64(nodePropertyCount),
+	}, nil
+}
+
+func (s *Neo4jStore) NodeTree(ctx context.Context, rootNodeID string, depth uint32) (*nodesv1.NodeTree, error) {
+	session := s.session(ctx, neo4j.AccessModeRead)
+	defer session.Close(ctx)
+
+	rootResult, err := session.Run(ctx, `MATCH (node:Node {id: $root_node_id})
+OPTIONAL MATCH (node)-[:TAGGED_WITH]->(tag:Tag)
+WITH node, [tagId IN collect(tag.id) WHERE tagId IS NOT NULL] AS graphTags
+RETURN node.id AS id, node.path AS path, node.title AS title, node.body AS body,
+       CASE WHEN size(graphTags) > 0 THEN graphTags ELSE node.tags END AS tags,
+       node.frontmatter_json AS frontmatter_json,
+       node.modified_at AS modified_at, properties(node) AS properties`, map[string]any{
+		"root_node_id": rootNodeID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("query radial tree root: %w", err)
+	}
+	if !rootResult.Next(ctx) {
+		if err := rootResult.Err(); err != nil {
+			return nil, fmt.Errorf("read radial tree root: %w", err)
+		}
+		return nil, ErrNodeNotFound
+	}
+	root := nodeFromRecord(rootResult.Record())
+	tree := &nodesv1.NodeTree{
+		RootNodeId:   rootNodeID,
+		Relationship: nodesv1.NodeRelationshipType_NODE_RELATIONSHIP_TYPE_PART_OF,
+		Depth:        depth,
+	}
+	rootOccurrence := &nodesv1.NodeTreeOccurrence{
+		OccurrenceId: "0",
+		Depth:        0,
+		Node:         root,
+	}
+	tree.Occurrences = append(tree.Occurrences, rootOccurrence)
+	current := []*nodesv1.NodeTreeOccurrence{rootOccurrence}
+
+	for level := uint32(1); level != 0 && level <= depth && len(current) > 0; level++ {
+		parentIDs := make([]string, 0, len(current))
+		seenParentIDs := make(map[string]struct{}, len(current))
+		for _, occurrence := range current {
+			id := occurrence.Node.GetId()
+			if _, seen := seenParentIDs[id]; seen {
+				continue
+			}
+			seenParentIDs[id] = struct{}{}
+			parentIDs = append(parentIDs, id)
+		}
+
+		result, err := session.Run(ctx, `MATCH (child:Node)-[relationship:PART_OF]->(parent:Node)
+WHERE parent.id IN $parent_node_ids
+OPTIONAL MATCH (child)-[:TAGGED_WITH]->(tag:Tag)
+WITH parent, child, relationship,
+     [tagId IN collect(tag.id) WHERE tagId IS NOT NULL] AS graphTags
+RETURN parent.id AS parent_id,
+       child.id AS id, child.path AS path, child.title AS title, child.body AS body,
+       CASE WHEN size(graphTags) > 0 THEN graphTags ELSE child.tags END AS tags,
+       child.frontmatter_json AS frontmatter_json,
+       child.modified_at AS modified_at, properties(child) AS properties,
+       elementId(relationship) AS relationship_id
+ORDER BY parent.id, child.path, child.id, relationship_id`, map[string]any{
+			"parent_node_ids": parentIDs,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("query radial tree depth %d: %w", level, err)
+		}
+		childrenByParent := make(map[string][]*nodev2.Node)
+		for result.Next(ctx) {
+			record := result.Record()
+			parentID, _ := recordString(record, "parent_id")
+			childrenByParent[parentID] = append(childrenByParent[parentID], nodeFromRecord(record))
+		}
+		if err := result.Err(); err != nil {
+			return nil, fmt.Errorf("read radial tree depth %d: %w", level, err)
+		}
+
+		next := make([]*nodesv1.NodeTreeOccurrence, 0)
+		for _, parent := range current {
+			for childIndex, child := range childrenByParent[parent.Node.GetId()] {
+				parentOccurrenceID := parent.OccurrenceId
+				occurrence := &nodesv1.NodeTreeOccurrence{
+					OccurrenceId:       fmt.Sprintf("%s/%d", parentOccurrenceID, childIndex),
+					ParentOccurrenceId: &parentOccurrenceID,
+					Depth:              level,
+					Node:               child,
+				}
+				tree.Occurrences = append(tree.Occurrences, occurrence)
+				next = append(next, occurrence)
+			}
+		}
+		current = next
+	}
+
+	return tree, nil
 }
 
 func (s *Neo4jStore) ImportNew(ctx context.Context, snapshot *nodev2.NodeSnapshot) error {
@@ -229,47 +357,53 @@ ORDER BY node.path`, nil)
 		return fmt.Errorf("query neo4j nodes: %w", err)
 	}
 	for result.Next(ctx) {
-		record := result.Record()
-		node := &nodev2.Node{}
-		node.Id, _ = recordString(record, "id")
-		node.Path, _ = recordString(record, "path")
-		node.Title, _ = recordString(record, "title")
-		node.Body, _ = recordString(record, "body")
-		if values, ok := record.Get("tags"); ok {
-			if items, ok := values.([]any); ok {
-				for _, item := range items {
-					if value, ok := item.(string); ok {
-						node.Tags = append(node.Tags, value)
-					}
-				}
-			}
-		}
-		if raw, ok := recordString(record, "frontmatter_json"); ok {
-			_ = json.Unmarshal([]byte(raw), &node.Frontmatter)
-		}
-		if properties, ok := record.Get("properties"); ok {
-			if values, ok := properties.(map[string]any); ok {
-				for key, value := range values {
-					if isStoredNodeField(key) {
-						continue
-					}
-					if text, ok := value.(string); ok {
-						node.Frontmatter[key] = text
-					}
-				}
-			}
-		}
-		if value, ok := record.Get("modified_at"); ok {
-			if nanos, ok := value.(int64); ok {
-				node.ModifiedAt = timestamppb.New(time.Unix(0, nanos).UTC())
-			}
-		}
-		snapshot.Nodes = append(snapshot.Nodes, node)
+		snapshot.Nodes = append(snapshot.Nodes, nodeFromRecord(result.Record()))
 	}
 	if err := result.Err(); err != nil {
 		return fmt.Errorf("read neo4j nodes: %w", err)
 	}
 	return nil
+}
+
+func nodeFromRecord(record *neo4j.Record) *nodev2.Node {
+	node := &nodev2.Node{}
+	node.Id, _ = recordString(record, "id")
+	node.Path, _ = recordString(record, "path")
+	node.Title, _ = recordString(record, "title")
+	node.Body, _ = recordString(record, "body")
+	if values, ok := record.Get("tags"); ok {
+		if items, ok := values.([]any); ok {
+			for _, item := range items {
+				if value, ok := item.(string); ok {
+					node.Tags = append(node.Tags, value)
+				}
+			}
+		}
+	}
+	if raw, ok := recordString(record, "frontmatter_json"); ok {
+		_ = json.Unmarshal([]byte(raw), &node.Frontmatter)
+	}
+	if node.Frontmatter == nil {
+		node.Frontmatter = make(map[string]string)
+	}
+	if properties, ok := record.Get("properties"); ok {
+		if values, ok := properties.(map[string]any); ok {
+			for key, value := range values {
+				if isStoredNodeField(key) {
+					continue
+				}
+				if text, ok := value.(string); ok {
+					node.Frontmatter[key] = text
+				}
+			}
+		}
+	}
+	if value, ok := record.Get("modified_at"); ok {
+		if nanos, ok := value.(int64); ok {
+			node.ModifiedAt = timestamppb.New(time.Unix(0, nanos).UTC())
+		}
+	}
+	return node
 }
 
 func isStoredNodeField(key string) bool {
@@ -333,6 +467,15 @@ func recordString(record *neo4j.Record, key string) (string, bool) {
 	}
 	text, ok := value.(string)
 	return text, ok
+}
+
+func recordInt64(record *neo4j.Record, key string) (int64, bool) {
+	value, ok := record.Get(key)
+	if !ok {
+		return 0, false
+	}
+	integer, ok := value.(int64)
+	return integer, ok
 }
 
 func stringValue(value *string) any {

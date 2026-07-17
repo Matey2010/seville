@@ -14,7 +14,7 @@ abstract class Layout {
     this.derivatives = const {},
     this.derivativeSnapshot,
     this.observables = const {},
-    this.modes = const {},
+    this.visibility = const [],
     this.inputSources = LayoutInputSource.values,
     this.layoutDefaults,
     this.columnFractions,
@@ -37,7 +37,10 @@ abstract class Layout {
   final Map<String, LayoutDerivativeSnapshot> derivatives;
   final String? derivativeSnapshot;
   final Map<String, LayoutObservable> observables;
-  final Map<String, LayoutMode> modes;
+
+  /// Conditions that must all be active for this layout to be visible.
+  /// An empty list is visible because every configured condition is satisfied.
+  final List<LayoutCondition> visibility;
 
   /// Input channels allowed to originate interactions with this layout.
   final List<LayoutInputSource> inputSources;
@@ -111,41 +114,14 @@ abstract class Layout {
     return requestedInset.clamp(0, size.shortestSide / 2).toDouble();
   }
 
-  LayoutMode? getMode(String? mode) {
-    if (mode == null) return null;
-    final direct = modes[mode];
-    if (direct != null) return direct;
-    for (final candidate in modes.values) {
-      if (candidate.id == mode || candidate.aliases.contains(mode)) {
-        return candidate;
-      }
-    }
-    return null;
-  }
-
-  LayoutMode? resolveMode(LayoutContext context) {
-    final requestedMode = getMode(context.selectedMode);
-    if (requestedMode != null) {
-      return requestedMode.isActive(context) ? requestedMode : null;
-    }
-    for (final candidate in modes.values) {
-      if (candidate.isActive(context)) return candidate;
-    }
-    return null;
-  }
-
   bool isVisible(LayoutContext context) =>
-      resolveMode(context)?.visible ?? true;
+      visibility.every((condition) => condition.isActive(context));
 
   LayoutDerivativeSnapshot getDerivatives([
     String? snapshot,
-    String? mode,
     LayoutContext context = LayoutContext.empty,
   ]) {
-    final layoutContext = context.withSelectedMode(mode);
-    final selectedMode = resolveMode(layoutContext);
-    final selectedSnapshot =
-        snapshot ?? selectedMode?.derivativeSnapshot ?? derivativeSnapshot;
+    final selectedSnapshot = snapshot ?? derivativeSnapshot;
     final selected = selectedSnapshot == null
         ? LayoutDerivativeSnapshot.empty
         : derivatives[selectedSnapshot] ?? LayoutDerivativeSnapshot.empty;
@@ -153,7 +129,6 @@ abstract class Layout {
       values: {
         for (final attribute in attributes) ...attribute.derivatives,
         ...selected.values,
-        ...?selectedMode?.derivatives,
       },
     );
   }
@@ -161,15 +136,10 @@ abstract class Layout {
   Map<String, Offset> resolveDerivatives(
     Size size, [
     String? snapshot,
-    String? mode,
     LayoutContext context = LayoutContext.empty,
   ]) {
     return {
-      for (final entry in getDerivatives(
-        snapshot,
-        mode,
-        context,
-      ).values.entries)
+      for (final entry in getDerivatives(snapshot, context).values.entries)
         entry.key: entry.value.resolve(this, size, context),
     };
   }
@@ -194,34 +164,8 @@ class LayoutDerivativeSnapshot {
   static const empty = LayoutDerivativeSnapshot(values: {});
 }
 
-class LayoutMode {
-  const LayoutMode({
-    required this.id,
-    this.aliases = const [],
-    this.activeCondition,
-    this.visible = true,
-    this.derivativeSnapshot,
-    this.derivatives = const {},
-  });
-
-  final String id;
-  final List<String> aliases;
-
-  /// Modes are inactive by default. A mode applies only when this condition
-  /// evaluates true for the current layout context.
-  final LayoutCondition? activeCondition;
-  final bool visible;
-  final String? derivativeSnapshot;
-  final Map<String, LayoutDerivative> derivatives;
-
-  bool isActive(LayoutContext context) {
-    return activeCondition?.isActive(context) ?? false;
-  }
-}
-
 class LayoutContext {
   const LayoutContext({
-    this.selectedMode,
     this.inputSource,
     this.selectedNodePath,
     this.selectedNodePaths = const [],
@@ -232,8 +176,6 @@ class LayoutContext {
   });
 
   static const empty = LayoutContext();
-
-  final String? selectedMode;
 
   /// Source of the interaction currently being evaluated, when applicable.
   final LayoutInputSource? inputSource;
@@ -250,22 +192,8 @@ class LayoutContext {
     return selected == null ? const [] : [selected];
   }
 
-  LayoutContext withSelectedMode(String? mode) {
-    return LayoutContext(
-      selectedMode: selectedMode ?? mode,
-      inputSource: inputSource,
-      selectedNodePath: selectedNodePath,
-      selectedNodePaths: selectedNodePaths,
-      highlightedNodePaths: highlightedNodePaths,
-      currentNodePath: currentNodePath,
-      activeNodePaths: activeNodePaths,
-      layoutPath: layoutPath,
-    );
-  }
-
   LayoutContext withCurrentNodePath(String? path) {
     return LayoutContext(
-      selectedMode: selectedMode,
       inputSource: inputSource,
       selectedNodePath: selectedNodePath,
       selectedNodePaths: selectedNodePaths,
@@ -294,11 +222,6 @@ abstract class LayoutCondition {
   const factory LayoutCondition.nodeHighlighted({String? nodePath}) =
       LayoutNodeHighlightedCondition;
 
-  const factory LayoutCondition.modeActive(
-    String mode, {
-    List<String> aliases,
-  }) = LayoutModeActiveCondition;
-
   const factory LayoutCondition.inputSource(LayoutInputSource source) =
       LayoutInputSourceCondition;
 
@@ -326,37 +249,6 @@ class LayoutNeverCondition extends LayoutCondition {
 
   @override
   bool isActive(LayoutContext context) => false;
-}
-
-class LayoutSelectedModeCondition extends LayoutCondition {
-  const LayoutSelectedModeCondition({
-    required this.mode,
-    this.aliases = const [],
-    super.exclude = const {},
-  }) : super._();
-
-  final String mode;
-  final List<String> aliases;
-
-  @override
-  bool isActive(LayoutContext context) {
-    final selected = context.selectedMode;
-    return selected == mode || aliases.contains(selected);
-  }
-}
-
-class LayoutModeActiveCondition extends LayoutCondition {
-  const LayoutModeActiveCondition(this.mode, {this.aliases = const []})
-    : super._();
-
-  final String mode;
-  final List<String> aliases;
-
-  @override
-  bool isActive(LayoutContext context) {
-    final selected = context.selectedMode;
-    return selected == mode || aliases.contains(selected);
-  }
 }
 
 class LayoutInputSourceCondition extends LayoutCondition {
@@ -816,7 +708,7 @@ abstract class LayoutGuide extends Layout {
     this.visible = true,
     super.aliases,
     super.attributes,
-    super.modes,
+    super.visibility,
     super.inputSources,
   }) : super.fromAxes();
 
@@ -835,7 +727,7 @@ class GuideGrid extends LayoutGuide {
     this.intersectionSize = 2,
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
-    super.modes,
+    super.visibility,
     super.inputSources,
   });
 
@@ -855,7 +747,7 @@ class CirleLayout extends LayoutGuide {
     super.visible,
     super.aliases,
     super.attributes = const [LayoutAttribute.circular],
-    super.modes,
+    super.visibility,
     super.inputSources,
   });
 
@@ -996,7 +888,7 @@ class MidpointDerivative extends LayoutDerivative {
     Size size, [
     LayoutContext context = LayoutContext.empty,
   ]) {
-    final derivatives = layout.getDerivatives(snapshot, null, context).values;
+    final derivatives = layout.getDerivatives(snapshot, context).values;
     final fromDerivative = derivatives[from];
     final toDerivative = derivatives[to];
     if (fromDerivative == null || toDerivative == null) return Offset.zero;
@@ -1096,7 +988,7 @@ List<Offset> _resolveShapePoints(
   String? snapshot,
   LayoutContext context,
 ) {
-  final derivatives = layout.getDerivatives(snapshot, null, context).values;
+  final derivatives = layout.getDerivatives(snapshot, context).values;
   return [
     for (final point in points)
       if (derivatives[point] case final derivative?)
@@ -1372,7 +1264,7 @@ class PerspectiveGridArea extends Layout {
     this.labelSize = 12,
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
-    super.modes,
+    super.visibility,
     super.inputSources,
   }) : super.fromAxes();
 
@@ -1403,7 +1295,7 @@ class PerspectiveGridLayout extends Layout {
     this.bottomEndIndex = 3,
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
-    super.modes,
+    super.visibility,
     super.inputSources,
   }) : super.fromAxes();
 
@@ -1427,7 +1319,7 @@ class ColumnLayout extends Layout {
     super.layouts,
     super.size,
     super.aliases,
-    super.modes,
+    super.visibility,
     super.inputSources,
   }) : super.fromAxes(attributes: const [LayoutAttribute.rectangular]);
 }
@@ -1438,7 +1330,7 @@ class RowLayout extends Layout {
     super.layouts,
     super.size,
     super.aliases,
-    super.modes,
+    super.visibility,
     super.inputSources,
   }) : super.fromAxes(attributes: const [LayoutAttribute.rectangular]);
 }
@@ -1453,7 +1345,7 @@ class PanelLayout extends Layout {
     this.labelColor = const Color(0xFFFFFFFF),
     this.labelSize = 12,
     super.aliases,
-    super.modes,
+    super.visibility,
     super.inputSources,
   }) : super.fromAxes(attributes: const [LayoutAttribute.rectangular]);
   final Color? fillColor;
@@ -1461,103 +1353,6 @@ class PanelLayout extends Layout {
   final String? label;
   final Color labelColor;
   final double labelSize;
-}
-
-class RadialBushArea extends Layout {
-  const RadialBushArea({
-    required this.row,
-    required this.column,
-    this.rowOffset = 0,
-    this.columnOffset = 0,
-    this.rowSpan = 1,
-    this.columnSpan = 1,
-    this.node,
-    this.fillColor,
-    this.borderStyle,
-    this.label,
-    this.labelColor = const Color(0xFFFFFFFF),
-    this.labelSize = 11,
-    super.aliases,
-    super.attributes = const [LayoutAttribute.circular],
-    super.modes,
-    super.inputSources,
-  }) : super.fromAxes();
-
-  final String row;
-  final String column;
-  final double rowOffset;
-  final double columnOffset;
-  final double rowSpan;
-  final double columnSpan;
-  final VaultNodeUiComponent? node;
-  final Color? fillColor;
-  final GuideStyle? borderStyle;
-  final String? label;
-  final Color labelColor;
-  final double labelSize;
-}
-
-class RadialBushRoot {
-  const RadialBushRoot({
-    required this.size,
-    required this.node,
-    this.backgroundExtractor,
-  });
-
-  final GridAxisVariable size;
-  final VaultNodeUiComponent node;
-  final BackgroundExtractor? backgroundExtractor;
-}
-
-class BackgroundExtractor {
-  const BackgroundExtractor({
-    required this.rootParameter,
-    this.colorParameters = const ['hex', 'color', 'background', 'aliases'],
-  });
-
-  final String rootParameter;
-  final List<String> colorParameters;
-}
-
-class RadialBushBranch {
-  const RadialBushBranch({required this.size, required this.rootParameter});
-
-  final GridAxisVariable size;
-  final String rootParameter;
-}
-
-class RadialBushElement {
-  const RadialBushElement({required this.size});
-
-  final GridAxisVariable size;
-}
-
-class RadialBushStructure {
-  const RadialBushStructure({
-    required this.root,
-    this.branch,
-    this.leaves,
-    this.flowers,
-    this.areas = const {},
-  });
-
-  static const rootRow = 'root';
-  static const branchRow = 'branch';
-  static const leavesRow = 'leaves';
-  static const flowersRow = 'flowers';
-
-  final RadialBushRoot root;
-  final RadialBushBranch? branch;
-  final RadialBushElement? leaves;
-  final RadialBushElement? flowers;
-  final Map<String, RadialBushArea> areas;
-
-  Map<String, GridAxisVariable> get rowsConfig => {
-    rootRow: root.size,
-    if (branch case final branch?) branchRow: branch.size,
-    if (leaves case final leaves?) leavesRow: leaves.size,
-    if (flowers case final flowers?) flowersRow: flowers.size,
-  };
 }
 
 class LayoutPath extends Layout {
@@ -1572,7 +1367,7 @@ class LayoutPath extends Layout {
     super.derivatives,
     super.derivativeSnapshot,
     super.observables,
-    super.modes,
+    super.visibility,
     super.inputSources,
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
@@ -1586,10 +1381,12 @@ class LayoutPath extends Layout {
   final Map<String, int> pointDerivatives;
 }
 
-class RadialBushLayout extends Layout with TableLayoutMixin {
-  const RadialBushLayout({
+class RadialTreeLayout extends Layout with TableLayoutMixin {
+  const RadialTreeLayout({
     required this.style,
-    required this.bushStructure,
+    this.rootNodeId,
+    this.maxDepth = 3,
+    this.maxSectionCount = 6,
     this.label,
     this.labelColor = const Color(0xFFFFFFFF),
     this.labelSize = 12,
@@ -1599,30 +1396,45 @@ class RadialBushLayout extends Layout with TableLayoutMixin {
     this.gridStyle,
     super.aliases,
     super.attributes = const [LayoutAttribute.circular],
-    super.modes,
+    super.layoutDefaults,
+    super.visibility,
     super.inputSources,
-  }) : super.fromAxes();
+  }) : assert(maxDepth > 0),
+       assert(maxSectionCount > 0),
+       super.fromAxes();
 
   final String? label;
+  final String? rootNodeId;
+  final int maxDepth;
+  final int maxSectionCount;
   final Color labelColor;
   final double labelSize;
   final LayoutExtent layoutSize;
   final LayoutRelativePosition position;
   final LayoutDerivativeReference? growthDirection;
-  final RadialBushStructure bushStructure;
   final GuideStyle? gridStyle;
   final GuideStyle style;
 
-  @override
-  Map<String, GridAxisVariable> get tableRowsConfig => bushStructure.rowsConfig;
+  Map<String, GridAxisVariable> get rowsConfig => {
+    for (var layer = 0; layer < maxDepth; layer += 1)
+      layer == 0 ? 'root' : 'depth-$layer': const GridAxisVariable(
+        size: LayoutSize.fr(1),
+      ),
+  };
+
+  Map<String, GridAxisVariable> get columnsConfig => {
+    for (var section = 0; section < maxSectionCount; section += 1)
+      'section-${section + 1}': const GridAxisVariable(size: LayoutSize.fr(1)),
+  };
 
   @override
-  Map<String, GridAxisVariable> get tableColumnsConfig => const {};
+  Map<String, GridAxisVariable> get tableRowsConfig => rowsConfig;
+
+  @override
+  Map<String, GridAxisVariable> get tableColumnsConfig => columnsConfig;
 
   @override
   GuideStyle? get tableGuideStyle => gridStyle;
-
-  VaultNodeUiComponent get rootNode => bushStructure.root.node;
 }
 
 class RayLayout extends LayoutGuide {
@@ -1635,7 +1447,7 @@ class RayLayout extends LayoutGuide {
     super.visible,
     super.aliases,
     super.attributes = const [LayoutAttribute.linear],
-    super.modes,
+    super.visibility,
     super.inputSources,
   });
 
@@ -1671,7 +1483,7 @@ class LayoutAreaRayLayout extends LayoutGuide {
     super.visible,
     super.aliases,
     super.attributes = const [LayoutAttribute.linear],
-    super.modes,
+    super.visibility,
     super.inputSources,
   });
 
@@ -1691,7 +1503,7 @@ class LayoutAreaToDerivativeRayLayout extends LayoutGuide {
     super.visible,
     super.aliases,
     super.attributes = const [LayoutAttribute.linear],
-    super.modes,
+    super.visibility,
     super.inputSources,
   });
 
@@ -1718,7 +1530,7 @@ class StickmanLayout extends Layout {
     this.footHalfWidth = 0.16,
     super.aliases,
     super.attributes = const [LayoutAttribute.linear],
-    super.modes,
+    super.visibility,
     super.inputSources,
   }) : super.fromAxes();
 
@@ -1768,7 +1580,7 @@ class PlaneLayout extends Layout {
     super.derivatives,
     super.derivativeSnapshot,
     super.observables,
-    super.modes,
+    super.visibility,
     super.inputSources,
     super.layoutDefaults,
   }) : super.fromAxes();
@@ -1817,7 +1629,7 @@ class SubjectNodeLayout extends PlaneLayout {
     super.aliases,
     super.attributes,
     super.shape,
-    super.modes,
+    super.visibility,
     super.inputSources,
   });
 }
@@ -1855,7 +1667,7 @@ class GraphPreviewLayout extends Layout {
     this.labelSize = 10,
     super.aliases,
     super.attributes = const [LayoutAttribute.circular],
-    super.modes,
+    super.visibility,
     super.inputSources,
   }) : super.fromAxes();
 
@@ -1887,7 +1699,7 @@ class LayoutBorderGuide extends LayoutGuide {
     super.visible,
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
-    super.modes,
+    super.visibility,
     super.inputSources,
   });
 
@@ -1973,7 +1785,7 @@ class SceneLayout extends Layout {
     super.derivatives,
     super.derivativeSnapshot,
     super.observables,
-    super.modes,
+    super.visibility,
     super.inputSources,
     super.columnFractions,
     super.rowFractions,
@@ -1993,7 +1805,7 @@ class GridLayout extends Layout {
     super.derivatives,
     super.derivativeSnapshot,
     super.observables,
-    super.modes,
+    super.visibility,
     super.inputSources,
     super.columnFractions,
     super.rowFractions,
@@ -2012,7 +1824,7 @@ class TrackLayout extends Layout {
     super.derivatives,
     super.derivativeSnapshot,
     super.observables,
-    super.modes,
+    super.visibility,
     super.inputSources,
     super.columnFractions,
     super.fractionSpans,

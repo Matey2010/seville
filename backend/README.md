@@ -76,6 +76,7 @@ It does not fetch, merge, commit, or push.
 | `SEVILLE_NEO4J_PASSWORD` | Required | Neo4j password |
 | `SEVILLE_NEO4J_DATABASE` | `neo4j` | Neo4j database |
 | `SEVILLE_TOKEN` | Required | Client-to-Go API bearer token; not an encryption key |
+| `SEVILLE_ROOT_NODE_ID` | Optional | Default stable Node ID for graph-backed tree requests |
 
 `compose.yaml` contains wiring only. Put real credentials in the ignored
 repository-root `.env`; never put them in Compose or commit them.
@@ -89,6 +90,10 @@ Neo4j Browser, update `SEVILLE_NEO4J_PASSWORD` in `.env`, and restart Seville.
 - `GET /healthz`: process health.
 - `GET /v2/status`: latest import metadata.
 - `GET /v2/snapshot`: live Neo4j graph as a binary `NodeSnapshot`.
+- `GET /system/v1/info`: stable Node and Node-property counts as binary
+  `SystemInfo`.
+- `GET /nodes/v1/tree`: depth-limited incoming `PART_OF` tree as binary
+  `NodeTree`; `root_node_id` overrides `SEVILLE_ROOT_NODE_ID`.
 
 Source migration is intentionally not exposed through the running API. Future
 user-facing migration should be a deliberate workflow with preview, source

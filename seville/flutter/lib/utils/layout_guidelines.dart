@@ -31,7 +31,7 @@ void _drawBorderGuide(
   LayoutContext context,
 ) {
   final bounds = _resolveBorderBounds(size, layout, guide);
-  final derivatives = layout.resolveDerivatives(size, null, null, context);
+  final derivatives = layout.resolveDerivatives(size, null, context);
   final anchors = <({String id, Offset position})>[
     for (final id in guide.derivativeAnchors)
       if (derivatives[id] case final position?) (id: id, position: position),

@@ -31,7 +31,7 @@ func main() {
 	}
 	defer database.Close()
 
-	app := server.New(database, cfg.Token)
+	app := server.New(database, cfg.Token, cfg.RootNodeID)
 
 	httpServer := &http.Server{
 		Addr:              cfg.Addr,

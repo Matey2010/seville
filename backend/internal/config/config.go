@@ -17,6 +17,7 @@ type Config struct {
 	Neo4jPassword string
 	Neo4jDatabase string
 	Token         string
+	RootNodeID    string
 }
 
 func Load() (Config, error) {
@@ -31,6 +32,7 @@ func Load() (Config, error) {
 		Neo4jPassword: value("SEVILLE_NEO4J_PASSWORD", "seville-local-password"),
 		Neo4jDatabase: value("SEVILLE_NEO4J_DATABASE", "neo4j"),
 		Token:         value("SEVILLE_TOKEN", "local-seville-token"),
+		RootNodeID:    os.Getenv("SEVILLE_ROOT_NODE_ID"),
 	}
 	return cfg, nil
 }

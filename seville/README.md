@@ -14,6 +14,11 @@ The launcher targets the supported macOS application, reads `SEVILLE_BASE_URL`
 and `SEVILLE_TOKEN` from `.env`, and passes them to Flutter. Other Flutter
 targets are not currently implemented.
 
+Renderer-independent table structure and row-building logic lives in
+[`flutter/packages/table_data`](flutter/packages/table_data). Seville keeps
+layout sizing, Node/system adapters, canvas geometry, and field painting in the
+application layer.
+
 For direct development commands:
 
 ```sh

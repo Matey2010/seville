@@ -3,6 +3,8 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:seville_proto/seville_proto.dart';
+import 'package:table_data/table_data.dart';
 
 import '../models/landscape_xl_layout.dart';
 import '../models/layout.dart';
@@ -37,6 +39,8 @@ class LandscapeXlLayoutView extends StatefulWidget {
     required this.layout,
     required this.contentBuilder,
     this.vaultNodeResolver,
+    this.systemInfo,
+    this.nodeTrees = const {},
     this.highlightedNodes = const [],
     this.selectedNodes = const [],
     this.onLayoutTap,
@@ -46,6 +50,8 @@ class LandscapeXlLayoutView extends StatefulWidget {
   final LandscapeXlLayout layout;
   final LandscapeXlLayoutContentBuilder contentBuilder;
   final VaultNodeResolver? vaultNodeResolver;
+  final SystemInfo? systemInfo;
+  final Map<RadialTreeLayout, NodeTree> nodeTrees;
   final List<ResolvedVaultNode> highlightedNodes;
   final List<ResolvedVaultNode> selectedNodes;
   final LandscapeXlLayoutTapCallback? onLayoutTap;
@@ -62,7 +68,6 @@ class _LandscapeXlLayoutViewState extends State<LandscapeXlLayoutView> {
     final safePadding = MediaQuery.paddingOf(context);
     final selectedNode = widget.selectedNodes.lastOrNull;
     final layoutContext = _layoutContext(
-      widget.layout,
       widget.highlightedNodes,
       widget.selectedNodes,
     );
@@ -84,6 +89,8 @@ class _LandscapeXlLayoutViewState extends State<LandscapeXlLayoutView> {
                   widget.layout,
                   safePadding,
                   widget.vaultNodeResolver,
+                  widget.systemInfo,
+                  widget.nodeTrees,
                   widget.highlightedNodes,
                   widget.selectedNodes,
                   _hoverPosition,
@@ -115,6 +122,7 @@ class _LandscapeXlLayoutViewState extends State<LandscapeXlLayoutView> {
               safePadding,
               details.localPosition,
               widget.vaultNodeResolver,
+              widget.nodeTrees,
               widget.highlightedNodes,
               widget.selectedNodes,
             );
@@ -159,21 +167,22 @@ class _LandscapeXlLayoutNodeView extends StatelessWidget {
           ),
         ),
         for (final child in layout.layouts.values)
-          if (child is LandscapeXlLayout)
-            _LandscapeXlLayoutNodeView(
-              layout: child,
-              selectedNode: selectedNode,
-              contentBuilder: contentBuilder,
-              layoutContext: layoutContext,
-            )
-          else if (child is! LayoutGuide &&
-              child is! LayoutPath &&
-              child is! RadialBushLayout &&
-              child is! NodePropertyTable &&
-              child is! StickmanLayout &&
-              child is! PlaneLayout &&
-              child is! GraphPreviewLayout)
-            contentBuilder(context, child),
+          if (child.isVisible(layoutContext))
+            if (child is LandscapeXlLayout)
+              _LandscapeXlLayoutNodeView(
+                layout: child,
+                selectedNode: selectedNode,
+                contentBuilder: contentBuilder,
+                layoutContext: layoutContext,
+              )
+            else if (child is! LayoutGuide &&
+                child is! LayoutPath &&
+                child is! RadialTreeLayout &&
+                child is! NodePropertyTable &&
+                child is! StickmanLayout &&
+                child is! PlaneLayout &&
+                child is! GraphPreviewLayout)
+              contentBuilder(context, child),
       ],
     );
 
@@ -570,7 +579,10 @@ void _drawPlaneRing(
 
 Color? _subjectNodeColor(String? rawColor) {
   if (rawColor == null || rawColor.trim().isEmpty) return null;
-  final normalized = rawColor.trim().replaceFirst('#', '');
+  final normalized = rawColor
+      .trim()
+      .replaceFirst('#', '')
+      .replaceFirst(RegExp('^0x', caseSensitive: false), '');
   final hex = switch (normalized.length) {
     6 => 'FF$normalized',
     8 => normalized,
@@ -579,6 +591,31 @@ Color? _subjectNodeColor(String? rawColor) {
   if (hex == null) return null;
   final value = int.tryParse(hex, radix: 16);
   return value == null ? null : Color(value);
+}
+
+LayoutColor _radialTreeNodeColor(Node node) {
+  for (final key in const ['color', 'hex', 'background']) {
+    final rawColor = node.frontmatter[key];
+    if (_subjectNodeColor(rawColor) != null) {
+      return LayoutColor.fromHex(rawColor!);
+    }
+  }
+
+  final identity = node.id.isNotEmpty ? node.id : node.path;
+  var seed = 0;
+  for (final codeUnit in identity.codeUnits) {
+    seed = (seed * 31 + codeUnit) & 0x7FFFFFFF;
+  }
+  final random = math.Random(seed);
+  final red = 96 + random.nextInt(128);
+  final green = 96 + random.nextInt(128);
+  final blue = 96 + random.nextInt(128);
+  final hex = [
+    red,
+    green,
+    blue,
+  ].map((channel) => channel.toRadixString(16).padLeft(2, '0')).join();
+  return LayoutColor.fromHex(hex, opacity: 0.88);
 }
 
 class _LayoutGuidePainter extends CustomPainter {
@@ -606,6 +643,8 @@ class _ReferenceLayoutPainter extends CustomPainter {
     this.layout,
     this.safePadding,
     this.vaultNodeResolver,
+    this.systemInfo,
+    this.nodeTrees,
     this.highlightedNodes,
     this.selectedNodes,
     this.hoverPosition,
@@ -614,6 +653,8 @@ class _ReferenceLayoutPainter extends CustomPainter {
   final LandscapeXlLayout layout;
   final EdgeInsets safePadding;
   final VaultNodeResolver? vaultNodeResolver;
+  final SystemInfo? systemInfo;
+  final Map<RadialTreeLayout, NodeTree> nodeTrees;
   final List<ResolvedVaultNode> highlightedNodes;
   final List<ResolvedVaultNode> selectedNodes;
   final Offset? hoverPosition;
@@ -621,11 +662,7 @@ class _ReferenceLayoutPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final selectedNode = selectedNodes.lastOrNull;
-    final layoutContext = _layoutContext(
-      layout,
-      highlightedNodes,
-      selectedNodes,
-    );
+    final layoutContext = _layoutContext(highlightedNodes, selectedNodes);
     final resolvedLayouts = _resolveLayouts(
       layout,
       size,
@@ -635,31 +672,35 @@ class _ReferenceLayoutPainter extends CustomPainter {
     for (final resolved in resolvedLayouts.values) {
       for (final path
           in resolved.layout.layouts.values.whereType<LayoutPath>()) {
+        if (!path.isVisible(layoutContext)) continue;
         _drawLayoutPath(
           canvas,
           size,
           path,
           resolvedLayouts,
           vaultNodeResolver,
+          systemInfo,
+          nodeTrees,
           selectedNode,
           hoverPosition,
           layoutContext,
         );
       }
-      for (final radialBush
-          in resolved.layout.layouts.values.whereType<RadialBushLayout>()) {
-        _drawRadialBushLayout(
+      for (final radialTree
+          in resolved.layout.layouts.values.whereType<RadialTreeLayout>()) {
+        if (!radialTree.isVisible(layoutContext)) continue;
+        _drawRadialTreeLayout(
           canvas,
           size,
           resolved.bounds,
-          radialBush,
-          vaultNodeResolver,
+          radialTree,
+          nodeTrees[radialTree],
           resolvedLayouts,
           layoutContext,
         );
       }
       for (final ray in resolved.layout.layouts.values.whereType<RayLayout>()) {
-        if (!ray.visible) continue;
+        if (!ray.visible || !ray.isVisible(layoutContext)) continue;
         final start = _resolveReference(
           ray.start,
           resolvedLayouts,
@@ -678,7 +719,7 @@ class _ReferenceLayoutPainter extends CustomPainter {
       }
       for (final ray
           in resolved.layout.layouts.values.whereType<LayoutAreaRayLayout>()) {
-        if (!ray.visible) continue;
+        if (!ray.visible || !ray.isVisible(layoutContext)) continue;
         final start = _resolveReference(
           ray.start,
           resolvedLayouts,
@@ -698,7 +739,7 @@ class _ReferenceLayoutPainter extends CustomPainter {
       for (final ray
           in resolved.layout.layouts.values
               .whereType<LayoutAreaToDerivativeRayLayout>()) {
-        if (!ray.visible) continue;
+        if (!ray.visible || !ray.isVisible(layoutContext)) continue;
         final start = _resolvePathAreaReference(
           ray.start,
           resolvedLayouts,
@@ -717,10 +758,12 @@ class _ReferenceLayoutPainter extends CustomPainter {
       }
       for (final stickman
           in resolved.layout.layouts.values.whereType<StickmanLayout>()) {
+        if (!stickman.isVisible(layoutContext)) continue;
         _drawStickmanLayout(canvas, resolved.layout, resolved.bounds, stickman);
       }
       for (final plane
           in resolved.layout.layouts.values.whereType<PlaneLayout>()) {
+        if (!plane.isVisible(layoutContext)) continue;
         _drawPlaneLayout(
           canvas,
           resolved.layout,
@@ -731,6 +774,7 @@ class _ReferenceLayoutPainter extends CustomPainter {
       }
       for (final graphPreview
           in resolved.layout.layouts.values.whereType<GraphPreviewLayout>()) {
+        if (!graphPreview.isVisible(layoutContext)) continue;
         _drawGraphPreviewLayout(
           canvas,
           resolved.layout,
@@ -746,6 +790,8 @@ class _ReferenceLayoutPainter extends CustomPainter {
     return oldDelegate.layout != layout ||
         oldDelegate.safePadding != safePadding ||
         oldDelegate.vaultNodeResolver != vaultNodeResolver ||
+        oldDelegate.systemInfo != systemInfo ||
+        oldDelegate.nodeTrees != nodeTrees ||
         oldDelegate.highlightedNodes != highlightedNodes ||
         oldDelegate.selectedNodes != selectedNodes ||
         oldDelegate.hoverPosition != hoverPosition;
@@ -753,7 +799,6 @@ class _ReferenceLayoutPainter extends CustomPainter {
 }
 
 LayoutContext _layoutContext(
-  Layout layout,
   List<ResolvedVaultNode> highlightedNodes,
   List<ResolvedVaultNode> selectedNodes,
 ) {
@@ -765,7 +810,7 @@ LayoutContext _layoutContext(
     highlightedNodePaths: [for (final node in highlightedNodes) node.path],
     activeNodePaths: selectedPaths,
   );
-  return nodeContext.withSelectedMode(layout.resolveMode(nodeContext)?.id);
+  return nodeContext;
 }
 
 void _drawLayoutPath(
@@ -774,6 +819,8 @@ void _drawLayoutPath(
   LayoutPath layoutPath,
   Map<String, _ResolvedLayout> layouts,
   VaultNodeResolver? vaultNodeResolver,
+  SystemInfo? systemInfo,
+  Map<RadialTreeLayout, NodeTree> nodeTrees,
   ResolvedVaultNode? selectedNode,
   Offset? hoverPosition,
   LayoutContext layoutContext,
@@ -837,6 +884,7 @@ void _drawLayoutPath(
   canvas.clipPath(path);
   for (final composition
       in layoutPath.layouts.values.whereType<ColumnLayout>()) {
+    if (!composition.isVisible(layoutContext)) continue;
     _drawFlexComposition(
       canvas,
       _screenOrderedQuadrilateral(resolvedPoints),
@@ -845,6 +893,7 @@ void _drawLayoutPath(
     );
   }
   for (final composition in layoutPath.layouts.values.whereType<RowLayout>()) {
+    if (!composition.isVisible(layoutContext)) continue;
     _drawFlexComposition(
       canvas,
       _screenOrderedQuadrilateral(resolvedPoints),
@@ -852,14 +901,15 @@ void _drawLayoutPath(
       layoutContext,
     );
   }
-  for (final radialBush
-      in layoutPath.layouts.values.whereType<RadialBushLayout>()) {
-    _drawRadialBushLayout(
+  for (final radialTree
+      in layoutPath.layouts.values.whereType<RadialTreeLayout>()) {
+    if (!radialTree.isVisible(layoutContext)) continue;
+    _drawRadialTreeLayout(
       canvas,
       size,
       _boundsForPoints(resolvedPoints),
-      radialBush,
-      vaultNodeResolver,
+      radialTree,
+      nodeTrees[radialTree],
       layouts,
       layoutContext,
     );
@@ -867,15 +917,32 @@ void _drawLayoutPath(
 
   for (final table
       in layoutPath.layouts.values.whereType<NodePropertyTable>()) {
+    if (!table.isVisible(layoutContext)) continue;
     _drawTableLayout(
       canvas,
       resolvedPoints,
       table,
-      selectedNode,
+      _tableData(table, selectedNode, systemInfo),
       hoverPosition,
     );
   }
   canvas.restore();
+}
+
+TableData _tableData(
+  NodePropertyTable table,
+  ResolvedVaultNode? selectedNode,
+  SystemInfo? systemInfo,
+) {
+  return switch (table.dataSource) {
+    NodePropertyTableDataSource.nodeInfo => TableData(
+      selectedNode == null ? const {} : _nodeInfoValues(selectedNode),
+    ),
+    NodePropertyTableDataSource.systemInfo => TableData({
+      'node_count': systemInfo?.nodeCount,
+      'node_property_count': systemInfo?.nodePropertyCount,
+    }),
+  };
 }
 
 void _drawPathTicks(
@@ -1014,524 +1081,282 @@ void _drawPerspectiveGrid(
   }
 }
 
-void _drawRadialBushLayout(
+typedef _RadialTreeSegment = ({
+  NodeTreeOccurrence occurrence,
+  Path path,
+  Offset labelPoint,
+  double labelWidth,
+});
+
+typedef _RadialTreeFrame = ({
+  Offset center,
+  double growthAngle,
+  double radius,
+  List<double> rowStops,
+  List<double> columnStops,
+});
+
+void _drawRadialTreeLayout(
   Canvas canvas,
   Size size,
   Rect bounds,
-  RadialBushLayout radialBush,
-  VaultNodeResolver? vaultNodeResolver,
+  RadialTreeLayout radialTree,
+  NodeTree? tree,
   Map<String, _ResolvedLayout> layouts,
   LayoutContext layoutContext,
 ) {
-  final radius = _resolveLayoutExtent(
-    radialBush.layoutSize,
-    viewport: size,
-    bounds: bounds,
-    layouts: layouts,
-    layoutContext: layoutContext,
+  if (tree == null || tree.occurrences.isEmpty) return;
+  final frame = _resolveRadialTreeFrame(
+    radialTree,
+    tree,
+    size,
+    bounds,
+    layouts,
+    layoutContext,
   );
-  if (radius <= 0) return;
-
-  final center = radialBush.position.resolve(bounds);
-  final target = radialBush.growthDirection == null
-      ? bounds.center
-      : _resolveReference(radialBush.growthDirection!, layouts, layoutContext);
-  final growthVector = (target == null || (target - center).distance == 0)
-      ? const Offset(0, 1)
-      : target - center;
-  final growthAngle = math.atan2(growthVector.dy, growthVector.dx);
-  final resolvedRoot = _resolveVaultNode(
-    radialBush.rootNode,
-    vaultNodeResolver,
-  );
-  final rootColor = _radialBushRootBackground(
-    radialBush,
-    resolvedRoot,
-    vaultNodeResolver,
-  );
-  final rootRadius = _radialBushRootRadius(radialBush, radius);
-  final arcRect = Rect.fromCircle(center: Offset.zero, radius: rootRadius);
-
-  _drawRadialBushGrid(
-    canvas,
-    radialBush,
-    center,
-    radius,
-    growthAngle,
-    vaultNodeResolver,
-  );
-  _drawRadialBushBranches(
-    canvas,
-    radialBush,
-    resolvedRoot,
-    center,
-    radius,
-    growthAngle,
-    vaultNodeResolver,
-  );
-
-  canvas.save();
-  canvas.translate(center.dx, center.dy);
-  canvas.rotate(growthAngle - math.pi / 2);
-
-  if (rootColor != null) {
-    final fillPath = Path()
-      ..moveTo(-rootRadius, 0)
-      ..lineTo(rootRadius, 0)
-      ..arcTo(arcRect, 0, math.pi, false)
-      ..close();
+  if (frame == null) return;
+  final segments = _radialTreeSegmentsInFrame(radialTree, tree, frame);
+  final borderStyle = radialTree.style;
+  final borderWidth =
+      radialTree.layoutDefaults?.borderWidth ?? borderStyle.strokeWidth;
+  for (final segment in segments) {
+    final fillColor = _radialTreeNodeColor(segment.occurrence.node).resolve();
     canvas.drawPath(
-      fillPath,
-      Paint()
-        ..color = rootColor
-        ..style = PaintingStyle.fill,
-    );
-  }
-
-  final strokePaint = Paint()
-    ..color = radialBush.style.color
-    ..strokeWidth = radialBush.style.strokeWidth
-    ..strokeCap = radialBush.style.strokeCap
-    ..style = PaintingStyle.stroke;
-  canvas.drawArc(arcRect, 0, math.pi, false, strokePaint);
-  canvas.drawLine(Offset(-rootRadius, 0), Offset(rootRadius, 0), strokePaint);
-  final nodeContext = layoutContext.withCurrentNodePath(
-    radialBush.rootNode.path,
-  );
-  for (final background in radialBush.rootNode.backgrounds) {
-    final resolvedBackground = _resolveConditionalBackground(
-      background,
-      nodeContext,
-    );
-    if (resolvedBackground is! LayoutBorderBackground) continue;
-    final style = resolvedBackground.style;
-    final overlayPaint = Paint()
-      ..color = style.color.withValues(
-        alpha: style.color.a * resolvedBackground.opacity.clamp(0, 1),
-      )
-      ..strokeWidth = style.strokeWidth
-      ..strokeCap = style.strokeCap
-      ..style = PaintingStyle.stroke;
-    canvas.drawArc(arcRect, 0, math.pi, false, overlayPaint);
-    canvas.drawLine(
-      Offset(-rootRadius, 0),
-      Offset(rootRadius, 0),
-      overlayPaint,
-    );
-  }
-  canvas.restore();
-
-  final label = radialBush.label;
-  if (label == null || label.isEmpty) return;
-  final textPainter = TextPainter(
-    text: TextSpan(
-      text: label,
-      style: TextStyle(
-        color: radialBush.labelColor,
-        fontSize: radialBush.labelSize,
-        fontWeight: FontWeight.w700,
-      ),
-    ),
-    textDirection: TextDirection.ltr,
-    textAlign: TextAlign.center,
-  )..layout(maxWidth: rootRadius * 2);
-  final direction = growthVector / growthVector.distance;
-  final labelCenter = center + direction * rootRadius * 0.42;
-  textPainter.paint(
-    canvas,
-    Offset(
-      labelCenter.dx - textPainter.width / 2,
-      labelCenter.dy - textPainter.height / 2,
-    ),
-  );
-}
-
-LayoutBackground? _resolveConditionalBackground(
-  LayoutBackground background,
-  LayoutContext context,
-) {
-  var current = background;
-  while (current is ConditionalLayoutBackground) {
-    if (!current.activeCondition.isActive(context)) return null;
-    current = current.background;
-  }
-  return current;
-}
-
-Color? _radialBushRootBackground(
-  RadialBushLayout bush,
-  ResolvedVaultNode root,
-  VaultNodeResolver? resolver,
-) {
-  final extractor = bush.bushStructure.root.backgroundExtractor;
-  final node = root.node;
-  if (extractor == null || node == null || resolver == null) {
-    return root.fillColor;
-  }
-  final linkedNode = resolver
-      .findLinkedNode(node.frontmatter[extractor.rootParameter])
-      ?.node;
-  if (linkedNode == null) return root.fillColor;
-
-  for (final parameter in extractor.colorParameters) {
-    final color = _extractHexColor(linkedNode.frontmatter[parameter]);
-    if (color != null) return color;
-  }
-  for (final value in linkedNode.frontmatter.values) {
-    final color = _extractHexColor(value);
-    if (color != null) return color;
-  }
-  return root.fillColor;
-}
-
-Color? _extractHexColor(String? value) {
-  if (value == null) return null;
-  final match = RegExp(
-    r'(?:#|0x)([0-9a-fA-F]{8}|[0-9a-fA-F]{6})',
-  ).firstMatch(value);
-  final hex = match?.group(1);
-  if (hex == null) return null;
-  final parsed = int.tryParse(hex, radix: 16);
-  if (parsed == null) return null;
-  return Color(hex.length == 6 ? 0xFF000000 | parsed : parsed);
-}
-
-void _drawRadialBushBranches(
-  Canvas canvas,
-  RadialBushLayout bush,
-  ResolvedVaultNode root,
-  Offset center,
-  double radius,
-  double growthAngle,
-  VaultNodeResolver? resolver,
-) {
-  final branch = bush.bushStructure.branch;
-  final node = root.node;
-  if (branch == null || node == null) return;
-  final components = (resolver ?? VaultNodeResolver.empty).findLinkedNodes(
-    node.frontmatter[branch.rootParameter],
-  );
-  if (components.isEmpty) return;
-
-  final rootRadius = _radialBushRootRadius(bush, radius);
-  final segmentRadians = math.pi / components.length;
-  for (var index = 0; index < components.length; index += 1) {
-    final resolved = components[index];
-    final startTheta = -math.pi / 2 + segmentRadians * index;
-    final endTheta = startTheta + segmentRadians;
-    final path = _radialBushAreaPath(
-      center,
-      growthAngle,
-      rootRadius,
-      radius,
-      startTheta,
-      endTheta,
-    );
-    final fillColor = resolved.fillColor;
-    if (fillColor != null) {
-      canvas.drawPath(
-        path,
-        Paint()
-          ..color = fillColor
-          ..style = PaintingStyle.fill,
-      );
-    }
-    final borderStyle = bush.tableGuideStyle ?? bush.style;
-    _drawRadialBushAreaBorder(
-      canvas,
-      center,
-      growthAngle,
-      rootRadius,
-      radius,
-      startTheta,
-      endTheta,
-      borderStyle,
-    );
-    _drawRadialBushComponentLabel(
-      canvas,
-      center,
-      growthAngle,
-      rootRadius,
-      radius,
-      startTheta,
-      endTheta,
-      resolved.label ?? resolved.path,
-      bush,
-    );
-  }
-}
-
-void _drawRadialBushAreaBorder(
-  Canvas canvas,
-  Offset center,
-  double growthAngle,
-  double innerRadius,
-  double outerRadius,
-  double startTheta,
-  double endTheta,
-  GuideStyle style,
-) {
-  _drawRadialBushArc(
-    canvas,
-    center,
-    growthAngle,
-    innerRadius,
-    startTheta + math.pi / 2,
-    endTheta + math.pi / 2,
-    style,
-  );
-  _drawRadialBushArc(
-    canvas,
-    center,
-    growthAngle,
-    outerRadius,
-    startTheta + math.pi / 2,
-    endTheta + math.pi / 2,
-    style,
-  );
-  for (final theta in [startTheta, endTheta]) {
-    drawGuideLine(
-      canvas,
-      _radialBushPoint(center, growthAngle, innerRadius, theta),
-      _radialBushPoint(center, growthAngle, outerRadius, theta),
-      style,
-    );
-  }
-}
-
-void _drawRadialBushComponentLabel(
-  Canvas canvas,
-  Offset center,
-  double growthAngle,
-  double innerRadius,
-  double outerRadius,
-  double startTheta,
-  double endTheta,
-  String label,
-  RadialBushLayout bush,
-) {
-  final labelPoint = _radialBushPoint(
-    center,
-    growthAngle,
-    (innerRadius + outerRadius) / 2,
-    (startTheta + endTheta) / 2,
-  );
-  final painter = TextPainter(
-    text: TextSpan(
-      text: label,
-      style: TextStyle(
-        color: bush.labelColor,
-        fontSize: bush.labelSize,
-        fontWeight: FontWeight.w600,
-      ),
-    ),
-    textDirection: TextDirection.ltr,
-    textAlign: TextAlign.center,
-  )..layout();
-  painter.paint(
-    canvas,
-    labelPoint - Offset(painter.width / 2, painter.height / 2),
-  );
-}
-
-double _radialBushRootRadius(RadialBushLayout bush, double radius) =>
-    bush.bushStructure.branch == null ? radius : radius * 0.5;
-
-void _drawRadialBushGrid(
-  Canvas canvas,
-  RadialBushLayout radialBush,
-  Offset center,
-  double radius,
-  double growthAngle,
-  VaultNodeResolver? vaultNodeResolver,
-) {
-  final rowsConfig = radialBush.tableRowsConfig;
-  final columnsConfig = radialBush.tableColumnsConfig;
-  if (rowsConfig.isEmpty || columnsConfig.isEmpty) {
-    return;
-  }
-
-  final rowStops = _gridTrackStops([
-    for (final row in rowsConfig.values) row.size,
-  ], radius);
-  final columnStops = _gridTrackStops([
-    for (final column in columnsConfig.values) column.size,
-  ], math.pi);
-  if (rowStops.length < 2 || columnStops.length < 2) return;
-
-  final rowKeys = rowsConfig.keys.toList(growable: false);
-  final columnKeys = columnsConfig.keys.toList(growable: false);
-  for (final area in radialBush.bushStructure.areas.values) {
-    final rowStartIndex = rowKeys.indexOf(area.row);
-    final columnStartIndex = columnKeys.indexOf(area.column);
-    if (rowStartIndex < 0 || columnStartIndex < 0) continue;
-    _drawRadialBushArea(
-      canvas,
-      radialBush,
-      center,
-      growthAngle,
-      rowStops,
-      columnStops,
-      rowStartIndex + area.rowOffset,
-      _gridAreaEnd(
-        rowStartIndex + area.rowOffset,
-        area.rowSpan,
-        rowKeys.length,
-      ),
-      columnStartIndex + area.columnOffset,
-      _gridAreaEnd(
-        columnStartIndex + area.columnOffset,
-        area.columnSpan,
-        columnKeys.length,
-      ),
-      area,
-      vaultNodeResolver,
-    );
-  }
-
-  final gridStyle = radialBush.tableGuideStyle;
-  if (gridStyle == null) return;
-
-  for (final rowStop in rowStops.skip(1)) {
-    _drawRadialBushArc(
-      canvas,
-      center,
-      growthAngle,
-      rowStop,
-      0,
-      math.pi,
-      gridStyle,
-    );
-  }
-  for (final columnStop in columnStops) {
-    final theta = -math.pi / 2 + columnStop;
-    drawGuideLine(
-      canvas,
-      center,
-      _radialBushPoint(center, growthAngle, radius, theta),
-      gridStyle,
-    );
-  }
-}
-
-void _drawRadialBushArea(
-  Canvas canvas,
-  RadialBushLayout radialBush,
-  Offset center,
-  double growthAngle,
-  List<double> rowStops,
-  List<double> columnStops,
-  double rowStartIndex,
-  double rowEndIndex,
-  double columnStartIndex,
-  double columnEndIndex,
-  RadialBushArea area,
-  VaultNodeResolver? vaultNodeResolver,
-) {
-  if (rowStartIndex < 0 ||
-      rowEndIndex > radialBush.tableRowsConfig.length ||
-      rowStartIndex >= rowEndIndex ||
-      columnStartIndex < 0 ||
-      columnEndIndex > radialBush.tableColumnsConfig.length ||
-      columnStartIndex >= columnEndIndex) {
-    return;
-  }
-
-  final innerRadius = _gridStopAt(rowStops, rowStartIndex);
-  final outerRadius = _gridStopAt(rowStops, rowEndIndex);
-  final startTheta = -math.pi / 2 + _gridStopAt(columnStops, columnStartIndex);
-  final endTheta = -math.pi / 2 + _gridStopAt(columnStops, columnEndIndex);
-  final resolvedNode = area.node == null
-      ? null
-      : _resolveVaultNode(area.node!, vaultNodeResolver);
-  final fillColor = resolvedNode?.fillColor ?? area.fillColor;
-  final borderStyle = area.node == null
-      ? area.borderStyle
-      : resolvedNode?.resolvedStatus == LayoutHttpStatus.notFound
-      ? area.borderStyle ?? radialBush.gridStyle
-      : null;
-  final label = area.label;
-  if (fillColor == null &&
-      borderStyle == null &&
-      (label == null || label.isEmpty)) {
-    return;
-  }
-
-  final path = _radialBushAreaPath(
-    center,
-    growthAngle,
-    innerRadius,
-    outerRadius,
-    startTheta,
-    endTheta,
-  );
-  if (fillColor != null) {
-    canvas.drawPath(
-      path,
+      segment.path,
       Paint()
         ..color = fillColor
         ..style = PaintingStyle.fill,
     );
   }
-  if (borderStyle != null) {
-    _drawRadialBushArc(
-      canvas,
-      center,
-      growthAngle,
-      innerRadius,
-      startTheta + math.pi / 2,
-      endTheta + math.pi / 2,
-      borderStyle,
-    );
-    _drawRadialBushArc(
-      canvas,
-      center,
-      growthAngle,
-      outerRadius,
-      startTheta + math.pi / 2,
-      endTheta + math.pi / 2,
-      borderStyle,
-    );
-    drawGuideLine(
-      canvas,
-      _radialBushPoint(center, growthAngle, innerRadius, startTheta),
-      _radialBushPoint(center, growthAngle, outerRadius, startTheta),
-      borderStyle,
-    );
-    drawGuideLine(
-      canvas,
-      _radialBushPoint(center, growthAngle, innerRadius, endTheta),
-      _radialBushPoint(center, growthAngle, outerRadius, endTheta),
-      borderStyle,
+  _drawRadialTreeGrid(canvas, radialTree, frame);
+  for (final segment in segments) {
+    canvas.drawPath(
+      segment.path,
+      Paint()
+        ..color = borderStyle.color
+        ..strokeWidth = borderWidth
+        ..strokeCap = borderStyle.strokeCap
+        ..style = PaintingStyle.stroke,
     );
   }
-
-  if (label == null || label.isEmpty) return;
-  final labelPoint = _radialBushPoint(
-    center,
-    growthAngle,
-    (innerRadius + outerRadius) / 2,
-    (startTheta + endTheta) / 2,
-  );
-  final textPainter = TextPainter(
-    text: TextSpan(
-      text: label,
-      style: TextStyle(
-        color: area.labelColor,
-        fontSize: area.labelSize,
-        fontWeight: FontWeight.w600,
+  for (final segment in segments) {
+    final node = segment.occurrence.node;
+    final label = node.title.isNotEmpty ? node.title : node.id;
+    if (label.isEmpty || segment.labelWidth < radialTree.labelSize * 2) {
+      continue;
+    }
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: label,
+        style: TextStyle(
+          color: radialTree.labelColor,
+          fontSize: radialTree.labelSize,
+          fontWeight: FontWeight.w600,
+        ),
       ),
-    ),
-    textDirection: TextDirection.ltr,
-    textAlign: TextAlign.center,
-  )..layout();
-  textPainter.paint(
-    canvas,
-    labelPoint - Offset(textPainter.width / 2, textPainter.height / 2),
+      maxLines: 1,
+      ellipsis: '…',
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
+    )..layout(maxWidth: segment.labelWidth);
+    textPainter.paint(
+      canvas,
+      segment.labelPoint -
+          Offset(textPainter.width / 2, textPainter.height / 2),
+    );
+  }
+}
+
+List<_RadialTreeSegment> _radialTreeSegments(
+  RadialTreeLayout radialTree,
+  NodeTree tree,
+  Size size,
+  Rect bounds,
+  Map<String, _ResolvedLayout> layouts, [
+  LayoutContext layoutContext = LayoutContext.empty,
+]) {
+  final frame = _resolveRadialTreeFrame(
+    radialTree,
+    tree,
+    size,
+    bounds,
+    layouts,
+    layoutContext,
+  );
+  return frame == null
+      ? const []
+      : _radialTreeSegmentsInFrame(radialTree, tree, frame);
+}
+
+_RadialTreeFrame? _resolveRadialTreeFrame(
+  RadialTreeLayout radialTree,
+  NodeTree tree,
+  Size size,
+  Rect bounds,
+  Map<String, _ResolvedLayout> layouts,
+  LayoutContext layoutContext,
+) {
+  final radius = _resolveLayoutExtent(
+    radialTree.layoutSize,
+    viewport: size,
+    bounds: bounds,
+    layouts: layouts,
+    layoutContext: layoutContext,
+  );
+  if (radius <= 0) return null;
+
+  final center = radialTree.position.resolve(bounds);
+  final target = radialTree.growthDirection == null
+      ? bounds.center
+      : _resolveReference(radialTree.growthDirection!, layouts, layoutContext);
+  final growthVector = (target == null || (target - center).distance == 0)
+      ? const Offset(0, 1)
+      : target - center;
+  final growthAngle = math.atan2(growthVector.dy, growthVector.dx);
+  final visibleOccurrences = tree.occurrences
+      .where((occurrence) => occurrence.depth < radialTree.maxDepth)
+      .toList(growable: false);
+  final root = visibleOccurrences
+      .where((occurrence) => occurrence.depth == 0)
+      .firstOrNull;
+  if (root == null) return null;
+  final deepestDepth = visibleOccurrences.fold<int>(
+    0,
+    (deepest, occurrence) => math.max(deepest, occurrence.depth.toInt()),
+  );
+  final rowCount = math.min(radialTree.maxDepth, deepestDepth + 1);
+  final rootSectionCount = visibleOccurrences
+      .where(
+        (occurrence) =>
+            occurrence.hasParentOccurrenceId() &&
+            occurrence.parentOccurrenceId == root.occurrenceId,
+      )
+      .length;
+  final columnCount = math.min(
+    radialTree.maxSectionCount,
+    math.max(rootSectionCount, 1),
+  );
+  final rowStops = _gridTrackStops([
+    for (final row in radialTree.rowsConfig.values.take(rowCount)) row.size,
+  ], radius).map((stop) => stop * radius).toList(growable: false);
+  final columnStops = _gridTrackStops(
+    [
+      for (final column in radialTree.columnsConfig.values.take(columnCount))
+        column.size,
+    ],
+    math.pi,
+  ).map((stop) => -math.pi / 2 + stop * math.pi).toList(growable: false);
+  return (
+    center: center,
+    growthAngle: growthAngle,
+    radius: radius,
+    rowStops: rowStops,
+    columnStops: columnStops,
   );
 }
 
-Path _radialBushAreaPath(
+List<_RadialTreeSegment> _radialTreeSegmentsInFrame(
+  RadialTreeLayout radialTree,
+  NodeTree tree,
+  _RadialTreeFrame frame,
+) {
+  final childrenByParent = <String, List<NodeTreeOccurrence>>{};
+  NodeTreeOccurrence? root;
+  for (final occurrence in tree.occurrences) {
+    if (occurrence.depth == 0 && root == null) root = occurrence;
+    if (occurrence.hasParentOccurrenceId()) {
+      childrenByParent
+          .putIfAbsent(occurrence.parentOccurrenceId, () => [])
+          .add(occurrence);
+    }
+  }
+  if (root == null) return const [];
+
+  final segments = <_RadialTreeSegment>[];
+  late void Function(NodeTreeOccurrence, double, double) addOccurrence;
+  addOccurrence = (occurrence, startTheta, endTheta) {
+    final occurrenceDepth = occurrence.depth.toInt();
+    if (occurrenceDepth + 1 >= frame.rowStops.length) return;
+    final innerRadius = frame.rowStops[occurrenceDepth];
+    final outerRadius = frame.rowStops[occurrenceDepth + 1];
+    segments.add((
+      occurrence: occurrence,
+      path: _radialTreeAreaPath(
+        frame.center,
+        frame.growthAngle,
+        innerRadius,
+        outerRadius,
+        startTheta,
+        endTheta,
+      ),
+      labelPoint: _radialTreePoint(
+        frame.center,
+        frame.growthAngle,
+        (innerRadius + outerRadius) / 2,
+        (startTheta + endTheta) / 2,
+      ),
+      labelWidth: math.max(
+        (endTheta - startTheta) * (innerRadius + outerRadius) / 2 - 4,
+        0,
+      ),
+    ));
+
+    final children = (childrenByParent[occurrence.occurrenceId] ?? const [])
+        .take(radialTree.maxSectionCount)
+        .toList(growable: false);
+    if (children.isEmpty) return;
+    final childSpan = (endTheta - startTheta) / children.length;
+    var childStart = startTheta;
+    for (final child in children) {
+      final childEnd = childStart + childSpan;
+      addOccurrence(child, childStart, childEnd);
+      childStart = childEnd;
+    }
+  };
+  addOccurrence(root, -math.pi / 2, math.pi / 2);
+  return segments;
+}
+
+void _drawRadialTreeGrid(
+  Canvas canvas,
+  RadialTreeLayout radialTree,
+  _RadialTreeFrame frame,
+) {
+  final style = radialTree.gridStyle;
+  if (style == null || frame.rowStops.length < 2) return;
+
+  for (final radius in frame.rowStops.skip(1)) {
+    _drawRadialTreeArc(canvas, frame.center, frame.growthAngle, radius, style);
+  }
+  final rootRadius = frame.rowStops[1];
+  for (final theta in frame.columnStops) {
+    drawGuideLine(
+      canvas,
+      _radialTreePoint(frame.center, frame.growthAngle, rootRadius, theta),
+      _radialTreePoint(frame.center, frame.growthAngle, frame.radius, theta),
+      style,
+    );
+  }
+}
+
+void _drawRadialTreeArc(
+  Canvas canvas,
+  Offset center,
+  double growthAngle,
+  double radius,
+  GuideStyle style,
+) {
+  const steps = 48;
+  var previous = _radialTreePoint(center, growthAngle, radius, -math.pi / 2);
+  for (var index = 1; index <= steps; index += 1) {
+    final theta = -math.pi / 2 + math.pi * index / steps;
+    final next = _radialTreePoint(center, growthAngle, radius, theta);
+    drawGuideLine(canvas, previous, next, style);
+    previous = next;
+  }
+}
+
+Path _radialTreeAreaPath(
   Offset center,
   double growthAngle,
   double innerRadius,
@@ -1543,7 +1368,7 @@ Path _radialBushAreaPath(
   final path = Path();
   for (var index = 0; index <= steps; index += 1) {
     final theta = startTheta + (endTheta - startTheta) * index / steps;
-    final point = _radialBushPoint(center, growthAngle, outerRadius, theta);
+    final point = _radialTreePoint(center, growthAngle, outerRadius, theta);
     if (index == 0) {
       path.moveTo(point.dx, point.dy);
     } else {
@@ -1552,53 +1377,20 @@ Path _radialBushAreaPath(
   }
   for (var index = steps; index >= 0; index -= 1) {
     final theta = startTheta + (endTheta - startTheta) * index / steps;
-    final point = _radialBushPoint(center, growthAngle, innerRadius, theta);
+    final point = _radialTreePoint(center, growthAngle, innerRadius, theta);
     path.lineTo(point.dx, point.dy);
   }
-  path.close();
-  return path;
+  return path..close();
 }
 
-void _drawRadialBushArc(
-  Canvas canvas,
-  Offset center,
-  double growthAngle,
-  double radius,
-  double startRadians,
-  double endRadians,
-  GuideStyle style,
-) {
-  var previous = _radialBushPoint(
-    center,
-    growthAngle,
-    radius,
-    -math.pi / 2 + startRadians,
-  );
-  const steps = 24;
-  for (var index = 1; index <= steps; index += 1) {
-    final theta =
-        -math.pi / 2 +
-        startRadians +
-        (endRadians - startRadians) * index / steps;
-    final next = _radialBushPoint(center, growthAngle, radius, theta);
-    drawGuideLine(canvas, previous, next, style);
-    previous = next;
-  }
-}
-
-Offset _radialBushPoint(
+Offset _radialTreePoint(
   Offset center,
   double growthAngle,
   double radius,
   double theta,
 ) {
-  final local = Offset(math.sin(theta) * radius, math.cos(theta) * radius);
-  final rotation = growthAngle - math.pi / 2;
-  final rotated = Offset(
-    local.dx * math.cos(rotation) - local.dy * math.sin(rotation),
-    local.dx * math.sin(rotation) + local.dy * math.cos(rotation),
-  );
-  return center + rotated;
+  final angle = growthAngle + theta;
+  return center + Offset(math.cos(angle) * radius, math.sin(angle) * radius);
 }
 
 LayoutTapTarget? _hitTestLayoutTapTarget(
@@ -1607,10 +1399,11 @@ LayoutTapTarget? _hitTestLayoutTapTarget(
   EdgeInsets safePadding,
   Offset position,
   VaultNodeResolver? vaultNodeResolver,
+  Map<RadialTreeLayout, NodeTree> nodeTrees,
   List<ResolvedVaultNode> highlightedNodes,
   List<ResolvedVaultNode> selectedNodes,
 ) {
-  final layoutContext = _layoutContext(root, highlightedNodes, selectedNodes);
+  final layoutContext = _layoutContext(highlightedNodes, selectedNodes);
   final resolvedLayouts = _resolveLayouts(
     root,
     size,
@@ -1647,22 +1440,55 @@ LayoutTapTarget? _hitTestLayoutTapTarget(
             );
             if (target != null) return target;
           }
+          for (final treeEntry in child.layouts.entries.toList().reversed) {
+            final radialTree = treeEntry.value;
+            if (radialTree is! RadialTreeLayout ||
+                !radialTree.isVisible(layoutContext)) {
+              continue;
+            }
+            final tree = nodeTrees[radialTree];
+            if (tree == null) continue;
+            final occurrence = _hitTestRadialTree(
+              radialTree,
+              tree,
+              _boundsForPoints(paddedPoints),
+              size,
+              resolvedLayouts,
+              position,
+              layoutContext,
+            );
+            if (occurrence == null) continue;
+            final resolvedNode = _resolvedRadialTreeNode(occurrence);
+            return LayoutTapTarget(
+              key: '${entry.key}/${treeEntry.key}/${occurrence.occurrenceId}',
+              layout: radialTree,
+              node: resolvedNode,
+              resolvedNode: resolvedNode,
+              label: occurrence.node.title,
+            );
+          }
         }
       }
-      if (child is RadialBushLayout &&
-          _hitTestRadialBushRoot(
-            child,
-            resolved.bounds,
-            size,
-            resolvedLayouts,
-            position,
-          )) {
+      if (child is RadialTreeLayout && child.isVisible(layoutContext)) {
+        final tree = nodeTrees[child];
+        if (tree == null) continue;
+        final occurrence = _hitTestRadialTree(
+          child,
+          tree,
+          resolved.bounds,
+          size,
+          resolvedLayouts,
+          position,
+          layoutContext,
+        );
+        if (occurrence == null) continue;
+        final resolvedNode = _resolvedRadialTreeNode(occurrence);
         return LayoutTapTarget(
-          key: entry.key,
+          key: '${entry.key}/${occurrence.occurrenceId}',
           layout: child,
-          node: child.rootNode,
-          resolvedNode: vaultNodeResolver?.resolve(child.rootNode),
-          label: child.label,
+          node: resolvedNode,
+          resolvedNode: resolvedNode,
+          label: occurrence.node.title,
         );
       }
     }
@@ -1903,38 +1729,38 @@ void _drawPanelLayout(Canvas canvas, List<Offset> points, PanelLayout panel) {
   );
 }
 
-bool _hitTestRadialBushRoot(
-  RadialBushLayout radialBush,
+NodeTreeOccurrence? _hitTestRadialTree(
+  RadialTreeLayout radialTree,
+  NodeTree tree,
   Rect bounds,
   Size size,
   Map<String, _ResolvedLayout> layouts,
   Offset position,
+  LayoutContext layoutContext,
 ) {
-  final radius = _resolveLayoutExtent(
-    radialBush.layoutSize,
-    viewport: size,
-    bounds: bounds,
-    layouts: layouts,
+  final segments = _radialTreeSegments(
+    radialTree,
+    tree,
+    size,
+    bounds,
+    layouts,
+    layoutContext,
   );
-  if (radius <= 0) return false;
+  for (final segment in segments.reversed) {
+    if (segment.path.contains(position)) return segment.occurrence;
+  }
+  return null;
+}
 
-  final center = radialBush.position.resolve(bounds);
-  final target = radialBush.growthDirection == null
-      ? bounds.center
-      : _resolveReference(radialBush.growthDirection!, layouts);
-  final growthVector = (target == null || (target - center).distance == 0)
-      ? const Offset(0, 1)
-      : target - center;
-  final growthAngle = math.atan2(growthVector.dy, growthVector.dx);
-  final rotation = growthAngle - math.pi / 2;
-  final translated = position - center;
-  final local = Offset(
-    translated.dx * math.cos(-rotation) - translated.dy * math.sin(-rotation),
-    translated.dx * math.sin(-rotation) + translated.dy * math.cos(-rotation),
+ResolvedVaultNode _resolvedRadialTreeNode(NodeTreeOccurrence occurrence) {
+  final node = occurrence.node;
+  return ResolvedVaultNode(
+    path: node.path,
+    color: _radialTreeNodeColor(node),
+    label: node.title,
+    node: node,
+    resolvedStatus: LayoutHttpStatus.ok,
   );
-
-  return local.distance <= _radialBushRootRadius(radialBush, radius) &&
-      local.dy >= 0;
 }
 
 ResolvedVaultNode _resolveVaultNode(
@@ -2095,18 +1921,22 @@ void _drawTableLayout(
   Canvas canvas,
   List<Offset> parentPoints,
   NodePropertyTable table,
-  ResolvedVaultNode? selectedNode,
+  TableData data,
   Offset? hoverPosition,
 ) {
-  if (selectedNode == null ||
-      parentPoints.length < 4 ||
+  if (parentPoints.length < 4 ||
       table.fieldBuilder == null ||
       table.fieldBuilder!.fields.isEmpty ||
       table.columns.isEmpty) {
     return;
   }
 
-  final rows = _tableLayoutRows(table, selectedNode);
+  final rows = buildTableRows(
+    table,
+    data,
+    sectionSize: _tableSeparatorSize,
+    formatValue: _formatTableValue,
+  );
   if (rows.isEmpty) return;
 
   final panelPath = Path()
@@ -2277,7 +2107,7 @@ void _drawTableLayout(
         rowEnd: rowEnd,
         columnStart: columnStops[columnIndex],
         columnEnd: columnStops[columnIndex + 1],
-        text: isKeyColumn ? row.label : _formatBaseNodeInfoValue(row.value),
+        text: isKeyColumn ? row.label : _formatTableValue(row.value),
         maxLines: isKeyColumn ? 2 : 3,
         style: TextStyle(
           color: isKeyColumn ? table.labelColor : table.valueColor,
@@ -2437,52 +2267,9 @@ Path _tableCellPath(
     ..close();
 }
 
-List<({String label, Object? value, GridAxisVariable size, bool section})>
-_tableLayoutRows(NodePropertyTable table, ResolvedVaultNode selectedNode) {
-  final values = switch (table.dataSource) {
-    NodePropertyTableDataSource.baseNodeInfo => _baseNodeInfoValues(
-      selectedNode,
-    ),
-  };
-  final builder = table.fieldBuilder;
-  final fields = builder?.fields ?? const [];
-  final groups = builder?.groups ?? const <TableGroup>{};
-  final groupIds = {for (final group in groups) group.id};
-  Iterable<({String label, Object? value, GridAxisVariable size, bool section})>
-  rowsForGroup(TableGroup group) sync* {
-    final groupFields = [
-      for (final field in fields)
-        if ((groupIds.contains(field.groupId) ? field.groupId : null) ==
-            group.id)
-          field,
-    ];
-    _sortTableFields(groupFields, group.ordering, values);
-    if (groupFields.isEmpty) return;
-    final groupLabel = group.label?.trim();
-    if (groupLabel != null && groupLabel.isNotEmpty) {
-      yield (
-        label: groupLabel,
-        value: null,
-        size: _tableSeparatorSize(groupFields.first),
-        section: true,
-      );
-    }
-    for (final field in groupFields) {
-      yield (
-        label: field.label ?? field.key,
-        value: values[field.key],
-        size: field.size,
-        section: false,
-      );
-    }
-  }
-
-  return [for (final group in groups) ...rowsForGroup(group)];
-}
-
-GridAxisVariable _tableSeparatorSize(TableField firstField) {
+GridAxisVariable _tableSeparatorSize(GridAxisVariable fieldSize) {
   const separatorScale = 0.5;
-  final size = firstField.size.size;
+  final size = fieldSize.size;
   return GridAxisVariable(
     size: switch (size.unit) {
       LayoutSizeUnit.fraction => LayoutSize.fr(size.value * separatorScale),
@@ -2495,26 +2282,7 @@ GridAxisVariable _tableSeparatorSize(TableField firstField) {
   );
 }
 
-void _sortTableFields(
-  List<TableField> fields,
-  TableFieldOrdering ordering,
-  Map<String, Object?> values,
-) {
-  switch (ordering) {
-    case TableFieldOrdering.asConfigured:
-      return;
-    case TableFieldOrdering.keyAlphabetical:
-      fields.sort((left, right) => left.key.compareTo(right.key));
-    case TableFieldOrdering.valueAlphabetical:
-      fields.sort(
-        (left, right) => _formatBaseNodeInfoValue(
-          values[left.key],
-        ).compareTo(_formatBaseNodeInfoValue(values[right.key])),
-      );
-  }
-}
-
-Map<String, Object?> _baseNodeInfoValues(ResolvedVaultNode selectedNode) {
+Map<String, Object?> _nodeInfoValues(ResolvedVaultNode selectedNode) {
   final node = selectedNode.node;
   final frontmatter = node?.frontmatter ?? const <String, String>{};
   return {
@@ -2578,7 +2346,7 @@ void _paintTextInTableCell(
   textPainter.paint(canvas, Offset(x, centerY - textPainter.height / 2));
 }
 
-String _formatBaseNodeInfoValue(Object? value) {
+String _formatTableValue(Object? value) {
   if (value == null) return '—';
   if (value is VaultNodeUiComponent) {
     final label = value.label?.trim();
@@ -2588,7 +2356,7 @@ String _formatBaseNodeInfoValue(Object? value) {
   }
   if (value is Iterable) {
     final formatted = value
-        .map(_formatBaseNodeInfoValue)
+        .map(_formatTableValue)
         .where((item) => item != '—')
         .join(', ');
     return formatted.isEmpty ? '—' : formatted;
@@ -2596,9 +2364,7 @@ String _formatBaseNodeInfoValue(Object? value) {
   if (value is Map) {
     if (value.isEmpty) return '—';
     return value.entries
-        .map(
-          (entry) => '${entry.key}: ${_formatBaseNodeInfoValue(entry.value)}',
-        )
+        .map((entry) => '${entry.key}: ${_formatTableValue(entry.value)}')
         .join(', ');
   }
 
@@ -2904,7 +2670,7 @@ Offset? _resolveReference(
   final resolved = layouts[reference.layoutPath.join('/')];
   if (resolved == null) return null;
   final derivative = resolved.layout
-      .getDerivatives(reference.snapshot, null, layoutContext)
+      .getDerivatives(reference.snapshot, layoutContext)
       .values[reference.derivative];
   if (derivative == null) return null;
   return resolved.bounds.topLeft +

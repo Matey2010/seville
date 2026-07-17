@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:seville_proto/seville_proto.dart';
 
 import '../constants/layout/presets/lg_ergo/lg_ergo_layout_config.dart';
-import '../data/seville_api.dart';
 import '../models/landscape_xl_layout.dart';
 import '../models/layout.dart';
 import '../state/node_store.dart';
@@ -29,41 +28,6 @@ class LandscapeXlLayoutScreen extends ConsumerStatefulWidget {
 
 class _LandscapeXlLayoutScreenState
     extends ConsumerState<LandscapeXlLayoutScreen> {
-  final SevilleApi _api = SevilleApi();
-  VaultNodeResolver? _vaultNodeResolver;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadNodePaths();
-  }
-
-  @override
-  void dispose() {
-    _api.close();
-    super.dispose();
-  }
-
-  Future<void> _loadNodePaths() async {
-    try {
-      final resolver = await _loadVaultNodeResolver();
-      if (!mounted) return;
-      setState(() {
-        _vaultNodeResolver = resolver;
-      });
-      _highlightInitialNodeIfNeeded(resolver);
-    } catch (error) {
-      CommonUtilities.log('[snapshot] load failed: $error');
-      // Keep status unresolved when the backend is unavailable. A failed
-      // snapshot request must not visually turn every configured node into 404.
-    }
-  }
-
-  Future<VaultNodeResolver> _loadVaultNodeResolver() async {
-    final snapshot = await _api.snapshot();
-    return VaultNodeResolver.fromNodes(snapshot.nodes);
-  }
-
   ResolvedVaultNode? _resolveInitialHighlightedNode(
     VaultNodeResolver resolver,
   ) {
@@ -75,12 +39,52 @@ class _LandscapeXlLayoutScreenState
 
   @override
   Widget build(BuildContext context) {
+    final layout = widget.layout ?? lgErgoLayoutConfig;
     final highlightedNodes = ref.watch(highlightedNodesProvider);
     final selectedNodes = ref.watch(selectedNodesProvider);
+    final resolverState = ref.watch(vaultNodeResolverProvider);
+    final systemInfoState = ref.watch(systemInfoProvider);
+    ref.listen(vaultNodeResolverProvider, (_, next) {
+      switch (next) {
+        case AsyncData(:final value):
+          _highlightInitialNodeIfNeeded(value);
+        case AsyncError(:final error):
+          CommonUtilities.log('[snapshot] load failed: $error');
+        case AsyncLoading():
+          break;
+      }
+    });
+    ref.listen(systemInfoProvider, (_, next) {
+      if (next case AsyncError(:final error)) {
+        CommonUtilities.log('[system info] load failed: $error');
+      }
+    });
+    final resolver = switch (resolverState) {
+      AsyncData(:final value) => value,
+      _ => null,
+    };
+    final systemInfo = switch (systemInfoState) {
+      AsyncData(:final value) => value,
+      _ => null,
+    };
+    final nodeTrees = <RadialTreeLayout, NodeTree>{};
+    for (final radialTree in _radialTreeLayouts(layout)) {
+      final treeState = ref.watch(
+        nodeTreeProvider((
+          rootNodeId: radialTree.rootNodeId,
+          depth: radialTree.maxDepth - 1,
+        )),
+      );
+      if (treeState case AsyncData(:final value)) {
+        nodeTrees[radialTree] = value;
+      }
+    }
     return Scaffold(
       body: LandscapeXlLayoutView(
-        layout: widget.layout ?? lgErgoLayoutConfig,
-        vaultNodeResolver: _vaultNodeResolver,
+        layout: layout,
+        vaultNodeResolver: resolver,
+        systemInfo: systemInfo,
+        nodeTrees: nodeTrees,
         highlightedNodes: highlightedNodes,
         selectedNodes: selectedNodes,
         onLayoutTap: _handleLayoutTap,
@@ -89,7 +93,19 @@ class _LandscapeXlLayoutScreenState
     );
   }
 
+  Iterable<RadialTreeLayout> _radialTreeLayouts(Layout layout) sync* {
+    for (final child in layout.layouts.values) {
+      if (child is RadialTreeLayout) yield child;
+      yield* _radialTreeLayouts(child);
+    }
+  }
+
   void _handleLayoutTap(LayoutTapTarget target) {
+    if (target.layout.aliases.contains('clear-selection-action')) {
+      ref.read(selectedNodesProvider.notifier).clear();
+      CommonUtilities.log('[action panel] cleared selected nodes');
+      return;
+    }
     if (target.layout is PanelLayout &&
         target.layout.aliases.contains('action-button')) {
       CommonUtilities.log(
@@ -104,7 +120,19 @@ class _LandscapeXlLayoutScreenState
       return;
     }
 
-    final resolver = _vaultNodeResolver;
+    final treeNode = target.resolvedNode;
+    final resolvedTreeNode = treeNode?.node;
+    if (treeNode != null && resolvedTreeNode != null) {
+      _logResolvedNodeTap(target, treeNode, resolvedTreeNode);
+      ref.read(selectedNodesProvider.notifier).select(treeNode);
+      return;
+    }
+
+    final resolverState = ref.read(vaultNodeResolverProvider);
+    final resolver = switch (resolverState) {
+      AsyncData(:final value) => value,
+      _ => null,
+    };
     if (resolver == null) {
       CommonUtilities.log(
         '[layout tap] ${target.key}: snapshot is not loaded yet; cannot resolve "${component.path}"',

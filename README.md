@@ -32,6 +32,8 @@ boundaries:
 
 - [`vocabulary.md`](docs/vocabulary.md) defines the canonical language shared
   by Neo4j, Go, protobuf, Flutter layouts, and renderers.
+- [`http-api-conventions.md`](docs/http-api-conventions.md) defines route
+  versioning, field naming, transport, and the planned system information API.
 - [`seville-architecture-plan.md`](docs/seville-architecture-plan.md) records
   the product goal, current architecture direction, accepted decisions, and
   open design questions.

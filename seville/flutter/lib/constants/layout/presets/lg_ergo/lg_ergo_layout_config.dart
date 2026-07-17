@@ -43,14 +43,6 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
   ],
   layoutDefaults: lgErgoLayoutDefaults,
   derivativeSnapshot: 'screen-edge-centers',
-  modes: {
-    'scene-flopped': LayoutMode(
-      id: 'scene-flopped',
-      aliases: ['collapsed-scene', 'folded', 'folded-scene'],
-      activeCondition: LayoutCondition.noSelectedNode(),
-      derivativeSnapshot: 'screen-edge-centers',
-    ),
-  },
   derivatives: {
     'screen-edge-centers': LayoutDerivativeSnapshot(
       values: {
@@ -118,6 +110,20 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                   labelColor: lgErgoActionButtonLabelColor,
                   labelSize: 18,
                 ),
+                'close-selection': PanelLayout(
+                  size: GridAxisVariable(size: LayoutSize.fr(1)),
+                  aliases: [
+                    'action-button',
+                    'close-action',
+                    'clear-selection-action',
+                  ],
+                  visibility: [HasActiveNodesCondition()],
+                  fillColor: lgErgoRejectButtonColor,
+                  borderStyle: lgErgoActionButtonBorderStyle,
+                  label: '×',
+                  labelColor: lgErgoActionButtonLabelColor,
+                  labelSize: 18,
+                ),
               },
             ),
             'browser-content': PanelLayout(
@@ -168,9 +174,17 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
         strokeStyle: lgErgoPlaneLineStyle,
       ),
       layouts: {
-        'cortex-bush': RadialBushLayout(
-          aliases: ['radial-bush', 'node-bush', 'cortex-bush', 'top-node-bush'],
+        'cortex-bush': RadialTreeLayout(
+          aliases: [
+            'cortex-tree',
+            'radial-tree',
+            'cortex-bush',
+            'top-node-tree',
+          ],
           style: lgErgoCortexNodeBorderStyle,
+          layoutDefaults: lgErgoRadialTreeLayoutDefaults,
+          maxDepth: 3,
+          maxSectionCount: 6,
           label: 'cortex',
           labelColor: lgErgoCortexNodeLabelColor,
           labelSize: 10,
@@ -181,37 +195,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               derivative: 'innerSquare.BC-center',
             ),
           ),
-          gridStyle: lgErgoRadialBushGridStyle,
-          bushStructure: RadialBushStructure(
-            root: RadialBushRoot(
-              size: GridAxisVariable(size: LayoutSize.fr(1)),
-              node: VaultNodeUiComponent(
-                path: DefaultVaultPaths.cortex,
-                color: lgErgoCortexNodeColor,
-                backgrounds: [
-                  ConditionalLayoutBackground(
-                    activeCondition: LayoutCondition.nodeHighlighted(),
-                    background: LayoutBorderBackground(
-                      style: lgErgoHighlightedNodeBorderStyle,
-                    ),
-                  ),
-                ],
-              ),
-              backgroundExtractor: BackgroundExtractor(
-                rootParameter: 'background',
-              ),
-            ),
-            branch: RadialBushBranch(
-              size: GridAxisVariable(size: LayoutSize.fr(1)),
-              rootParameter: 'components',
-            ),
-            // leaves: RadialBushElement(
-            //   size: GridAxisVariable(size: LayoutSize.fr(1)),
-            // ),
-            // flowers: RadialBushElement(
-            //   size: GridAxisVariable(size: LayoutSize.fr(1)),
-            // ),
-          ),
+          gridStyle: lgErgoRadialTreeGridStyle,
           position: LayoutRelativePosition.top,
         ),
       },
@@ -242,23 +226,56 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
         strokeStyle: lgErgoSpacePlaneLineStyle,
       ),
       layouts: {
-        'base-node-info': NodePropertyTable(
-          aliases: ['base-node-info', 'node-info-table'],
-          dataSource: NodePropertyTableDataSource.baseNodeInfo,
-          guideStyle: lgErgoBaseNodeInfoTableStyle,
+        'system-info': NodePropertyTable(
+          aliases: ['system-info', 'system-info-table'],
+          dataSource: NodePropertyTableDataSource.systemInfo,
+          guideStyle: lgErgoNodeInfoTableStyle,
           cellHighlight: TableCellHighlightConfig(
             rows: true,
             columns: true,
-            color: lgErgoBaseNodeInfoCellHighlightColor,
+            color: lgErgoNodeInfoCellHighlightColor,
           ),
+          visibility: [LayoutCondition.noSelectedNode()],
           fieldBuilder: TableFieldBuilder(
-            groups: {
+            groups: [TableGroup(id: 'system', label: 'System information')],
+            fields: [
+              TableField(
+                key: 'node_count',
+                label: 'Nodes',
+                groupId: 'system',
+                size: GridAxisVariable(size: LayoutSize.fr(1)),
+              ),
+              TableField(
+                key: 'node_property_count',
+                label: 'Node properties',
+                groupId: 'system',
+                size: GridAxisVariable(size: LayoutSize.fr(1)),
+              ),
+            ],
+          ),
+          columns: [
+            MapEntry('key', GridAxisVariable(size: LayoutSize.fr(1))),
+            MapEntry('value', GridAxisVariable(size: LayoutSize.fr(3))),
+          ],
+        ),
+        'node-info': NodePropertyTable(
+          aliases: ['node-info', 'node-info-table', 'base-node-info'],
+          dataSource: NodePropertyTableDataSource.nodeInfo,
+          guideStyle: lgErgoNodeInfoTableStyle,
+          cellHighlight: TableCellHighlightConfig(
+            rows: true,
+            columns: true,
+            color: lgErgoNodeInfoCellHighlightColor,
+          ),
+          visibility: [HasActiveNodesCondition()],
+          fieldBuilder: TableFieldBuilder(
+            groups: [
               TableGroup(id: 'identity', label: 'Public identity'),
               TableGroup(
                 id: null,
                 ordering: TableFieldOrdering.keyAlphabetical,
               ),
-            },
+            ],
             fields: [
               TableField(
                 key: 'id',
@@ -512,7 +529,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               to: 'innerSquare.D',
             ),
             'leftPlane.top': ConditionalDerivative(
-              condition: LayoutCondition.modeActive('scene-flopped'),
+              condition: LayoutCondition.noSelectedNode(),
               whenTrue: MidpointDerivative(
                 from: 'innerSquare.B',
                 to: 'innerSquare.C',
@@ -523,7 +540,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               ),
             ),
             'leftPlane.bottom': ConditionalDerivative(
-              condition: LayoutCondition.modeActive('scene-flopped'),
+              condition: LayoutCondition.noSelectedNode(),
               whenTrue: MidpointDerivative(
                 from: 'innerSquare.A',
                 to: 'innerSquare.D',
@@ -534,7 +551,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               ),
             ),
             'rightPlane.top': ConditionalDerivative(
-              condition: LayoutCondition.modeActive('scene-flopped'),
+              condition: LayoutCondition.noSelectedNode(),
               whenTrue: MidpointDerivative(
                 from: 'innerSquare.B',
                 to: 'innerSquare.C',
@@ -545,7 +562,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               ),
             ),
             'rightPlane.bottom': ConditionalDerivative(
-              condition: LayoutCondition.modeActive('scene-flopped'),
+              condition: LayoutCondition.noSelectedNode(),
               whenTrue: MidpointDerivative(
                 from: 'innerSquare.A',
                 to: 'innerSquare.D',
@@ -564,17 +581,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
       layouts: {
         'inner-circle-plane': PlaneLayout(
           aliases: ['inner-circle-plane', 'scene-plane', 'circle-plane'],
-          modes: {
-            'scene-flopped': LayoutMode(
-              id: 'scene-flopped',
-              aliases: ['collapsed-scene', 'folded', 'folded-scene'],
-              activeCondition: LayoutCondition.modeActive(
-                'scene-flopped',
-                aliases: ['collapsed-scene', 'folded', 'folded-scene'],
-              ),
-              visible: false,
-            ),
-          },
+          visibility: [HasActiveNodesCondition()],
           shape: LayoutShape.circle,
           style: randomBlueprintAesthetics.layoutStyle,
           backgroundColor: Color(0x00000000),
@@ -681,17 +688,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
           },
         ),
         'inner-circle': LayoutBorderGuide(
-          modes: {
-            'scene-flopped': LayoutMode(
-              id: 'scene-flopped',
-              aliases: ['collapsed-scene', 'folded', 'folded-scene'],
-              activeCondition: LayoutCondition.modeActive(
-                'scene-flopped',
-                aliases: ['collapsed-scene', 'folded', 'folded-scene'],
-              ),
-              visible: false,
-            ),
-          },
+          visibility: [HasActiveNodesCondition()],
           shape: LayoutBorderShape.circle,
           reference: LayoutBorderReference.bounds,
           derivativeAnchors: ['innerCircle.center', 'innerCircle.top'],
@@ -725,6 +722,10 @@ const lgErgoLayoutDefaults = LayoutDefaults(
   gap: lgErgoLayoutDefaultGap,
   borderWidth: lgErgoLayoutDefaultBorderWidth,
 );
+const lgErgoRadialTreeNodeBorderWidth = 1.8;
+const lgErgoRadialTreeLayoutDefaults = LayoutDefaults(
+  borderWidth: lgErgoRadialTreeNodeBorderWidth,
+);
 
 const lgErgoPastColor = Color(0x553F51B5);
 const lgErgoNowColor = Color(0xFFDC143C);
@@ -736,7 +737,6 @@ const lgErgoActionButtonColor = Color(0x553F51B5);
 const lgErgoSubmitButtonColor = Color(0x6652A66B);
 const lgErgoRejectButtonColor = Color(0x668F3E4B);
 const lgErgoActionButtonLabelColor = Color(0xFFF5F7FF);
-const lgErgoCortexNodeColor = LayoutColor.fromHex('FFD54F', opacity: 0.9);
 const lgErgoCortexNodeLabelColor = Color(0xFF101820);
 const lgErgoCurrentTimeBackgroundColor = Color(0x18DC143C);
 const lgErgoHourPassedColor = Color(0x33DC143C);
@@ -792,17 +792,17 @@ const lgErgoActionButtonBorderStyle = GuideStyle(
   pattern: GuideLinePattern.solid,
 );
 
-const lgErgoBaseNodeInfoTableStyle = GuideStyle(
+const lgErgoNodeInfoTableStyle = GuideStyle(
   color: Color(0x665F7CFF),
   strokeWidth: 1,
   pattern: GuideLinePattern.solid,
 );
 
-const lgErgoBaseNodeInfoCellHighlightColor = Color(0x66374A9B);
+const lgErgoNodeInfoCellHighlightColor = Color(0x66374A9B);
 
 const lgErgoCortexNodeBorderStyle = GuideStyle(
   color: Color(0xFFFFF7D6),
-  strokeWidth: 1.8,
+  strokeWidth: lgErgoRadialTreeNodeBorderWidth,
   pattern: GuideLinePattern.solid,
 );
 
@@ -812,7 +812,7 @@ const lgErgoHighlightedNodeBorderStyle = GuideStyle(
   pattern: GuideLinePattern.solid,
 );
 
-const lgErgoRadialBushGridStyle = GuideStyle(
+const lgErgoRadialTreeGridStyle = GuideStyle(
   color: Color(0x88FFD54F),
   strokeWidth: 0.9,
   pattern: GuideLinePattern.dashed,

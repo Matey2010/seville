@@ -8,7 +8,7 @@ class TimelineGrid extends GridLayout {
     super.derivatives,
     super.derivativeSnapshot,
     super.observables,
-    super.modes,
+    super.visibility,
     super.inputSources,
     super.columnFractions,
     super.rowFractions,

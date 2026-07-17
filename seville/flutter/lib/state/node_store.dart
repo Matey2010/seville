@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:seville_proto/seville_proto.dart';
 
 import '../data/seville_api.dart';
 import '../models/layout.dart';
@@ -16,6 +17,21 @@ final vaultNodeResolverProvider = FutureProvider<VaultNodeResolver>((
   final api = ref.watch(sevilleApiProvider);
   final snapshot = await api.snapshot();
   return VaultNodeResolver.fromNodes(snapshot.nodes);
+});
+
+final systemInfoProvider = FutureProvider<SystemInfo>((ref) async {
+  final api = ref.watch(sevilleApiProvider);
+  return api.systemInfo();
+});
+
+typedef NodeTreeRequest = ({String? rootNodeId, int depth});
+
+final nodeTreeProvider = FutureProvider.family<NodeTree, NodeTreeRequest>((
+  ref,
+  request,
+) async {
+  final api = ref.watch(sevilleApiProvider);
+  return api.nodeTree(rootNodeId: request.rootNodeId, depth: request.depth);
 });
 
 final highlightedNodesProvider =

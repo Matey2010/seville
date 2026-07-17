@@ -1,43 +1,20 @@
 import 'dart:ui';
 
+import 'package:table_data/table_data.dart';
+
 import 'layout.dart';
 
-enum NodePropertyTableDataSource { baseNodeInfo }
+export 'package:table_data/table_data.dart'
+    show
+        TableData,
+        TableDefinition,
+        TableField,
+        TableFieldBuilder,
+        TableFieldOrdering,
+        TableGroup,
+        TableRow;
 
-enum TableFieldOrdering { asConfigured, keyAlphabetical, valueAlphabetical }
-
-class TableFieldBuilder {
-  const TableFieldBuilder({this.groups = const {}, required this.fields});
-
-  final Set<TableGroup> groups;
-  final List<TableField> fields;
-}
-
-class TableGroup {
-  const TableGroup({
-    required this.id,
-    this.label,
-    this.ordering = TableFieldOrdering.asConfigured,
-  });
-
-  final String? id;
-  final String? label;
-  final TableFieldOrdering ordering;
-}
-
-class TableField {
-  const TableField({
-    required this.key,
-    required this.size,
-    this.label,
-    this.groupId,
-  });
-
-  final String key;
-  final GridAxisVariable size;
-  final String? label;
-  final String? groupId;
-}
+enum NodePropertyTableDataSource { nodeInfo, systemInfo }
 
 class TableCellHighlightConfig {
   const TableCellHighlightConfig({
@@ -51,7 +28,9 @@ class TableCellHighlightConfig {
   final Color color;
 }
 
-class NodePropertyTable extends Layout with TableLayoutMixin {
+class NodePropertyTable extends Layout
+    with TableLayoutMixin
+    implements TableDefinition<GridAxisVariable> {
   const NodePropertyTable({
     required this.columns,
     required this.dataSource,
@@ -65,14 +44,16 @@ class NodePropertyTable extends Layout with TableLayoutMixin {
     this.valueSize = 11,
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
-    super.modes,
+    super.visibility,
     super.inputSources,
   }) : super.fromAxes();
 
+  @override
   final List<MapEntry<String, GridAxisVariable>> columns;
   final NodePropertyTableDataSource dataSource;
   final GuideStyle guideStyle;
-  final TableFieldBuilder? fieldBuilder;
+  @override
+  final TableFieldBuilder<GridAxisVariable>? fieldBuilder;
   final double padding;
   final TableCellHighlightConfig? cellHighlight;
   final Color labelColor;
@@ -82,7 +63,8 @@ class NodePropertyTable extends Layout with TableLayoutMixin {
 
   @override
   Map<String, GridAxisVariable> get tableRowsConfig => {
-    for (final field in fieldBuilder?.fields ?? const <TableField>[])
+    for (final field
+        in fieldBuilder?.fields ?? const <TableField<GridAxisVariable>>[])
       field.key: field.size,
   };
 

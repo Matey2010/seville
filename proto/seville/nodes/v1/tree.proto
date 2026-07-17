@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package seville.nodes.v1;
+
+option go_package = "github.com/Matey2010/seville/proto/gen/go/seville/nodes/v1;nodesv1";
+
+import "seville/node/v2/node.proto";
+
+enum NodeRelationshipType {
+  NODE_RELATIONSHIP_TYPE_UNSPECIFIED = 0;
+  NODE_RELATIONSHIP_TYPE_PART_OF = 1;
+}
+
+message NodeTreeOccurrence {
+  string occurrence_id = 1;
+  optional string parent_occurrence_id = 2;
+  uint32 depth = 3;
+  seville.node.v2.Node node = 4;
+}
+
+message NodeTree {
+  string root_node_id = 1;
+  NodeRelationshipType relationship = 2;
+  uint32 depth = 3;
+  repeated NodeTreeOccurrence occurrences = 4;
+}

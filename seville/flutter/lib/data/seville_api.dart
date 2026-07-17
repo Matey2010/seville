@@ -48,6 +48,36 @@ class SevilleApi {
     return NodeSnapshot.fromBuffer(bytes);
   }
 
+  Future<SystemInfo> systemInfo() async {
+    final response = await _dio.get<List<int>>('/system/v1/info');
+    final bytes = response.data;
+    if (bytes == null) {
+      throw const FormatException(
+        'The backend returned empty system information.',
+      );
+    }
+    return SystemInfo.fromBuffer(bytes);
+  }
+
+  Future<NodeTree> nodeTree({String? rootNodeId, int depth = 3}) async {
+    if (depth < 0) {
+      throw ArgumentError.value(depth, 'depth', 'must be unsigned');
+    }
+    final response = await _dio.get<List<int>>(
+      '/nodes/v1/tree',
+      queryParameters: {
+        if (rootNodeId != null && rootNodeId.trim().isNotEmpty)
+          'root_node_id': rootNodeId.trim(),
+        'depth': depth,
+      },
+    );
+    final bytes = response.data;
+    if (bytes == null) {
+      throw const FormatException('The backend returned an empty Node tree.');
+    }
+    return NodeTree.fromBuffer(bytes);
+  }
+
   void close() => _dio.close();
 }
 
