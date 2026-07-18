@@ -11,12 +11,30 @@ final sevilleApiProvider = Provider<SevilleApi>((ref) {
   return api;
 });
 
+final nodeSnapshotProvider = FutureProvider<NodeSnapshot>((ref) async {
+  final api = ref.watch(sevilleApiProvider);
+  return api.snapshot();
+});
+
 final vaultNodeResolverProvider = FutureProvider<VaultNodeResolver>((
   ref,
 ) async {
-  final api = ref.watch(sevilleApiProvider);
-  final snapshot = await api.snapshot();
+  final snapshot = await ref.watch(nodeSnapshotProvider.future);
   return VaultNodeResolver.fromNodes(snapshot.nodes);
+});
+
+final nodeEmojisProvider = Provider.family<AsyncValue<List<Emoji>>, String>((
+  ref,
+  nodeId,
+) {
+  return ref.watch(nodeSnapshotProvider).whenData((snapshot) {
+    for (final node in snapshot.nodes) {
+      if (node.id == nodeId) {
+        return List<Emoji>.unmodifiable(node.emojis);
+      }
+    }
+    return const <Emoji>[];
+  });
 });
 
 final systemInfoProvider = FutureProvider<SystemInfo>((ref) async {

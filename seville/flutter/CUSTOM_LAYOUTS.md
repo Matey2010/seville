@@ -1,18 +1,19 @@
 # Defining custom layouts
 
-Seville separates layout data from Flutter rendering:
+Seville separates layout data from Flame rendering:
 
 1. A `Layout` subclass describes durable structure.
 2. Constants create the default configuration.
-3. A widget or painter renders that model.
-4. `LayoutRendererRegistry` connects the model type to its renderer.
+3. A Flame `PositionComponent` renders that model.
+4. `LayoutComponentRegistry` connects the model type to its component.
 5. A parent layout places it under a stable key in `Layout.layouts`.
 
 Do not start by inventing a new entity. First inspect the related layout,
-guide, derivative, path, grid, plane, and renderer types already in the
-codebase. If an existing concept can honestly represent the behavior, extend or
-configure that concept. Add a new model or renderer only when the project owner
-explicitly asks for a new thing or when reuse would make dependencies unclear.
+guide, derivative, path, grid, plane, component, and rendering primitives
+already in the codebase. If an existing concept can honestly represent the
+behavior, extend or configure that concept. Add a new model or component only
+when the project owner explicitly asks for a new thing or when reuse would make
+dependencies unclear.
 Geometry that depends on other geometry must be encoded as a dependency:
 wrapping squares derive from the circles or planes they wrap, rings derive from
 the plane radius they describe, and connector guides target the same anchors
@@ -93,44 +94,43 @@ Guideline(
 The marker resolves from the guide's normalized start/end points at paint time,
 so it remains aligned when the viewport changes.
 
-## 3. Create the renderer
+## 3. Create the component
 
 ```dart
-class OrbitView extends StatelessWidget {
-  const OrbitView({required this.layout, super.key});
+class OrbitComponent extends PositionComponent {
+  OrbitComponent({required this.layout});
 
   final OrbitLayout layout;
 
   @override
-  Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: OrbitPainter(layout),
-      size: Size.infinite,
-    );
+  void render(Canvas canvas) {
+    drawOrbit(canvas, Size(size.x, size.y), layout);
   }
 }
 
-Widget buildOrbitLayout(
-  BuildContext context,
+PositionComponent buildOrbitLayout(
   Layout layout,
-  LayoutRendererRegistry registry,
+  LayoutComponentRegistry registry,
 ) {
-  return OrbitView(layout: layout as OrbitLayout);
+  return OrbitComponent(layout: layout as OrbitLayout);
 }
 ```
 
-The renderer can be a normal widget, `CustomPainter`, Flame component, or a
-composition of those. The model does not care.
+Renderable layout content is a Flame component. Flutter widgets are reserved
+for application composition, the `GameWidget` host, and a future explicitly
+designed HUD. There is no HUD today, so ordinary layout content must not be
+implemented as a widget or parallel gesture layer.
 
 ## 4. Register it
 
 ```dart
-final appLayoutRendererRegistry = defaultLayoutRendererRegistry.extended({
+final appLayoutComponentRegistry = const LayoutComponentRegistry().extended({
   OrbitLayout: buildOrbitLayout,
 });
 
-LandscapeXlLayoutScreen(
-  rendererRegistry: appLayoutRendererRegistry,
+CompassView(
+  layout: configuredCompassLayout,
+  componentRegistry: appLayoutComponentRegistry,
 );
 ```
 
@@ -198,7 +198,7 @@ absolute start. `spanDegrees` fixes angular width. Slots without
 
 A slot's optional `layout` field establishes ownership of a nested layout.
 Rendering that nested layout into a curved wedge is intentionally separate
-from ownership and can be implemented by its painter.
+from ownership and can be implemented by its Flame component.
 
 ## 7. Add hierarchy depth
 
@@ -296,9 +296,9 @@ fallback fraction today, and its `derivative` names the future layout/context
 value that should drive it.
 
 The current LG Ergo preset removes `now` from the grid itself. `now` is a red
-overlay `RayLayout`, while the base plane keeps equal `previous`, `current`, and
-`next` columns. Calculated derivatives can drive future overlay layers, for
-example
+overlay `RayLayout` owned by `bottom-plane`, while the base plane keeps equal
+`previous`, `current`, and `next` columns. Calculated derivatives can drive
+future overlay layers, for example
 `now-in-current-hour.passed`, `now-in-current-hour.left`,
 `now-in-current-day.passed`, and `now-in-current-day.left`. The current LG Ergo
 bottom time grid keeps the base plane simpler: rows `hour`, `day`, and `week`
@@ -306,6 +306,13 @@ share `previous`, `current`, and `next` columns, while fine passed/left
 adjustment belongs to a later timeline-point layer. The surrounding screen
 and safe-area anchors stay unpadded; each plane owns its own side-specific
 `LayoutPath.padding`, derived from `lgErgoLayoutDefaults.padding` where needed.
+The LG Ergo top and bottom planes themselves live in `safe-area.layouts`, and
+future plane-specific content belongs in each plane's own `layouts` map.
+`FanLayout` is the graph presentation used by the top plane. Its cardinal
+positions span 180 degrees, angular `LayoutRelativePosition.d(...)` positions
+span 90 degrees, and non-directional positions span 360 degrees. Sections split
+that span equally; internal bands keep a regular radius while the final band
+adapts to the owning `LayoutPath` boundary.
 The `left-plane`
 provides the 12-segment x/space plane between scene-left and screen-left; its
 grid contains only the real space rows, not fake padding tracks. The scene inner
@@ -347,31 +354,7 @@ means 20cm of conceptual space around a 200cm figure. When the parent layout has
 an `outerCircle`, the figure is fitted into the inscribed scene square of that
 circle.
 
-## 10. Preview graph nodes inside a scene
-
-`GraphPreviewLayout` is a lightweight placeholder for future graph-backed
-content. It draws normalized circle nodes and optional edges inside the same
-scene frame used by `StickmanLayout`, so constants can sketch graph intent
-before database nodes are connected:
-
-```dart
-'scene-graph-preview': GraphPreviewLayout(
-  aliases: ['graph-preview', 'knowledge-preview'],
-  nodeStyle: nodeStyle,
-  edgeStyle: edgeStyle,
-  nodes: [
-    GraphPreviewNode(id: 'self', position: Offset(0.5, 0.05)),
-    GraphPreviewNode(id: 'memory', position: Offset(0.34, 0.13)),
-  ],
-  edges: [GraphPreviewEdge(from: 'self', to: 'memory')],
-),
-```
-
-Node positions are normalized to the scene square: `Offset(0, 0)` is top-left,
-`Offset(1, 1)` is bottom-right. Use this for visual prototypes only; replace it
-with graph/database-backed layout data when the graph layer is ready.
-
-## 11. Animate without mutating constants
+## 10. Animate without mutating constants
 
 Keep defaults immutable and derive transient layouts in `AnimatedBuilder`:
 
@@ -393,7 +376,7 @@ AnimatedBuilder(
     );
     return CompassView(
       layout: configuredCompassLayout.copyWith(mainSlot: animatedMainSlot),
-      rendererRegistry: appLayoutRendererRegistry,
+      componentRegistry: appLayoutComponentRegistry,
     );
   },
 );
@@ -402,5 +385,4 @@ AnimatedBuilder(
 Animate normalized position, fractions, degrees, and depth for device-independent
 motion. Use logical-pixel `translation` only for short local effects. For many
 simultaneously animated graph objects, keep the immutable layout as topology
-and move per-frame transforms into a `CustomPainter`, Flame component tree, or
-GPU shader.
+and move per-frame transforms into the Flame component tree or a GPU shader.

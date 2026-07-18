@@ -159,6 +159,7 @@ type Node struct {
 	Tags          []string               `protobuf:"bytes,5,rep,name=tags,proto3" json:"tags,omitempty"`
 	Frontmatter   map[string]string      `protobuf:"bytes,6,rep,name=frontmatter,proto3" json:"frontmatter,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	ModifiedAt    *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=modified_at,json=modifiedAt,proto3" json:"modified_at,omitempty"`
+	Emojis        []*Emoji               `protobuf:"bytes,8,rep,name=emojis,proto3" json:"emojis,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -242,6 +243,137 @@ func (x *Node) GetModifiedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *Node) GetEmojis() []*Emoji {
+	if x != nil {
+		return x.Emojis
+	}
+	return nil
+}
+
+type Emoji struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Character     string                 `protobuf:"bytes,2,opt,name=character,proto3" json:"character,omitempty"`
+	Title         string                 `protobuf:"bytes,3,opt,name=title,proto3" json:"title,omitempty"`
+	Codes         string                 `protobuf:"bytes,4,opt,name=codes,proto3" json:"codes,omitempty"`
+	GroupName     string                 `protobuf:"bytes,5,opt,name=group_name,json=groupName,proto3" json:"group_name,omitempty"`
+	Subgroup      string                 `protobuf:"bytes,6,opt,name=subgroup,proto3" json:"subgroup,omitempty"`
+	Category      string                 `protobuf:"bytes,7,opt,name=category,proto3" json:"category,omitempty"`
+	Source        string                 `protobuf:"bytes,8,opt,name=source,proto3" json:"source,omitempty"`
+	Counter       uint64                 `protobuf:"varint,9,opt,name=counter,proto3" json:"counter,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Emoji) Reset() {
+	*x = Emoji{}
+	mi := &file_seville_node_v2_node_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Emoji) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Emoji) ProtoMessage() {}
+
+func (x *Emoji) ProtoReflect() protoreflect.Message {
+	mi := &file_seville_node_v2_node_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Emoji.ProtoReflect.Descriptor instead.
+func (*Emoji) Descriptor() ([]byte, []int) {
+	return file_seville_node_v2_node_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *Emoji) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *Emoji) GetCharacter() string {
+	if x != nil {
+		return x.Character
+	}
+	return ""
+}
+
+func (x *Emoji) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *Emoji) GetCodes() string {
+	if x != nil {
+		return x.Codes
+	}
+	return ""
+}
+
+func (x *Emoji) GetGroupName() string {
+	if x != nil {
+		return x.GroupName
+	}
+	return ""
+}
+
+func (x *Emoji) GetSubgroup() string {
+	if x != nil {
+		return x.Subgroup
+	}
+	return ""
+}
+
+func (x *Emoji) GetCategory() string {
+	if x != nil {
+		return x.Category
+	}
+	return ""
+}
+
+func (x *Emoji) GetSource() string {
+	if x != nil {
+		return x.Source
+	}
+	return ""
+}
+
+func (x *Emoji) GetCounter() uint64 {
+	if x != nil {
+		return x.Counter
+	}
+	return 0
+}
+
+func (x *Emoji) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *Emoji) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
 type NodeConnection struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	SourceNodeId  string                 `protobuf:"bytes,1,opt,name=source_node_id,json=sourceNodeId,proto3" json:"source_node_id,omitempty"`
@@ -256,7 +388,7 @@ type NodeConnection struct {
 
 func (x *NodeConnection) Reset() {
 	*x = NodeConnection{}
-	mi := &file_seville_node_v2_node_proto_msgTypes[2]
+	mi := &file_seville_node_v2_node_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -268,7 +400,7 @@ func (x *NodeConnection) String() string {
 func (*NodeConnection) ProtoMessage() {}
 
 func (x *NodeConnection) ProtoReflect() protoreflect.Message {
-	mi := &file_seville_node_v2_node_proto_msgTypes[2]
+	mi := &file_seville_node_v2_node_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -281,7 +413,7 @@ func (x *NodeConnection) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeConnection.ProtoReflect.Descriptor instead.
 func (*NodeConnection) Descriptor() ([]byte, []int) {
-	return file_seville_node_v2_node_proto_rawDescGZIP(), []int{2}
+	return file_seville_node_v2_node_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *NodeConnection) GetSourceNodeId() string {
@@ -336,7 +468,7 @@ type ImportWarning struct {
 
 func (x *ImportWarning) Reset() {
 	*x = ImportWarning{}
-	mi := &file_seville_node_v2_node_proto_msgTypes[3]
+	mi := &file_seville_node_v2_node_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -348,7 +480,7 @@ func (x *ImportWarning) String() string {
 func (*ImportWarning) ProtoMessage() {}
 
 func (x *ImportWarning) ProtoReflect() protoreflect.Message {
-	mi := &file_seville_node_v2_node_proto_msgTypes[3]
+	mi := &file_seville_node_v2_node_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -361,7 +493,7 @@ func (x *ImportWarning) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImportWarning.ProtoReflect.Descriptor instead.
 func (*ImportWarning) Descriptor() ([]byte, []int) {
-	return file_seville_node_v2_node_proto_rawDescGZIP(), []int{3}
+	return file_seville_node_v2_node_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ImportWarning) GetPath() string {
@@ -391,7 +523,7 @@ type ImportStatus struct {
 
 func (x *ImportStatus) Reset() {
 	*x = ImportStatus{}
-	mi := &file_seville_node_v2_node_proto_msgTypes[4]
+	mi := &file_seville_node_v2_node_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -403,7 +535,7 @@ func (x *ImportStatus) String() string {
 func (*ImportStatus) ProtoMessage() {}
 
 func (x *ImportStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_seville_node_v2_node_proto_msgTypes[4]
+	mi := &file_seville_node_v2_node_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -416,7 +548,7 @@ func (x *ImportStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImportStatus.ProtoReflect.Descriptor instead.
 func (*ImportStatus) Descriptor() ([]byte, []int) {
-	return file_seville_node_v2_node_proto_rawDescGZIP(), []int{4}
+	return file_seville_node_v2_node_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ImportStatus) GetRevision() string {
@@ -464,7 +596,7 @@ type ApiError struct {
 
 func (x *ApiError) Reset() {
 	*x = ApiError{}
-	mi := &file_seville_node_v2_node_proto_msgTypes[5]
+	mi := &file_seville_node_v2_node_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -476,7 +608,7 @@ func (x *ApiError) String() string {
 func (*ApiError) ProtoMessage() {}
 
 func (x *ApiError) ProtoReflect() protoreflect.Message {
-	mi := &file_seville_node_v2_node_proto_msgTypes[5]
+	mi := &file_seville_node_v2_node_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -489,7 +621,7 @@ func (x *ApiError) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApiError.ProtoReflect.Descriptor instead.
 func (*ApiError) Descriptor() ([]byte, []int) {
-	return file_seville_node_v2_node_proto_rawDescGZIP(), []int{5}
+	return file_seville_node_v2_node_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *ApiError) GetCode() string {
@@ -516,7 +648,7 @@ const file_seville_node_v2_node_proto_rawDesc = "" +
 	"\fgenerated_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\vgeneratedAt\x12+\n" +
 	"\x05nodes\x18\x03 \x03(\v2\x15.seville.node.v2.NodeR\x05nodes\x12A\n" +
 	"\vconnections\x18\x04 \x03(\v2\x1f.seville.node.v2.NodeConnectionR\vconnections\x12:\n" +
-	"\bwarnings\x18\x05 \x03(\v2\x1e.seville.node.v2.ImportWarningR\bwarnings\"\xaf\x02\n" +
+	"\bwarnings\x18\x05 \x03(\v2\x1e.seville.node.v2.ImportWarningR\bwarnings\"\xdf\x02\n" +
 	"\x04Node\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04path\x18\x02 \x01(\tR\x04path\x12\x14\n" +
@@ -525,10 +657,27 @@ const file_seville_node_v2_node_proto_rawDesc = "" +
 	"\x04tags\x18\x05 \x03(\tR\x04tags\x12H\n" +
 	"\vfrontmatter\x18\x06 \x03(\v2&.seville.node.v2.Node.FrontmatterEntryR\vfrontmatter\x12;\n" +
 	"\vmodified_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"modifiedAt\x1a>\n" +
+	"modifiedAt\x12.\n" +
+	"\x06emojis\x18\b \x03(\v2\x16.seville.node.v2.EmojiR\x06emojis\x1a>\n" +
 	"\x10FrontmatterEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xb5\x02\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xe0\x02\n" +
+	"\x05Emoji\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1c\n" +
+	"\tcharacter\x18\x02 \x01(\tR\tcharacter\x12\x14\n" +
+	"\x05title\x18\x03 \x01(\tR\x05title\x12\x14\n" +
+	"\x05codes\x18\x04 \x01(\tR\x05codes\x12\x1d\n" +
+	"\n" +
+	"group_name\x18\x05 \x01(\tR\tgroupName\x12\x1a\n" +
+	"\bsubgroup\x18\x06 \x01(\tR\bsubgroup\x12\x1a\n" +
+	"\bcategory\x18\a \x01(\tR\bcategory\x12\x16\n" +
+	"\x06source\x18\b \x01(\tR\x06source\x12\x18\n" +
+	"\acounter\x18\t \x01(\x04R\acounter\x129\n" +
+	"\n" +
+	"created_at\x18\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xb5\x02\n" +
 	"\x0eNodeConnection\x12$\n" +
 	"\x0esource_node_id\x18\x01 \x01(\tR\fsourceNodeId\x12\x1f\n" +
 	"\vtarget_text\x18\x02 \x01(\tR\n" +
@@ -573,32 +722,36 @@ func file_seville_node_v2_node_proto_rawDescGZIP() []byte {
 }
 
 var file_seville_node_v2_node_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_seville_node_v2_node_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_seville_node_v2_node_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_seville_node_v2_node_proto_goTypes = []any{
 	(NodeConnectionKind)(0),       // 0: seville.node.v2.NodeConnectionKind
 	(*NodeSnapshot)(nil),          // 1: seville.node.v2.NodeSnapshot
 	(*Node)(nil),                  // 2: seville.node.v2.Node
-	(*NodeConnection)(nil),        // 3: seville.node.v2.NodeConnection
-	(*ImportWarning)(nil),         // 4: seville.node.v2.ImportWarning
-	(*ImportStatus)(nil),          // 5: seville.node.v2.ImportStatus
-	(*ApiError)(nil),              // 6: seville.node.v2.ApiError
-	nil,                           // 7: seville.node.v2.Node.FrontmatterEntry
-	(*timestamppb.Timestamp)(nil), // 8: google.protobuf.Timestamp
+	(*Emoji)(nil),                 // 3: seville.node.v2.Emoji
+	(*NodeConnection)(nil),        // 4: seville.node.v2.NodeConnection
+	(*ImportWarning)(nil),         // 5: seville.node.v2.ImportWarning
+	(*ImportStatus)(nil),          // 6: seville.node.v2.ImportStatus
+	(*ApiError)(nil),              // 7: seville.node.v2.ApiError
+	nil,                           // 8: seville.node.v2.Node.FrontmatterEntry
+	(*timestamppb.Timestamp)(nil), // 9: google.protobuf.Timestamp
 }
 var file_seville_node_v2_node_proto_depIdxs = []int32{
-	8, // 0: seville.node.v2.NodeSnapshot.generated_at:type_name -> google.protobuf.Timestamp
-	2, // 1: seville.node.v2.NodeSnapshot.nodes:type_name -> seville.node.v2.Node
-	3, // 2: seville.node.v2.NodeSnapshot.connections:type_name -> seville.node.v2.NodeConnection
-	4, // 3: seville.node.v2.NodeSnapshot.warnings:type_name -> seville.node.v2.ImportWarning
-	7, // 4: seville.node.v2.Node.frontmatter:type_name -> seville.node.v2.Node.FrontmatterEntry
-	8, // 5: seville.node.v2.Node.modified_at:type_name -> google.protobuf.Timestamp
-	0, // 6: seville.node.v2.NodeConnection.kind:type_name -> seville.node.v2.NodeConnectionKind
-	8, // 7: seville.node.v2.ImportStatus.imported_at:type_name -> google.protobuf.Timestamp
-	8, // [8:8] is the sub-list for method output_type
-	8, // [8:8] is the sub-list for method input_type
-	8, // [8:8] is the sub-list for extension type_name
-	8, // [8:8] is the sub-list for extension extendee
-	0, // [0:8] is the sub-list for field type_name
+	9,  // 0: seville.node.v2.NodeSnapshot.generated_at:type_name -> google.protobuf.Timestamp
+	2,  // 1: seville.node.v2.NodeSnapshot.nodes:type_name -> seville.node.v2.Node
+	4,  // 2: seville.node.v2.NodeSnapshot.connections:type_name -> seville.node.v2.NodeConnection
+	5,  // 3: seville.node.v2.NodeSnapshot.warnings:type_name -> seville.node.v2.ImportWarning
+	8,  // 4: seville.node.v2.Node.frontmatter:type_name -> seville.node.v2.Node.FrontmatterEntry
+	9,  // 5: seville.node.v2.Node.modified_at:type_name -> google.protobuf.Timestamp
+	3,  // 6: seville.node.v2.Node.emojis:type_name -> seville.node.v2.Emoji
+	9,  // 7: seville.node.v2.Emoji.created_at:type_name -> google.protobuf.Timestamp
+	9,  // 8: seville.node.v2.Emoji.updated_at:type_name -> google.protobuf.Timestamp
+	0,  // 9: seville.node.v2.NodeConnection.kind:type_name -> seville.node.v2.NodeConnectionKind
+	9,  // 10: seville.node.v2.ImportStatus.imported_at:type_name -> google.protobuf.Timestamp
+	11, // [11:11] is the sub-list for method output_type
+	11, // [11:11] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_seville_node_v2_node_proto_init() }
@@ -606,14 +759,14 @@ func file_seville_node_v2_node_proto_init() {
 	if File_seville_node_v2_node_proto != nil {
 		return
 	}
-	file_seville_node_v2_node_proto_msgTypes[2].OneofWrappers = []any{}
+	file_seville_node_v2_node_proto_msgTypes[3].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_seville_node_v2_node_proto_rawDesc), len(file_seville_node_v2_node_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   7,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -22,6 +22,21 @@ message Node {
   repeated string tags = 5;
   map<string, string> frontmatter = 6;
   google.protobuf.Timestamp modified_at = 7;
+  repeated Emoji emojis = 8;
+}
+
+message Emoji {
+  string id = 1;
+  string character = 2;
+  string title = 3;
+  string codes = 4;
+  string group_name = 5;
+  string subgroup = 6;
+  string category = 7;
+  string source = 8;
+  uint64 counter = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
 }
 
 message NodeConnection {

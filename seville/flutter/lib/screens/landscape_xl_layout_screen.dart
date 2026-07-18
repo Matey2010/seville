@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:seville_proto/seville_proto.dart';
 
+import '../components/layout_component_registry.dart';
 import '../constants/layout/presets/lg_ergo/lg_ergo_layout_config.dart';
 import '../models/landscape_xl_layout.dart';
 import '../models/layout.dart';
@@ -9,17 +10,16 @@ import '../state/node_store.dart';
 import '../utils/common_utilities.dart';
 import '../utils/vault_node_resolver.dart';
 import '../widgets/landscape_xl_layout_view.dart';
-import '../widgets/layout_renderer_registry.dart';
 
 class LandscapeXlLayoutScreen extends ConsumerStatefulWidget {
   const LandscapeXlLayoutScreen({
     this.layout,
-    this.rendererRegistry = const LayoutRendererRegistry(),
+    this.componentRegistry = const LayoutComponentRegistry(),
     super.key,
   });
 
   final LandscapeXlLayout? layout;
-  final LayoutRendererRegistry rendererRegistry;
+  final LayoutComponentRegistry componentRegistry;
 
   @override
   ConsumerState<LandscapeXlLayoutScreen> createState() =>
@@ -67,36 +67,33 @@ class _LandscapeXlLayoutScreenState
       AsyncData(:final value) => value,
       _ => null,
     };
-    final nodeTrees = <RadialTreeLayout, NodeTree>{};
-    for (final radialTree in _radialTreeLayouts(layout)) {
+    final nodeTrees = <FanLayout, NodeTree>{};
+    for (final fan in _fanLayouts(layout)) {
       final treeState = ref.watch(
-        nodeTreeProvider((
-          rootNodeId: radialTree.rootNodeId,
-          depth: radialTree.maxDepth - 1,
-        )),
+        nodeTreeProvider((rootNodeId: fan.rootNodeId, depth: fan.maxDepth - 1)),
       );
       if (treeState case AsyncData(:final value)) {
-        nodeTrees[radialTree] = value;
+        nodeTrees[fan] = value;
       }
     }
     return Scaffold(
       body: LandscapeXlLayoutView(
         layout: layout,
+        componentRegistry: widget.componentRegistry,
         vaultNodeResolver: resolver,
         systemInfo: systemInfo,
         nodeTrees: nodeTrees,
         highlightedNodes: highlightedNodes,
         selectedNodes: selectedNodes,
         onLayoutTap: _handleLayoutTap,
-        contentBuilder: widget.rendererRegistry.build,
       ),
     );
   }
 
-  Iterable<RadialTreeLayout> _radialTreeLayouts(Layout layout) sync* {
+  Iterable<FanLayout> _fanLayouts(Layout layout) sync* {
     for (final child in layout.layouts.values) {
-      if (child is RadialTreeLayout) yield child;
-      yield* _radialTreeLayouts(child);
+      if (child is FanLayout) yield child;
+      yield* _fanLayouts(child);
     }
   }
 

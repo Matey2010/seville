@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:seville_proto/seville_proto.dart';
 
+import '../domain/node.dart';
 import '../graph/graph_rules.dart';
 
 class NodeGraph {
@@ -48,6 +49,7 @@ class NodeGraph {
           GraphNode(
             id: node.id,
             title: node.title,
+            displayLabel: node.displayLabel,
             path: node.path,
             tags: List.unmodifiable(node.tags),
             weightedDegree: degree[node.id]!,
@@ -67,6 +69,7 @@ class GraphNode {
   const GraphNode({
     required this.id,
     required this.title,
+    required this.displayLabel,
     required this.path,
     required this.tags,
     required this.weightedDegree,
@@ -76,6 +79,7 @@ class GraphNode {
 
   final String id;
   final String title;
+  final String displayLabel;
   final String path;
   final List<String> tags;
   final double weightedDegree;

@@ -1,11 +1,13 @@
+import 'package:flame/components.dart';
+import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 
+import '../components/layout_component_registry.dart';
 import '../models/compass_layout.dart';
 import '../utils/compass_figure_painter.dart';
 import '../utils/compass_slots.dart';
 import '../utils/guide_grid_painter.dart';
 import '../utils/layout_guidelines.dart';
-import '../widgets/layout_renderer_registry.dart';
 
 class CompassScreen extends StatelessWidget {
   const CompassScreen({required this.layout, super.key});
@@ -18,74 +20,72 @@ class CompassScreen extends StatelessWidget {
   }
 }
 
-class CompassView extends StatelessWidget {
-  const CompassView({required this.layout, this.rendererRegistry, super.key});
+class CompassView extends StatefulWidget {
+  const CompassView({required this.layout, this.componentRegistry, super.key});
 
   final CompassLayout layout;
-  final LayoutRendererRegistry? rendererRegistry;
+  final LayoutComponentRegistry? componentRegistry;
 
   @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final frame = layout.frame.resolve(constraints.biggest);
-        final mainBounds = _mainFigureBounds(layout, frame);
-        final subLayout = layout.mainSlot.subLayout;
-        Widget? mainContent;
-        if (subLayout != null && rendererRegistry != null) {
-          mainContent = rendererRegistry!.build(context, subLayout);
-          if (layout.mainSlot.figure != CompassMainFigure.layout) {
-            mainContent = ClipPath(
-              clipper: CompassFigureClipper(layout.mainSlot.figure),
-              child: mainContent,
-            );
-          }
-        }
-        return SizedBox.expand(
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              CustomPaint(painter: _CompassPainter(layout)),
-              if (mainContent != null)
-                Positioned.fromRect(rect: mainBounds, child: mainContent),
-              CustomPaint(painter: _CompassFigureBorderPainter(layout)),
-            ],
-          ),
-        );
-      },
-    );
-  }
+  State<CompassView> createState() => _CompassViewState();
 }
 
-class _CompassFigureBorderPainter extends CustomPainter {
-  const _CompassFigureBorderPainter(this.layout);
-
-  final CompassLayout layout;
+class _CompassViewState extends State<CompassView> {
+  late CompassGame _game = CompassGame(widget.layout, widget.componentRegistry);
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final frame = layout.frame.resolve(size);
-    drawCompassMainFigureBorder(
-      canvas,
-      _mainFigureBounds(layout, frame),
-      layout.mainSlot,
-    );
+  void didUpdateWidget(CompassView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.layout != widget.layout ||
+        oldWidget.componentRegistry != widget.componentRegistry) {
+      _game = CompassGame(widget.layout, widget.componentRegistry);
+    }
   }
 
   @override
-  bool shouldRepaint(_CompassFigureBorderPainter oldDelegate) {
-    return oldDelegate.layout != layout;
-  }
+  Widget build(BuildContext context) =>
+      GameWidget<CompassGame>(key: ValueKey(_game), game: _game);
 }
 
-class _CompassPainter extends CustomPainter {
-  const _CompassPainter(this.layout);
+class CompassGame extends FlameGame {
+  CompassGame(this.layout, this.componentRegistry);
+
+  final CompassLayout layout;
+  final LayoutComponentRegistry? componentRegistry;
+
+  @override
+  Future<void> onLoad() async {
+    add(_CompassSurfaceComponent(layout));
+    final subLayout = layout.mainSlot.subLayout;
+    final content = subLayout == null
+        ? null
+        : componentRegistry?.build(subLayout);
+    if (content != null) {
+      content.priority = 10;
+      add(content);
+    }
+    add(_CompassBorderComponent(layout)..priority = 20);
+  }
+
+  @override
+  Color backgroundColor() => const Color(0x00000000);
+}
+
+class _CompassSurfaceComponent extends PositionComponent {
+  _CompassSurfaceComponent(this.layout);
 
   final CompassLayout layout;
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final frame = layout.frame.resolve(size);
+  void onGameResize(Vector2 gameSize) {
+    super.onGameResize(gameSize);
+    size = gameSize;
+  }
+
+  @override
+  void render(Canvas canvas) {
+    final viewport = Size(size.x, size.y);
+    final frame = layout.frame.resolve(viewport);
     final mainBounds = _mainFigureBounds(layout, frame);
     drawGuideGrids(
       canvas,
@@ -103,13 +103,40 @@ class _CompassPainter extends CustomPainter {
       ..translate(frame.left, frame.top);
     drawLayoutGuidelines(canvas, frame.size, layout);
     canvas.restore();
-    drawCompassSlots(canvas, size, layout, mainBounds: mainBounds);
+    drawCompassSlots(canvas, viewport, layout, mainBounds: mainBounds);
     drawCompassMainFigure(canvas, mainBounds, layout.mainSlot);
+  }
+}
+
+class _CompassBorderComponent extends PositionComponent {
+  _CompassBorderComponent(this.layout);
+
+  final CompassLayout layout;
+
+  @override
+  void onGameResize(Vector2 gameSize) {
+    super.onGameResize(gameSize);
+    size = gameSize;
+    final frame = layout.frame.resolve(Size(size.x, size.y));
+    final bounds = _mainFigureBounds(layout, frame);
+    final owner = parent;
+    if (owner == null) return;
+    for (final child in owner.children.whereType<PositionComponent>()) {
+      if (child == this || child is _CompassSurfaceComponent) continue;
+      child
+        ..position = Vector2(bounds.left, bounds.top)
+        ..size = Vector2(bounds.width, bounds.height);
+    }
   }
 
   @override
-  bool shouldRepaint(_CompassPainter oldDelegate) {
-    return oldDelegate.layout != layout;
+  void render(Canvas canvas) {
+    final frame = layout.frame.resolve(Size(size.x, size.y));
+    drawCompassMainFigureBorder(
+      canvas,
+      _mainFigureBounds(layout, frame),
+      layout.mainSlot,
+    );
   }
 }
 

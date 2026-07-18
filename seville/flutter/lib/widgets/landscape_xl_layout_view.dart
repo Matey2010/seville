@@ -2,19 +2,21 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:flame/components.dart';
+import 'package:flame/events.dart' as flame_events;
+import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:seville_proto/seville_proto.dart';
 import 'package:table_data/table_data.dart';
 
+import '../components/layout_component_registry.dart';
+import '../domain/node.dart';
 import '../models/landscape_xl_layout.dart';
 import '../models/layout.dart';
 import '../models/node_property_table.dart';
 import '../utils/canvas_guides.dart';
 import '../utils/layout_guidelines.dart';
 import '../utils/vault_node_resolver.dart';
-
-typedef LandscapeXlLayoutContentBuilder =
-    Widget Function(BuildContext context, Layout layout);
 
 typedef LandscapeXlLayoutTapCallback = void Function(LayoutTapTarget target);
 
@@ -37,7 +39,7 @@ class LayoutTapTarget {
 class LandscapeXlLayoutView extends StatefulWidget {
   const LandscapeXlLayoutView({
     required this.layout,
-    required this.contentBuilder,
+    this.componentRegistry = const LayoutComponentRegistry(),
     this.vaultNodeResolver,
     this.systemInfo,
     this.nodeTrees = const {},
@@ -48,10 +50,10 @@ class LandscapeXlLayoutView extends StatefulWidget {
   });
 
   final LandscapeXlLayout layout;
-  final LandscapeXlLayoutContentBuilder contentBuilder;
+  final LayoutComponentRegistry componentRegistry;
   final VaultNodeResolver? vaultNodeResolver;
   final SystemInfo? systemInfo;
-  final Map<RadialTreeLayout, NodeTree> nodeTrees;
+  final Map<FanLayout, NodeTree> nodeTrees;
   final List<ResolvedVaultNode> highlightedNodes;
   final List<ResolvedVaultNode> selectedNodes;
   final LandscapeXlLayoutTapCallback? onLayoutTap;
@@ -61,215 +63,284 @@ class LandscapeXlLayoutView extends StatefulWidget {
 }
 
 class _LandscapeXlLayoutViewState extends State<LandscapeXlLayoutView> {
-  Offset? _hoverPosition;
+  late LandscapeXlLayoutGame _game = LandscapeXlLayoutGame(
+    layout: widget.layout,
+    componentRegistry: widget.componentRegistry,
+    vaultNodeResolver: widget.vaultNodeResolver,
+    systemInfo: widget.systemInfo,
+    nodeTrees: widget.nodeTrees,
+    highlightedNodes: widget.highlightedNodes,
+    selectedNodes: widget.selectedNodes,
+    onLayoutTap: widget.onLayoutTap,
+  );
 
   @override
-  Widget build(BuildContext context) {
-    final safePadding = MediaQuery.paddingOf(context);
-    final selectedNode = widget.selectedNodes.lastOrNull;
-    final layoutContext = _layoutContext(
-      widget.highlightedNodes,
-      widget.selectedNodes,
-    );
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final size = constraints.biggest;
-        final view = Stack(
-          fit: StackFit.expand,
-          children: [
-            _LandscapeXlLayoutNodeView(
-              layout: widget.layout,
-              selectedNode: selectedNode,
-              contentBuilder: widget.contentBuilder,
-              layoutContext: layoutContext,
-            ),
-            IgnorePointer(
-              child: CustomPaint(
-                painter: _ReferenceLayoutPainter(
-                  widget.layout,
-                  safePadding,
-                  widget.vaultNodeResolver,
-                  widget.systemInfo,
-                  widget.nodeTrees,
-                  widget.highlightedNodes,
-                  widget.selectedNodes,
-                  _hoverPosition,
-                ),
-              ),
-            ),
-          ],
-        );
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _game.safePadding = MediaQuery.paddingOf(context);
+  }
 
-        final hoverableView = MouseRegion(
-          onHover: (event) => setState(() {
-            _hoverPosition = event.localPosition;
-          }),
-          onExit: (_) => setState(() {
-            _hoverPosition = null;
-          }),
-          child: view,
-        );
-
-        final tapHandler = widget.onLayoutTap;
-        if (tapHandler == null) return hoverableView;
-
-        return GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onTapUp: (details) {
-            final target = _hitTestLayoutTapTarget(
-              widget.layout,
-              size,
-              safePadding,
-              details.localPosition,
-              widget.vaultNodeResolver,
-              widget.nodeTrees,
-              widget.highlightedNodes,
-              widget.selectedNodes,
-            );
-            if (target != null) tapHandler(target);
-          },
-          child: hoverableView,
-        );
-      },
+  @override
+  void didUpdateWidget(LandscapeXlLayoutView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.layout != widget.layout ||
+        oldWidget.componentRegistry != widget.componentRegistry) {
+      _game = LandscapeXlLayoutGame(
+        layout: widget.layout,
+        componentRegistry: widget.componentRegistry,
+        vaultNodeResolver: widget.vaultNodeResolver,
+        systemInfo: widget.systemInfo,
+        nodeTrees: widget.nodeTrees,
+        highlightedNodes: widget.highlightedNodes,
+        selectedNodes: widget.selectedNodes,
+        onLayoutTap: widget.onLayoutTap,
+      )..safePadding = MediaQuery.paddingOf(context);
+      return;
+    }
+    _game.updateConfiguration(
+      layout: widget.layout,
+      componentRegistry: widget.componentRegistry,
+      vaultNodeResolver: widget.vaultNodeResolver,
+      systemInfo: widget.systemInfo,
+      nodeTrees: widget.nodeTrees,
+      highlightedNodes: widget.highlightedNodes,
+      selectedNodes: widget.selectedNodes,
+      onLayoutTap: widget.onLayoutTap,
     );
   }
-}
-
-class _LandscapeXlLayoutNodeView extends StatelessWidget {
-  const _LandscapeXlLayoutNodeView({
-    required this.layout,
-    required this.selectedNode,
-    required this.contentBuilder,
-    required this.layoutContext,
-  });
-
-  final LandscapeXlLayout layout;
-  final ResolvedVaultNode? selectedNode;
-  final LandscapeXlLayoutContentBuilder contentBuilder;
-  final LayoutContext layoutContext;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      GameWidget<LandscapeXlLayoutGame>(key: ValueKey(_game), game: _game);
+}
+
+class LandscapeXlLayoutGame extends FlameGame {
+  LandscapeXlLayoutGame({
+    required this.layout,
+    required this.componentRegistry,
+    required this.vaultNodeResolver,
+    required this.systemInfo,
+    required this.nodeTrees,
+    required this.highlightedNodes,
+    required this.selectedNodes,
+    required this.onLayoutTap,
+  });
+
+  LandscapeXlLayout layout;
+  LayoutComponentRegistry componentRegistry;
+  VaultNodeResolver? vaultNodeResolver;
+  SystemInfo? systemInfo;
+  Map<FanLayout, NodeTree> nodeTrees;
+  List<ResolvedVaultNode> highlightedNodes;
+  List<ResolvedVaultNode> selectedNodes;
+  LandscapeXlLayoutTapCallback? onLayoutTap;
+  EdgeInsets safePadding = EdgeInsets.zero;
+
+  LayoutContext get layoutContext =>
+      _layoutContext(highlightedNodes, selectedNodes);
+
+  @override
+  Color backgroundColor() => const Color(0x00000000);
+
+  @override
+  Future<void> onLoad() async {
+    images.prefix = '';
     final backgrounds = [
       ...layout.backgrounds,
     ]..sort((left, right) => left.orderPosition.compareTo(right.orderPosition));
-    Widget view = Stack(
-      fit: StackFit.expand,
-      children: [
-        for (final background in backgrounds)
-          _LayoutBackgroundView(
-            background: background,
-            layoutContext: layoutContext,
-          ),
-        IgnorePointer(
-          child: CustomPaint(
-            painter: _LayoutGuidePainter(layout, layoutContext),
-          ),
-        ),
-        for (final child in layout.layouts.values)
-          if (child.isVisible(layoutContext))
-            if (child is LandscapeXlLayout)
-              _LandscapeXlLayoutNodeView(
-                layout: child,
-                selectedNode: selectedNode,
-                contentBuilder: contentBuilder,
-                layoutContext: layoutContext,
-              )
-            else if (child is! LayoutGuide &&
-                child is! LayoutPath &&
-                child is! RadialTreeLayout &&
-                child is! NodePropertyTable &&
-                child is! StickmanLayout &&
-                child is! PlaneLayout &&
-                child is! GraphPreviewLayout)
-              contentBuilder(context, child),
-      ],
-    );
-
-    if (layout is SafeAreaLayout) {
-      view = SafeArea(child: view);
+    for (final background in backgrounds) {
+      if (background is LayoutImageBackground) {
+        add(_LayoutImageBackgroundComponent(background));
+      } else if (background is LayoutGuidingBackground) {
+        add(_LayoutGuidingBackgroundComponent(background));
+      }
     }
-    return view;
+    add(_LandscapeXlSceneComponent()..priority = 100);
+    for (final placement in _fanPlacements(layout)) {
+      add(_FanComponent(placement)..priority = 110);
+    }
+    for (final registered in _registeredLayoutComponents(
+      layout,
+      componentRegistry,
+    )) {
+      add(
+        _RegisteredLayoutComponentHost(
+          hierarchy: registered.hierarchy,
+          component: registered.component,
+        )..priority = 120,
+      );
+    }
+  }
+
+  void updateConfiguration({
+    required LandscapeXlLayout layout,
+    required LayoutComponentRegistry componentRegistry,
+    required VaultNodeResolver? vaultNodeResolver,
+    required SystemInfo? systemInfo,
+    required Map<FanLayout, NodeTree> nodeTrees,
+    required List<ResolvedVaultNode> highlightedNodes,
+    required List<ResolvedVaultNode> selectedNodes,
+    required LandscapeXlLayoutTapCallback? onLayoutTap,
+  }) {
+    this.layout = layout;
+    this.componentRegistry = componentRegistry;
+    this.vaultNodeResolver = vaultNodeResolver;
+    this.systemInfo = systemInfo;
+    this.nodeTrees = nodeTrees;
+    this.highlightedNodes = highlightedNodes;
+    this.selectedNodes = selectedNodes;
+    this.onLayoutTap = onLayoutTap;
   }
 }
 
-class _LayoutBackgroundView extends StatelessWidget {
-  const _LayoutBackgroundView({
-    required this.background,
-    required this.layoutContext,
+typedef _RegisteredLayoutComponent = ({
+  List<Layout> hierarchy,
+  PositionComponent component,
+});
+
+Iterable<_RegisteredLayoutComponent> _registeredLayoutComponents(
+  Layout root,
+  LayoutComponentRegistry registry, [
+  List<Layout> ancestors = const [],
+]) sync* {
+  final hierarchy = [...ancestors, root];
+  if (root is! LandscapeXlLayout) {
+    final component = registry.build(root);
+    if (component != null) {
+      yield (hierarchy: hierarchy, component: component);
+    }
+  }
+  for (final child in root.layouts.values) {
+    yield* _registeredLayoutComponents(child, registry, hierarchy);
+  }
+}
+
+class _RegisteredLayoutComponentHost extends PositionComponent
+    with HasGameReference<LandscapeXlLayoutGame>, HasVisibility {
+  _RegisteredLayoutComponentHost({
+    required this.hierarchy,
+    required this.component,
   });
 
-  final LayoutBackground background;
-  final LayoutContext layoutContext;
+  final List<Layout> hierarchy;
+  final PositionComponent component;
 
   @override
-  Widget build(BuildContext context) {
-    var resolvedBackground = background;
-    if (resolvedBackground is ConditionalLayoutBackground) {
-      if (!resolvedBackground.activeCondition.isActive(layoutContext)) {
-        return const SizedBox.shrink();
+  Future<void> onLoad() async {
+    add(component);
+  }
+
+  @override
+  void onGameResize(Vector2 size) {
+    super.onGameResize(size);
+    this.size = size;
+    component.size = size;
+  }
+
+  @override
+  void update(double dt) {
+    isVisible = hierarchy.every(
+      (layout) => layout.isVisible(game.layoutContext),
+    );
+    super.update(dt);
+  }
+}
+
+typedef _FanPlacement = ({
+  String key,
+  LayoutPath plane,
+  FanLayout fan,
+  List<Layout> hierarchy,
+});
+
+Iterable<_FanPlacement> _fanPlacements(
+  Layout layout, [
+  List<String> parentPath = const [],
+  List<Layout> ancestors = const [],
+]) sync* {
+  final hierarchy = [...ancestors, layout];
+  for (final entry in layout.layouts.entries) {
+    final childPath = [...parentPath, entry.key];
+    final child = entry.value;
+    if (child is LayoutPath) {
+      for (final fanEntry in child.layouts.entries) {
+        final fan = fanEntry.value;
+        if (fan is FanLayout) {
+          yield (
+            key: [...childPath, fanEntry.key].join('/'),
+            plane: child,
+            fan: fan,
+            hierarchy: [...hierarchy, child, fan],
+          );
+        }
       }
-      resolvedBackground = resolvedBackground.background;
     }
-    if (resolvedBackground is LayoutGuidingBackground) {
-      return Positioned.fill(
-        child: Opacity(
-          opacity: resolvedBackground.opacity.clamp(0, 1),
-          child: CustomPaint(
-            painter: _LayoutGuidingBackgroundPainter(resolvedBackground),
-          ),
-        ),
-      );
-    }
-    if (resolvedBackground is! LayoutImageBackground) {
-      return const SizedBox.shrink();
-    }
-    final imageBackground = resolvedBackground;
-    final image = Image.asset(
-      imageBackground.assetPath,
-      fit: switch (imageBackground.fit) {
+    yield* _fanPlacements(child, childPath, hierarchy);
+  }
+}
+
+class _LayoutImageBackgroundComponent extends PositionComponent
+    with HasGameReference<LandscapeXlLayoutGame> {
+  _LayoutImageBackgroundComponent(this.background);
+
+  final LayoutImageBackground background;
+  ui.Image? _image;
+
+  @override
+  Future<void> onLoad() async {
+    _image = await game.images.load(background.assetPath);
+  }
+
+  @override
+  void onGameResize(Vector2 gameSize) {
+    super.onGameResize(gameSize);
+    size = gameSize;
+  }
+
+  @override
+  void render(Canvas canvas) {
+    final image = _image;
+    if (image == null || size.x <= 0 || size.y <= 0) return;
+    paintImage(
+      canvas: canvas,
+      rect: Rect.fromLTWH(0, 0, size.x, size.y),
+      image: image,
+      fit: switch (background.fit) {
         LayoutBackgroundFit.cover => BoxFit.cover,
         LayoutBackgroundFit.contain => BoxFit.contain,
         LayoutBackgroundFit.fill => BoxFit.fill,
       },
       alignment: Alignment(
-        imageBackground.alignment.dx * 2 - 1,
-        imageBackground.alignment.dy * 2 - 1,
+        background.alignment.dx * 2 - 1,
+        background.alignment.dy * 2 - 1,
       ),
-      width: double.infinity,
-      height: double.infinity,
-    );
-    return Positioned.fill(
-      child: resolvedBackground.opacity == 1
-          ? image
-          : Opacity(
-              opacity: resolvedBackground.opacity.clamp(0, 1),
-              child: image,
-            ),
+      opacity: background.opacity.clamp(0, 1).toDouble(),
     );
   }
 }
 
-class _LayoutGuidingBackgroundPainter extends CustomPainter {
-  const _LayoutGuidingBackgroundPainter(this.background);
+class _LayoutGuidingBackgroundComponent extends PositionComponent
+    with HasGameReference<LandscapeXlLayoutGame> {
+  _LayoutGuidingBackgroundComponent(this.background);
 
   final LayoutGuidingBackground background;
 
   @override
-  void paint(Canvas canvas, Size size) {
-    for (final guide in background.guides) {
-      drawGuideLine(
-        canvas,
-        Offset(size.width * guide.start.dx, size.height * guide.start.dy),
-        Offset(size.width * guide.end.dx, size.height * guide.end.dy),
-        guide.style,
-      );
-    }
+  void onGameResize(Vector2 gameSize) {
+    super.onGameResize(gameSize);
+    size = gameSize;
   }
 
   @override
-  bool shouldRepaint(_LayoutGuidingBackgroundPainter oldDelegate) {
-    return oldDelegate.background != background;
+  void render(Canvas canvas) {
+    for (final guide in background.guides) {
+      drawGuideLine(
+        canvas,
+        Offset(size.x * guide.start.dx, size.y * guide.start.dy),
+        Offset(size.x * guide.end.dx, size.y * guide.end.dy),
+        guide.style,
+      );
+    }
   }
 }
 
@@ -593,7 +664,7 @@ Color? _subjectNodeColor(String? rawColor) {
   return value == null ? null : Color(value);
 }
 
-LayoutColor _radialTreeNodeColor(Node node) {
+LayoutColor _fanNodeColor(Node node) {
   for (final key in const ['color', 'hex', 'background']) {
     final rawColor = node.frontmatter[key];
     if (_subjectNodeColor(rawColor) != null) {
@@ -618,84 +689,62 @@ LayoutColor _radialTreeNodeColor(Node node) {
   return LayoutColor.fromHex(hex, opacity: 0.88);
 }
 
-class _LayoutGuidePainter extends CustomPainter {
-  const _LayoutGuidePainter(this.layout, this.layoutContext);
-
-  final Layout layout;
-  final LayoutContext layoutContext;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    drawLayoutGuidelines(canvas, size, layout, layoutContext);
-  }
-
-  @override
-  bool shouldRepaint(_LayoutGuidePainter oldDelegate) {
-    return oldDelegate.layout != layout ||
-        oldDelegate.layoutContext != layoutContext;
-  }
-}
-
 typedef _ResolvedLayout = ({Layout layout, Rect bounds});
 
-class _ReferenceLayoutPainter extends CustomPainter {
-  const _ReferenceLayoutPainter(
-    this.layout,
-    this.safePadding,
-    this.vaultNodeResolver,
-    this.systemInfo,
-    this.nodeTrees,
-    this.highlightedNodes,
-    this.selectedNodes,
-    this.hoverPosition,
-  );
-
-  final LandscapeXlLayout layout;
-  final EdgeInsets safePadding;
-  final VaultNodeResolver? vaultNodeResolver;
-  final SystemInfo? systemInfo;
-  final Map<RadialTreeLayout, NodeTree> nodeTrees;
-  final List<ResolvedVaultNode> highlightedNodes;
-  final List<ResolvedVaultNode> selectedNodes;
-  final Offset? hoverPosition;
+class _LandscapeXlSceneComponent extends PositionComponent
+    with
+        HasGameReference<LandscapeXlLayoutGame>,
+        flame_events.TapCallbacks,
+        flame_events.HoverCallbacks {
+  Offset? hoverPosition;
 
   @override
-  void paint(Canvas canvas, Size size) {
+  void onGameResize(Vector2 gameSize) {
+    super.onGameResize(gameSize);
+    size = gameSize;
+  }
+
+  @override
+  void render(Canvas canvas) {
+    final layout = game.layout;
+    final viewport = Size(size.x, size.y);
+    final safePadding = game.safePadding;
+    final vaultNodeResolver = game.vaultNodeResolver;
+    final systemInfo = game.systemInfo;
+    final highlightedNodes = game.highlightedNodes;
+    final selectedNodes = game.selectedNodes;
     final selectedNode = selectedNodes.lastOrNull;
     final layoutContext = _layoutContext(highlightedNodes, selectedNodes);
     final resolvedLayouts = _resolveLayouts(
       layout,
-      size,
+      viewport,
       safePadding,
       layoutContext,
     );
+    for (final resolved in resolvedLayouts.values) {
+      canvas.save();
+      canvas.translate(resolved.bounds.left, resolved.bounds.top);
+      drawLayoutGuidelines(
+        canvas,
+        resolved.bounds.size,
+        resolved.layout,
+        layoutContext,
+      );
+      canvas.restore();
+    }
     for (final resolved in resolvedLayouts.values) {
       for (final path
           in resolved.layout.layouts.values.whereType<LayoutPath>()) {
         if (!path.isVisible(layoutContext)) continue;
         _drawLayoutPath(
           canvas,
-          size,
+          viewport,
           path,
           resolvedLayouts,
           vaultNodeResolver,
           systemInfo,
-          nodeTrees,
           selectedNode,
           hoverPosition,
-          layoutContext,
-        );
-      }
-      for (final radialTree
-          in resolved.layout.layouts.values.whereType<RadialTreeLayout>()) {
-        if (!radialTree.isVisible(layoutContext)) continue;
-        _drawRadialTreeLayout(
-          canvas,
-          size,
-          resolved.bounds,
-          radialTree,
-          nodeTrees[radialTree],
-          resolvedLayouts,
           layoutContext,
         );
       }
@@ -772,29 +821,131 @@ class _ReferenceLayoutPainter extends CustomPainter {
           selectedNode,
         );
       }
-      for (final graphPreview
-          in resolved.layout.layouts.values.whereType<GraphPreviewLayout>()) {
-        if (!graphPreview.isVisible(layoutContext)) continue;
-        _drawGraphPreviewLayout(
-          canvas,
-          resolved.layout,
-          resolved.bounds,
-          graphPreview,
-        );
-      }
     }
   }
 
   @override
-  bool shouldRepaint(_ReferenceLayoutPainter oldDelegate) {
-    return oldDelegate.layout != layout ||
-        oldDelegate.safePadding != safePadding ||
-        oldDelegate.vaultNodeResolver != vaultNodeResolver ||
-        oldDelegate.systemInfo != systemInfo ||
-        oldDelegate.nodeTrees != nodeTrees ||
-        oldDelegate.highlightedNodes != highlightedNodes ||
-        oldDelegate.selectedNodes != selectedNodes ||
-        oldDelegate.hoverPosition != hoverPosition;
+  void onPointerMove(flame_events.PointerMoveEvent event) {
+    hoverPosition = Offset(event.localPosition.x, event.localPosition.y);
+    super.onPointerMove(event);
+  }
+
+  @override
+  void onPointerMoveStop(flame_events.PointerMoveEvent event) {
+    hoverPosition = null;
+    super.onPointerMoveStop(event);
+  }
+
+  @override
+  void onTapUp(flame_events.TapUpEvent event) {
+    final tapHandler = game.onLayoutTap;
+    if (tapHandler == null) return;
+    final localPosition = Offset(event.localPosition.x, event.localPosition.y);
+    final target = _hitTestLayoutTapTarget(
+      game.layout,
+      Size(size.x, size.y),
+      game.safePadding,
+      localPosition,
+      game.vaultNodeResolver,
+      game.highlightedNodes,
+      game.selectedNodes,
+    );
+    if (target != null) tapHandler(target);
+  }
+}
+
+class _FanComponent extends PositionComponent
+    with HasGameReference<LandscapeXlLayoutGame>, flame_events.TapCallbacks {
+  _FanComponent(this.placement);
+
+  final _FanPlacement placement;
+
+  bool get _isVisible => placement.hierarchy.every(
+    (layout) => layout.isVisible(game.layoutContext),
+  );
+
+  @override
+  void onTapDown(flame_events.TapDownEvent event) {
+    event.continuePropagation = true;
+  }
+
+  @override
+  void onGameResize(Vector2 size) {
+    super.onGameResize(size);
+    this.size = size;
+  }
+
+  @override
+  void render(Canvas canvas) {
+    final fan = placement.fan;
+    if (!_isVisible) return;
+    final nodeTree = game.nodeTrees[fan];
+    if (nodeTree == null) return;
+    final resolvedLayouts = _resolveLayouts(
+      game.layout,
+      Size(size.x, size.y),
+      game.safePadding,
+      game.layoutContext,
+    );
+    final planePoints = _resolvedLayoutPathPoints(
+      placement.plane,
+      resolvedLayouts,
+      game.layoutContext,
+    );
+    if (planePoints == null) return;
+    _drawFanLayout(
+      canvas,
+      _boundsForPoints(planePoints),
+      fan,
+      nodeTree,
+      resolvedLayouts,
+      game.layoutContext,
+      planePoints: planePoints,
+    );
+  }
+
+  @override
+  void onTapUp(flame_events.TapUpEvent event) {
+    event.continuePropagation = true;
+    final tapHandler = game.onLayoutTap;
+    final fan = placement.fan;
+    final nodeTree = game.nodeTrees[fan];
+    if (tapHandler == null || nodeTree == null || !_isVisible) {
+      return;
+    }
+    final resolvedLayouts = _resolveLayouts(
+      game.layout,
+      Size(size.x, size.y),
+      game.safePadding,
+      game.layoutContext,
+    );
+    final planePoints = _resolvedLayoutPathPoints(
+      placement.plane,
+      resolvedLayouts,
+      game.layoutContext,
+    );
+    if (planePoints == null) return;
+    final occurrence = _hitTestFan(
+      fan,
+      nodeTree,
+      _boundsForPoints(planePoints),
+      resolvedLayouts,
+      Offset(event.localPosition.x, event.localPosition.y),
+      game.layoutContext,
+      planePoints: planePoints,
+    );
+    if (occurrence == null) return;
+    final resolvedNode = _resolvedFanNode(occurrence);
+    tapHandler(
+      LayoutTapTarget(
+        key: '${placement.key}/${occurrence.occurrenceId}',
+        layout: fan,
+        node: resolvedNode,
+        resolvedNode: resolvedNode,
+        label: occurrence.node.displayLabel,
+      ),
+    );
+    event.continuePropagation = false;
   }
 }
 
@@ -820,20 +971,16 @@ void _drawLayoutPath(
   Map<String, _ResolvedLayout> layouts,
   VaultNodeResolver? vaultNodeResolver,
   SystemInfo? systemInfo,
-  Map<RadialTreeLayout, NodeTree> nodeTrees,
   ResolvedVaultNode? selectedNode,
   Offset? hoverPosition,
   LayoutContext layoutContext,
 ) {
-  final points = [
-    for (final reference in layoutPath.points)
-      _resolveReference(reference, layouts, layoutContext),
-  ];
-  if (points.length < 2 || points.any((point) => point == null)) return;
-  final resolvedPoints = _paddedPathPoints(
-    points.cast<Offset>(),
-    layoutPath.padding,
+  final resolvedPoints = _resolvedLayoutPathPoints(
+    layoutPath,
+    layouts,
+    layoutContext,
   );
+  if (resolvedPoints == null) return;
   final path = Path()..moveTo(resolvedPoints.first.dx, resolvedPoints.first.dy);
   for (final point in resolvedPoints.skip(1)) {
     path.lineTo(point.dx, point.dy);
@@ -901,20 +1048,6 @@ void _drawLayoutPath(
       layoutContext,
     );
   }
-  for (final radialTree
-      in layoutPath.layouts.values.whereType<RadialTreeLayout>()) {
-    if (!radialTree.isVisible(layoutContext)) continue;
-    _drawRadialTreeLayout(
-      canvas,
-      size,
-      _boundsForPoints(resolvedPoints),
-      radialTree,
-      nodeTrees[radialTree],
-      layouts,
-      layoutContext,
-    );
-  }
-
   for (final table
       in layoutPath.layouts.values.whereType<NodePropertyTable>()) {
     if (!table.isVisible(layoutContext)) continue;
@@ -1004,6 +1137,19 @@ List<Offset> _paddedPathPoints(List<Offset> points, LayoutPathPadding padding) {
   ];
 }
 
+List<Offset>? _resolvedLayoutPathPoints(
+  LayoutPath layoutPath,
+  Map<String, _ResolvedLayout> layouts,
+  LayoutContext layoutContext,
+) {
+  final points = [
+    for (final reference in layoutPath.points)
+      _resolveReference(reference, layouts, layoutContext),
+  ];
+  if (points.length < 2 || points.any((point) => point == null)) return null;
+  return _paddedPathPoints(points.cast<Offset>(), layoutPath.padding);
+}
+
 void _drawPerspectiveGrid(
   Canvas canvas,
   List<Offset> points,
@@ -1081,46 +1227,49 @@ void _drawPerspectiveGrid(
   }
 }
 
-typedef _RadialTreeSegment = ({
+typedef _FanSegment = ({
   NodeTreeOccurrence occurrence,
   Path path,
   Offset labelPoint,
   double labelWidth,
 });
 
-typedef _RadialTreeFrame = ({
+typedef _FanFrame = ({
   Offset center,
   double growthAngle,
-  double radius,
+  double startTheta,
+  double endTheta,
+  double regularRadius,
+  List<Offset> planePoints,
   List<double> rowStops,
   List<double> columnStops,
 });
 
-void _drawRadialTreeLayout(
+void _drawFanLayout(
   Canvas canvas,
-  Size size,
   Rect bounds,
-  RadialTreeLayout radialTree,
+  FanLayout fan,
   NodeTree? tree,
   Map<String, _ResolvedLayout> layouts,
-  LayoutContext layoutContext,
-) {
+  LayoutContext layoutContext, {
+  required List<Offset> planePoints,
+}) {
   if (tree == null || tree.occurrences.isEmpty) return;
-  final frame = _resolveRadialTreeFrame(
-    radialTree,
+  final frame = _resolveFanFrame(
+    fan,
     tree,
-    size,
     bounds,
     layouts,
     layoutContext,
+    planePoints: planePoints,
   );
   if (frame == null) return;
-  final segments = _radialTreeSegmentsInFrame(radialTree, tree, frame);
-  final borderStyle = radialTree.style;
+  final segments = _fanSegmentsInFrame(fan, tree, frame);
+  final borderStyle = fan.style;
   final borderWidth =
-      radialTree.layoutDefaults?.borderWidth ?? borderStyle.strokeWidth;
+      fan.layoutDefaults?.borderWidth ?? borderStyle.strokeWidth;
   for (final segment in segments) {
-    final fillColor = _radialTreeNodeColor(segment.occurrence.node).resolve();
+    final fillColor = _fanNodeColor(segment.occurrence.node).resolve();
     canvas.drawPath(
       segment.path,
       Paint()
@@ -1128,7 +1277,7 @@ void _drawRadialTreeLayout(
         ..style = PaintingStyle.fill,
     );
   }
-  _drawRadialTreeGrid(canvas, radialTree, frame);
+  _drawFanGrid(canvas, fan, frame);
   for (final segment in segments) {
     canvas.drawPath(
       segment.path,
@@ -1141,16 +1290,16 @@ void _drawRadialTreeLayout(
   }
   for (final segment in segments) {
     final node = segment.occurrence.node;
-    final label = node.title.isNotEmpty ? node.title : node.id;
-    if (label.isEmpty || segment.labelWidth < radialTree.labelSize * 2) {
+    final label = node.displayLabel;
+    if (label.isEmpty || segment.labelWidth < fan.labelSize * 2) {
       continue;
     }
     final textPainter = TextPainter(
       text: TextSpan(
         text: label,
         style: TextStyle(
-          color: radialTree.labelColor,
-          fontSize: radialTree.labelSize,
+          color: fan.labelColor,
+          fontSize: fan.labelSize,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -1167,54 +1316,64 @@ void _drawRadialTreeLayout(
   }
 }
 
-List<_RadialTreeSegment> _radialTreeSegments(
-  RadialTreeLayout radialTree,
+List<_FanSegment> _fanSegments(
+  FanLayout fan,
   NodeTree tree,
-  Size size,
   Rect bounds,
-  Map<String, _ResolvedLayout> layouts, [
-  LayoutContext layoutContext = LayoutContext.empty,
-]) {
-  final frame = _resolveRadialTreeFrame(
-    radialTree,
+  Map<String, _ResolvedLayout> layouts,
+  LayoutContext layoutContext, {
+  required List<Offset> planePoints,
+}) {
+  final frame = _resolveFanFrame(
+    fan,
     tree,
-    size,
     bounds,
     layouts,
     layoutContext,
+    planePoints: planePoints,
   );
-  return frame == null
-      ? const []
-      : _radialTreeSegmentsInFrame(radialTree, tree, frame);
+  return frame == null ? const [] : _fanSegmentsInFrame(fan, tree, frame);
 }
 
-_RadialTreeFrame? _resolveRadialTreeFrame(
-  RadialTreeLayout radialTree,
+_FanFrame? _resolveFanFrame(
+  FanLayout fan,
   NodeTree tree,
-  Size size,
   Rect bounds,
   Map<String, _ResolvedLayout> layouts,
-  LayoutContext layoutContext,
-) {
-  final radius = _resolveLayoutExtent(
-    radialTree.layoutSize,
-    viewport: size,
-    bounds: bounds,
-    layouts: layouts,
-    layoutContext: layoutContext,
-  );
-  if (radius <= 0) return null;
+  LayoutContext layoutContext, {
+  required List<Offset> planePoints,
+}) {
+  if (planePoints.length < 3) return null;
 
-  final center = radialTree.position.resolve(bounds);
-  final target = radialTree.growthDirection == null
+  final center = fan.position.resolve(bounds);
+  final target = fan.growthDirection == null
       ? bounds.center
-      : _resolveReference(radialTree.growthDirection!, layouts, layoutContext);
+      : _resolveReference(fan.growthDirection!, layouts, layoutContext);
   final growthVector = (target == null || (target - center).distance == 0)
       ? const Offset(0, 1)
       : target - center;
   final growthAngle = math.atan2(growthVector.dy, growthVector.dx);
+  final angleSpan = fan.angleSpanDegrees * math.pi / 180;
+  final startTheta = -angleSpan / 2;
+  final endTheta = angleSpan / 2;
+  final sampledBoundaryDistances = <double>[];
+  const radiusSamples = 72;
+  for (var index = 0; index <= radiusSamples; index += 1) {
+    final theta = startTheta + angleSpan * index / radiusSamples;
+    final angle = growthAngle + theta;
+    final distance = _rayPolygonBoundaryDistance(
+      center,
+      Offset(math.cos(angle), math.sin(angle)),
+      planePoints,
+    );
+    if (distance != null && distance > 0) {
+      sampledBoundaryDistances.add(distance);
+    }
+  }
+  if (sampledBoundaryDistances.isEmpty) return null;
+  final regularRadius = sampledBoundaryDistances.reduce(math.min);
   final visibleOccurrences = tree.occurrences
-      .where((occurrence) => occurrence.depth < radialTree.maxDepth)
+      .where((occurrence) => occurrence.depth < fan.maxDepth)
       .toList(growable: false);
   final root = visibleOccurrences
       .where((occurrence) => occurrence.depth == 0)
@@ -1224,7 +1383,7 @@ _RadialTreeFrame? _resolveRadialTreeFrame(
     0,
     (deepest, occurrence) => math.max(deepest, occurrence.depth.toInt()),
   );
-  final rowCount = math.min(radialTree.maxDepth, deepestDepth + 1);
+  final rowCount = math.min(fan.maxDepth, deepestDepth + 1);
   final rootSectionCount = visibleOccurrences
       .where(
         (occurrence) =>
@@ -1233,32 +1392,35 @@ _RadialTreeFrame? _resolveRadialTreeFrame(
       )
       .length;
   final columnCount = math.min(
-    radialTree.maxSectionCount,
+    fan.maxSectionCount,
     math.max(rootSectionCount, 1),
   );
   final rowStops = _gridTrackStops([
-    for (final row in radialTree.rowsConfig.values.take(rowCount)) row.size,
-  ], radius).map((stop) => stop * radius).toList(growable: false);
+    for (final row in fan.rowsConfig.values.take(rowCount)) row.size,
+  ], regularRadius);
   final columnStops = _gridTrackStops(
     [
-      for (final column in radialTree.columnsConfig.values.take(columnCount))
+      for (final column in fan.columnsConfig.values.take(columnCount))
         column.size,
     ],
-    math.pi,
-  ).map((stop) => -math.pi / 2 + stop * math.pi).toList(growable: false);
+    angleSpan,
+  ).map((stop) => startTheta + stop * angleSpan).toList(growable: false);
   return (
     center: center,
     growthAngle: growthAngle,
-    radius: radius,
+    startTheta: startTheta,
+    endTheta: endTheta,
+    regularRadius: regularRadius,
+    planePoints: planePoints,
     rowStops: rowStops,
     columnStops: columnStops,
   );
 }
 
-List<_RadialTreeSegment> _radialTreeSegmentsInFrame(
-  RadialTreeLayout radialTree,
+List<_FanSegment> _fanSegmentsInFrame(
+  FanLayout fan,
   NodeTree tree,
-  _RadialTreeFrame frame,
+  _FanFrame frame,
 ) {
   final childrenByParent = <String, List<NodeTreeOccurrence>>{};
   NodeTreeOccurrence? root;
@@ -1272,37 +1434,30 @@ List<_RadialTreeSegment> _radialTreeSegmentsInFrame(
   }
   if (root == null) return const [];
 
-  final segments = <_RadialTreeSegment>[];
+  final segments = <_FanSegment>[];
   late void Function(NodeTreeOccurrence, double, double) addOccurrence;
   addOccurrence = (occurrence, startTheta, endTheta) {
     final occurrenceDepth = occurrence.depth.toInt();
     if (occurrenceDepth + 1 >= frame.rowStops.length) return;
-    final innerRadius = frame.rowStops[occurrenceDepth];
-    final outerRadius = frame.rowStops[occurrenceDepth + 1];
+    final innerStop = frame.rowStops[occurrenceDepth];
+    final outerStop = frame.rowStops[occurrenceDepth + 1];
+    final middleStop = (innerStop + outerStop) / 2;
+    final middleTheta = (startTheta + endTheta) / 2;
     segments.add((
       occurrence: occurrence,
-      path: _radialTreeAreaPath(
-        frame.center,
-        frame.growthAngle,
-        innerRadius,
-        outerRadius,
-        startTheta,
-        endTheta,
-      ),
-      labelPoint: _radialTreePoint(
-        frame.center,
-        frame.growthAngle,
-        (innerRadius + outerRadius) / 2,
-        (startTheta + endTheta) / 2,
-      ),
+      path: _fanAreaPath(frame, innerStop, outerStop, startTheta, endTheta),
+      labelPoint: _fanFramePoint(frame, middleStop, middleTheta),
       labelWidth: math.max(
-        (endTheta - startTheta) * (innerRadius + outerRadius) / 2 - 4,
+        (_fanFramePoint(frame, middleStop, endTheta) -
+                    _fanFramePoint(frame, middleStop, startTheta))
+                .distance -
+            4,
         0,
       ),
     ));
 
     final children = (childrenByParent[occurrence.occurrenceId] ?? const [])
-        .take(radialTree.maxSectionCount)
+        .take(fan.maxSectionCount)
         .toList(growable: false);
     if (children.isEmpty) return;
     final childSpan = (endTheta - startTheta) / children.length;
@@ -1313,54 +1468,49 @@ List<_RadialTreeSegment> _radialTreeSegmentsInFrame(
       childStart = childEnd;
     }
   };
-  addOccurrence(root, -math.pi / 2, math.pi / 2);
+  addOccurrence(root, frame.startTheta, frame.endTheta);
   return segments;
 }
 
-void _drawRadialTreeGrid(
-  Canvas canvas,
-  RadialTreeLayout radialTree,
-  _RadialTreeFrame frame,
-) {
-  final style = radialTree.gridStyle;
+void _drawFanGrid(Canvas canvas, FanLayout fan, _FanFrame frame) {
+  final style = fan.gridStyle;
   if (style == null || frame.rowStops.length < 2) return;
 
-  for (final radius in frame.rowStops.skip(1)) {
-    _drawRadialTreeArc(canvas, frame.center, frame.growthAngle, radius, style);
+  for (final rowStop in frame.rowStops.skip(1)) {
+    _drawFanArc(canvas, frame, rowStop, style);
   }
-  final rootRadius = frame.rowStops[1];
+  final rootStop = frame.rowStops[1];
   for (final theta in frame.columnStops) {
     drawGuideLine(
       canvas,
-      _radialTreePoint(frame.center, frame.growthAngle, rootRadius, theta),
-      _radialTreePoint(frame.center, frame.growthAngle, frame.radius, theta),
+      _fanFramePoint(frame, rootStop, theta),
+      _fanFramePoint(frame, 1, theta),
       style,
     );
   }
 }
 
-void _drawRadialTreeArc(
+void _drawFanArc(
   Canvas canvas,
-  Offset center,
-  double growthAngle,
-  double radius,
+  _FanFrame frame,
+  double rowStop,
   GuideStyle style,
 ) {
   const steps = 48;
-  var previous = _radialTreePoint(center, growthAngle, radius, -math.pi / 2);
+  var previous = _fanFramePoint(frame, rowStop, frame.startTheta);
   for (var index = 1; index <= steps; index += 1) {
-    final theta = -math.pi / 2 + math.pi * index / steps;
-    final next = _radialTreePoint(center, growthAngle, radius, theta);
+    final theta =
+        frame.startTheta + (frame.endTheta - frame.startTheta) * index / steps;
+    final next = _fanFramePoint(frame, rowStop, theta);
     drawGuideLine(canvas, previous, next, style);
     previous = next;
   }
 }
 
-Path _radialTreeAreaPath(
-  Offset center,
-  double growthAngle,
-  double innerRadius,
-  double outerRadius,
+Path _fanAreaPath(
+  _FanFrame frame,
+  double innerStop,
+  double outerStop,
   double startTheta,
   double endTheta,
 ) {
@@ -1368,7 +1518,7 @@ Path _radialTreeAreaPath(
   final path = Path();
   for (var index = 0; index <= steps; index += 1) {
     final theta = startTheta + (endTheta - startTheta) * index / steps;
-    final point = _radialTreePoint(center, growthAngle, outerRadius, theta);
+    final point = _fanFramePoint(frame, outerStop, theta);
     if (index == 0) {
       path.moveTo(point.dx, point.dy);
     } else {
@@ -1377,21 +1527,69 @@ Path _radialTreeAreaPath(
   }
   for (var index = steps; index >= 0; index -= 1) {
     final theta = startTheta + (endTheta - startTheta) * index / steps;
-    final point = _radialTreePoint(center, growthAngle, innerRadius, theta);
+    final point = _fanFramePoint(frame, innerStop, theta);
     path.lineTo(point.dx, point.dy);
   }
   return path..close();
 }
 
-Offset _radialTreePoint(
-  Offset center,
-  double growthAngle,
-  double radius,
-  double theta,
-) {
-  final angle = growthAngle + theta;
-  return center + Offset(math.cos(angle) * radius, math.sin(angle) * radius);
+Offset _fanFramePoint(_FanFrame frame, double rowStop, double theta) {
+  final angle = frame.growthAngle + theta;
+  final direction = Offset(math.cos(angle), math.sin(angle));
+  final boundaryDistance = _rayPolygonBoundaryDistance(
+    frame.center,
+    direction,
+    frame.planePoints,
+  );
+  final radius = rowStop >= 1
+      ? boundaryDistance ?? frame.regularRadius
+      : frame.regularRadius * rowStop;
+  return frame.center + direction * radius;
 }
+
+double? _rayPolygonBoundaryDistance(
+  Offset origin,
+  Offset direction,
+  List<Offset> polygon,
+) {
+  if (polygon.length < 3) return null;
+  const epsilon = 0.000001;
+  double? farthest;
+  for (var index = 0; index < polygon.length; index += 1) {
+    final start = polygon[index];
+    final end = polygon[(index + 1) % polygon.length];
+    final edge = end - start;
+    final fromOrigin = start - origin;
+    final denominator = _cross2d(direction, edge);
+    if (denominator.abs() <= epsilon) {
+      if (_cross2d(fromOrigin, direction).abs() > epsilon) continue;
+      for (final endpoint in [start, end]) {
+        final projection =
+            (endpoint - origin).dx * direction.dx +
+            (endpoint - origin).dy * direction.dy;
+        if (projection >= 0 && (farthest == null || projection > farthest)) {
+          farthest = projection;
+        }
+      }
+      continue;
+    }
+    final distance = _cross2d(fromOrigin, edge) / denominator;
+    final edgeFraction = _cross2d(fromOrigin, direction) / denominator;
+    if (distance < -epsilon ||
+        edgeFraction < -epsilon ||
+        edgeFraction > 1 + epsilon) {
+      continue;
+    }
+    final clampedDistance = math.max(distance, 0.0);
+    if (farthest == null || clampedDistance > farthest) {
+      farthest = clampedDistance;
+    }
+  }
+  return farthest;
+}
+
+double _cross2d(Offset left, Offset right) =>
+    left.dx * right.dy - left.dy * right.dx;
 
 LayoutTapTarget? _hitTestLayoutTapTarget(
   LandscapeXlLayout root,
@@ -1399,7 +1597,6 @@ LayoutTapTarget? _hitTestLayoutTapTarget(
   EdgeInsets safePadding,
   Offset position,
   VaultNodeResolver? vaultNodeResolver,
-  Map<RadialTreeLayout, NodeTree> nodeTrees,
   List<ResolvedVaultNode> highlightedNodes,
   List<ResolvedVaultNode> selectedNodes,
 ) {
@@ -1440,56 +1637,7 @@ LayoutTapTarget? _hitTestLayoutTapTarget(
             );
             if (target != null) return target;
           }
-          for (final treeEntry in child.layouts.entries.toList().reversed) {
-            final radialTree = treeEntry.value;
-            if (radialTree is! RadialTreeLayout ||
-                !radialTree.isVisible(layoutContext)) {
-              continue;
-            }
-            final tree = nodeTrees[radialTree];
-            if (tree == null) continue;
-            final occurrence = _hitTestRadialTree(
-              radialTree,
-              tree,
-              _boundsForPoints(paddedPoints),
-              size,
-              resolvedLayouts,
-              position,
-              layoutContext,
-            );
-            if (occurrence == null) continue;
-            final resolvedNode = _resolvedRadialTreeNode(occurrence);
-            return LayoutTapTarget(
-              key: '${entry.key}/${treeEntry.key}/${occurrence.occurrenceId}',
-              layout: radialTree,
-              node: resolvedNode,
-              resolvedNode: resolvedNode,
-              label: occurrence.node.title,
-            );
-          }
         }
-      }
-      if (child is RadialTreeLayout && child.isVisible(layoutContext)) {
-        final tree = nodeTrees[child];
-        if (tree == null) continue;
-        final occurrence = _hitTestRadialTree(
-          child,
-          tree,
-          resolved.bounds,
-          size,
-          resolvedLayouts,
-          position,
-          layoutContext,
-        );
-        if (occurrence == null) continue;
-        final resolvedNode = _resolvedRadialTreeNode(occurrence);
-        return LayoutTapTarget(
-          key: '${entry.key}/${occurrence.occurrenceId}',
-          layout: child,
-          node: resolvedNode,
-          resolvedNode: resolvedNode,
-          label: occurrence.node.title,
-        );
       }
     }
   }
@@ -1729,22 +1877,22 @@ void _drawPanelLayout(Canvas canvas, List<Offset> points, PanelLayout panel) {
   );
 }
 
-NodeTreeOccurrence? _hitTestRadialTree(
-  RadialTreeLayout radialTree,
+NodeTreeOccurrence? _hitTestFan(
+  FanLayout fan,
   NodeTree tree,
   Rect bounds,
-  Size size,
   Map<String, _ResolvedLayout> layouts,
   Offset position,
-  LayoutContext layoutContext,
-) {
-  final segments = _radialTreeSegments(
-    radialTree,
+  LayoutContext layoutContext, {
+  required List<Offset> planePoints,
+}) {
+  final segments = _fanSegments(
+    fan,
     tree,
-    size,
     bounds,
     layouts,
     layoutContext,
+    planePoints: planePoints,
   );
   for (final segment in segments.reversed) {
     if (segment.path.contains(position)) return segment.occurrence;
@@ -1752,12 +1900,12 @@ NodeTreeOccurrence? _hitTestRadialTree(
   return null;
 }
 
-ResolvedVaultNode _resolvedRadialTreeNode(NodeTreeOccurrence occurrence) {
+ResolvedVaultNode _resolvedFanNode(NodeTreeOccurrence occurrence) {
   final node = occurrence.node;
   return ResolvedVaultNode(
     path: node.path,
-    color: _radialTreeNodeColor(node),
-    label: node.title,
+    color: _fanNodeColor(node),
+    label: node.displayLabel,
     node: node,
     resolvedStatus: LayoutHttpStatus.ok,
   );
@@ -1768,32 +1916,6 @@ ResolvedVaultNode _resolveVaultNode(
   VaultNodeResolver? resolver,
 ) {
   return (resolver ?? VaultNodeResolver.empty).resolve(node);
-}
-
-double _resolveLayoutExtent(
-  LayoutExtent layoutSize, {
-  required Size viewport,
-  required Rect bounds,
-  required Map<String, _ResolvedLayout> layouts,
-  LayoutContext layoutContext = LayoutContext.empty,
-}) {
-  if (layoutSize.unit != LayoutExtentUnit.derivativeDistance) {
-    return layoutSize.resolve(viewport: viewport, bounds: bounds);
-  }
-
-  final from = layoutSize.from;
-  final to = layoutSize.to;
-  if (from == null || to == null) {
-    return layoutSize.resolve(viewport: viewport, bounds: bounds);
-  }
-
-  final start = _resolveReference(from, layouts, layoutContext);
-  final end = _resolveReference(to, layouts, layoutContext);
-  if (start == null || end == null) {
-    return layoutSize.resolve(viewport: viewport, bounds: bounds);
-  }
-
-  return math.max((end - start).distance * layoutSize.amount, 0);
 }
 
 Rect _boundsForPoints(List<Offset> points) {
@@ -2415,66 +2537,6 @@ void _drawStickmanLayout(
   canvas.drawLine(rightShoulder, rightHand, paint);
   canvas.drawLine(hip, leftFoot, paint);
   canvas.drawLine(hip, rightFoot, paint);
-}
-
-void _drawGraphPreviewLayout(
-  Canvas canvas,
-  Layout parent,
-  Rect parentBounds,
-  GraphPreviewLayout graphPreview,
-) {
-  final frame = _stickmanFrame(parent, parentBounds);
-  if (frame.isEmpty || graphPreview.nodes.isEmpty) return;
-
-  Offset pointFor(GraphPreviewNode node) => Offset(
-    frame.left + frame.width * node.position.dx,
-    frame.top + frame.height * node.position.dy,
-  );
-
-  final nodeById = {for (final node in graphPreview.nodes) node.id: node};
-  final edgeStyle = graphPreview.edgeStyle;
-  if (edgeStyle != null) {
-    for (final edge in graphPreview.edges) {
-      final from = nodeById[edge.from];
-      final to = nodeById[edge.to];
-      if (from == null || to == null) continue;
-      drawGuideLine(canvas, pointFor(from), pointFor(to), edgeStyle);
-    }
-  }
-
-  final fillPaint = Paint()
-    ..color = graphPreview.fillColor
-    ..style = PaintingStyle.fill;
-  final strokePaint = Paint()
-    ..color = graphPreview.nodeStyle.color
-    ..strokeWidth = graphPreview.nodeStyle.strokeWidth
-    ..strokeCap = graphPreview.nodeStyle.strokeCap
-    ..style = PaintingStyle.stroke;
-
-  for (final node in graphPreview.nodes) {
-    final center = pointFor(node);
-    canvas.drawCircle(center, node.radius, fillPaint);
-    canvas.drawCircle(center, node.radius, strokePaint);
-
-    final label = node.label;
-    if (label == null || label.isEmpty) continue;
-    final textPainter = TextPainter(
-      text: TextSpan(
-        text: label,
-        style: TextStyle(
-          color: graphPreview.labelColor,
-          fontSize: graphPreview.labelSize,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-      textAlign: TextAlign.center,
-    )..layout();
-    textPainter.paint(
-      canvas,
-      center - Offset(textPainter.width / 2, textPainter.height / 2),
-    );
-  }
 }
 
 Rect _stickmanFrame(Layout parent, Rect parentBounds) {

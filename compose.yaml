@@ -3,6 +3,7 @@ services:
     image: neo4j:5.26.28
     environment:
       NEO4J_AUTH: neo4j/${SEVILLE_NEO4J_PASSWORD:?Set SEVILLE_NEO4J_PASSWORD in .env}
+      NEO4J_PLUGINS: '["apoc"]'
     ports:
       - "127.0.0.1:7474:7474"
       - "127.0.0.1:7687:7687"

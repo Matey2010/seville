@@ -16,6 +16,14 @@ This README is an index to the repository. Detailed documentation belongs in
 Each functional workspace owns its implementation details, development
 instructions, and workspace-specific documentation.
 
+## Client rendering policy
+
+Seville interface content is rendered and interacted with through Flame
+components. Flutter widgets may host the `GameWidget` and may eventually host
+an explicitly designed HUD; there is no HUD implementation today. Do not add
+Flutter widget renderers, gesture layers, or hit boxes for layout or graph
+content.
+
 ## Verification policy
 
 Seville applications and services do not contain or run automated tests. Do

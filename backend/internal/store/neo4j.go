@@ -123,10 +123,16 @@ func (s *Neo4jStore) NodeTree(ctx context.Context, rootNodeID string, depth uint
 	rootResult, err := session.Run(ctx, `MATCH (node:Node {id: $root_node_id})
 OPTIONAL MATCH (node)-[:TAGGED_WITH]->(tag:Tag)
 WITH node, [tagId IN collect(tag.id) WHERE tagId IS NOT NULL] AS graphTags
+OPTIONAL MATCH (node)-[:HAS_EMOJI]->(emoji)
+WITH node, graphTags, emoji
+ORDER BY emoji.id
+WITH node, graphTags,
+     [emojiProperties IN collect(properties(emoji)) WHERE emojiProperties IS NOT NULL] AS emojis
 RETURN node.id AS id, node.path AS path, node.title AS title, node.body AS body,
        CASE WHEN size(graphTags) > 0 THEN graphTags ELSE node.tags END AS tags,
        node.frontmatter_json AS frontmatter_json,
-       node.modified_at AS modified_at, properties(node) AS properties`, map[string]any{
+       node.modified_at AS modified_at, properties(node) AS properties,
+       emojis`, map[string]any{
 		"root_node_id": rootNodeID,
 	})
 	if err != nil {
@@ -169,11 +175,17 @@ WHERE parent.id IN $parent_node_ids
 OPTIONAL MATCH (child)-[:TAGGED_WITH]->(tag:Tag)
 WITH parent, child, relationship,
      [tagId IN collect(tag.id) WHERE tagId IS NOT NULL] AS graphTags
+OPTIONAL MATCH (child)-[:HAS_EMOJI]->(emoji)
+WITH parent, child, relationship, graphTags, emoji
+ORDER BY parent.id, child.path, child.id, elementId(relationship), emoji.id
+WITH parent, child, relationship, graphTags,
+     [emojiProperties IN collect(properties(emoji)) WHERE emojiProperties IS NOT NULL] AS emojis
 RETURN parent.id AS parent_id,
        child.id AS id, child.path AS path, child.title AS title, child.body AS body,
        CASE WHEN size(graphTags) > 0 THEN graphTags ELSE child.tags END AS tags,
        child.frontmatter_json AS frontmatter_json,
        child.modified_at AS modified_at, properties(child) AS properties,
+       emojis,
        elementId(relationship) AS relationship_id
 ORDER BY parent.id, child.path, child.id, relationship_id`, map[string]any{
 			"parent_node_ids": parentIDs,
@@ -348,10 +360,16 @@ func (s *Neo4jStore) readNodes(ctx context.Context, session neo4j.Session, snaps
 	result, err := session.Run(ctx, `MATCH (node:Node)
 OPTIONAL MATCH (node)-[:TAGGED_WITH]->(tag:Tag)
 WITH node, [tagId IN collect(tag.id) WHERE tagId IS NOT NULL] AS graphTags
+OPTIONAL MATCH (node)-[:HAS_EMOJI]->(emoji)
+WITH node, graphTags, emoji
+ORDER BY node.path, emoji.id
+WITH node, graphTags,
+     [emojiProperties IN collect(properties(emoji)) WHERE emojiProperties IS NOT NULL] AS emojis
 RETURN node.id AS id, node.path AS path, node.title AS title, node.body AS body,
        CASE WHEN size(graphTags) > 0 THEN graphTags ELSE node.tags END AS tags,
        node.frontmatter_json AS frontmatter_json,
-       node.modified_at AS modified_at, properties(node) AS properties
+       node.modified_at AS modified_at, properties(node) AS properties,
+       emojis
 ORDER BY node.path`, nil)
 	if err != nil {
 		return fmt.Errorf("query neo4j nodes: %w", err)
@@ -403,7 +421,60 @@ func nodeFromRecord(record *neo4j.Record) *nodev2.Node {
 			node.ModifiedAt = timestamppb.New(time.Unix(0, nanos).UTC())
 		}
 	}
+	if values, ok := record.Get("emojis"); ok {
+		if items, ok := values.([]any); ok {
+			for _, item := range items {
+				if properties, ok := item.(map[string]any); ok {
+					node.Emojis = append(node.Emojis, emojiFromProperties(properties))
+				}
+			}
+		}
+	}
 	return node
+}
+
+func emojiFromProperties(properties map[string]any) *nodev2.Emoji {
+	emoji := &nodev2.Emoji{}
+	emoji.Id, _ = mapString(properties, "id")
+	emoji.Character, _ = mapString(properties, "character")
+	emoji.Title, _ = mapString(properties, "title")
+	emoji.Codes, _ = mapString(properties, "codes")
+	emoji.GroupName, _ = mapString(properties, "groupName")
+	emoji.Subgroup, _ = mapString(properties, "subgroup")
+	emoji.Category, _ = mapString(properties, "category")
+	emoji.Source, _ = mapString(properties, "source")
+	if counter, ok := properties["counter"].(int64); ok && counter >= 0 {
+		emoji.Counter = uint64(counter)
+	}
+	emoji.CreatedAt = protoTimestamp(properties["createdAt"])
+	emoji.UpdatedAt = protoTimestamp(properties["updatedAt"])
+	return emoji
+}
+
+func mapString(values map[string]any, key string) (string, bool) {
+	value, ok := values[key]
+	if !ok {
+		return "", false
+	}
+	text, ok := value.(string)
+	return text, ok
+}
+
+func protoTimestamp(value any) *timestamppb.Timestamp {
+	var timestamp time.Time
+	switch typed := value.(type) {
+	case time.Time:
+		timestamp = typed
+	case interface{ Time() time.Time }:
+		timestamp = typed.Time()
+	default:
+		return nil
+	}
+	result := timestamppb.New(timestamp.UTC())
+	if result.CheckValid() != nil {
+		return nil
+	}
+	return result
 }
 
 func isStoredNodeField(key string) bool {

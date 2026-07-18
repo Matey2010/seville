@@ -212,18 +212,24 @@ abstract class LayoutCondition {
     bool Function(LayoutContext context) test, {
     Set<String> exclude = const {},
   }) {
-    return LayoutPredicateCondition(test, exclude: exclude);
+    return _LayoutPredicateCondition(test, exclude: exclude);
   }
 
-  static const never = LayoutNeverCondition();
+  static const never = _LayoutNeverCondition();
 
-  const factory LayoutCondition.noSelectedNode() = NoSelectedNodesCondition;
+  const factory LayoutCondition.noSelectedNode() = _NoSelectedNodesCondition;
+
+  const factory LayoutCondition.hasActiveNodes({Set<String> exclude}) =
+      _HasActiveNodesCondition;
+
+  const factory LayoutCondition.not(LayoutCondition condition) =
+      _LayoutNotCondition;
 
   const factory LayoutCondition.nodeHighlighted({String? nodePath}) =
-      LayoutNodeHighlightedCondition;
+      _LayoutNodeHighlightedCondition;
 
   const factory LayoutCondition.inputSource(LayoutInputSource source) =
-      LayoutInputSourceCondition;
+      _LayoutInputSourceCondition;
 
   final Set<String> exclude;
 
@@ -234,8 +240,8 @@ abstract class LayoutCondition {
   bool isActive(LayoutContext context);
 }
 
-class LayoutPredicateCondition extends LayoutCondition {
-  const LayoutPredicateCondition(this.test, {super.exclude = const {}})
+class _LayoutPredicateCondition extends LayoutCondition {
+  const _LayoutPredicateCondition(this.test, {super.exclude = const {}})
     : super._();
 
   final bool Function(LayoutContext context) test;
@@ -244,15 +250,24 @@ class LayoutPredicateCondition extends LayoutCondition {
   bool isActive(LayoutContext context) => test(context);
 }
 
-class LayoutNeverCondition extends LayoutCondition {
-  const LayoutNeverCondition({super.exclude = const {}}) : super._();
+class _LayoutNeverCondition extends LayoutCondition {
+  const _LayoutNeverCondition() : super._();
 
   @override
   bool isActive(LayoutContext context) => false;
 }
 
-class LayoutInputSourceCondition extends LayoutCondition {
-  const LayoutInputSourceCondition(this.source) : super._();
+class _LayoutNotCondition extends LayoutCondition {
+  const _LayoutNotCondition(this.condition) : super._();
+
+  final LayoutCondition condition;
+
+  @override
+  bool isActive(LayoutContext context) => !condition.isActive(context);
+}
+
+class _LayoutInputSourceCondition extends LayoutCondition {
+  const _LayoutInputSourceCondition(this.source) : super._();
 
   final LayoutInputSource source;
 
@@ -260,8 +275,8 @@ class LayoutInputSourceCondition extends LayoutCondition {
   bool isActive(LayoutContext context) => context.inputSource == source;
 }
 
-class LayoutNodeHighlightedCondition extends LayoutCondition {
-  const LayoutNodeHighlightedCondition({this.nodePath}) : super._();
+class _LayoutNodeHighlightedCondition extends LayoutCondition {
+  const _LayoutNodeHighlightedCondition({this.nodePath}) : super._();
 
   final String? nodePath;
 
@@ -276,8 +291,8 @@ class LayoutNodeHighlightedCondition extends LayoutCondition {
   }
 }
 
-class HasActiveNodesCondition extends LayoutCondition {
-  const HasActiveNodesCondition({super.exclude = const {}}) : super._();
+class _HasActiveNodesCondition extends LayoutCondition {
+  const _HasActiveNodesCondition({super.exclude = const {}}) : super._();
 
   @override
   bool isActive(LayoutContext context) {
@@ -288,8 +303,8 @@ class HasActiveNodesCondition extends LayoutCondition {
   }
 }
 
-class NoSelectedNodesCondition extends LayoutCondition {
-  const NoSelectedNodesCondition({super.exclude = const {}}) : super._();
+class _NoSelectedNodesCondition extends LayoutCondition {
+  const _NoSelectedNodesCondition() : super._();
 
   @override
   bool isActive(LayoutContext context) => context.selectedNodePaths.isEmpty;
@@ -522,76 +537,6 @@ class LayoutColor {
     };
     final value = int.tryParse(argb, radix: 16) ?? 0xFF939393;
     return Color(value).withValues(alpha: opacity.clamp(0, 1).toDouble());
-  }
-}
-
-enum LayoutExtentUnit {
-  pixels,
-  percent,
-  viewportWidth,
-  viewportHeight,
-  viewportMin,
-  viewportMax,
-  derivativeDistance,
-}
-
-class LayoutExtent {
-  const LayoutExtent(this.amount, {this.unit = LayoutExtentUnit.pixels})
-    : from = null,
-      to = null;
-
-  const LayoutExtent.px(this.amount)
-    : unit = LayoutExtentUnit.pixels,
-      from = null,
-      to = null;
-
-  const LayoutExtent.percent(this.amount)
-    : unit = LayoutExtentUnit.percent,
-      from = null,
-      to = null;
-
-  const LayoutExtent.vw(this.amount)
-    : unit = LayoutExtentUnit.viewportWidth,
-      from = null,
-      to = null;
-
-  const LayoutExtent.vh(this.amount)
-    : unit = LayoutExtentUnit.viewportHeight,
-      from = null,
-      to = null;
-
-  const LayoutExtent.vmin(this.amount)
-    : unit = LayoutExtentUnit.viewportMin,
-      from = null,
-      to = null;
-
-  const LayoutExtent.vmax(this.amount)
-    : unit = LayoutExtentUnit.viewportMax,
-      from = null,
-      to = null;
-
-  const LayoutExtent.derivativeDistance({
-    required this.from,
-    required this.to,
-    this.amount = 1,
-  }) : unit = LayoutExtentUnit.derivativeDistance;
-
-  final double amount;
-  final LayoutExtentUnit unit;
-  final LayoutDerivativeReference? from;
-  final LayoutDerivativeReference? to;
-
-  double resolve({required Size viewport, required Rect bounds}) {
-    final value = switch (unit) {
-      LayoutExtentUnit.pixels => amount,
-      LayoutExtentUnit.percent => bounds.shortestSide * amount / 100,
-      LayoutExtentUnit.viewportWidth => viewport.width * amount / 100,
-      LayoutExtentUnit.viewportHeight => viewport.height * amount / 100,
-      LayoutExtentUnit.viewportMin => viewport.shortestSide * amount / 100,
-      LayoutExtentUnit.viewportMax => viewport.longestSide * amount / 100,
-      LayoutExtentUnit.derivativeDistance => amount,
-    };
-    return math.max(value, 0);
   }
 }
 
@@ -1381,8 +1326,8 @@ class LayoutPath extends Layout {
   final Map<String, int> pointDerivatives;
 }
 
-class RadialTreeLayout extends Layout with TableLayoutMixin {
-  const RadialTreeLayout({
+class FanLayout extends Layout with TableLayoutMixin {
+  const FanLayout({
     required this.style,
     this.rootNodeId,
     this.maxDepth = 3,
@@ -1390,7 +1335,6 @@ class RadialTreeLayout extends Layout with TableLayoutMixin {
     this.label,
     this.labelColor = const Color(0xFFFFFFFF),
     this.labelSize = 12,
-    this.layoutSize = const LayoutExtent.px(20),
     this.position = LayoutRelativePosition.top,
     this.growthDirection,
     this.gridStyle,
@@ -1409,11 +1353,22 @@ class RadialTreeLayout extends Layout with TableLayoutMixin {
   final int maxSectionCount;
   final Color labelColor;
   final double labelSize;
-  final LayoutExtent layoutSize;
   final LayoutRelativePosition position;
   final LayoutDerivativeReference? growthDirection;
   final GuideStyle? gridStyle;
   final GuideStyle style;
+
+  double get angleSpanDegrees {
+    if (position.directionDegrees != null) return 90;
+    final fraction = position.fraction;
+    if (fraction == LayoutRelativePosition.top.fraction ||
+        fraction == LayoutRelativePosition.right.fraction ||
+        fraction == LayoutRelativePosition.bottom.fraction ||
+        fraction == LayoutRelativePosition.left.fraction) {
+      return 180;
+    }
+    return 360;
+  }
 
   Map<String, GridAxisVariable> get rowsConfig => {
     for (var layer = 0; layer < maxDepth; layer += 1)
@@ -1632,52 +1587,6 @@ class SubjectNodeLayout extends PlaneLayout {
     super.visibility,
     super.inputSources,
   });
-}
-
-class GraphPreviewNode {
-  const GraphPreviewNode({
-    required this.id,
-    required this.position,
-    this.radius = 8,
-    this.label,
-  });
-
-  /// Normalized position inside the owning scene frame.
-  final String id;
-  final Offset position;
-  final double radius;
-  final String? label;
-}
-
-class GraphPreviewEdge {
-  const GraphPreviewEdge({required this.from, required this.to});
-
-  final String from;
-  final String to;
-}
-
-class GraphPreviewLayout extends Layout {
-  const GraphPreviewLayout({
-    required this.nodes,
-    this.edges = const [],
-    required this.nodeStyle,
-    this.edgeStyle,
-    this.fillColor = const Color(0xAAFFFFFF),
-    this.labelColor = const Color(0xFFFFFFFF),
-    this.labelSize = 10,
-    super.aliases,
-    super.attributes = const [LayoutAttribute.circular],
-    super.visibility,
-    super.inputSources,
-  }) : super.fromAxes();
-
-  final List<GraphPreviewNode> nodes;
-  final List<GraphPreviewEdge> edges;
-  final GuideStyle nodeStyle;
-  final GuideStyle? edgeStyle;
-  final Color fillColor;
-  final Color labelColor;
-  final double labelSize;
 }
 
 enum LayoutBorderShape { rectangle, square, circle }

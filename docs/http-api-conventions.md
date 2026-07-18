@@ -114,6 +114,10 @@ The backend queries Neo4j through the store and exposes authenticated read-only
 handlers. Flutter consumes generated protobuf types rather than decoding
 untyped maps.
 
+Every returned `seville.node.v2.Node` includes its typed `emojis` collection,
+hydrated from outgoing `HAS_EMOJI` relationships. This applies consistently to
+both snapshot Nodes and Nodes embedded in tree occurrences.
+
 This endpoint reports current canonical database state. It must not scan a
 vault, run migration logic, mutate graph data, or derive its values from the
 legacy import snapshot.

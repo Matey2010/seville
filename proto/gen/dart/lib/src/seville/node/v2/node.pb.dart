@@ -12,6 +12,7 @@
 
 import 'dart:core' as $core;
 
+import 'package:fixnum/fixnum.dart' as $fixnum;
 import 'package:protobuf/protobuf.dart' as $pb;
 import 'package:protobuf/well_known_types/google/protobuf/timestamp.pb.dart'
     as $0;
@@ -121,6 +122,7 @@ class Node extends $pb.GeneratedMessage {
     $core.Iterable<$core.String>? tags,
     $core.Iterable<$core.MapEntry<$core.String, $core.String>>? frontmatter,
     $0.Timestamp? modifiedAt,
+    $core.Iterable<Emoji>? emojis,
   }) {
     final result = create();
     if (id != null) result.id = id;
@@ -130,6 +132,7 @@ class Node extends $pb.GeneratedMessage {
     if (tags != null) result.tags.addAll(tags);
     if (frontmatter != null) result.frontmatter.addEntries(frontmatter);
     if (modifiedAt != null) result.modifiedAt = modifiedAt;
+    if (emojis != null) result.emojis.addAll(emojis);
     return result;
   }
 
@@ -159,6 +162,7 @@ class Node extends $pb.GeneratedMessage {
         packageName: const $pb.PackageName('seville.node.v2'))
     ..aOM<$0.Timestamp>(7, _omitFieldNames ? '' : 'modifiedAt',
         subBuilder: $0.Timestamp.create)
+    ..pPM<Emoji>(8, _omitFieldNames ? '' : 'emojis', subBuilder: Emoji.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -231,6 +235,190 @@ class Node extends $pb.GeneratedMessage {
   void clearModifiedAt() => $_clearField(7);
   @$pb.TagNumber(7)
   $0.Timestamp ensureModifiedAt() => $_ensure(6);
+
+  @$pb.TagNumber(8)
+  $pb.PbList<Emoji> get emojis => $_getList(7);
+}
+
+class Emoji extends $pb.GeneratedMessage {
+  factory Emoji({
+    $core.String? id,
+    $core.String? character,
+    $core.String? title,
+    $core.String? codes,
+    $core.String? groupName,
+    $core.String? subgroup,
+    $core.String? category,
+    $core.String? source,
+    $fixnum.Int64? counter,
+    $0.Timestamp? createdAt,
+    $0.Timestamp? updatedAt,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    if (character != null) result.character = character;
+    if (title != null) result.title = title;
+    if (codes != null) result.codes = codes;
+    if (groupName != null) result.groupName = groupName;
+    if (subgroup != null) result.subgroup = subgroup;
+    if (category != null) result.category = category;
+    if (source != null) result.source = source;
+    if (counter != null) result.counter = counter;
+    if (createdAt != null) result.createdAt = createdAt;
+    if (updatedAt != null) result.updatedAt = updatedAt;
+    return result;
+  }
+
+  Emoji._();
+
+  factory Emoji.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory Emoji.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'Emoji',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'seville.node.v2'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'character')
+    ..aOS(3, _omitFieldNames ? '' : 'title')
+    ..aOS(4, _omitFieldNames ? '' : 'codes')
+    ..aOS(5, _omitFieldNames ? '' : 'groupName')
+    ..aOS(6, _omitFieldNames ? '' : 'subgroup')
+    ..aOS(7, _omitFieldNames ? '' : 'category')
+    ..aOS(8, _omitFieldNames ? '' : 'source')
+    ..a<$fixnum.Int64>(9, _omitFieldNames ? '' : 'counter', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOM<$0.Timestamp>(10, _omitFieldNames ? '' : 'createdAt',
+        subBuilder: $0.Timestamp.create)
+    ..aOM<$0.Timestamp>(11, _omitFieldNames ? '' : 'updatedAt',
+        subBuilder: $0.Timestamp.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  Emoji clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  Emoji copyWith(void Function(Emoji) updates) =>
+      super.copyWith((message) => updates(message as Emoji)) as Emoji;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static Emoji create() => Emoji._();
+  @$core.override
+  Emoji createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static Emoji getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Emoji>(create);
+  static Emoji? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get character => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set character($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasCharacter() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearCharacter() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get title => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set title($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasTitle() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearTitle() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get codes => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set codes($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasCodes() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearCodes() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get groupName => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set groupName($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasGroupName() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearGroupName() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get subgroup => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set subgroup($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasSubgroup() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearSubgroup() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.String get category => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set category($core.String value) => $_setString(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasCategory() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearCategory() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.String get source => $_getSZ(7);
+  @$pb.TagNumber(8)
+  set source($core.String value) => $_setString(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasSource() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearSource() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $fixnum.Int64 get counter => $_getI64(8);
+  @$pb.TagNumber(9)
+  set counter($fixnum.Int64 value) => $_setInt64(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasCounter() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearCounter() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $0.Timestamp get createdAt => $_getN(9);
+  @$pb.TagNumber(10)
+  set createdAt($0.Timestamp value) => $_setField(10, value);
+  @$pb.TagNumber(10)
+  $core.bool hasCreatedAt() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearCreatedAt() => $_clearField(10);
+  @$pb.TagNumber(10)
+  $0.Timestamp ensureCreatedAt() => $_ensure(9);
+
+  @$pb.TagNumber(11)
+  $0.Timestamp get updatedAt => $_getN(10);
+  @$pb.TagNumber(11)
+  set updatedAt($0.Timestamp value) => $_setField(11, value);
+  @$pb.TagNumber(11)
+  $core.bool hasUpdatedAt() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearUpdatedAt() => $_clearField(11);
+  @$pb.TagNumber(11)
+  $0.Timestamp ensureUpdatedAt() => $_ensure(10);
 }
 
 class NodeConnection extends $pb.GeneratedMessage {

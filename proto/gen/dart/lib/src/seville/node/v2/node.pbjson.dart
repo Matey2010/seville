@@ -106,6 +106,14 @@ const Node$json = {
       '6': '.google.protobuf.Timestamp',
       '10': 'modifiedAt'
     },
+    {
+      '1': 'emojis',
+      '3': 8,
+      '4': 3,
+      '5': 11,
+      '6': '.seville.node.v2.Emoji',
+      '10': 'emojis'
+    },
   ],
   '3': [Node_FrontmatterEntry$json],
 };
@@ -126,8 +134,51 @@ final $typed_data.Uint8List nodeDescriptor = $convert.base64Decode(
     'gJUgV0aXRsZRISCgRib2R5GAQgASgJUgRib2R5EhIKBHRhZ3MYBSADKAlSBHRhZ3MSSAoLZnJv'
     'bnRtYXR0ZXIYBiADKAsyJi5zZXZpbGxlLm5vZGUudjIuTm9kZS5Gcm9udG1hdHRlckVudHJ5Ug'
     'tmcm9udG1hdHRlchI7Cgttb2RpZmllZF9hdBgHIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1l'
-    'c3RhbXBSCm1vZGlmaWVkQXQaPgoQRnJvbnRtYXR0ZXJFbnRyeRIQCgNrZXkYASABKAlSA2tleR'
-    'IUCgV2YWx1ZRgCIAEoCVIFdmFsdWU6AjgB');
+    'c3RhbXBSCm1vZGlmaWVkQXQSLgoGZW1vamlzGAggAygLMhYuc2V2aWxsZS5ub2RlLnYyLkVtb2'
+    'ppUgZlbW9qaXMaPgoQRnJvbnRtYXR0ZXJFbnRyeRIQCgNrZXkYASABKAlSA2tleRIUCgV2YWx1'
+    'ZRgCIAEoCVIFdmFsdWU6AjgB');
+
+@$core.Deprecated('Use emojiDescriptor instead')
+const Emoji$json = {
+  '1': 'Emoji',
+  '2': [
+    {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
+    {'1': 'character', '3': 2, '4': 1, '5': 9, '10': 'character'},
+    {'1': 'title', '3': 3, '4': 1, '5': 9, '10': 'title'},
+    {'1': 'codes', '3': 4, '4': 1, '5': 9, '10': 'codes'},
+    {'1': 'group_name', '3': 5, '4': 1, '5': 9, '10': 'groupName'},
+    {'1': 'subgroup', '3': 6, '4': 1, '5': 9, '10': 'subgroup'},
+    {'1': 'category', '3': 7, '4': 1, '5': 9, '10': 'category'},
+    {'1': 'source', '3': 8, '4': 1, '5': 9, '10': 'source'},
+    {'1': 'counter', '3': 9, '4': 1, '5': 4, '10': 'counter'},
+    {
+      '1': 'created_at',
+      '3': 10,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Timestamp',
+      '10': 'createdAt'
+    },
+    {
+      '1': 'updated_at',
+      '3': 11,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Timestamp',
+      '10': 'updatedAt'
+    },
+  ],
+};
+
+/// Descriptor for `Emoji`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List emojiDescriptor = $convert.base64Decode(
+    'CgVFbW9qaRIOCgJpZBgBIAEoCVICaWQSHAoJY2hhcmFjdGVyGAIgASgJUgljaGFyYWN0ZXISFA'
+    'oFdGl0bGUYAyABKAlSBXRpdGxlEhQKBWNvZGVzGAQgASgJUgVjb2RlcxIdCgpncm91cF9uYW1l'
+    'GAUgASgJUglncm91cE5hbWUSGgoIc3ViZ3JvdXAYBiABKAlSCHN1Ymdyb3VwEhoKCGNhdGVnb3'
+    'J5GAcgASgJUghjYXRlZ29yeRIWCgZzb3VyY2UYCCABKAlSBnNvdXJjZRIYCgdjb3VudGVyGAkg'
+    'ASgEUgdjb3VudGVyEjkKCmNyZWF0ZWRfYXQYCiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZX'
+    'N0YW1wUgljcmVhdGVkQXQSOQoKdXBkYXRlZF9hdBgLIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5U'
+    'aW1lc3RhbXBSCXVwZGF0ZWRBdA==');
 
 @$core.Deprecated('Use nodeConnectionDescriptor instead')
 const NodeConnection$json = {

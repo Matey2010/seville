@@ -1,3 +1,5 @@
+import 'package:flame/components.dart';
+import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 
 import '../constants/perceptual_map_defaults.dart';
@@ -15,36 +17,52 @@ class PerceptualMapScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final resolvedLayout = layout ?? defaultPerceptualMapLayout;
     return Scaffold(
-      body: SizedBox.expand(
-        child: CustomPaint(painter: _PerceptualMapPainter(resolvedLayout)),
+      body: GameWidget<PerceptualMapGame>(
+        game: PerceptualMapGame(resolvedLayout),
       ),
     );
   }
 }
 
-class _PerceptualMapPainter extends CustomPainter {
-  const _PerceptualMapPainter(this.layout);
+class PerceptualMapGame extends FlameGame {
+  PerceptualMapGame(this.layout);
 
   final PerceptualMapLayout layout;
 
   @override
-  void paint(Canvas canvas, Size size) {
+  Future<void> onLoad() async {
+    add(_PerceptualMapComponent(layout));
+  }
+
+  @override
+  Color backgroundColor() => const Color(0x00000000);
+}
+
+class _PerceptualMapComponent extends PositionComponent {
+  _PerceptualMapComponent(this.layout);
+
+  final PerceptualMapLayout layout;
+
+  @override
+  void onGameResize(Vector2 gameSize) {
+    super.onGameResize(gameSize);
+    size = gameSize;
+  }
+
+  @override
+  void render(Canvas canvas) {
+    final viewport = Size(size.x, size.y);
     drawGuideGrids(
       canvas,
       layout,
       GuideGridProjection(
         topLeft: Offset.zero,
-        topRight: Offset(size.width, 0),
-        bottomLeft: Offset(0, size.height),
-        bottomRight: Offset(size.width, size.height),
+        topRight: Offset(viewport.width, 0),
+        bottomLeft: Offset(0, viewport.height),
+        bottomRight: Offset(viewport.width, viewport.height),
       ),
     );
-    drawLayoutGuidelines(canvas, size, layout);
-    drawPerceptualMapSlots(canvas, size, layout);
-  }
-
-  @override
-  bool shouldRepaint(_PerceptualMapPainter oldDelegate) {
-    return oldDelegate.layout != layout;
+    drawLayoutGuidelines(canvas, viewport, layout);
+    drawPerceptualMapSlots(canvas, viewport, layout);
   }
 }

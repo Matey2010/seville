@@ -55,11 +55,19 @@ Git checkout or Markdown folder (explicit migration only)
 | Go ingestion | YAML parsing, stable identity, normalization, validation, link resolution, and reconciliation policy |
 | Neo4j | Canonical nodes, tags, relationships, scan state, and live graph queries |
 | Go API | Authentication, application rules, snapshots, status, and live graph reads |
-| Seville client | Interaction, layout, rendering, local UI state, and graph presentation |
+| Seville client | Flame-component interaction and rendering, layout, local UI state, and graph presentation |
 | Protocol Buffers | Current Go-to-client wire contract |
 
 SQLite and SQL are not part of Seville. Neo4j is the only application
 persistence layer.
+
+### Client rendering boundary
+
+The current client uses Flame components for all interface rendering and
+interaction. Flutter widgets provide application composition and host the
+`GameWidget`. Widgets are reserved for a future explicitly designed HUD, which
+does not exist yet; ordinary layout content must not be introduced as a widget,
+gesture overlay, or parallel hit-test layer.
 
 ## Repository boundaries
 

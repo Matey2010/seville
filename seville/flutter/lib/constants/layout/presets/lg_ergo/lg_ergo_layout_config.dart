@@ -117,7 +117,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                     'close-action',
                     'clear-selection-action',
                   ],
-                  visibility: [HasActiveNodesCondition()],
+                  visibility: [LayoutCondition.hasActiveNodes()],
                   fillColor: lgErgoRejectButtonColor,
                   borderStyle: lgErgoActionButtonBorderStyle,
                   label: '×',
@@ -130,7 +130,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               size: GridAxisVariable(size: LayoutSize.fr(1)),
               aliases: ['browser-content', 'web-view', 'change-reference'],
               borderStyle: lgErgoSpacePlaneRimStyle,
-              label: 'Browser',
+              label: 'Gamepad',
               labelColor: lgErgoActionButtonLabelColor,
             ),
             'action-row': RowLayout(
@@ -156,47 +156,6 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               },
             ),
           },
-        ),
-      },
-    ),
-    'top-plane': LayoutPath(
-      aliases: ['top-plane', 'control-plane', 'north-plane'],
-      points: [
-        LayoutDerivativeReference(derivative: 'B'),
-        LayoutDerivativeReference(
-          layoutPath: ['safe-area'],
-          derivative: 'innerSquare.BC-center',
-        ),
-        LayoutDerivativeReference(derivative: 'C'),
-      ],
-      style: LayoutPathStyle(
-        fillColor: lgErgoControlPlaneBandColor,
-        strokeStyle: lgErgoPlaneLineStyle,
-      ),
-      layouts: {
-        'cortex-bush': RadialTreeLayout(
-          aliases: [
-            'cortex-tree',
-            'radial-tree',
-            'cortex-bush',
-            'top-node-tree',
-          ],
-          style: lgErgoCortexNodeBorderStyle,
-          layoutDefaults: lgErgoRadialTreeLayoutDefaults,
-          maxDepth: 3,
-          maxSectionCount: 6,
-          label: 'cortex',
-          labelColor: lgErgoCortexNodeLabelColor,
-          labelSize: 10,
-          layoutSize: LayoutExtent.derivativeDistance(
-            from: LayoutDerivativeReference(derivative: 'BC-center'),
-            to: LayoutDerivativeReference(
-              layoutPath: ['safe-area'],
-              derivative: 'innerSquare.BC-center',
-            ),
-          ),
-          gridStyle: lgErgoRadialTreeGridStyle,
-          position: LayoutRelativePosition.top,
         ),
       },
     ),
@@ -267,7 +226,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
             columns: true,
             color: lgErgoNodeInfoCellHighlightColor,
           ),
-          visibility: [HasActiveNodesCondition()],
+          visibility: [LayoutCondition.hasActiveNodes()],
           fieldBuilder: TableFieldBuilder(
             groups: [
               TableGroup(id: 'identity', label: 'Public identity'),
@@ -308,113 +267,6 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
           ],
         ),
       },
-    ),
-    'bottom-plane': LayoutPath(
-      aliases: ['bottom-plane', 'time-plane', 'x-axis-plane'],
-      points: [
-        LayoutDerivativeReference(derivative: 'A'),
-        LayoutDerivativeReference(
-          layoutPath: ['safe-area'],
-          derivative: 'innerSquare.AD-center',
-        ),
-        LayoutDerivativeReference(derivative: 'D'),
-      ],
-      style: LayoutPathStyle(
-        fillColor: Color(0x55C59A1A),
-        strokeStyle: lgErgoPlaneLineStyle,
-      ),
-      grid: PerspectiveGridLayout(
-        aliases: ['bottom-plane-grid', 'time-grid'],
-        guideStyle: lgErgoPlaneDashStyle,
-        topStartIndex: 1,
-        topEndIndex: 1,
-        bottomStartIndex: 0,
-        bottomEndIndex: 2,
-        rowsConfig: {
-          'hour': GridAxisVariable(size: LayoutSize.fr(1)),
-          'day': GridAxisVariable(size: LayoutSize.fr(1)),
-          'week': GridAxisVariable(size: LayoutSize.fr(1)),
-        },
-        columnsConfig: {
-          'past-padding': GridAxisVariable(
-            size: LayoutSize.pt(lgErgoLayoutDefaultPadding),
-          ),
-          'previous': GridAxisVariable(size: LayoutSize.fr(1)),
-          'current': GridAxisVariable(size: LayoutSize.fr(1)),
-          'next': GridAxisVariable(size: LayoutSize.fr(1)),
-          'future-padding': GridAxisVariable(
-            size: LayoutSize.pt(lgErgoLayoutDefaultPadding),
-          ),
-        },
-        areas: {
-          'previous-hour': PerspectiveGridArea(
-            row: 'hour',
-            column: 'previous',
-            aliases: ['previous-hour'],
-            label: 'previous hour',
-          ),
-          'current-hour': PerspectiveGridArea(
-            row: 'hour',
-            column: 'current',
-            aliases: ['current-hour', 'now-hour'],
-            fillColor: lgErgoCurrentTimeBackgroundColor,
-            label: 'now',
-          ),
-          'next-hour': PerspectiveGridArea(
-            row: 'hour',
-            column: 'next',
-            aliases: ['next-hour'],
-            label: 'next hour',
-          ),
-          'previous-day': PerspectiveGridArea(
-            row: 'day',
-            column: 'previous',
-            aliases: ['previous-day', 'yesterday'],
-            label: 'yesterday',
-          ),
-          'current-day': PerspectiveGridArea(
-            row: 'day',
-            column: 'current',
-            aliases: ['current-day', 'today'],
-            defaultPath: DefaultTimelineVaultPaths.today,
-            fillColor: lgErgoCurrentTimeBackgroundColor,
-            label: 'today',
-          ),
-          'next-day': PerspectiveGridArea(
-            row: 'day',
-            column: 'next',
-            aliases: ['next-day', 'tomorrow'],
-            label: 'tomorrow',
-          ),
-          'last-week': PerspectiveGridArea(
-            row: 'week',
-            column: 'previous',
-            aliases: ['previous-week', 'last-week'],
-            label: 'last week',
-          ),
-          'current-week': PerspectiveGridArea(
-            row: 'week',
-            column: 'current',
-            aliases: ['current-week', 'this-week'],
-            fillColor: lgErgoCurrentTimeBackgroundColor,
-            label: 'this week',
-          ),
-          'next-week': PerspectiveGridArea(
-            row: 'week',
-            column: 'next',
-            aliases: ['next-week'],
-            label: 'next week',
-          ),
-        },
-      ),
-    ),
-    'now-ray': RayLayout(
-      start: LayoutDerivativeReference(derivative: 'AD-center'),
-      towards: LayoutDerivativeReference(
-        layoutPath: ['safe-area'],
-        derivative: 'AD-center',
-      ),
-      style: lgErgoNowRayStyle,
     ),
     'ray-a': RayLayout(
       start: LayoutDerivativeReference(
@@ -579,9 +431,156 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
         'square-anchors': LayoutObservable(derivatives: {'A', 'B', 'C', 'D'}),
       },
       layouts: {
+        'top-plane': LayoutPath(
+          aliases: ['top-plane', 'control-plane', 'north-plane'],
+          points: [
+            LayoutDerivativeReference(derivative: 'B'),
+            LayoutDerivativeReference(
+              layoutPath: ['safe-area'],
+              derivative: 'leftPlane.top',
+            ),
+            LayoutDerivativeReference(
+              layoutPath: ['safe-area'],
+              derivative: 'rightPlane.top',
+            ),
+            LayoutDerivativeReference(derivative: 'C'),
+          ],
+          style: LayoutPathStyle(
+            fillColor: lgErgoControlPlaneBandColor,
+            strokeStyle: lgErgoPlaneLineStyle,
+          ),
+          layouts: {
+            'cortex-bush': FanLayout(
+              aliases: [
+                'cortex-tree',
+                'fan-layout',
+                'cortex-bush',
+                'top-node-tree',
+              ],
+              style: lgErgoCortexNodeBorderStyle,
+              layoutDefaults: lgErgoFanLayoutDefaults,
+              maxDepth: 3,
+              maxSectionCount: 3,
+              label: 'cortex',
+              labelColor: lgErgoCortexNodeLabelColor,
+              labelSize: 10,
+              gridStyle: lgErgoFanGridStyle,
+              position: LayoutRelativePosition.top,
+            ),
+          },
+        ),
+        'bottom-plane': LayoutPath(
+          aliases: ['bottom-plane', 'time-plane', 'x-axis-plane'],
+          points: [
+            LayoutDerivativeReference(derivative: 'A'),
+            LayoutDerivativeReference(
+              layoutPath: ['safe-area'],
+              derivative: 'innerSquare.AD-center',
+            ),
+            LayoutDerivativeReference(derivative: 'D'),
+          ],
+          style: LayoutPathStyle(
+            fillColor: Color(0x55C59A1A),
+            strokeStyle: lgErgoPlaneLineStyle,
+          ),
+          grid: PerspectiveGridLayout(
+            aliases: ['bottom-plane-grid', 'time-grid'],
+            guideStyle: lgErgoPlaneDashStyle,
+            topStartIndex: 1,
+            topEndIndex: 1,
+            bottomStartIndex: 0,
+            bottomEndIndex: 2,
+            rowsConfig: {
+              'hour': GridAxisVariable(size: LayoutSize.fr(1)),
+              'day': GridAxisVariable(size: LayoutSize.fr(1)),
+              'week': GridAxisVariable(size: LayoutSize.fr(1)),
+            },
+            columnsConfig: {
+              'past-padding': GridAxisVariable(
+                size: LayoutSize.pt(lgErgoLayoutDefaultPadding),
+              ),
+              'previous': GridAxisVariable(size: LayoutSize.fr(1)),
+              'current': GridAxisVariable(size: LayoutSize.fr(1)),
+              'next': GridAxisVariable(size: LayoutSize.fr(1)),
+              'future-padding': GridAxisVariable(
+                size: LayoutSize.pt(lgErgoLayoutDefaultPadding),
+              ),
+            },
+            areas: {
+              'previous-hour': PerspectiveGridArea(
+                row: 'hour',
+                column: 'previous',
+                aliases: ['previous-hour'],
+                label: 'previous hour',
+              ),
+              'current-hour': PerspectiveGridArea(
+                row: 'hour',
+                column: 'current',
+                aliases: ['current-hour', 'now-hour'],
+                fillColor: lgErgoCurrentTimeBackgroundColor,
+                label: 'now',
+              ),
+              'next-hour': PerspectiveGridArea(
+                row: 'hour',
+                column: 'next',
+                aliases: ['next-hour'],
+                label: 'next hour',
+              ),
+              'previous-day': PerspectiveGridArea(
+                row: 'day',
+                column: 'previous',
+                aliases: ['previous-day', 'yesterday'],
+                label: 'yesterday',
+              ),
+              'current-day': PerspectiveGridArea(
+                row: 'day',
+                column: 'current',
+                aliases: ['current-day', 'today'],
+                defaultPath: DefaultTimelineVaultPaths.today,
+                fillColor: lgErgoCurrentTimeBackgroundColor,
+                label: 'today',
+              ),
+              'next-day': PerspectiveGridArea(
+                row: 'day',
+                column: 'next',
+                aliases: ['next-day', 'tomorrow'],
+                label: 'tomorrow',
+              ),
+              'last-week': PerspectiveGridArea(
+                row: 'week',
+                column: 'previous',
+                aliases: ['previous-week', 'last-week'],
+                label: 'last week',
+              ),
+              'current-week': PerspectiveGridArea(
+                row: 'week',
+                column: 'current',
+                aliases: ['current-week', 'this-week'],
+                fillColor: lgErgoCurrentTimeBackgroundColor,
+                label: 'this week',
+              ),
+              'next-week': PerspectiveGridArea(
+                row: 'week',
+                column: 'next',
+                aliases: ['next-week'],
+                label: 'next week',
+              ),
+            },
+          ),
+          layouts: {
+            'now-ray': RayLayout(
+              start: LayoutDerivativeReference(derivative: 'AD-center'),
+              towards: LayoutDerivativeReference(
+                layoutPath: ['safe-area'],
+                derivative: 'AD-center',
+              ),
+              style: lgErgoNowRayStyle,
+            ),
+          },
+        ),
         'inner-circle-plane': PlaneLayout(
           aliases: ['inner-circle-plane', 'scene-plane', 'circle-plane'],
-          visibility: [HasActiveNodesCondition()],
+          visibility: [LayoutCondition.hasActiveNodes()],
           shape: LayoutShape.circle,
           style: randomBlueprintAesthetics.layoutStyle,
           backgroundColor: Color(0x00000000),
@@ -602,6 +601,48 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               wrapPadding: 0,
               showGeometryGuides: true,
               layouts: {
+                'scene-fan-plane': LayoutPath(
+                  aliases: [
+                    'scene-fan-plane',
+                    'center-fan-plane',
+                    'graph-plane',
+                  ],
+                  points: [
+                    LayoutDerivativeReference(
+                      layoutPath: ['safe-area'],
+                      derivative: 'A',
+                    ),
+                    LayoutDerivativeReference(
+                      layoutPath: ['safe-area'],
+                      derivative: 'B',
+                    ),
+                    LayoutDerivativeReference(
+                      layoutPath: ['safe-area'],
+                      derivative: 'C',
+                    ),
+                    LayoutDerivativeReference(
+                      layoutPath: ['safe-area'],
+                      derivative: 'D',
+                    ),
+                  ],
+                  layouts: {
+                    'scene-fan': FanLayout(
+                      aliases: ['scene-fan', 'center-fan', 'scene-graph'],
+                      style: lgErgoCortexNodeBorderStyle,
+                      layoutDefaults: lgErgoFanLayoutDefaults,
+                      maxDepth: 3,
+                      maxSectionCount: 6,
+                      label: 'scene graph',
+                      labelColor: lgErgoCortexNodeLabelColor,
+                      labelSize: 10,
+                      gridStyle: lgErgoFanGridStyle,
+                      position: LayoutRelativePosition.center,
+                      visibility: [
+                        LayoutCondition.not(LayoutCondition.noSelectedNode()),
+                      ],
+                    ),
+                  },
+                ),
                 'subject-field-circle': PlaneLayout(
                   aliases: ['subject-field', 'subject-field-circle'],
                   shape: LayoutShape.circle,
@@ -641,46 +682,6 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                         ),
                       },
                     ),
-                    'scene-graph-preview': GraphPreviewLayout(
-                      aliases: [
-                        'graph-preview',
-                        'knowledge-preview',
-                        'future-graph',
-                      ],
-                      nodeStyle: lgErgoGraphPreviewNodeStyle,
-                      edgeStyle: lgErgoGraphPreviewEdgeStyle,
-                      fillColor: lgErgoGraphPreviewNodeFillColor,
-                      labelColor: lgErgoGraphPreviewLabelColor,
-                      nodes: [
-                        GraphPreviewNode(
-                          id: 'self',
-                          position: Offset(0.5, 0.05),
-                        ),
-                        GraphPreviewNode(
-                          id: 'memory',
-                          position: Offset(0.34, 0.13),
-                        ),
-                        GraphPreviewNode(
-                          id: 'plan',
-                          position: Offset(0.66, 0.13),
-                        ),
-                        GraphPreviewNode(
-                          id: 'idea',
-                          position: Offset(0.43, 0.22),
-                        ),
-                        GraphPreviewNode(
-                          id: 'question',
-                          position: Offset(0.57, 0.22),
-                        ),
-                      ],
-                      edges: [
-                        GraphPreviewEdge(from: 'self', to: 'memory'),
-                        GraphPreviewEdge(from: 'self', to: 'plan'),
-                        GraphPreviewEdge(from: 'memory', to: 'idea'),
-                        GraphPreviewEdge(from: 'plan', to: 'question'),
-                        GraphPreviewEdge(from: 'idea', to: 'question'),
-                      ],
-                    ),
                   },
                 ),
               },
@@ -688,7 +689,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
           },
         ),
         'inner-circle': LayoutBorderGuide(
-          visibility: [HasActiveNodesCondition()],
+          visibility: [LayoutCondition.hasActiveNodes()],
           shape: LayoutBorderShape.circle,
           reference: LayoutBorderReference.bounds,
           derivativeAnchors: ['innerCircle.center', 'innerCircle.top'],
@@ -722,9 +723,9 @@ const lgErgoLayoutDefaults = LayoutDefaults(
   gap: lgErgoLayoutDefaultGap,
   borderWidth: lgErgoLayoutDefaultBorderWidth,
 );
-const lgErgoRadialTreeNodeBorderWidth = 1.8;
-const lgErgoRadialTreeLayoutDefaults = LayoutDefaults(
-  borderWidth: lgErgoRadialTreeNodeBorderWidth,
+const lgErgoFanNodeBorderWidth = 1.8;
+const lgErgoFanLayoutDefaults = LayoutDefaults(
+  borderWidth: lgErgoFanNodeBorderWidth,
 );
 
 const lgErgoPastColor = Color(0x553F51B5);
@@ -802,7 +803,7 @@ const lgErgoNodeInfoCellHighlightColor = Color(0x66374A9B);
 
 const lgErgoCortexNodeBorderStyle = GuideStyle(
   color: Color(0xFFFFF7D6),
-  strokeWidth: lgErgoRadialTreeNodeBorderWidth,
+  strokeWidth: lgErgoFanNodeBorderWidth,
   pattern: GuideLinePattern.solid,
 );
 
@@ -812,7 +813,7 @@ const lgErgoHighlightedNodeBorderStyle = GuideStyle(
   pattern: GuideLinePattern.solid,
 );
 
-const lgErgoRadialTreeGridStyle = GuideStyle(
+const lgErgoFanGridStyle = GuideStyle(
   color: Color(0x88FFD54F),
   strokeWidth: 0.9,
   pattern: GuideLinePattern.dashed,
@@ -853,23 +854,6 @@ const lgErgoStickmanStyle = GuideStyle(
   strokeWidth: 3,
   pattern: GuideLinePattern.solid,
   strokeCap: StrokeCap.round,
-);
-
-const lgErgoGraphPreviewNodeFillColor = Color(0xBBFFF7D6);
-const lgErgoGraphPreviewLabelColor = Color(0xFF101820);
-
-const lgErgoGraphPreviewNodeStyle = GuideStyle(
-  color: Color(0xDDC59A1A),
-  strokeWidth: 1.6,
-  pattern: GuideLinePattern.solid,
-);
-
-const lgErgoGraphPreviewEdgeStyle = GuideStyle(
-  color: Color(0x99C59A1A),
-  strokeWidth: 1,
-  pattern: GuideLinePattern.dashed,
-  dashLength: 4,
-  dashInterval: 4,
 );
 
 const lgErgoSceneDiagonalStyle = GuideStyle(

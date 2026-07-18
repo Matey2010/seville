@@ -1,6 +1,6 @@
 # Seville Flutter Guidelines
 
-See `CUSTOM_LAYOUTS.md` for the complete model → constants → renderer registry
+See `CUSTOM_LAYOUTS.md` for the complete model → constants → component registry
 workflow, including nesting, radial slots, perspective surfaces, responsive
 scaling, and animation.
 
@@ -215,6 +215,9 @@ The default empty list is visible because there are no failed conditions. Use
 has-active-Nodes UI. Use `ConditionalDerivative` when geometry must select
 between alternatives. Compose these condition-bearing primitives directly;
 layouts do not introduce an intermediate mode or named condition-group layer.
+Layout configuration constructs conditions only through `LayoutCondition`
+factories. Use `LayoutCondition.not(...)` to negate another condition instead
+of addressing concrete condition implementation classes.
 
 `defaultOpenBoxLayout` is the complete default composition.
 `OpenBoxSpatialLayout` is a reusable `SceneLayout` subtype, so it can itself be
@@ -357,9 +360,11 @@ as `MaterialApp.home`. The fresh starting hierarchy is declared entirely in
 
 1. `lgErgoLayoutConfig` fills the physical screen.
 2. Its `safe-area` child applies Flutter's runtime display insets.
-3. The SafeArea layout owns the inner- and outer-circle geometry and their
+3. The SafeArea layout owns the top and bottom planes so their future controls,
+   radial branches, temporal bands, and overlays share one parent context.
+4. The SafeArea layout also owns the inner- and outer-circle geometry and their
    visible guide layouts.
-4. Its `inner-border` is a square inscribed in the outer circle. A, B, C, and D
+5. Its `inner-border` is a square inscribed in the outer circle. A, B, C, and D
    run clockwise from the bottom-left corner, with outward directions derived
    automatically from the square's center.
 
@@ -367,9 +372,22 @@ The screen layout owns four configured dashed `Guideline` entries. Horizontal,
 vertical, and both corner-to-corner diagonals span the full screen and intersect
 at its center.
 
-There are intentionally no additional active layers yet. New layers are added
-to the appropriate parent `Layout.layouts` map. Existing graph, perceptual-map,
-Compass, and Time Compass models remain available but inactive.
+New top- and bottom-plane layers are added beneath their respective
+`LayoutPath.layouts` maps inside `safe-area`, not beside `safe-area` at the
+screen root. Existing graph, perceptual-map, Compass, and Time Compass models
+remain available but inactive.
+
+The top plane presents its occurrence-preserving `NodeTree` through a
+`FanLayout`. Cardinal fan positions span 180 degrees, angular positions span 90
+degrees, and other positions span 360 degrees. Internal bands use a regular
+radius and equal angular sections; only the final band conforms to the owning
+plane boundary.
+
+Selected-state graph structure also has an explicit center configuration at
+`safe-area/inner-circle-plane/wrapped-scene-square/scene-fan-plane/scene-fan`.
+Its transparent `LayoutPath` follows the safe-area scene square, while its
+center-positioned `FanLayout` uses depth 6 and six sections. It is visible only
+when `LayoutCondition.not(LayoutCondition.noSelectedNode())` is active.
 
 `TimeCompassScreen` consumes `defaultTimeCompassLayout`. Its default polar grid
 shares the perceptual map's screen-center origin, Cartesian grid, and
@@ -452,8 +470,8 @@ Use the same track vocabulary used elsewhere:
 - `LayoutSize.calculatedFr(...)` keeps computed fractional sizing available.
 
 `LayoutSize` is the global axis-sizing entity formerly named `GridTrackSize`.
-The former viewport/derivative-distance `LayoutSize` is now `LayoutExtent`, so
-axis allocation and resolved geometric extent have distinct vocabulary.
+Renderable components derive geometric extent from their owning layout rather
+than carrying a parallel viewport-size abstraction.
 
 Do not add parallel `flex`, `extent`, width, or height fields to composition
 layouts. For example, a browser-like action surface is expressed as a column
@@ -487,9 +505,12 @@ encountering its interchangeable implementation vocabulary.
 - `lib/graph/` contains graph-specific rendering and layout behavior. It may
   consume models, constants, and utils, but it should not define broad interface
   models or shared tokens inline.
-- Widgets and Flame components should orchestrate and render. They should not
-  become storage for global design rules, raw color systems, layout presets, or
-  reusable helper algorithms.
+- Flame components orchestrate and render interface content. Flutter widgets
+  are limited to application composition, the `GameWidget` host, and an
+  explicitly introduced HUD. No HUD exists today: panels, controls, overlays,
+  graphs, and layout content remain Flame components. Neither layer stores
+  global design rules, raw color systems, layout presets, or reusable helper
+  algorithms.
 
 If a concept can be named independently from the widget currently using it,
 promote it into the appropriate folder before adding more behavior around it.
@@ -526,7 +547,7 @@ perspective seams. Every alignment aid is a `Guideline` or `GuideGrid` inside
 patterns, configurable dash length and interval, stroke width, color, and cap.
 `drawGuideGrids` projects Cartesian guide grids onto rectangular and
 perspective surfaces and recursively follows nested two-dimensional layouts;
-specialized painters consume radial guide-grid entities. Explicit guidelines
+specialized Flame components consume radial guide-grid entities. Explicit guidelines
 use normalized endpoints, so later editing tools can add, remove, or reposition
 them without changing layout subclasses or graph rendering.
 
@@ -548,13 +569,15 @@ in `lib/constants/layout/presets/lg_ergo/lg_ergo_layout_config.dart`,
 time-compass defaults live in
 `lib/constants/time_compass_defaults.dart`, timeline defaults live under
 `lib/constants/timeline/`, shared colors live in
-`lib/constants/interface_colors.dart`, projected guide-grid drawing lives in
+`lib/constants/interface_colors.dart`. Flame components own rendering and use
+the canvas primitives in
 `lib/utils/guide_grid_painter.dart`, explicit guideline drawing lives in
 `lib/utils/layout_guidelines.dart`, perceptual slot drawing lives in
 `lib/utils/perceptual_map_slots.dart`, generic degree-based compass slot drawing
 lives in `lib/utils/compass_slots.dart`, generic center-figure drawing lives in
 `lib/utils/compass_figure_painter.dart`, time-compass drawing lives in
 `lib/utils/time_compass_painter.dart`, and dashed guide drawing lives in
-`lib/utils/canvas_guides.dart`. Recursive layout composition and SafeArea
-application live in
-`lib/widgets/landscape_xl_layout_view.dart`.
+`lib/utils/canvas_guides.dart`. Recursive layout composition, SafeArea geometry,
+and the `GameWidget` host live in `lib/widgets/landscape_xl_layout_view.dart`;
+the layout render tree inside that host is composed entirely of Flame
+components.

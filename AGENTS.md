@@ -75,6 +75,11 @@
 - Store calculated geometry in named `LayoutDerivativeSnapshot` values instead
   of duplicating resolved coordinates. Runtime reactions belong to
   `LayoutObservable` descriptors and `LayoutDerivativeObserver`.
+- Layout configuration creates conditions only through the `LayoutCondition`
+  protocol factories, such as `LayoutCondition.hasActiveNodes()`,
+  `LayoutCondition.nodeHighlighted()`, and
+  `LayoutCondition.not(LayoutCondition.hasActiveNodes())`. Concrete condition
+  implementations remain private.
 - Use `Guideline.guidelineDerivatives` plus `GuidelineMarker` for labels or
   emoji pinned to points along a specific guide line. Use this for line-local
   points such as a diagonal guide's center; do not confuse those with the
@@ -94,20 +99,26 @@
 - Every `LayoutPath.padding` is a `LayoutPathPadding`. Configure its `left`,
   `top`, `right`, and `bottom` values independently, or use
   `LayoutPathPadding.all(...)` for a uniform inset.
-- Use `RadialTreeLayout` for graph-like content that grows from a root point
-  instead of a grid. Its `root` is a vault path resolved by the same node
-  folder/file conventions as `PerspectiveGridArea.node`. By default it grows
-  inward, opposite to its `position` in the owning layout bounds; set
+- Use `FanLayout` for graph-like content that fans from a root point
+  instead of a rectangular grid. It must be owned by a `LayoutPath`; its Flame
+  component projects every fan row into that path's resolved polygon. By
+  default it grows inward, opposite to its `position` in the owning plane; set
   `growthDirection: LayoutDerivativeReference(...)` only when a specific target
-  derivative must override that natural direction. Use
-  `layoutSize: LayoutExtent.px/%/vw/vh/vmin/vmax(...)` to size its root without
-  baking screen math into the painter. Use
-  `LayoutExtent.derivativeDistance(from: ..., to: ...)` when the tree size must
-  follow actual geometry between two layout derivatives. Radial tree
-  `rowsConfig` are radial bands from root outward, `columnsConfig` are angular
-  segments across the tree fan, and `areas` are `RadialTreeArea` cells that can
-  span both axes. Keep optional `RadialTreeArea.segments` for deeper local
-  splits inside a branch area.
+  derivative must override that natural direction. Its final row follows the
+  owning polygon boundary; do not add a parallel radius/semicircle renderer.
+  Cardinal positions (`top`, `right`, `bottom`, and `left`) own a 180-degree
+  fan, `LayoutRelativePosition.d(...)` owns a 90-degree fan, and other
+  positions own a 360-degree fan. Divide that span into equal angular sections.
+  Keep internal bands on a shared regular radius so polygon perspective does
+  not visually widen the edge sections; only the final row reaches the owning
+  polygon boundary.
+  Fan `rowsConfig` are radial bands from root outward and
+  `columnsConfig` are angular segments across the tree fan.
+  LG Ergo keeps its always-available shallow fan under `top-plane` and owns its
+  selected-state center fan at
+  `safe-area/inner-circle-plane/wrapped-scene-square/scene-fan-plane/scene-fan`.
+  The center fan uses `LayoutRelativePosition.center`, depth 6, six sections,
+  and `LayoutCondition.not(LayoutCondition.noSelectedNode())`.
 - Use `PerspectiveGridLayout` in `LayoutPath.grid` when a path needs normal
   rows and columns projected inside its quadrilateral. `rowsConfig` and
   `columnsConfig` must be ordered maps of the same `GridAxisVariable` type; the
@@ -117,9 +128,13 @@
   fraction with a fallback value. The current LG Ergo bottom time grid is
   intentionally simple: rows `hour`, `day`, and `week` use shared `previous`,
   `current`, and `next` columns. `now` itself is not a grid column in this
-  preset; render it as a red overlay `RayLayout`. Do not pad root screen or
-  safe-area anchors in LG Ergo; each plane owns its own padding using
+  preset; render it as a red overlay `RayLayout` owned by `bottom-plane`. Do not
+  pad root screen or safe-area anchors in LG Ergo; each plane owns its own padding using
   `LayoutPath.padding` and `lgErgoLayoutDefaults.padding`, not fake grid tracks.
+  The LG Ergo `top-plane` and `bottom-plane` are owned by
+  `safe-area.layouts`; future controls, radial branches, temporal bands, and
+  overlays for those planes belong beneath those plane nodes rather than at the
+  screen root.
   The scene inner circle resolves through the
   owning layout's `padding + borderWidth`, while the outer circle remains the
   scene boundary for anchors and shape framing.
@@ -147,6 +162,10 @@
   background only when the configured node resolves against the snapshot; render
   only a border when it does not. Keep `fillColor` for manual/background fills
   that are not graph-node assignments.
+- For compact Node labels, render the first assigned non-empty
+  `Emoji.character` before textual metadata. Fall back to `Node.title`, then
+  `Node.id`. Keep this priority in the shared Node presentation helper rather
+  than implementing different selection rules in individual Flame components.
 - Store `LayoutBackgroundElement` values in the parent `Layout.layouts` map.
   `orderPosition` is frontend stacking metadata: lower values paint first,
   while guides and content stay above background children.
@@ -154,16 +173,16 @@
   logical body lives in vertical `0..1`, where `1.0` equals `heightCm`
   (currently 200cm), and its visible frame can extend beyond that, e.g.
   `-0.1..1.1`, for breathing room around the figure.
-- Use `GraphPreviewLayout` for temporary graph-node placeholders inside the
-  scene. Keep it config-only: normalized `GraphPreviewNode.position` values
-  sketch where future database-backed nodes will live.
 - Every renderable layout entity, including background elements and guides,
   must extend the base `Layout`. Keep geometry, dimensions, snapshots, and
   configuration records as non-renderable value objects.
-- Painted layouts can still be interactive. Route taps through
+- Renderable layouts are Flame components. Route taps through
   `LandscapeXlLayoutView.onLayoutTap` and return a `LayoutTapTarget` from the
-  same geometry used by the painter, instead of layering invisible widgets with
-  divergent hit boxes.
+  same geometry rendered by the component. Flutter widgets are reserved for
+  the `GameWidget` host and an explicitly introduced HUD. Seville has no HUD
+  implementation today, so do not classify ordinary interface content as HUD
+  to justify a widget. Do not build Flutter widget renderers, interaction
+  layers, or hit boxes for layout content.
 - Classify layouts with `List<LayoutAttribute>` using lower-camel enum values.
   Put reusable computed geometry in attribute-provided derivatives and let
   explicit snapshots override only the values they specialize.

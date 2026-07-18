@@ -236,7 +236,7 @@ class _GraphField extends PositionComponent {
         final isOnWall = _hasBottomWallNodeElement(node);
         final painter = TextPainter(
           text: TextSpan(
-            text: node.title,
+            text: node.displayLabel,
             style: TextStyle(
               color: isOnWall ? wallLabelColor : graphLabelColor,
               fontSize: 11,
@@ -542,7 +542,7 @@ class _GraphField extends PositionComponent {
       final painter = TextPainter(
         text: TextSpan(
           text:
-              node?.title ??
+              node?.displayLabel ??
               resolved.element.defaultLabel ??
               _timelineLabelFromPath(resolved.element.defaultPath!),
           style: TextStyle(
