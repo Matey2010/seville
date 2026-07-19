@@ -313,6 +313,11 @@ positions span 180 degrees, angular `LayoutRelativePosition.d(...)` positions
 span 90 degrees, and non-directional positions span 360 degrees. Sections split
 that span equally; internal bands keep a regular radius while the final band
 adapts to the owning `LayoutPath` boundary.
+Use `rootNodeId` for a fixed API root, or
+`rootNodePointer: LayoutNodePointer.selectedNode()` when the fan must follow
+the current Riverpod-selected Node. These options are mutually exclusive. A
+selected-Node pointer issues no tree request until the selected Node has a
+stable ID.
 The `left-plane`
 provides the 12-segment x/space plane between scene-left and screen-left; its
 grid contains only the real space rows, not fake padding tracks. The scene inner

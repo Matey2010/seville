@@ -68,10 +68,25 @@ class _LandscapeXlLayoutScreenState
       _ => null,
     };
     final nodeTrees = <FanLayout, NodeTree>{};
+    final selectedNode = selectedNodes.lastOrNull?.node;
     for (final fan in _fanLayouts(layout)) {
-      final treeState = ref.watch(
-        nodeTreeProvider((rootNodeId: fan.rootNodeId, depth: fan.maxDepth - 1)),
+      final rootNodeId = fan.resolveRootNodeId(selectedNode: selectedNode);
+      if (fan.rootNodePointer != null && rootNodeId == null) continue;
+      final request = (
+        rootNodeId: rootNodeId,
+        depth: fan.maxDepth - 1,
+        traverseBy: fan.traverseBy,
       );
+      final treeProvider = nodeTreeProvider(request);
+      ref.listen(treeProvider, (_, next) {
+        if (next case AsyncError(:final error)) {
+          CommonUtilities.log(
+            '[node tree] load failed for ${fan.label ?? fan.aliases.firstOrNull}: '
+            '$error',
+          );
+        }
+      });
+      final treeState = ref.watch(treeProvider);
       if (treeState case AsyncData(:final value)) {
         nodeTrees[fan] = value;
       }
@@ -121,7 +136,7 @@ class _LandscapeXlLayoutScreenState
     final resolvedTreeNode = treeNode?.node;
     if (treeNode != null && resolvedTreeNode != null) {
       _logResolvedNodeTap(target, treeNode, resolvedTreeNode);
-      ref.read(selectedNodesProvider.notifier).select(treeNode);
+      ref.read(selectedNodesProvider.notifier).toggle(treeNode);
       return;
     }
 
@@ -158,7 +173,7 @@ class _LandscapeXlLayoutScreenState
     }
 
     _logResolvedNodeTap(target, resolvedNode, resolvedGraphNode);
-    ref.read(selectedNodesProvider.notifier).select(resolvedNode);
+    ref.read(selectedNodesProvider.notifier).toggle(resolvedNode);
   }
 
   void _logResolvedNodeTap(

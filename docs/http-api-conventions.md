@@ -96,28 +96,52 @@ A distinct count of property names would be a different future metric named
 
 ## Nodes v1
 
-`GET /nodes/v1/tree` returns a `seville.nodes.v1.NodeTree`. The optional
+`QUERY /nodes/v1/tree` returns a `seville.nodes.v1.NodeTree`. The optional
 `root_node_id` query field overrides `SEVILLE_ROOT_NODE_ID`; one of them must
 provide the stable root Node ID. The optional unsigned `depth` defaults to `3`,
-with the root at depth zero.
+with the root at depth zero. The optional `traverse_by` field defaults to
+`part_of` and accepts only `part_of` or `family`.
 
-The endpoint follows incoming `PART_OF` relationships, stored as
-`(child)-[:PART_OF]->(parent)`. Each traversal path produces its own
+`QUERY` is the canonical method. The backend temporarily accepts `GET` as a
+compatibility alias so a client can recover when an older HTTP runtime or proxy
+rejects the custom method. Flutter attempts `QUERY` first and uses that alias
+only after a method-routing response (`404`, `405`, or `501`).
+
+The endpoint follows incoming relationships: `part_of` maps to `PART_OF` and
+`family` maps to `FAMILY`, both stored as
+`(child)-[:RELATIONSHIP_TYPE]->(parent)`. Each traversal path produces its own
 `NodeTreeOccurrence`, identified independently from its Node. Repeated Nodes
 and cycles are therefore preserved until the requested depth instead of being
 deduplicated.
 
+The HTTP value is allowlisted into `NodeRelationshipType` before reaching the
+store. Cypher uses a fixed query and passes the corresponding Neo4j relationship
+name as a parameter to `type(relationship)`; request text is never interpolated
+into Cypher.
+
+After successfully resolving the tree, the store increments the Neo4j
+`counter` property once for each unique Node included in that response. The
+root is included; repeated occurrences and cycles do not increment the same
+Node more than once per request. Snapshot hydration does not increment
+counters. Counter values are normalized with `toInteger`, with missing or
+non-numeric values treated as zero.
+
+`QUERY` describes the safe, idempotent graph lookup. The `counter` mutation is
+server-side access telemetry, analogous to request logging, rather than the
+requested effect of the method. Client retries, refreshes, and separate Fan
+requests can still increment the returned Nodes again, so `counter` must not be
+interpreted as a count of unique human views.
+
 ## Implementation boundary
 
 Contracts live under the corresponding versioned package in `proto/seville/`.
-The backend queries Neo4j through the store and exposes authenticated read-only
-handlers. Flutter consumes generated protobuf types rather than decoding
-untyped maps.
+The backend queries Neo4j through the store and exposes authenticated handlers.
+Flutter consumes generated protobuf types rather than decoding untyped maps.
 
 Every returned `seville.node.v2.Node` includes its typed `emojis` collection,
 hydrated from outgoing `HAS_EMOJI` relationships. This applies consistently to
 both snapshot Nodes and Nodes embedded in tree occurrences.
 
-This endpoint reports current canonical database state. It must not scan a
-vault, run migration logic, mutate graph data, or derive its values from the
-legacy import snapshot.
+This endpoint reports current canonical database state and mutates only the
+request counters described above. It must not scan a vault, run migration
+logic, or derive its values from the legacy import snapshot.

@@ -27,6 +27,7 @@ type NodeRelationshipType int32
 const (
 	NodeRelationshipType_NODE_RELATIONSHIP_TYPE_UNSPECIFIED NodeRelationshipType = 0
 	NodeRelationshipType_NODE_RELATIONSHIP_TYPE_PART_OF     NodeRelationshipType = 1
+	NodeRelationshipType_NODE_RELATIONSHIP_TYPE_FAMILY      NodeRelationshipType = 2
 )
 
 // Enum value maps for NodeRelationshipType.
@@ -34,10 +35,12 @@ var (
 	NodeRelationshipType_name = map[int32]string{
 		0: "NODE_RELATIONSHIP_TYPE_UNSPECIFIED",
 		1: "NODE_RELATIONSHIP_TYPE_PART_OF",
+		2: "NODE_RELATIONSHIP_TYPE_FAMILY",
 	}
 	NodeRelationshipType_value = map[string]int32{
 		"NODE_RELATIONSHIP_TYPE_UNSPECIFIED": 0,
 		"NODE_RELATIONSHIP_TYPE_PART_OF":     1,
+		"NODE_RELATIONSHIP_TYPE_FAMILY":      2,
 	}
 )
 
@@ -220,10 +223,11 @@ const file_seville_nodes_v1_tree_proto_rawDesc = "" +
 	"rootNodeId\x12J\n" +
 	"\frelationship\x18\x02 \x01(\x0e2&.seville.nodes.v1.NodeRelationshipTypeR\frelationship\x12\x14\n" +
 	"\x05depth\x18\x03 \x01(\rR\x05depth\x12F\n" +
-	"\voccurrences\x18\x04 \x03(\v2$.seville.nodes.v1.NodeTreeOccurrenceR\voccurrences*b\n" +
+	"\voccurrences\x18\x04 \x03(\v2$.seville.nodes.v1.NodeTreeOccurrenceR\voccurrences*\x85\x01\n" +
 	"\x14NodeRelationshipType\x12&\n" +
 	"\"NODE_RELATIONSHIP_TYPE_UNSPECIFIED\x10\x00\x12\"\n" +
-	"\x1eNODE_RELATIONSHIP_TYPE_PART_OF\x10\x01BDZBgithub.com/Matey2010/seville/proto/gen/go/seville/nodes/v1;nodesv1b\x06proto3"
+	"\x1eNODE_RELATIONSHIP_TYPE_PART_OF\x10\x01\x12!\n" +
+	"\x1dNODE_RELATIONSHIP_TYPE_FAMILY\x10\x02BDZBgithub.com/Matey2010/seville/proto/gen/go/seville/nodes/v1;nodesv1b\x06proto3"
 
 var (
 	file_seville_nodes_v1_tree_proto_rawDescOnce sync.Once

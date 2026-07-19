@@ -10,6 +10,7 @@ import (
 
 	"github.com/Matey2010/seville/backend/internal/store"
 	nodev2 "github.com/Matey2010/seville/proto/gen/go/seville/node/v2"
+	nodesv1 "github.com/Matey2010/seville/proto/gen/go/seville/nodes/v1"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -33,7 +34,9 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /v2/status", s.auth(http.HandlerFunc(s.status)))
 	mux.Handle("GET /v2/snapshot", s.auth(http.HandlerFunc(s.snapshot)))
 	mux.Handle("GET /system/v1/info", s.auth(http.HandlerFunc(s.systemInfo)))
-	mux.Handle("GET /nodes/v1/tree", s.auth(http.HandlerFunc(s.nodeTree)))
+	nodeTreeHandler := s.auth(http.HandlerFunc(s.nodeTree))
+	mux.Handle("QUERY /nodes/v1/tree", nodeTreeHandler)
+	mux.Handle("GET /nodes/v1/tree", nodeTreeHandler)
 	return localCORS(mux)
 }
 
@@ -41,6 +44,18 @@ func (s *Server) nodeTree(w http.ResponseWriter, r *http.Request) {
 	rootNodeID := strings.TrimSpace(r.URL.Query().Get("root_node_id"))
 	if rootNodeID == "" {
 		rootNodeID = strings.TrimSpace(s.rootNodeID)
+	}
+	relationshipType, ok := nodeTreeRelationshipType(
+		r.URL.Query().Get("traverse_by"),
+	)
+	if !ok {
+		s.writeError(
+			w,
+			http.StatusBadRequest,
+			"invalid_traverse_by",
+			"traverse_by must be one of: part_of, family.",
+		)
+		return
 	}
 	if rootNodeID == "" {
 		s.writeError(w, http.StatusBadRequest, "root_node_id_required", "root_node_id is required when SEVILLE_ROOT_NODE_ID is not configured.")
@@ -56,17 +71,39 @@ func (s *Server) nodeTree(w http.ResponseWriter, r *http.Request) {
 		}
 		depth = parsedDepth
 	}
-	tree, err := s.store.NodeTree(r.Context(), rootNodeID, uint32(depth))
+	tree, err := s.store.NodeTree(
+		r.Context(),
+		rootNodeID,
+		relationshipType,
+		uint32(depth),
+	)
 	if errors.Is(err, store.ErrNodeNotFound) {
 		s.writeError(w, http.StatusNotFound, "root_node_not_found", "The requested root Node does not exist.")
 		return
 	}
 	if err != nil {
-		slog.Error("read node tree failed", "error", err, "root_node_id", rootNodeID, "depth", depth)
+		slog.Error(
+			"read node tree failed",
+			"error", err,
+			"root_node_id", rootNodeID,
+			"traverse_by", relationshipType,
+			"depth", depth,
+		)
 		s.writeError(w, http.StatusInternalServerError, "storage_error", "The Node tree could not be read.")
 		return
 	}
 	s.writeProto(w, http.StatusOK, tree)
+}
+
+func nodeTreeRelationshipType(value string) (nodesv1.NodeRelationshipType, bool) {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "", "part_of":
+		return nodesv1.NodeRelationshipType_NODE_RELATIONSHIP_TYPE_PART_OF, true
+	case "family":
+		return nodesv1.NodeRelationshipType_NODE_RELATIONSHIP_TYPE_FAMILY, true
+	default:
+		return nodesv1.NodeRelationshipType_NODE_RELATIONSHIP_TYPE_UNSPECIFIED, false
+	}
 }
 
 func (s *Server) systemInfo(w http.ResponseWriter, r *http.Request) {
@@ -85,7 +122,7 @@ func localCORS(next http.Handler) http.Handler {
 		if strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:") {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, If-None-Match")
-			w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, QUERY, OPTIONS")
 			w.Header().Add("Vary", "Origin")
 		}
 		if r.Method == http.MethodOptions {

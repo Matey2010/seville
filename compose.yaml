@@ -23,6 +23,7 @@ services:
       SEVILLE_NEO4J_PASSWORD: ${SEVILLE_NEO4J_PASSWORD:?Set SEVILLE_NEO4J_PASSWORD in .env}
       SEVILLE_NEO4J_DATABASE: neo4j
       SEVILLE_TOKEN: ${SEVILLE_TOKEN:?Set SEVILLE_TOKEN in .env}
+      SEVILLE_ROOT_NODE_ID: ${SEVILLE_ROOT_NODE_ID:-}
     depends_on:
       - neo4j
     volumes:

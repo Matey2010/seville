@@ -46,6 +46,15 @@ api_healthy() {
   curl --fail --silent --max-time 1 "http://$SEVILLE_ADDR/healthz" >/dev/null 2>&1
 }
 
+backend_needs_rebuild() {
+  if [ ! -x "$BINARY" ]; then
+    return 0
+  fi
+  find "$ROOT/backend" "$ROOT/proto/gen/go" \
+    -type f \( -name '*.go' -o -name 'go.mod' -o -name 'go.sum' \) \
+    -newer "$BINARY" -print -quit | grep -q .
+}
+
 ensure_local_neo4j() {
   case "${SEVILLE_NEO4J_URI:-bolt://127.0.0.1:7687}" in
     neo4j://127.0.0.1:*|neo4j://localhost:*|bolt://127.0.0.1:*|bolt://localhost:*) ;;
@@ -82,8 +91,13 @@ start() {
   mkdir -p "$ROOT/.local"
   load_env
   if is_running && api_healthy; then
-    echo "Seville is already running (PID $(cat "$PID_FILE"))."
-    exit 0
+    if backend_needs_rebuild; then
+      echo "Backend sources changed; rebuilding Seville."
+      stop
+    else
+      echo "Seville is already running (PID $(cat "$PID_FILE"))."
+      exit 0
+    fi
   fi
   if is_running; then
     echo "Seville PID file exists, but the API is unhealthy; refusing to replace an unknown process." >&2

@@ -959,6 +959,10 @@ LayoutContext _layoutContext(
     selectedNodePath: selectedPath,
     selectedNodePaths: selectedPaths,
     highlightedNodePaths: [for (final node in highlightedNodes) node.path],
+    activeNodeIds: [
+      for (final node in selectedNodes)
+        if (node.node case final graphNode?) graphNode.id,
+    ],
     activeNodePaths: selectedPaths,
   );
   return nodeContext;
@@ -1024,7 +1028,13 @@ void _drawLayoutPath(
 
   final grid = layoutPath.grid;
   if (grid != null) {
-    _drawPerspectiveGrid(canvas, resolvedPoints, grid, vaultNodeResolver);
+    _drawPerspectiveGrid(
+      canvas,
+      resolvedPoints,
+      grid,
+      vaultNodeResolver,
+      layoutContext,
+    );
   }
 
   canvas.save();
@@ -1155,6 +1165,7 @@ void _drawPerspectiveGrid(
   List<Offset> points,
   PerspectiveGridLayout grid,
   VaultNodeResolver? vaultNodeResolver,
+  LayoutContext layoutContext,
 ) {
   if (grid.rowsConfig.isEmpty ||
       grid.columnsConfig.isEmpty ||
@@ -1199,6 +1210,7 @@ void _drawPerspectiveGrid(
       ),
       area,
       vaultNodeResolver,
+      layoutContext,
     );
   }
 
@@ -1269,7 +1281,14 @@ void _drawFanLayout(
   final borderWidth =
       fan.layoutDefaults?.borderWidth ?? borderStyle.strokeWidth;
   for (final segment in segments) {
-    final fillColor = _fanNodeColor(segment.occurrence.node).resolve();
+    final node = segment.occurrence.node;
+    final fillColor = _nodeBackgroundColor(
+      _fanNodeColor(node).resolve(),
+      node.id,
+      node.path,
+      layoutContext,
+      fan.layoutDefaults,
+    );
     canvas.drawPath(
       segment.path,
       Paint()
@@ -1383,7 +1402,10 @@ _FanFrame? _resolveFanFrame(
     0,
     (deepest, occurrence) => math.max(deepest, occurrence.depth.toInt()),
   );
-  final rowCount = math.min(fan.maxDepth, deepestDepth + 1);
+  final rowCount = math.min(
+    fan.maxDepth,
+    math.max(fan.minDepth, deepestDepth + 1),
+  );
   final rootSectionCount = visibleOccurrences
       .where(
         (occurrence) =>
@@ -1514,6 +1536,20 @@ Path _fanAreaPath(
   double startTheta,
   double endTheta,
 ) {
+  const epsilon = 0.000001;
+  final isInsetCircle =
+      innerStop.abs() <= epsilon &&
+      outerStop < 1 - epsilon &&
+      ((endTheta - startTheta).abs() - math.pi * 2).abs() <= epsilon;
+  if (isInsetCircle) {
+    return Path()..addOval(
+      Rect.fromCircle(
+        center: frame.center,
+        radius: frame.regularRadius * outerStop,
+      ),
+    );
+  }
+
   const steps = 18;
   final path = Path();
   for (var index = 0; index <= steps; index += 1) {
@@ -1938,11 +1974,21 @@ void _drawPerspectiveGridArea(
   double columnEndIndex,
   PerspectiveGridArea area,
   VaultNodeResolver? vaultNodeResolver,
+  LayoutContext layoutContext,
 ) {
   final resolvedNode = area.node == null
       ? null
       : _resolveVaultNode(area.node!, vaultNodeResolver);
-  final fillColor = resolvedNode?.fillColor ?? area.fillColor;
+  final resolvedFillColor = resolvedNode?.fillColor;
+  final fillColor = resolvedFillColor == null || resolvedNode?.node == null
+      ? resolvedFillColor ?? area.fillColor
+      : _nodeBackgroundColor(
+          resolvedFillColor,
+          resolvedNode!.node!.id,
+          resolvedNode.path,
+          layoutContext,
+          area.layoutDefaults ?? grid.layoutDefaults,
+        );
   final borderStyle = area.node == null
       ? area.borderStyle
       : resolvedNode?.resolvedStatus == LayoutHttpStatus.notFound
@@ -2037,6 +2083,23 @@ void _drawPerspectiveGridArea(
     canvas,
     center - Offset(textPainter.width / 2, textPainter.height / 2),
   );
+}
+
+Color _nodeBackgroundColor(
+  Color color,
+  String nodeId,
+  String nodePath,
+  LayoutContext layoutContext,
+  LayoutDefaults? layoutDefaults,
+) {
+  final defaults = layoutDefaults ?? const LayoutDefaults();
+  final active =
+      (nodeId.isNotEmpty && layoutContext.activeNodeIds.contains(nodeId)) ||
+      layoutContext.activeNodePaths.contains(nodePath);
+  final opacity = active
+      ? defaults.activeNodeBackgroundOpacity
+      : defaults.inactiveNodeBackgroundOpacity;
+  return color.withValues(alpha: opacity);
 }
 
 void _drawTableLayout(

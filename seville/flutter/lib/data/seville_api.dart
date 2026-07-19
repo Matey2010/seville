@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:seville_proto/seville_proto.dart';
 
+import '../models/graph_traverse_type.dart';
 import 'runtime_config.dart';
 
 class SevilleApi {
@@ -59,18 +60,37 @@ class SevilleApi {
     return SystemInfo.fromBuffer(bytes);
   }
 
-  Future<NodeTree> nodeTree({String? rootNodeId, int depth = 3}) async {
+  Future<NodeTree> nodeTree({
+    String? rootNodeId,
+    int depth = 3,
+    GraphTraverseType traverseBy = GraphTraverseType.partOf,
+  }) async {
     if (depth < 0) {
       throw ArgumentError.value(depth, 'depth', 'must be unsigned');
     }
-    final response = await _dio.get<List<int>>(
-      '/nodes/v1/tree',
-      queryParameters: {
-        if (rootNodeId != null && rootNodeId.trim().isNotEmpty)
-          'root_node_id': rootNodeId.trim(),
-        'depth': depth,
-      },
-    );
+    final queryParameters = {
+      if (rootNodeId != null && rootNodeId.trim().isNotEmpty)
+        'root_node_id': rootNodeId.trim(),
+      'depth': depth,
+      'traverse_by': traverseBy.queryValue,
+    };
+    late final Response<List<int>> response;
+    try {
+      response = await _dio.request<List<int>>(
+        '/nodes/v1/tree',
+        queryParameters: queryParameters,
+        options: Options(method: 'QUERY'),
+      );
+    } on DioException catch (error) {
+      if (error.response?.statusCode case 404 || 405 || 501) {
+        response = await _dio.get<List<int>>(
+          '/nodes/v1/tree',
+          queryParameters: queryParameters,
+        );
+      } else {
+        rethrow;
+      }
+    }
     final bytes = response.data;
     if (bytes == null) {
       throw const FormatException('The backend returned an empty Node tree.');

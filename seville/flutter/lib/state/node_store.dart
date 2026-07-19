@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:seville_proto/seville_proto.dart';
 
 import '../data/seville_api.dart';
+import '../models/graph_traverse_type.dart';
 import '../models/layout.dart';
 import '../utils/vault_node_resolver.dart';
 
@@ -42,14 +43,22 @@ final systemInfoProvider = FutureProvider<SystemInfo>((ref) async {
   return api.systemInfo();
 });
 
-typedef NodeTreeRequest = ({String? rootNodeId, int depth});
+typedef NodeTreeRequest = ({
+  String? rootNodeId,
+  int depth,
+  GraphTraverseType traverseBy,
+});
 
 final nodeTreeProvider = FutureProvider.family<NodeTree, NodeTreeRequest>((
   ref,
   request,
 ) async {
   final api = ref.watch(sevilleApiProvider);
-  return api.nodeTree(rootNodeId: request.rootNodeId, depth: request.depth);
+  return api.nodeTree(
+    rootNodeId: request.rootNodeId,
+    depth: request.depth,
+    traverseBy: request.traverseBy,
+  );
 });
 
 final highlightedNodesProvider =
@@ -75,12 +84,30 @@ class SelectedNodesNotifier extends Notifier<List<ResolvedVaultNode>> {
   @override
   List<ResolvedVaultNode> build() => const [];
 
-  void select(ResolvedVaultNode node) {
-    if (state.any((candidate) => candidate.path == node.path)) return;
-    state = List.unmodifiable([...state, node]);
+  void toggle(ResolvedVaultNode node) {
+    final remaining = [
+      for (final candidate in state)
+        if (!_representsSameNode(candidate, node)) candidate,
+    ];
+    if (remaining.length == state.length) {
+      remaining.add(node);
+    }
+    state = List.unmodifiable(remaining);
   }
 
   void clear() {
     state = const [];
   }
+}
+
+bool _representsSameNode(ResolvedVaultNode left, ResolvedVaultNode right) {
+  final leftId = left.node?.id.trim();
+  final rightId = right.node?.id.trim();
+  if (leftId != null &&
+      leftId.isNotEmpty &&
+      rightId != null &&
+      rightId.isNotEmpty) {
+    return leftId == rightId;
+  }
+  return left.path == right.path;
 }

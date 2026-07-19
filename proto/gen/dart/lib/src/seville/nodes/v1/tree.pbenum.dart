@@ -21,14 +21,18 @@ class NodeRelationshipType extends $pb.ProtobufEnum {
   static const NodeRelationshipType NODE_RELATIONSHIP_TYPE_PART_OF =
       NodeRelationshipType._(
           1, _omitEnumNames ? '' : 'NODE_RELATIONSHIP_TYPE_PART_OF');
+  static const NodeRelationshipType NODE_RELATIONSHIP_TYPE_FAMILY =
+      NodeRelationshipType._(
+          2, _omitEnumNames ? '' : 'NODE_RELATIONSHIP_TYPE_FAMILY');
 
   static const $core.List<NodeRelationshipType> values = <NodeRelationshipType>[
     NODE_RELATIONSHIP_TYPE_UNSPECIFIED,
     NODE_RELATIONSHIP_TYPE_PART_OF,
+    NODE_RELATIONSHIP_TYPE_FAMILY,
   ];
 
   static final $core.List<NodeRelationshipType?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 1);
+      $pb.ProtobufEnum.$_initByValueList(values, 2);
   static NodeRelationshipType? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

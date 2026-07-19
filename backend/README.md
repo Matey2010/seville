@@ -92,8 +92,12 @@ Neo4j Browser, update `SEVILLE_NEO4J_PASSWORD` in `.env`, and restart Seville.
 - `GET /v2/snapshot`: live Neo4j graph as a binary `NodeSnapshot`.
 - `GET /system/v1/info`: stable Node and Node-property counts as binary
   `SystemInfo`.
-- `GET /nodes/v1/tree`: depth-limited incoming `PART_OF` tree as binary
-  `NodeTree`; `root_node_id` overrides `SEVILLE_ROOT_NODE_ID`.
+- `QUERY /nodes/v1/tree`: depth-limited incoming relationship tree as binary
+  `NodeTree`; `root_node_id` overrides `SEVILLE_ROOT_NODE_ID`, while the
+  allowlisted `traverse_by` selects `PART_OF` or `FAMILY`. Each successful
+  request increments `counter` once on every unique Node returned. `GET` is
+  accepted only as a compatibility alias for clients or proxies without
+  `QUERY` support.
 
 Source migration is intentionally not exposed through the running API. Future
 user-facing migration should be a deliberate workflow with preview, source

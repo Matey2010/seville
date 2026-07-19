@@ -21,7 +21,7 @@ type SystemReader interface {
 }
 
 type NodeTreeReader interface {
-	NodeTree(context.Context, string, uint32) (*nodesv1.NodeTree, error)
+	NodeTree(context.Context, string, nodesv1.NodeRelationshipType, uint32) (*nodesv1.NodeTree, error)
 }
 
 type Reader interface {

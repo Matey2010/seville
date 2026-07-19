@@ -388,6 +388,9 @@ Selected-state graph structure also has an explicit center configuration at
 Its transparent `LayoutPath` follows the safe-area scene square, while its
 center-positioned `FanLayout` uses depth 6 and six sections. It is visible only
 when `LayoutCondition.not(LayoutCondition.noSelectedNode())` is active.
+Its root is configured with `LayoutNodePointer.selectedNode()`, so changing the
+Riverpod-selected Node changes the tree request root instead of using the
+environment-backed default root.
 
 `TimeCompassScreen` consumes `defaultTimeCompassLayout`. Its default polar grid
 shares the perceptual map's screen-center origin, Cartesian grid, and

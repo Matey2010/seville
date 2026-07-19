@@ -21,13 +21,15 @@ const NodeRelationshipType$json = {
   '2': [
     {'1': 'NODE_RELATIONSHIP_TYPE_UNSPECIFIED', '2': 0},
     {'1': 'NODE_RELATIONSHIP_TYPE_PART_OF', '2': 1},
+    {'1': 'NODE_RELATIONSHIP_TYPE_FAMILY', '2': 2},
   ],
 };
 
 /// Descriptor for `NodeRelationshipType`. Decode as a `google.protobuf.EnumDescriptorProto`.
 final $typed_data.Uint8List nodeRelationshipTypeDescriptor = $convert.base64Decode(
     'ChROb2RlUmVsYXRpb25zaGlwVHlwZRImCiJOT0RFX1JFTEFUSU9OU0hJUF9UWVBFX1VOU1BFQ0'
-    'lGSUVEEAASIgoeTk9ERV9SRUxBVElPTlNISVBfVFlQRV9QQVJUX09GEAE=');
+    'lGSUVEEAASIgoeTk9ERV9SRUxBVElPTlNISVBfVFlQRV9QQVJUX09GEAESIQodTk9ERV9SRUxB'
+    'VElPTlNISVBfVFlQRV9GQU1JTFkQAg==');
 
 @$core.Deprecated('Use nodeTreeOccurrenceDescriptor instead')
 const NodeTreeOccurrence$json = {

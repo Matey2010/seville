@@ -9,6 +9,7 @@ import "seville/node/v2/node.proto";
 enum NodeRelationshipType {
   NODE_RELATIONSHIP_TYPE_UNSPECIFIED = 0;
   NODE_RELATIONSHIP_TYPE_PART_OF = 1;
+  NODE_RELATIONSHIP_TYPE_FAMILY = 2;
 }
 
 message NodeTreeOccurrence {

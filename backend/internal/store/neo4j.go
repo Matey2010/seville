@@ -116,7 +116,16 @@ RETURN count(node) AS node_count,
 	}, nil
 }
 
-func (s *Neo4jStore) NodeTree(ctx context.Context, rootNodeID string, depth uint32) (*nodesv1.NodeTree, error) {
+func (s *Neo4jStore) NodeTree(
+	ctx context.Context,
+	rootNodeID string,
+	relationshipType nodesv1.NodeRelationshipType,
+	depth uint32,
+) (*nodesv1.NodeTree, error) {
+	relationshipName, err := neo4jRelationshipName(relationshipType)
+	if err != nil {
+		return nil, err
+	}
 	session := s.session(ctx, neo4j.AccessModeRead)
 	defer session.Close(ctx)
 
@@ -147,7 +156,7 @@ RETURN node.id AS id, node.path AS path, node.title AS title, node.body AS body,
 	root := nodeFromRecord(rootResult.Record())
 	tree := &nodesv1.NodeTree{
 		RootNodeId:   rootNodeID,
-		Relationship: nodesv1.NodeRelationshipType_NODE_RELATIONSHIP_TYPE_PART_OF,
+		Relationship: relationshipType,
 		Depth:        depth,
 	}
 	rootOccurrence := &nodesv1.NodeTreeOccurrence{
@@ -170,8 +179,9 @@ RETURN node.id AS id, node.path AS path, node.title AS title, node.body AS body,
 			parentIDs = append(parentIDs, id)
 		}
 
-		result, err := session.Run(ctx, `MATCH (child:Node)-[relationship:PART_OF]->(parent:Node)
+		result, err := session.Run(ctx, `MATCH (child:Node)-[relationship]->(parent:Node)
 WHERE parent.id IN $parent_node_ids
+  AND type(relationship) = $relationship_type
 OPTIONAL MATCH (child)-[:TAGGED_WITH]->(tag:Tag)
 WITH parent, child, relationship,
      [tagId IN collect(tag.id) WHERE tagId IS NOT NULL] AS graphTags
@@ -188,7 +198,8 @@ RETURN parent.id AS parent_id,
        emojis,
        elementId(relationship) AS relationship_id
 ORDER BY parent.id, child.path, child.id, relationship_id`, map[string]any{
-			"parent_node_ids": parentIDs,
+			"parent_node_ids":   parentIDs,
+			"relationship_type": relationshipName,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("query radial tree depth %d: %w", level, err)
@@ -220,7 +231,58 @@ ORDER BY parent.id, child.path, child.id, relationship_id`, map[string]any{
 		current = next
 	}
 
+	if err := s.incrementNodeRequestCounters(ctx, tree.Occurrences); err != nil {
+		return nil, err
+	}
 	return tree, nil
+}
+
+func (s *Neo4jStore) incrementNodeRequestCounters(
+	ctx context.Context,
+	occurrences []*nodesv1.NodeTreeOccurrence,
+) error {
+	nodeIDs := make([]string, 0, len(occurrences))
+	seenNodeIDs := make(map[string]struct{}, len(occurrences))
+	for _, occurrence := range occurrences {
+		nodeID := occurrence.GetNode().GetId()
+		if nodeID == "" {
+			continue
+		}
+		if _, seen := seenNodeIDs[nodeID]; seen {
+			continue
+		}
+		seenNodeIDs[nodeID] = struct{}{}
+		nodeIDs = append(nodeIDs, nodeID)
+	}
+	if len(nodeIDs) == 0 {
+		return nil
+	}
+
+	session := s.session(ctx, neo4j.AccessModeWrite)
+	defer session.Close(ctx)
+	result, err := session.Run(ctx, `UNWIND $node_ids AS node_id
+MATCH (node:Node {id: node_id})
+SET node.counter = coalesce(toInteger(node.counter), 0) + 1`, map[string]any{
+		"node_ids": nodeIDs,
+	})
+	if err != nil {
+		return fmt.Errorf("increment requested Node counters: %w", err)
+	}
+	if _, err := result.Consume(ctx); err != nil {
+		return fmt.Errorf("increment requested Node counters: %w", err)
+	}
+	return nil
+}
+
+func neo4jRelationshipName(relationshipType nodesv1.NodeRelationshipType) (string, error) {
+	switch relationshipType {
+	case nodesv1.NodeRelationshipType_NODE_RELATIONSHIP_TYPE_PART_OF:
+		return "PART_OF", nil
+	case nodesv1.NodeRelationshipType_NODE_RELATIONSHIP_TYPE_FAMILY:
+		return "FAMILY", nil
+	default:
+		return "", fmt.Errorf("unsupported Node tree relationship type: %s", relationshipType)
+	}
 }
 
 func (s *Neo4jStore) ImportNew(ctx context.Context, snapshot *nodev2.NodeSnapshot) error {

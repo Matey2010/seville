@@ -3,6 +3,8 @@ import 'dart:ui';
 
 import 'package:seville_proto/seville_proto.dart';
 
+import 'graph_traverse_type.dart';
+
 abstract class Layout {
   const Layout.fromAxes({
     this.size = const GridAxisVariable(size: LayoutSize.fr(1)),
@@ -171,6 +173,7 @@ class LayoutContext {
     this.selectedNodePaths = const [],
     this.highlightedNodePaths = const [],
     this.currentNodePath,
+    this.activeNodeIds = const [],
     this.activeNodePaths = const [],
     this.layoutPath = const [],
   });
@@ -183,6 +186,7 @@ class LayoutContext {
   final List<String> selectedNodePaths;
   final List<String> highlightedNodePaths;
   final String? currentNodePath;
+  final List<String> activeNodeIds;
   final List<String> activeNodePaths;
   final List<String> layoutPath;
 
@@ -199,6 +203,7 @@ class LayoutContext {
       selectedNodePaths: selectedNodePaths,
       highlightedNodePaths: highlightedNodePaths,
       currentNodePath: path,
+      activeNodeIds: activeNodeIds,
       activeNodePaths: activeNodePaths,
       layoutPath: layoutPath,
     );
@@ -509,11 +514,25 @@ class LayoutConfig {
 }
 
 class LayoutDefaults {
-  const LayoutDefaults({this.padding = 0, this.gap = 0, this.borderWidth = 1});
+  const LayoutDefaults({
+    this.padding = 0,
+    this.gap = 0,
+    this.borderWidth = 1,
+    this.inactiveNodeBackgroundOpacity = 0.1,
+    this.activeNodeBackgroundOpacity = 1,
+  }) : assert(
+         inactiveNodeBackgroundOpacity >= 0 &&
+             inactiveNodeBackgroundOpacity <= 1,
+       ),
+       assert(
+         activeNodeBackgroundOpacity >= 0 && activeNodeBackgroundOpacity <= 1,
+       );
 
   final double padding;
   final double gap;
   final double borderWidth;
+  final double inactiveNodeBackgroundOpacity;
+  final double activeNodeBackgroundOpacity;
 }
 
 class LayoutColor {
@@ -1209,6 +1228,7 @@ class PerspectiveGridArea extends Layout {
     this.labelSize = 12,
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
+    super.layoutDefaults,
     super.visibility,
     super.inputSources,
   }) : super.fromAxes();
@@ -1240,6 +1260,7 @@ class PerspectiveGridLayout extends Layout {
     this.bottomEndIndex = 3,
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
+    super.layoutDefaults,
     super.visibility,
     super.inputSources,
   }) : super.fromAxes();
@@ -1330,6 +1351,9 @@ class FanLayout extends Layout with TableLayoutMixin {
   const FanLayout({
     required this.style,
     this.rootNodeId,
+    this.rootNodePointer,
+    this.traverseBy = GraphTraverseType.partOf,
+    this.minDepth = 1,
     this.maxDepth = 3,
     this.maxSectionCount = 6,
     this.label,
@@ -1343,12 +1367,23 @@ class FanLayout extends Layout with TableLayoutMixin {
     super.layoutDefaults,
     super.visibility,
     super.inputSources,
-  }) : assert(maxDepth > 0),
+  }) : assert(rootNodeId == null || rootNodePointer == null),
+       assert(minDepth > 0),
+       assert(maxDepth > 0),
+       assert(minDepth <= maxDepth),
        assert(maxSectionCount > 0),
        super.fromAxes();
 
   final String? label;
   final String? rootNodeId;
+  final LayoutNodePointer? rootNodePointer;
+  final GraphTraverseType traverseBy;
+
+  /// Minimum number of visible radial rows, including the root row.
+  ///
+  /// Rows beyond the returned graph depth remain empty but retain the fan's
+  /// configured geometry.
+  final int minDepth;
   final int maxDepth;
   final int maxSectionCount;
   final Color labelColor;
@@ -1357,6 +1392,14 @@ class FanLayout extends Layout with TableLayoutMixin {
   final LayoutDerivativeReference? growthDirection;
   final GuideStyle? gridStyle;
   final GuideStyle style;
+
+  String? resolveRootNodeId({required Node? selectedNode}) {
+    final pointer = rootNodePointer;
+    if (pointer != null) {
+      return pointer.resolve(selectedNode: selectedNode);
+    }
+    return rootNodeId;
+  }
 
   double get angleSpanDegrees {
     if (position.directionDegrees != null) return 90;
@@ -1390,6 +1433,25 @@ class FanLayout extends Layout with TableLayoutMixin {
 
   @override
   GuideStyle? get tableGuideStyle => gridStyle;
+}
+
+abstract class LayoutNodePointer {
+  const LayoutNodePointer._();
+
+  const factory LayoutNodePointer.selectedNode() =
+      _SelectedNodeLayoutNodePointer;
+
+  String? resolve({required Node? selectedNode});
+}
+
+final class _SelectedNodeLayoutNodePointer extends LayoutNodePointer {
+  const _SelectedNodeLayoutNodePointer() : super._();
+
+  @override
+  String? resolve({required Node? selectedNode}) {
+    final id = selectedNode?.id.trim();
+    return id == null || id.isEmpty ? null : id;
+  }
 }
 
 class RayLayout extends LayoutGuide {
