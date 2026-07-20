@@ -1454,7 +1454,8 @@ typedef _FanFrame = ({
   double startTheta,
   double endTheta,
   double regularRadius,
-  List<Offset> planePoints,
+  List<Offset> boundaryPoints,
+  List<double> boundaryStops,
   List<double> rowStops,
   List<double> columnStops,
 });
@@ -1592,7 +1593,8 @@ _FanFrame? _resolveFanFrame(
   final startTheta = -angleSpan / 2;
   final endTheta = angleSpan / 2;
   final sampledBoundaryDistances = <double>[];
-  const radiusSamples = 72;
+  final boundaryPoints = <Offset>[];
+  const radiusSamples = 144;
   for (var index = 0; index <= radiusSamples; index += 1) {
     final theta = startTheta + angleSpan * index / radiusSamples;
     final angle = growthAngle + theta;
@@ -1603,10 +1605,23 @@ _FanFrame? _resolveFanFrame(
     );
     if (distance != null && distance > 0) {
       sampledBoundaryDistances.add(distance);
+      boundaryPoints.add(
+        center + Offset(math.cos(angle), math.sin(angle)) * distance,
+      );
     }
   }
-  if (sampledBoundaryDistances.isEmpty) return null;
+  if (sampledBoundaryDistances.isEmpty || boundaryPoints.length < 2) {
+    return null;
+  }
   final regularRadius = sampledBoundaryDistances.reduce(math.min);
+  final boundaryStops = <double>[0];
+  for (var index = 1; index < boundaryPoints.length; index += 1) {
+    boundaryStops.add(
+      boundaryStops.last +
+          (boundaryPoints[index] - boundaryPoints[index - 1]).distance,
+    );
+  }
+  if (boundaryStops.last <= 0) return null;
   final visibleOccurrences = tree.occurrences
       .where((occurrence) => occurrence.depth < fan.maxDepth)
       .toList(growable: false);
@@ -1649,7 +1664,8 @@ _FanFrame? _resolveFanFrame(
     startTheta: startTheta,
     endTheta: endTheta,
     regularRadius: regularRadius,
-    planePoints: planePoints,
+    boundaryPoints: boundaryPoints,
+    boundaryStops: boundaryStops,
     rowStops: rowStops,
     columnStops: columnStops,
   );
@@ -1681,17 +1697,30 @@ List<_FanSegment> _fanSegmentsInFrame(
     final outerStop = frame.rowStops[occurrenceDepth + 1];
     final middleStop = (innerStop + outerStop) / 2;
     final middleTheta = (startTheta + endTheta) / 2;
+    final reachesBoundary = outerStop >= 1;
+    const outerLabelDepth = 0.72;
+    final labelStart = reachesBoundary
+        ? Offset.lerp(
+            _fanFramePoint(frame, innerStop, startTheta),
+            _fanFramePoint(frame, outerStop, startTheta),
+            outerLabelDepth,
+          )!
+        : _fanFramePoint(frame, middleStop, startTheta);
+    final labelEnd = reachesBoundary
+        ? Offset.lerp(
+            _fanFramePoint(frame, innerStop, endTheta),
+            _fanFramePoint(frame, outerStop, endTheta),
+            outerLabelDepth,
+          )!
+        : _fanFramePoint(frame, middleStop, endTheta);
+    final labelPoint = reachesBoundary
+        ? Offset.lerp(labelStart, labelEnd, 0.5)!
+        : _fanFramePoint(frame, middleStop, middleTheta);
     segments.add((
       occurrence: occurrence,
       path: _fanAreaPath(frame, innerStop, outerStop, startTheta, endTheta),
-      labelPoint: _fanFramePoint(frame, middleStop, middleTheta),
-      labelWidth: math.max(
-        (_fanFramePoint(frame, middleStop, endTheta) -
-                    _fanFramePoint(frame, middleStop, startTheta))
-                .distance -
-            4,
-        0,
-      ),
+      labelPoint: labelPoint,
+      labelWidth: math.max((labelEnd - labelStart).distance - 8, 0),
     ));
 
     final children = (childrenByParent[occurrence.occurrenceId] ?? const [])
@@ -1786,17 +1815,37 @@ Path _fanAreaPath(
 }
 
 Offset _fanFramePoint(_FanFrame frame, double rowStop, double theta) {
+  if (rowStop >= 1) {
+    return _equalizedFanBoundaryPoint(frame, theta);
+  }
   final angle = frame.growthAngle + theta;
   final direction = Offset(math.cos(angle), math.sin(angle));
-  final boundaryDistance = _rayPolygonBoundaryDistance(
-    frame.center,
-    direction,
-    frame.planePoints,
-  );
-  final radius = rowStop >= 1
-      ? boundaryDistance ?? frame.regularRadius
-      : frame.regularRadius * rowStop;
-  return frame.center + direction * radius;
+  return frame.center + direction * (frame.regularRadius * rowStop);
+}
+
+Offset _equalizedFanBoundaryPoint(_FanFrame frame, double theta) {
+  final angleSpan = frame.endTheta - frame.startTheta;
+  if (angleSpan == 0 || frame.boundaryPoints.length < 2) {
+    return frame.boundaryPoints.first;
+  }
+  final fraction = ((theta - frame.startTheta) / angleSpan).clamp(0.0, 1.0);
+  final targetDistance = frame.boundaryStops.last * fraction;
+  var upperIndex = 1;
+  while (upperIndex < frame.boundaryStops.length - 1 &&
+      frame.boundaryStops[upperIndex] < targetDistance) {
+    upperIndex += 1;
+  }
+  final lowerIndex = upperIndex - 1;
+  final lowerStop = frame.boundaryStops[lowerIndex];
+  final segmentLength = frame.boundaryStops[upperIndex] - lowerStop;
+  final segmentFraction = segmentLength <= 0
+      ? 0.0
+      : (targetDistance - lowerStop) / segmentLength;
+  return Offset.lerp(
+    frame.boundaryPoints[lowerIndex],
+    frame.boundaryPoints[upperIndex],
+    segmentFraction,
+  )!;
 }
 
 double? _rayPolygonBoundaryDistance(

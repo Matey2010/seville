@@ -152,6 +152,12 @@ wire.NodeSearchParameter _wireSearchParameter(NodeSearchParameter value) =>
       operator: switch (value.operator) {
         NodeMatchOperator.exact =>
           wire.NodeSearchMatchOperator.NODE_SEARCH_MATCH_OPERATOR_EXACT,
+        NodeMatchOperator.startsWith =>
+          wire.NodeSearchMatchOperator.NODE_SEARCH_MATCH_OPERATOR_STARTS_WITH,
+        NodeMatchOperator.endsWith =>
+          wire.NodeSearchMatchOperator.NODE_SEARCH_MATCH_OPERATOR_ENDS_WITH,
+        NodeMatchOperator.contains =>
+          wire.NodeSearchMatchOperator.NODE_SEARCH_MATCH_OPERATOR_CONTAINS,
         NodeMatchOperator.regularExpression =>
           wire
               .NodeSearchMatchOperator

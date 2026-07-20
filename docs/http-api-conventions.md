@@ -117,7 +117,8 @@ The optional `node_filter` contains `include_nodes_matching` and
 Entries within each list are OR-combined. When includes exist, a candidate must
 match at least one; matching any exclude rejects it. Supported parameters are
 `name`, `id`, `path`, `title`, `tag`, and Neo4j `label`; supported operators are
-case-sensitive exact matching and Go regular expressions. `name` addresses the
+case-sensitive exact, starts-with, ends-with, contains, and Go regular-expression
+matching. `name` addresses the
 additional Neo4j `name` property transported in `Node.frontmatter`; it is not a
 second identity field and does not replace `Node.id` or `Node.title`. `label`
 matches values returned by Neo4j's `labels(node)` and is not transported as

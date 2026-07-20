@@ -361,7 +361,8 @@ The top plane presents its occurrence-preserving `NodeTree` through a
 `FanLayout`. Cardinal fan positions span 180 degrees, angular positions span 90
 degrees, and other positions span 360 degrees. Internal bands use a regular
 radius and equal angular sections; only the final band conforms to the owning
-plane boundary.
+plane boundary. Its separator endpoints divide the visible polygon boundary by
+equal path length so triangular and trapezoidal planes retain equal outer cells.
 Fan data matching belongs to the optional `FanLayout.nodeFilter`. Its
 `includeNodesMatching` and `excludeNodesMatching` lists contain structured
 `NodeSearchParameter` values. They are part of the Riverpod request identity

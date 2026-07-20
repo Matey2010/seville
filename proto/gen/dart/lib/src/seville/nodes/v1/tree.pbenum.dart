@@ -87,16 +87,28 @@ class NodeSearchMatchOperator extends $pb.ProtobufEnum {
           _omitEnumNames
               ? ''
               : 'NODE_SEARCH_MATCH_OPERATOR_REGULAR_EXPRESSION');
+  static const NodeSearchMatchOperator NODE_SEARCH_MATCH_OPERATOR_STARTS_WITH =
+      NodeSearchMatchOperator._(
+          3, _omitEnumNames ? '' : 'NODE_SEARCH_MATCH_OPERATOR_STARTS_WITH');
+  static const NodeSearchMatchOperator NODE_SEARCH_MATCH_OPERATOR_ENDS_WITH =
+      NodeSearchMatchOperator._(
+          4, _omitEnumNames ? '' : 'NODE_SEARCH_MATCH_OPERATOR_ENDS_WITH');
+  static const NodeSearchMatchOperator NODE_SEARCH_MATCH_OPERATOR_CONTAINS =
+      NodeSearchMatchOperator._(
+          5, _omitEnumNames ? '' : 'NODE_SEARCH_MATCH_OPERATOR_CONTAINS');
 
   static const $core.List<NodeSearchMatchOperator> values =
       <NodeSearchMatchOperator>[
     NODE_SEARCH_MATCH_OPERATOR_UNSPECIFIED,
     NODE_SEARCH_MATCH_OPERATOR_EXACT,
     NODE_SEARCH_MATCH_OPERATOR_REGULAR_EXPRESSION,
+    NODE_SEARCH_MATCH_OPERATOR_STARTS_WITH,
+    NODE_SEARCH_MATCH_OPERATOR_ENDS_WITH,
+    NODE_SEARCH_MATCH_OPERATOR_CONTAINS,
   ];
 
   static final $core.List<NodeSearchMatchOperator?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 2);
+      $pb.ProtobufEnum.$_initByValueList(values, 5);
   static NodeSearchMatchOperator? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

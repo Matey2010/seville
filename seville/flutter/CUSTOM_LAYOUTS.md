@@ -312,7 +312,9 @@ future plane-specific content belongs in each plane's own `layouts` map.
 positions span 180 degrees, angular `LayoutRelativePosition.d(...)` positions
 span 90 degrees, and non-directional positions span 360 degrees. Sections split
 that span equally; internal bands keep a regular radius while the final band
-adapts to the owning `LayoutPath` boundary.
+adapts to the owning `LayoutPath` boundary. Final-band separator endpoints
+divide that visible boundary by equal path length, preventing sloped triangle
+or trapezoid edges from making the first and last cells wider.
 Use `rootNodeId` for a fixed API root, or
 `rootNodePointer: LayoutNodePointer.selectedNode()` when the fan must follow
 the current Riverpod-selected Node. These options are mutually exclusive. A
@@ -320,9 +322,9 @@ selected-Node pointer issues no tree request until the selected Node has a
 stable ID.
 Use the optional `nodeFilter` for data-level fan matching. Its
 `includeNodesMatching` and `excludeNodesMatching` lists accept structured
-`NodeSearchParameter` values, currently supporting exact and
-regular-expression matching over Node `name`, `id`, `path`, `title`, `tag`, and
-Neo4j `label`. A non-empty include list requires any include to match; any
+`NodeSearchParameter` values, currently supporting exact, starts-with,
+ends-with, contains, and regular-expression matching over Node `name`, `id`,
+`path`, `title`, `tag`, and Neo4j `label`. A non-empty include list requires any include to match; any
 exclude match rejects the occurrence. Matching is performed by the tree API
 before occurrences reach the Flame component, and a rejected occurrence's
 branch is pruned. The LG Ergo `cortex-bush` includes the exact `Section` label,

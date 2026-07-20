@@ -47,7 +47,13 @@ class NodeSearchParameter {
 
 enum NodeParameter { name, id, path, title, tag, label }
 
-enum NodeMatchOperator { exact, startsWith, endsWith, contains, regularExpression }
+enum NodeMatchOperator {
+  exact,
+  startsWith,
+  endsWith,
+  contains,
+  regularExpression,
+}
 
 bool _sameParameters(
   List<NodeSearchParameter> left,

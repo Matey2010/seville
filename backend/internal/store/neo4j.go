@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"strings"
 	"time"
 
 	nodev2 "github.com/Matey2010/seville/proto/gen/go/seville/node/v2"
@@ -250,7 +251,8 @@ ORDER BY parent.id, child.path, child.id, relationship_id`, map[string]any{
 
 type nodeSearchMatcher struct {
 	parameter nodesv1.NodeParameterType
-	exact     string
+	operator  nodesv1.NodeSearchMatchOperator
+	value     string
 	regexp    *regexp.Regexp
 }
 
@@ -292,10 +294,14 @@ func compileNodeSearchMatchers(parameters []*nodesv1.NodeSearchParameter) ([]nod
 		}
 		matcher := nodeSearchMatcher{
 			parameter: parameter.GetParameter(),
-			exact:     parameter.GetStringValue(),
+			operator:  parameter.GetOperator(),
+			value:     parameter.GetStringValue(),
 		}
 		switch parameter.GetOperator() {
-		case nodesv1.NodeSearchMatchOperator_NODE_SEARCH_MATCH_OPERATOR_EXACT:
+		case nodesv1.NodeSearchMatchOperator_NODE_SEARCH_MATCH_OPERATOR_EXACT,
+			nodesv1.NodeSearchMatchOperator_NODE_SEARCH_MATCH_OPERATOR_STARTS_WITH,
+			nodesv1.NodeSearchMatchOperator_NODE_SEARCH_MATCH_OPERATOR_ENDS_WITH,
+			nodesv1.NodeSearchMatchOperator_NODE_SEARCH_MATCH_OPERATOR_CONTAINS:
 		case nodesv1.NodeSearchMatchOperator_NODE_SEARCH_MATCH_OPERATOR_REGULAR_EXPRESSION:
 			compiled, err := regexp.Compile(parameter.GetStringValue())
 			if err != nil {
@@ -327,14 +333,27 @@ func supportedNodeParameter(parameter nodesv1.NodeParameterType) bool {
 func matchesAnyNodeSearchMatcher(node *nodev2.Node, labels []string, matchers []nodeSearchMatcher) bool {
 	for _, matcher := range matchers {
 		for _, value := range nodeParameterValues(node, labels, matcher.parameter) {
-			if matcher.regexp != nil {
+			switch matcher.operator {
+			case nodesv1.NodeSearchMatchOperator_NODE_SEARCH_MATCH_OPERATOR_REGULAR_EXPRESSION:
 				if matcher.regexp.MatchString(value) {
 					return true
 				}
-				continue
-			}
-			if value == matcher.exact {
-				return true
+			case nodesv1.NodeSearchMatchOperator_NODE_SEARCH_MATCH_OPERATOR_EXACT:
+				if value == matcher.value {
+					return true
+				}
+			case nodesv1.NodeSearchMatchOperator_NODE_SEARCH_MATCH_OPERATOR_STARTS_WITH:
+				if strings.HasPrefix(value, matcher.value) {
+					return true
+				}
+			case nodesv1.NodeSearchMatchOperator_NODE_SEARCH_MATCH_OPERATOR_ENDS_WITH:
+				if strings.HasSuffix(value, matcher.value) {
+					return true
+				}
+			case nodesv1.NodeSearchMatchOperator_NODE_SEARCH_MATCH_OPERATOR_CONTAINS:
+				if strings.Contains(value, matcher.value) {
+					return true
+				}
 			}
 		}
 	}

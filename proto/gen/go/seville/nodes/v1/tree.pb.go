@@ -138,6 +138,9 @@ const (
 	NodeSearchMatchOperator_NODE_SEARCH_MATCH_OPERATOR_UNSPECIFIED        NodeSearchMatchOperator = 0
 	NodeSearchMatchOperator_NODE_SEARCH_MATCH_OPERATOR_EXACT              NodeSearchMatchOperator = 1
 	NodeSearchMatchOperator_NODE_SEARCH_MATCH_OPERATOR_REGULAR_EXPRESSION NodeSearchMatchOperator = 2
+	NodeSearchMatchOperator_NODE_SEARCH_MATCH_OPERATOR_STARTS_WITH        NodeSearchMatchOperator = 3
+	NodeSearchMatchOperator_NODE_SEARCH_MATCH_OPERATOR_ENDS_WITH          NodeSearchMatchOperator = 4
+	NodeSearchMatchOperator_NODE_SEARCH_MATCH_OPERATOR_CONTAINS           NodeSearchMatchOperator = 5
 )
 
 // Enum value maps for NodeSearchMatchOperator.
@@ -146,11 +149,17 @@ var (
 		0: "NODE_SEARCH_MATCH_OPERATOR_UNSPECIFIED",
 		1: "NODE_SEARCH_MATCH_OPERATOR_EXACT",
 		2: "NODE_SEARCH_MATCH_OPERATOR_REGULAR_EXPRESSION",
+		3: "NODE_SEARCH_MATCH_OPERATOR_STARTS_WITH",
+		4: "NODE_SEARCH_MATCH_OPERATOR_ENDS_WITH",
+		5: "NODE_SEARCH_MATCH_OPERATOR_CONTAINS",
 	}
 	NodeSearchMatchOperator_value = map[string]int32{
 		"NODE_SEARCH_MATCH_OPERATOR_UNSPECIFIED":        0,
 		"NODE_SEARCH_MATCH_OPERATOR_EXACT":              1,
 		"NODE_SEARCH_MATCH_OPERATOR_REGULAR_EXPRESSION": 2,
+		"NODE_SEARCH_MATCH_OPERATOR_STARTS_WITH":        3,
+		"NODE_SEARCH_MATCH_OPERATOR_ENDS_WITH":          4,
+		"NODE_SEARCH_MATCH_OPERATOR_CONTAINS":           5,
 	}
 )
 
@@ -566,11 +575,14 @@ const file_seville_nodes_v1_tree_proto_rawDesc = "" +
 	"\x18NODE_PARAMETER_TYPE_PATH\x10\x03\x12\x1d\n" +
 	"\x19NODE_PARAMETER_TYPE_TITLE\x10\x04\x12\x1b\n" +
 	"\x17NODE_PARAMETER_TYPE_TAG\x10\x05\x12\x1d\n" +
-	"\x19NODE_PARAMETER_TYPE_LABEL\x10\x06*\x9e\x01\n" +
+	"\x19NODE_PARAMETER_TYPE_LABEL\x10\x06*\x9d\x02\n" +
 	"\x17NodeSearchMatchOperator\x12*\n" +
 	"&NODE_SEARCH_MATCH_OPERATOR_UNSPECIFIED\x10\x00\x12$\n" +
 	" NODE_SEARCH_MATCH_OPERATOR_EXACT\x10\x01\x121\n" +
-	"-NODE_SEARCH_MATCH_OPERATOR_REGULAR_EXPRESSION\x10\x02BDZBgithub.com/Matey2010/seville/proto/gen/go/seville/nodes/v1;nodesv1b\x06proto3"
+	"-NODE_SEARCH_MATCH_OPERATOR_REGULAR_EXPRESSION\x10\x02\x12*\n" +
+	"&NODE_SEARCH_MATCH_OPERATOR_STARTS_WITH\x10\x03\x12(\n" +
+	"$NODE_SEARCH_MATCH_OPERATOR_ENDS_WITH\x10\x04\x12'\n" +
+	"#NODE_SEARCH_MATCH_OPERATOR_CONTAINS\x10\x05BDZBgithub.com/Matey2010/seville/proto/gen/go/seville/nodes/v1;nodesv1b\x06proto3"
 
 var (
 	file_seville_nodes_v1_tree_proto_rawDescOnce sync.Once

@@ -117,7 +117,10 @@
   occurrence prunes its traversal branch.
   Keep internal bands on a shared regular radius so polygon perspective does
   not visually widen the edge sections; only the final row reaches the owning
-  polygon boundary.
+  polygon boundary. Internal separators remain equally angular, while their
+  final-row endpoints divide the visible polygon boundary by equal path length;
+  this keeps the first and last outer cells equal to the middle cells in both
+  triangular and trapezoidal planes.
   Fan `rowsConfig` are radial bands from root outward and
   `columnsConfig` are angular segments across the tree fan.
   LG Ergo keeps its always-available shallow fan under `top-plane`.
