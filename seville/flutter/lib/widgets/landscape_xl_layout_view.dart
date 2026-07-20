@@ -156,8 +156,11 @@ class LandscapeXlLayoutGame extends FlameGame {
       }
     }
     add(_LandscapeXlSceneComponent()..priority = 100);
-    for (final placement in _fanPlacements(layout)) {
+    for (final placement in _pathLayoutPlacements<FanLayout>(layout)) {
       add(_FanComponent(placement)..priority = 110);
+    }
+    for (final placement in _pathLayoutPlacements<GraphLayout>(layout)) {
+      add(_GraphComponent(placement)..priority = 110);
     }
     for (final registered in _registeredLayoutComponents(
       layout,
@@ -246,14 +249,14 @@ class _RegisteredLayoutComponentHost extends PositionComponent
   }
 }
 
-typedef _FanPlacement = ({
+typedef _PathLayoutPlacement<T extends Layout> = ({
   String key,
   LayoutPath plane,
-  FanLayout fan,
+  T layout,
   List<Layout> hierarchy,
 });
 
-Iterable<_FanPlacement> _fanPlacements(
+Iterable<_PathLayoutPlacement<T>> _pathLayoutPlacements<T extends Layout>(
   Layout layout, [
   List<String> parentPath = const [],
   List<Layout> ancestors = const [],
@@ -263,19 +266,19 @@ Iterable<_FanPlacement> _fanPlacements(
     final childPath = [...parentPath, entry.key];
     final child = entry.value;
     if (child is LayoutPath) {
-      for (final fanEntry in child.layouts.entries) {
-        final fan = fanEntry.value;
-        if (fan is FanLayout) {
+      for (final layoutEntry in child.layouts.entries) {
+        final pathLayout = layoutEntry.value;
+        if (pathLayout is T) {
           yield (
-            key: [...childPath, fanEntry.key].join('/'),
+            key: [...childPath, layoutEntry.key].join('/'),
             plane: child,
-            fan: fan,
-            hierarchy: [...hierarchy, child, fan],
+            layout: pathLayout,
+            hierarchy: [...hierarchy, child, pathLayout],
           );
         }
       }
     }
-    yield* _fanPlacements(child, childPath, hierarchy);
+    yield* _pathLayoutPlacements<T>(child, childPath, hierarchy);
   }
 }
 
@@ -664,7 +667,7 @@ Color? _subjectNodeColor(String? rawColor) {
   return value == null ? null : Color(value);
 }
 
-LayoutColor _fanNodeColor(Node node) {
+LayoutColor _nodeColor(Node node) {
   for (final key in const ['color', 'hex', 'background']) {
     final rawColor = node.frontmatter[key];
     if (_subjectNodeColor(rawColor) != null) {
@@ -858,7 +861,7 @@ class _FanComponent extends PositionComponent
     with HasGameReference<LandscapeXlLayoutGame>, flame_events.TapCallbacks {
   _FanComponent(this.placement);
 
-  final _FanPlacement placement;
+  final _PathLayoutPlacement<FanLayout> placement;
 
   bool get _isVisible => placement.hierarchy.every(
     (layout) => layout.isVisible(game.layoutContext),
@@ -877,7 +880,7 @@ class _FanComponent extends PositionComponent
 
   @override
   void render(Canvas canvas) {
-    final fan = placement.fan;
+    final fan = placement.layout;
     if (!_isVisible) return;
     final nodeTree = game.nodeTrees[fan];
     if (nodeTree == null) return;
@@ -908,7 +911,7 @@ class _FanComponent extends PositionComponent
   void onTapUp(flame_events.TapUpEvent event) {
     event.continuePropagation = true;
     final tapHandler = game.onLayoutTap;
-    final fan = placement.fan;
+    final fan = placement.layout;
     final nodeTree = game.nodeTrees[fan];
     if (tapHandler == null || nodeTree == null || !_isVisible) {
       return;
@@ -946,6 +949,82 @@ class _FanComponent extends PositionComponent
       ),
     );
     event.continuePropagation = false;
+  }
+}
+
+class _GraphComponent extends PositionComponent
+    with HasGameReference<LandscapeXlLayoutGame>, flame_events.TapCallbacks {
+  _GraphComponent(this.placement);
+
+  final _PathLayoutPlacement<GraphLayout> placement;
+
+  bool get _isVisible => placement.hierarchy.every(
+    (layout) => layout.isVisible(game.layoutContext),
+  );
+
+  @override
+  void onTapDown(flame_events.TapDownEvent event) {
+    event.continuePropagation = true;
+  }
+
+  @override
+  void onGameResize(Vector2 size) {
+    super.onGameResize(size);
+    this.size = size;
+  }
+
+  @override
+  void render(Canvas canvas) {
+    if (!_isVisible || game.selectedNodes.isEmpty) return;
+    final planePoints = _resolvePlanePoints();
+    if (planePoints == null) return;
+    _drawGraphLayout(
+      canvas,
+      placement.layout,
+      game.selectedNodes,
+      game.layoutContext,
+      planePoints: planePoints,
+    );
+  }
+
+  @override
+  void onTapUp(flame_events.TapUpEvent event) {
+    event.continuePropagation = true;
+    final tapHandler = game.onLayoutTap;
+    if (tapHandler == null || !_isVisible) return;
+    final planePoints = _resolvePlanePoints();
+    if (planePoints == null) return;
+    final graphNode = _hitTestGraph(
+      placement.layout,
+      game.selectedNodes,
+      Offset(event.localPosition.x, event.localPosition.y),
+      planePoints: planePoints,
+    );
+    if (graphNode == null) return;
+    tapHandler(
+      LayoutTapTarget(
+        key: '${placement.key}/${graphNode.node.id}',
+        layout: placement.layout,
+        node: graphNode.resolvedNode,
+        resolvedNode: graphNode.resolvedNode,
+        label: graphNode.node.displayLabel,
+      ),
+    );
+    event.continuePropagation = false;
+  }
+
+  List<Offset>? _resolvePlanePoints() {
+    final resolvedLayouts = _resolveLayouts(
+      game.layout,
+      Size(size.x, size.y),
+      game.safePadding,
+      game.layoutContext,
+    );
+    return _resolvedLayoutPathPoints(
+      placement.plane,
+      resolvedLayouts,
+      game.layoutContext,
+    );
   }
 }
 
@@ -1239,6 +1318,129 @@ void _drawPerspectiveGrid(
   }
 }
 
+typedef _GraphNodeFrame = ({
+  ResolvedVaultNode resolvedNode,
+  Node node,
+  Rect circleBounds,
+});
+
+void _drawGraphLayout(
+  Canvas canvas,
+  GraphLayout graph,
+  List<ResolvedVaultNode> selectedNodes,
+  LayoutContext layoutContext, {
+  required List<Offset> planePoints,
+}) {
+  final nodes = _graphNodesInFrame(graph, selectedNodes, planePoints);
+  if (nodes.isEmpty) return;
+  final clipPath = Path()..moveTo(planePoints.first.dx, planePoints.first.dy);
+  for (final point in planePoints.skip(1)) {
+    clipPath.lineTo(point.dx, point.dy);
+  }
+  clipPath.close();
+
+  final borderStyle = graph.style;
+  final borderWidth =
+      graph.layoutDefaults?.borderWidth ?? borderStyle.strokeWidth;
+  canvas.save();
+  canvas.clipPath(clipPath);
+  for (final graphNode in nodes) {
+    final fillColor = _nodeBackgroundColor(
+      _nodeColor(graphNode.node).resolve(),
+      graphNode.node.id,
+      graphNode.resolvedNode.path,
+      layoutContext,
+      graph.layoutDefaults,
+    );
+    canvas.drawOval(
+      graphNode.circleBounds,
+      Paint()
+        ..color = fillColor
+        ..style = PaintingStyle.fill,
+    );
+    canvas.drawOval(
+      graphNode.circleBounds,
+      Paint()
+        ..color = borderStyle.color
+        ..strokeWidth = borderWidth
+        ..strokeCap = borderStyle.strokeCap
+        ..style = PaintingStyle.stroke,
+    );
+    _paintNodeLabel(
+      canvas,
+      graphNode.node.displayLabel,
+      graphNode.circleBounds.center,
+      graphNode.circleBounds.width * 0.8,
+      graph.labelColor,
+      graph.labelSize,
+    );
+  }
+  canvas.restore();
+}
+
+List<_GraphNodeFrame> _graphNodesInFrame(
+  GraphLayout graph,
+  List<ResolvedVaultNode> selectedNodes,
+  List<Offset> planePoints,
+) {
+  final resolvedNodes = [
+    for (final resolvedNode in selectedNodes)
+      if (resolvedNode.node case final node?)
+        (resolvedNode: resolvedNode, node: node),
+  ];
+  if (resolvedNodes.isEmpty || planePoints.length < 3) return const [];
+
+  final bounds = _boundsForPoints(planePoints);
+  if (bounds.isEmpty) return const [];
+  final aspectRatio = bounds.width / bounds.height;
+  final columnCount = math.min(
+    resolvedNodes.length,
+    math.max(1, math.sqrt(resolvedNodes.length * aspectRatio).ceil()),
+  );
+  final rowCount = (resolvedNodes.length / columnCount).ceil();
+  final cellWidth = bounds.width / columnCount;
+  final cellHeight = bounds.height / rowCount;
+  final diameter = math.min(cellWidth, cellHeight) * graph.nodeExtentFactor;
+  final nodes = <_GraphNodeFrame>[];
+  for (var index = 0; index < resolvedNodes.length; index += 1) {
+    final row = index ~/ columnCount;
+    final column = index % columnCount;
+    final rowStart = row * columnCount;
+    final rowNodeCount = math.min(columnCount, resolvedNodes.length - rowStart);
+    final rowLeft = bounds.center.dx - rowNodeCount * cellWidth / 2;
+    final center = Offset(
+      rowLeft + (column + 0.5) * cellWidth,
+      bounds.top + (row + 0.5) * cellHeight,
+    );
+    final resolvedNode = resolvedNodes[index];
+    nodes.add((
+      resolvedNode: resolvedNode.resolvedNode,
+      node: resolvedNode.node,
+      circleBounds: Rect.fromCircle(center: center, radius: diameter / 2),
+    ));
+  }
+  return nodes;
+}
+
+_GraphNodeFrame? _hitTestGraph(
+  GraphLayout graph,
+  List<ResolvedVaultNode> selectedNodes,
+  Offset position, {
+  required List<Offset> planePoints,
+}) {
+  for (final graphNode in _graphNodesInFrame(
+    graph,
+    selectedNodes,
+    planePoints,
+  ).reversed) {
+    final radius = graphNode.circleBounds.width / 2;
+    if ((position - graphNode.circleBounds.center).distance <= radius) {
+      return graphNode;
+    }
+  }
+  return null;
+}
+
 typedef _FanSegment = ({
   NodeTreeOccurrence occurrence,
   Path path,
@@ -1283,7 +1485,7 @@ void _drawFanLayout(
   for (final segment in segments) {
     final node = segment.occurrence.node;
     final fillColor = _nodeBackgroundColor(
-      _fanNodeColor(node).resolve(),
+      _nodeColor(node).resolve(),
       node.id,
       node.path,
       layoutContext,
@@ -1309,30 +1511,44 @@ void _drawFanLayout(
   }
   for (final segment in segments) {
     final node = segment.occurrence.node;
-    final label = node.displayLabel;
-    if (label.isEmpty || segment.labelWidth < fan.labelSize * 2) {
-      continue;
-    }
-    final textPainter = TextPainter(
-      text: TextSpan(
-        text: label,
-        style: TextStyle(
-          color: fan.labelColor,
-          fontSize: fan.labelSize,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-      maxLines: 1,
-      ellipsis: '…',
-      textDirection: TextDirection.ltr,
-      textAlign: TextAlign.center,
-    )..layout(maxWidth: segment.labelWidth);
-    textPainter.paint(
+    _paintNodeLabel(
       canvas,
-      segment.labelPoint -
-          Offset(textPainter.width / 2, textPainter.height / 2),
+      node.displayLabel,
+      segment.labelPoint,
+      segment.labelWidth,
+      fan.labelColor,
+      fan.labelSize,
     );
   }
+}
+
+void _paintNodeLabel(
+  Canvas canvas,
+  String label,
+  Offset center,
+  double maxWidth,
+  Color color,
+  double fontSize,
+) {
+  if (label.isEmpty || maxWidth < fontSize * 2) return;
+  final textPainter = TextPainter(
+    text: TextSpan(
+      text: label,
+      style: TextStyle(
+        color: color,
+        fontSize: fontSize,
+        fontWeight: FontWeight.w600,
+      ),
+    ),
+    maxLines: 1,
+    ellipsis: '…',
+    textDirection: TextDirection.ltr,
+    textAlign: TextAlign.center,
+  )..layout(maxWidth: maxWidth);
+  textPainter.paint(
+    canvas,
+    center - Offset(textPainter.width / 2, textPainter.height / 2),
+  );
 }
 
 List<_FanSegment> _fanSegments(
@@ -1940,7 +2156,7 @@ ResolvedVaultNode _resolvedFanNode(NodeTreeOccurrence occurrence) {
   final node = occurrence.node;
   return ResolvedVaultNode(
     path: node.path,
-    color: _fanNodeColor(node),
+    color: _nodeColor(node),
     label: node.displayLabel,
     node: node,
     resolvedStatus: LayoutHttpStatus.ok,

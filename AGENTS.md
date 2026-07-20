@@ -114,11 +114,15 @@
   polygon boundary.
   Fan `rowsConfig` are radial bands from root outward and
   `columnsConfig` are angular segments across the tree fan.
-  LG Ergo keeps its always-available shallow fan under `top-plane` and owns its
-  selected-state center fan at
-  `safe-area/inner-circle-plane/wrapped-scene-square/scene-fan-plane/scene-fan`.
-  The center fan uses `LayoutRelativePosition.center`, depth 6, six sections,
-  and `LayoutCondition.not(LayoutCondition.noSelectedNode())`.
+  LG Ergo keeps its always-available shallow fan under `top-plane`.
+- Use `GraphLayout` for the selected Node pool at
+  `safe-area/inner-circle-plane/wrapped-scene-square/scene-graph-plane/scene-graph`.
+  It renders every Riverpod-selected Node through one Flame component. Arrange
+  Nodes in equal centered cells, render each Node as a circle whose diameter is
+  `nodeExtentFactor` of its cell, and shrink the cells as the selected set
+  grows. Paint and hit-test from the same resolved circle geometry. Graph
+  connections, distance, labels between Nodes, and alternate interaction modes
+  remain future extensions; do not request a `NodeTree` for this layout.
 - Use `PerspectiveGridLayout` in `LayoutPath.grid` when a path needs normal
   rows and columns projected inside its quadrilateral. `rowsConfig` and
   `columnsConfig` must be ordered maps of the same `GridAxisVariable` type; the

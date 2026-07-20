@@ -318,6 +318,12 @@ Use `rootNodeId` for a fixed API root, or
 the current Riverpod-selected Node. These options are mutually exclusive. A
 selected-Node pointer issues no tree request until the selected Node has a
 stable ID.
+`GraphLayout` is the selected Node pool used by the center scene. It is owned by
+a `LayoutPath`, reads the complete Riverpod-selected Node collection, and gives
+every Node an equal centered cell. `nodeExtentFactor` controls the circular
+Node diameter relative to that cell and defaults to `0.5`. The pool becomes
+denser as selection grows; it does not fetch a `NodeTree` or infer graph
+connections yet.
 The `left-plane`
 provides the 12-segment x/space plane between scene-left and screen-left; its
 grid contains only the real space rows, not fake padding tracks. The scene inner

@@ -314,7 +314,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
       style: lgErgoSceneDiagonalStyle,
     ),
     'safe-area': SafeAreaLayout(
-      aliases: ['safe-area', 'scene-container'],
+      aliases: ['safe-area'],
       layoutDefaults: lgErgoLayoutDefaults,
       derivativeSnapshot: 'safe-area-manifold',
       derivatives: {
@@ -460,7 +460,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                 'top-fan',
               ],
               style: lgErgoCortexNodeBorderStyle,
-              layoutDefaults: lgErgoFanLayoutDefaults,
+              layoutDefaults: lgErgoNodeLayoutDefaults,
               traverseBy: GraphTraverseType.partOf,
               maxDepth: 3,
               maxSectionCount: 3,
@@ -595,6 +595,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
           layouts: {
             'wrapped-scene-square': PlaneLayout(
               aliases: ['wrapped-scene-square', 'scene-square-plane'],
+              attributes: [LayoutAttribute.rectangular],
               shape: LayoutShape.square,
               style: randomBlueprintAesthetics.layoutStyle,
               backgroundColor: Color(0x00000000),
@@ -604,45 +605,60 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               wrapPadding: 0,
               showGeometryGuides: true,
               layouts: {
-                'scene-fan-plane': LayoutPath(
+                'scene-graph-plane': LayoutPath(
                   aliases: [
-                    'scene-fan-plane',
-                    'center-fan-plane',
+                    'scene-graph-plane',
+                    'selected-node-plane',
                     'graph-plane',
                   ],
                   points: [
                     LayoutDerivativeReference(
-                      layoutPath: ['safe-area'],
+                      layoutPath: [
+                        'safe-area',
+                        'inner-circle-plane',
+                        'wrapped-scene-square',
+                      ],
                       derivative: 'A',
                     ),
                     LayoutDerivativeReference(
-                      layoutPath: ['safe-area'],
+                      layoutPath: [
+                        'safe-area',
+                        'inner-circle-plane',
+                        'wrapped-scene-square',
+                      ],
                       derivative: 'B',
                     ),
                     LayoutDerivativeReference(
-                      layoutPath: ['safe-area'],
+                      layoutPath: [
+                        'safe-area',
+                        'inner-circle-plane',
+                        'wrapped-scene-square',
+                      ],
                       derivative: 'C',
                     ),
                     LayoutDerivativeReference(
-                      layoutPath: ['safe-area'],
+                      layoutPath: [
+                        'safe-area',
+                        'inner-circle-plane',
+                        'wrapped-scene-square',
+                      ],
                       derivative: 'D',
                     ),
                   ],
                   layouts: {
-                    'scene-fan': FanLayout(
-                      aliases: ['scene-fan', 'center-fan', 'scene-graph'],
+                    'scene-graph': GraphLayout(
+                      aliases: [
+                        'scene-graph',
+                        'node-scene',
+                        'selected-node-graph',
+                        'selected-node-pool',
+                        'graph-layout',
+                      ],
                       style: lgErgoCortexNodeBorderStyle,
-                      layoutDefaults: lgErgoFanLayoutDefaults,
-                      rootNodePointer: LayoutNodePointer.selectedNode(),
-                      minDepth: 2,
-                      maxDepth: 3,
-                      maxSectionCount: 6,
-                      traverseBy: GraphTraverseType.family,
-                      label: 'scene graph',
+                      layoutDefaults: lgErgoNodeLayoutDefaults,
+                      nodeExtentFactor: 0.5,
                       labelColor: lgErgoCortexNodeLabelColor,
                       labelSize: 10,
-                      gridStyle: lgErgoFanGridStyle,
-                      position: LayoutRelativePosition.center,
                       visibility: [
                         LayoutCondition.not(LayoutCondition.noSelectedNode()),
                       ],
@@ -729,9 +745,9 @@ const lgErgoLayoutDefaults = LayoutDefaults(
   gap: lgErgoLayoutDefaultGap,
   borderWidth: lgErgoLayoutDefaultBorderWidth,
 );
-const lgErgoFanNodeBorderWidth = 1.8;
-const lgErgoFanLayoutDefaults = LayoutDefaults(
-  borderWidth: lgErgoFanNodeBorderWidth,
+const lgErgoNodeBorderWidth = 1.8;
+const lgErgoNodeLayoutDefaults = LayoutDefaults(
+  borderWidth: lgErgoNodeBorderWidth,
 );
 
 const lgErgoPastColor = Color(0x553F51B5);
@@ -809,7 +825,7 @@ const lgErgoNodeInfoCellHighlightColor = Color(0x66374A9B);
 
 const lgErgoCortexNodeBorderStyle = GuideStyle(
   color: Color(0xFFFFF7D6),
-  strokeWidth: lgErgoFanNodeBorderWidth,
+  strokeWidth: lgErgoNodeBorderWidth,
   pattern: GuideLinePattern.solid,
 );
 

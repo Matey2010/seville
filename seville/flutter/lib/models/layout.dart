@@ -1435,6 +1435,27 @@ class FanLayout extends Layout with TableLayoutMixin {
   GuideStyle? get tableGuideStyle => gridStyle;
 }
 
+class GraphLayout extends Layout {
+  const GraphLayout({
+    required this.style,
+    this.nodeExtentFactor = 0.5,
+    this.labelColor = const Color(0xFFFFFFFF),
+    this.labelSize = 12,
+    super.aliases,
+    super.attributes = const [LayoutAttribute.circular],
+    super.layoutDefaults,
+    super.visibility,
+    super.inputSources,
+  }) : assert(nodeExtentFactor > 0 && nodeExtentFactor <= 1),
+       super.fromAxes();
+
+  /// Diameter of a rendered Node relative to its equal-sized pool cell.
+  final double nodeExtentFactor;
+  final Color labelColor;
+  final double labelSize;
+  final GuideStyle style;
+}
+
 abstract class LayoutNodePointer {
   const LayoutNodePointer._();
 

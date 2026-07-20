@@ -383,14 +383,15 @@ degrees, and other positions span 360 degrees. Internal bands use a regular
 radius and equal angular sections; only the final band conforms to the owning
 plane boundary.
 
-Selected-state graph structure also has an explicit center configuration at
-`safe-area/inner-circle-plane/wrapped-scene-square/scene-fan-plane/scene-fan`.
-Its transparent `LayoutPath` follows the safe-area scene square, while its
-center-positioned `FanLayout` uses depth 6 and six sections. It is visible only
-when `LayoutCondition.not(LayoutCondition.noSelectedNode())` is active.
-Its root is configured with `LayoutNodePointer.selectedNode()`, so changing the
-Riverpod-selected Node changes the tree request root instead of using the
-environment-backed default root.
+Selected Nodes have an explicit center configuration at
+`safe-area/inner-circle-plane/wrapped-scene-square/scene-graph-plane/scene-graph`.
+Its transparent `LayoutPath` follows the wrapped scene square. Its `GraphLayout`
+renders the complete Riverpod-selected Node pool in equal centered cells, with
+each circular Node occupying half of its cell by default. More selected Nodes
+therefore produce smaller circles. It is visible only when
+`LayoutCondition.not(LayoutCondition.noSelectedNode())` is active and does not
+request a `NodeTree`; connections and graph-distance placement remain future
+extensions.
 
 `TimeCompassScreen` consumes `defaultTimeCompassLayout`. Its default polar grid
 shares the perceptual map's screen-center origin, Cartesian grid, and
