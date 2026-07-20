@@ -72,10 +72,11 @@ class _LandscapeXlLayoutScreenState
     for (final fan in _fanLayouts(layout)) {
       final rootNodeId = fan.resolveRootNodeId(selectedNode: selectedNode);
       if (fan.rootNodePointer != null && rootNodeId == null) continue;
-      final request = (
+      final request = NodeTreeRequest(
         rootNodeId: rootNodeId,
         depth: fan.maxDepth - 1,
         traverseBy: fan.traverseBy,
+        nodeFilter: fan.nodeFilter,
       );
       final treeProvider = nodeTreeProvider(request);
       ref.listen(treeProvider, (_, next) {

@@ -96,16 +96,37 @@ A distinct count of property names would be a different future metric named
 
 ## Nodes v1
 
-`QUERY /nodes/v1/tree` returns a `seville.nodes.v1.NodeTree`. The optional
-`root_node_id` query field overrides `SEVILLE_ROOT_NODE_ID`; one of them must
-provide the stable root Node ID. The optional unsigned `depth` defaults to `3`,
-with the root at depth zero. The optional `traverse_by` field defaults to
-`part_of` and accepts only `part_of` or `family`.
+`QUERY /nodes/v1/tree` accepts an `application/x-protobuf`
+`seville.nodes.v1.NodeTreeQuery` body and returns a
+`seville.nodes.v1.NodeTree`. The optional `root_node_id` field overrides
+`SEVILLE_ROOT_NODE_ID`; one of them must provide the stable root Node ID. The
+optional unsigned `depth` defaults to `3`, with the root at depth zero. The
+optional `traverse_by` field defaults to `part_of` and accepts only `part_of`
+or `family`. URL query parameters remain a filterless compatibility contract
+for older clients.
 
 `QUERY` is the canonical method. The backend temporarily accepts `GET` as a
 compatibility alias so a client can recover when an older HTTP runtime or proxy
 rejects the custom method. Flutter attempts `QUERY` first and uses that alias
-only after a method-routing response (`404`, `405`, or `501`).
+only after a method-routing response (`404`, `405`, or `501`) when no Node
+filters were requested. A filtered request must never silently retry as an
+unfiltered `GET`.
+
+The optional `node_filter` contains `include_nodes_matching` and
+`exclude_nodes_matching` lists of structured `NodeSearchParameter` values.
+Entries within each list are OR-combined. When includes exist, a candidate must
+match at least one; matching any exclude rejects it. Supported parameters are
+`name`, `id`, `path`, `title`, `tag`, and Neo4j `label`; supported operators are
+case-sensitive exact matching and Go regular expressions. `name` addresses the
+additional Neo4j `name` property transported in `Node.frontmatter`; it is not a
+second identity field and does not replace `Node.id` or `Node.title`. `label`
+matches values returned by Neo4j's `labels(node)` and is not transported as
+frontmatter.
+
+Filters apply to traversed children, not the requested root. Rejecting an
+occurrence also prunes traversal below that occurrence, so its descendants do
+not appear at a later depth. Unsupported parameters, missing values, operators,
+and invalid regular expressions return `400 invalid_node_search_parameter`.
 
 The endpoint follows incoming relationships: `part_of` maps to `PART_OF` and
 `family` maps to `FAMILY`, both stored as

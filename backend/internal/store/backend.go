@@ -11,6 +11,7 @@ import (
 
 var ErrSnapshotUnavailable = errors.New("snapshot unavailable")
 var ErrNodeNotFound = errors.New("node not found")
+var ErrInvalidNodeSearchParameter = errors.New("invalid Node search parameter")
 
 type SnapshotReader interface {
 	Snapshot(context.Context) (*nodev2.NodeSnapshot, error)
@@ -21,7 +22,7 @@ type SystemReader interface {
 }
 
 type NodeTreeReader interface {
-	NodeTree(context.Context, string, nodesv1.NodeRelationshipType, uint32) (*nodesv1.NodeTree, error)
+	NodeTree(context.Context, string, nodesv1.NodeRelationshipType, *nodesv1.NodeSearchFilter, uint32) (*nodesv1.NodeTree, error)
 }
 
 type Reader interface {

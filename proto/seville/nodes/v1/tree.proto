@@ -12,6 +12,43 @@ enum NodeRelationshipType {
   NODE_RELATIONSHIP_TYPE_FAMILY = 2;
 }
 
+enum NodeParameterType {
+  NODE_PARAMETER_TYPE_UNSPECIFIED = 0;
+  NODE_PARAMETER_TYPE_NAME = 1;
+  NODE_PARAMETER_TYPE_ID = 2;
+  NODE_PARAMETER_TYPE_PATH = 3;
+  NODE_PARAMETER_TYPE_TITLE = 4;
+  NODE_PARAMETER_TYPE_TAG = 5;
+  NODE_PARAMETER_TYPE_LABEL = 6;
+}
+
+enum NodeSearchMatchOperator {
+  NODE_SEARCH_MATCH_OPERATOR_UNSPECIFIED = 0;
+  NODE_SEARCH_MATCH_OPERATOR_EXACT = 1;
+  NODE_SEARCH_MATCH_OPERATOR_REGULAR_EXPRESSION = 2;
+}
+
+message NodeSearchParameter {
+  NodeParameterType parameter = 1;
+  NodeSearchMatchOperator operator = 2;
+
+  oneof value {
+    string string_value = 3;
+  }
+}
+
+message NodeSearchFilter {
+  repeated NodeSearchParameter include_nodes_matching = 1;
+  repeated NodeSearchParameter exclude_nodes_matching = 2;
+}
+
+message NodeTreeQuery {
+  optional string root_node_id = 1;
+  optional uint32 depth = 2;
+  NodeRelationshipType traverse_by = 3;
+  optional NodeSearchFilter node_filter = 4;
+}
+
 message NodeTreeOccurrence {
   string occurrence_id = 1;
   optional string parent_occurrence_id = 2;

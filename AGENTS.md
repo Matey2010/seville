@@ -109,6 +109,12 @@
   Cardinal positions (`top`, `right`, `bottom`, and `left`) own a 180-degree
   fan, `LayoutRelativePosition.d(...)` owns a 90-degree fan, and other
   positions own a 360-degree fan. Divide that span into equal angular sections.
+  Configure data-level matching through the optional `nodeFilter`, whose
+  `includeNodesMatching` and `excludeNodesMatching` lists contain structured
+  `NodeSearchParameter` values. These filters belong to the tree API request
+  and Riverpod provider identity, not to the painter. Include entries are
+  OR-matched when present, exclude entries are always OR-matched, and a rejected
+  occurrence prunes its traversal branch.
   Keep internal bands on a shared regular radius so polygon perspective does
   not visually widen the edge sections; only the final row reaches the owning
   polygon boundary.

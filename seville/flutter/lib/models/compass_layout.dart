@@ -1,8 +1,6 @@
-import 'dart:math' as math;
 import 'dart:ui';
 
 import 'layout.dart';
-import 'meeple_layout.dart';
 import 'perceptual_map_layout.dart';
 
 enum CompassMainFigure { layout, circle, triangle, square, star }
@@ -275,115 +273,5 @@ class CompassLayout extends PerceptualMapLayout {
       subLayouts: subLayouts,
       elements: elements,
     );
-  }
-}
-
-class TimeCompassSlotStyle {
-  const TimeCompassSlotStyle({required this.color, this.fontSize = 11});
-
-  final Color color;
-  final double fontSize;
-}
-
-enum TimeCompassSlotLabelRadialAlignment { center, outermostRow }
-
-class TimeCompassSlot {
-  const TimeCompassSlot({
-    required this.slot,
-    required this.area,
-    this.lineView,
-    this.labelRadialAlignment = TimeCompassSlotLabelRadialAlignment.center,
-    this.reserveSpannedRows = true,
-  });
-
-  final LayoutSlot slot;
-  final LayoutArea area;
-  final LineView? lineView;
-  final TimeCompassSlotLabelRadialAlignment labelRadialAlignment;
-
-  /// Whether auto-flow reserves this slot's columns in every spanned row.
-  final bool reserveSpannedRows;
-}
-
-class TimeCompassCenterSlot {
-  const TimeCompassCenterSlot({
-    required this.slot,
-    required this.backgroundColor,
-  });
-
-  final LayoutSlot slot;
-  final Color backgroundColor;
-}
-
-class TimeCompassGeometry {
-  const TimeCompassGeometry({
-    this.centerXFraction = 0.5,
-    this.centerYFraction = 1,
-    this.innerRadiusFraction = 0.12,
-    this.outerRadiusFraction = 1,
-    this.startAngleRadians = math.pi,
-    this.sweepAngleRadians = math.pi,
-    this.rotationRadians = 0,
-  });
-
-  final double centerXFraction;
-  final double centerYFraction;
-  final double innerRadiusFraction;
-  final double outerRadiusFraction;
-  final double startAngleRadians;
-  final double sweepAngleRadians;
-
-  /// Runtime rotation can update this value without changing segment topology.
-  final double rotationRadians;
-}
-
-class TimeCompassLayout extends CompassLayout {
-  const TimeCompassLayout.fromAxes({
-    required super.axes,
-    super.attributes,
-    required super.mainSlot,
-    required super.compassSlots,
-    required super.compassGeometry,
-    required super.compassSlotStyle,
-    required this.layers,
-    this.angularFractionCount = LayoutFraction.fullSpan,
-    required this.geometry,
-    required this.slotStyle,
-    this.centerSlot,
-    this.slots = const [],
-    this.virtualColumnFractions = const [],
-    this.virtualColumnStartRow = 1,
-    super.layouts,
-    super.derivatives,
-    super.derivativeSnapshot,
-    super.observables,
-    super.visibility,
-    super.inputSources,
-    super.frame,
-    super.slotConfigs,
-    super.columnFractions,
-    super.rowFractions,
-    super.fractionSpans,
-    super.subLayouts,
-    super.elements,
-  }) : super.fromAxes();
-
-  final List<LayoutSlot> layers;
-  final double angularFractionCount;
-  final TimeCompassGeometry geometry;
-  final TimeCompassSlotStyle slotStyle;
-  final TimeCompassCenterSlot? centerSlot;
-  final List<TimeCompassSlot> slots;
-  final List<double> virtualColumnFractions;
-  final double virtualColumnStartRow;
-
-  int get layerCount => layers.length;
-  MeepleLayout get meepleLayout => mainSlot.subLayout as MeepleLayout;
-
-  GuideGrid? guideGrid(GuideGridGeometry geometry) {
-    for (final guide in layouts.values.whereType<LayoutGuide>()) {
-      if (guide is GuideGrid && guide.geometry == geometry) return guide;
-    }
-    return null;
   }
 }

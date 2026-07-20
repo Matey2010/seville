@@ -31,6 +31,156 @@ final $typed_data.Uint8List nodeRelationshipTypeDescriptor = $convert.base64Deco
     'lGSUVEEAASIgoeTk9ERV9SRUxBVElPTlNISVBfVFlQRV9QQVJUX09GEAESIQodTk9ERV9SRUxB'
     'VElPTlNISVBfVFlQRV9GQU1JTFkQAg==');
 
+@$core.Deprecated('Use nodeParameterTypeDescriptor instead')
+const NodeParameterType$json = {
+  '1': 'NodeParameterType',
+  '2': [
+    {'1': 'NODE_PARAMETER_TYPE_UNSPECIFIED', '2': 0},
+    {'1': 'NODE_PARAMETER_TYPE_NAME', '2': 1},
+    {'1': 'NODE_PARAMETER_TYPE_ID', '2': 2},
+    {'1': 'NODE_PARAMETER_TYPE_PATH', '2': 3},
+    {'1': 'NODE_PARAMETER_TYPE_TITLE', '2': 4},
+    {'1': 'NODE_PARAMETER_TYPE_TAG', '2': 5},
+    {'1': 'NODE_PARAMETER_TYPE_LABEL', '2': 6},
+  ],
+};
+
+/// Descriptor for `NodeParameterType`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List nodeParameterTypeDescriptor = $convert.base64Decode(
+    'ChFOb2RlUGFyYW1ldGVyVHlwZRIjCh9OT0RFX1BBUkFNRVRFUl9UWVBFX1VOU1BFQ0lGSUVEEA'
+    'ASHAoYTk9ERV9QQVJBTUVURVJfVFlQRV9OQU1FEAESGgoWTk9ERV9QQVJBTUVURVJfVFlQRV9J'
+    'RBACEhwKGE5PREVfUEFSQU1FVEVSX1RZUEVfUEFUSBADEh0KGU5PREVfUEFSQU1FVEVSX1RZUE'
+    'VfVElUTEUQBBIbChdOT0RFX1BBUkFNRVRFUl9UWVBFX1RBRxAFEh0KGU5PREVfUEFSQU1FVEVS'
+    'X1RZUEVfTEFCRUwQBg==');
+
+@$core.Deprecated('Use nodeSearchMatchOperatorDescriptor instead')
+const NodeSearchMatchOperator$json = {
+  '1': 'NodeSearchMatchOperator',
+  '2': [
+    {'1': 'NODE_SEARCH_MATCH_OPERATOR_UNSPECIFIED', '2': 0},
+    {'1': 'NODE_SEARCH_MATCH_OPERATOR_EXACT', '2': 1},
+    {'1': 'NODE_SEARCH_MATCH_OPERATOR_REGULAR_EXPRESSION', '2': 2},
+  ],
+};
+
+/// Descriptor for `NodeSearchMatchOperator`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List nodeSearchMatchOperatorDescriptor = $convert.base64Decode(
+    'ChdOb2RlU2VhcmNoTWF0Y2hPcGVyYXRvchIqCiZOT0RFX1NFQVJDSF9NQVRDSF9PUEVSQVRPUl'
+    '9VTlNQRUNJRklFRBAAEiQKIE5PREVfU0VBUkNIX01BVENIX09QRVJBVE9SX0VYQUNUEAESMQot'
+    'Tk9ERV9TRUFSQ0hfTUFUQ0hfT1BFUkFUT1JfUkVHVUxBUl9FWFBSRVNTSU9OEAI=');
+
+@$core.Deprecated('Use nodeSearchParameterDescriptor instead')
+const NodeSearchParameter$json = {
+  '1': 'NodeSearchParameter',
+  '2': [
+    {
+      '1': 'parameter',
+      '3': 1,
+      '4': 1,
+      '5': 14,
+      '6': '.seville.nodes.v1.NodeParameterType',
+      '10': 'parameter'
+    },
+    {
+      '1': 'operator',
+      '3': 2,
+      '4': 1,
+      '5': 14,
+      '6': '.seville.nodes.v1.NodeSearchMatchOperator',
+      '10': 'operator'
+    },
+    {'1': 'string_value', '3': 3, '4': 1, '5': 9, '9': 0, '10': 'stringValue'},
+  ],
+  '8': [
+    {'1': 'value'},
+  ],
+};
+
+/// Descriptor for `NodeSearchParameter`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List nodeSearchParameterDescriptor = $convert.base64Decode(
+    'ChNOb2RlU2VhcmNoUGFyYW1ldGVyEkEKCXBhcmFtZXRlchgBIAEoDjIjLnNldmlsbGUubm9kZX'
+    'MudjEuTm9kZVBhcmFtZXRlclR5cGVSCXBhcmFtZXRlchJFCghvcGVyYXRvchgCIAEoDjIpLnNl'
+    'dmlsbGUubm9kZXMudjEuTm9kZVNlYXJjaE1hdGNoT3BlcmF0b3JSCG9wZXJhdG9yEiMKDHN0cm'
+    'luZ192YWx1ZRgDIAEoCUgAUgtzdHJpbmdWYWx1ZUIHCgV2YWx1ZQ==');
+
+@$core.Deprecated('Use nodeSearchFilterDescriptor instead')
+const NodeSearchFilter$json = {
+  '1': 'NodeSearchFilter',
+  '2': [
+    {
+      '1': 'include_nodes_matching',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.seville.nodes.v1.NodeSearchParameter',
+      '10': 'includeNodesMatching'
+    },
+    {
+      '1': 'exclude_nodes_matching',
+      '3': 2,
+      '4': 3,
+      '5': 11,
+      '6': '.seville.nodes.v1.NodeSearchParameter',
+      '10': 'excludeNodesMatching'
+    },
+  ],
+};
+
+/// Descriptor for `NodeSearchFilter`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List nodeSearchFilterDescriptor = $convert.base64Decode(
+    'ChBOb2RlU2VhcmNoRmlsdGVyElsKFmluY2x1ZGVfbm9kZXNfbWF0Y2hpbmcYASADKAsyJS5zZX'
+    'ZpbGxlLm5vZGVzLnYxLk5vZGVTZWFyY2hQYXJhbWV0ZXJSFGluY2x1ZGVOb2Rlc01hdGNoaW5n'
+    'ElsKFmV4Y2x1ZGVfbm9kZXNfbWF0Y2hpbmcYAiADKAsyJS5zZXZpbGxlLm5vZGVzLnYxLk5vZG'
+    'VTZWFyY2hQYXJhbWV0ZXJSFGV4Y2x1ZGVOb2Rlc01hdGNoaW5n');
+
+@$core.Deprecated('Use nodeTreeQueryDescriptor instead')
+const NodeTreeQuery$json = {
+  '1': 'NodeTreeQuery',
+  '2': [
+    {
+      '1': 'root_node_id',
+      '3': 1,
+      '4': 1,
+      '5': 9,
+      '9': 0,
+      '10': 'rootNodeId',
+      '17': true
+    },
+    {'1': 'depth', '3': 2, '4': 1, '5': 13, '9': 1, '10': 'depth', '17': true},
+    {
+      '1': 'traverse_by',
+      '3': 3,
+      '4': 1,
+      '5': 14,
+      '6': '.seville.nodes.v1.NodeRelationshipType',
+      '10': 'traverseBy'
+    },
+    {
+      '1': 'node_filter',
+      '3': 4,
+      '4': 1,
+      '5': 11,
+      '6': '.seville.nodes.v1.NodeSearchFilter',
+      '9': 2,
+      '10': 'nodeFilter',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_root_node_id'},
+    {'1': '_depth'},
+    {'1': '_node_filter'},
+  ],
+};
+
+/// Descriptor for `NodeTreeQuery`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List nodeTreeQueryDescriptor = $convert.base64Decode(
+    'Cg1Ob2RlVHJlZVF1ZXJ5EiUKDHJvb3Rfbm9kZV9pZBgBIAEoCUgAUgpyb290Tm9kZUlkiAEBEh'
+    'kKBWRlcHRoGAIgASgNSAFSBWRlcHRoiAEBEkcKC3RyYXZlcnNlX2J5GAMgASgOMiYuc2V2aWxs'
+    'ZS5ub2Rlcy52MS5Ob2RlUmVsYXRpb25zaGlwVHlwZVIKdHJhdmVyc2VCeRJICgtub2RlX2ZpbH'
+    'RlchgEIAEoCzIiLnNldmlsbGUubm9kZXMudjEuTm9kZVNlYXJjaEZpbHRlckgCUgpub2RlRmls'
+    'dGVyiAEBQg8KDV9yb290X25vZGVfaWRCCAoGX2RlcHRoQg4KDF9ub2RlX2ZpbHRlcg==');
+
 @$core.Deprecated('Use nodeTreeOccurrenceDescriptor instead')
 const NodeTreeOccurrence$json = {
   '1': 'NodeTreeOccurrence',

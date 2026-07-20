@@ -3,6 +3,8 @@ package server
 import (
 	"crypto/subtle"
 	"errors"
+	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -41,13 +43,24 @@ func (s *Server) Handler() http.Handler {
 }
 
 func (s *Server) nodeTree(w http.ResponseWriter, r *http.Request) {
-	rootNodeID := strings.TrimSpace(r.URL.Query().Get("root_node_id"))
+	query, err := readNodeTreeQuery(r)
+	if err != nil {
+		s.writeError(w, http.StatusBadRequest, "invalid_query", err.Error())
+		return
+	}
+
+	rootNodeID := strings.TrimSpace(query.GetRootNodeId())
+	if query.RootNodeId == nil {
+		rootNodeID = strings.TrimSpace(r.URL.Query().Get("root_node_id"))
+	}
 	if rootNodeID == "" {
 		rootNodeID = strings.TrimSpace(s.rootNodeID)
 	}
-	relationshipType, ok := nodeTreeRelationshipType(
-		r.URL.Query().Get("traverse_by"),
-	)
+	relationshipType := query.GetTraverseBy()
+	ok := supportedNodeTreeRelationshipType(relationshipType)
+	if relationshipType == nodesv1.NodeRelationshipType_NODE_RELATIONSHIP_TYPE_UNSPECIFIED {
+		relationshipType, ok = nodeTreeRelationshipType(r.URL.Query().Get("traverse_by"))
+	}
 	if !ok {
 		s.writeError(
 			w,
@@ -63,7 +76,9 @@ func (s *Server) nodeTree(w http.ResponseWriter, r *http.Request) {
 	}
 
 	depth := uint64(3)
-	if rawDepth := strings.TrimSpace(r.URL.Query().Get("depth")); rawDepth != "" {
+	if query.Depth != nil {
+		depth = uint64(query.GetDepth())
+	} else if rawDepth := strings.TrimSpace(r.URL.Query().Get("depth")); rawDepth != "" {
 		parsedDepth, err := strconv.ParseUint(rawDepth, 10, 32)
 		if err != nil {
 			s.writeError(w, http.StatusBadRequest, "invalid_depth", "depth must be an unsigned integer.")
@@ -75,10 +90,15 @@ func (s *Server) nodeTree(w http.ResponseWriter, r *http.Request) {
 		r.Context(),
 		rootNodeID,
 		relationshipType,
+		query.GetNodeFilter(),
 		uint32(depth),
 	)
 	if errors.Is(err, store.ErrNodeNotFound) {
 		s.writeError(w, http.StatusNotFound, "root_node_not_found", "The requested root Node does not exist.")
+		return
+	}
+	if errors.Is(err, store.ErrInvalidNodeSearchParameter) {
+		s.writeError(w, http.StatusBadRequest, "invalid_node_search_parameter", err.Error())
 		return
 	}
 	if err != nil {
@@ -87,12 +107,47 @@ func (s *Server) nodeTree(w http.ResponseWriter, r *http.Request) {
 			"error", err,
 			"root_node_id", rootNodeID,
 			"traverse_by", relationshipType,
+			"included_parameter_count", len(query.GetNodeFilter().GetIncludeNodesMatching()),
+			"excluded_parameter_count", len(query.GetNodeFilter().GetExcludeNodesMatching()),
 			"depth", depth,
 		)
 		s.writeError(w, http.StatusInternalServerError, "storage_error", "The Node tree could not be read.")
 		return
 	}
 	s.writeProto(w, http.StatusOK, tree)
+}
+
+const maxNodeTreeQueryBytes = 1 << 20
+
+func readNodeTreeQuery(r *http.Request) (*nodesv1.NodeTreeQuery, error) {
+	query := &nodesv1.NodeTreeQuery{}
+	if r.Body == nil {
+		return query, nil
+	}
+	body, err := io.ReadAll(io.LimitReader(r.Body, maxNodeTreeQueryBytes+1))
+	if err != nil {
+		return nil, fmt.Errorf("read protobuf query: %w", err)
+	}
+	if len(body) > maxNodeTreeQueryBytes {
+		return nil, fmt.Errorf("protobuf query exceeds %d bytes", maxNodeTreeQueryBytes)
+	}
+	if len(body) == 0 {
+		return query, nil
+	}
+	if err := proto.Unmarshal(body, query); err != nil {
+		return nil, fmt.Errorf("decode protobuf query: %w", err)
+	}
+	return query, nil
+}
+
+func supportedNodeTreeRelationshipType(value nodesv1.NodeRelationshipType) bool {
+	switch value {
+	case nodesv1.NodeRelationshipType_NODE_RELATIONSHIP_TYPE_PART_OF,
+		nodesv1.NodeRelationshipType_NODE_RELATIONSHIP_TYPE_FAMILY:
+		return true
+	default:
+		return false
+	}
 }
 
 func nodeTreeRelationshipType(value string) (nodesv1.NodeRelationshipType, bool) {

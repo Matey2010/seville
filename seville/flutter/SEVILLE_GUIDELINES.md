@@ -21,7 +21,7 @@ scaling, and animation.
   individual visual styles belong to the layout configuration.
 - `CompassLayout` (**compass-layout**) specializes `PerceptualMapLayout` into a
   radial flex container around a typed `CompassMainSlot`. The main slot can own
-  any `Layout`; meeples, triangles, squares, stars, and future central
+  any `Layout`; custom sublayouts, triangles, squares, stars, and future central
   interfaces do not require changes to compass geometry. Surrounding
   `CompassSlot` values use clockwise degrees with `0°` at the top. Optional
   `startDegrees` fixes placement and optional `spanDegrees` restricts width.
@@ -40,23 +40,6 @@ scaling, and animation.
   key in `Layout.layouts`; there is no separate depth-node tree, root wrapper,
   role tag, or frame object. `SafeAreaLayout` expresses actual inset behavior
   through its concrete type.
-- `TimeCompassLayout` (**time-compass-layout**) specializes
-  `CompassLayout` with a rotating temporal polar grid. Its default geometry is a
-  lower semicircle below the perceptual map's horizontal zero axis; a nonzero
-  inner radius can turn it into a semi-annulus. Radial layers and angular
-  columns use a shared fraction coordinate system.
-- `MeepleLayout` (**meeple-layout**) is the current character layout inside the
-  Time Compass `mainSlot`. Its `MeepleLayoutConfig` extends the shared
-  `LayoutConfig` with the SVG asset, body color, responsive dimensions, and
-  four-sided padding.
-- `TimeCompassSlot` pairs a reusable `LayoutSlot` with a `LayoutArea`.
-  `column` and `columnSpan` address angular fractions, while `row` and
-  `rowSpan` address radial layers. A slot can therefore span multiple compass
-  rings without being repeated in every layer. A `columnSpan` of
-  `LayoutFraction.fullSpan` consumes the available angular space until the next
-  slot overlapping the same rows, or the compass edge. When `column` is
-  omitted, Time Compass places the slot after the preceding list item; its
-  default `columnSpan` is `1fr`.
 - `LayoutSlot` is the reusable flex-like slot primitive. `fraction`
   controls main-axis share, while optional `span`, `minWidth`, and `maxWidth`
   constrain cross-axis width in the owning configuration's fraction units.
@@ -65,14 +48,11 @@ scaling, and animation.
   `CoordAlias.horizontal`, `vertical`, `depth`, `diagonal`, `angle`, `radius`,
   and `weight` are built in. `Coord` supports fraction, pixel, track, scalar,
   degree, and radian units with start-, center-, or end-relative rules.
-- `LineView` is a lightweight one-dimensional sequence of fractional
-  `LayoutSlot` segments. It is intended for nested content where a complete
-  `TrackLayout` would add unnecessary layout ownership.
 - Every `Layout` owns a `Map<String, Layout>`. Its keys are child identities;
   values may be content, `SafeAreaLayout`, `Guideline`, `GuideGrid`, or other
   layouts.
-  `Guideline` defines an explicit normalized line and optional arrow; `GuideGrid` generates
-  Cartesian, radial, or virtual-radial guides from layout dimensions.
+  `Guideline` defines an explicit normalized line and optional arrow;
+  `GuideGrid` generates Cartesian guides from layout dimensions.
   `GuideStyle` controls color, width, cap, and solid, dashed, or dotted
   patterns, including dash length and dash interval. A `GuideGrid` additionally
   controls visible axes and full-line versus intersection-dot rendering.
@@ -374,14 +354,21 @@ at its center.
 
 New top- and bottom-plane layers are added beneath their respective
 `LayoutPath.layouts` maps inside `safe-area`, not beside `safe-area` at the
-screen root. Existing graph, perceptual-map, Compass, and Time Compass models
-remain available but inactive.
+screen root. Existing graph, perceptual-map, and Compass models remain
+available but inactive.
 
 The top plane presents its occurrence-preserving `NodeTree` through a
 `FanLayout`. Cardinal fan positions span 180 degrees, angular positions span 90
 degrees, and other positions span 360 degrees. Internal bands use a regular
 radius and equal angular sections; only the final band conforms to the owning
 plane boundary.
+Fan data matching belongs to the optional `FanLayout.nodeFilter`. Its
+`includeNodesMatching` and `excludeNodesMatching` lists contain structured
+`NodeSearchParameter` values. They are part of the Riverpod request identity
+and are enforced by the tree API before Flame rendering. Include entries are
+OR-matched when present, any exclude match rejects, and a rejected occurrence
+prunes that branch. Painters and components must not independently reimplement
+the filter.
 
 Selected Nodes have an explicit center configuration at
 `safe-area/inner-circle-plane/wrapped-scene-square/scene-graph-plane/scene-graph`.
@@ -392,56 +379,6 @@ therefore produce smaller circles. It is visible only when
 `LayoutCondition.not(LayoutCondition.noSelectedNode())` is active and does not
 request a `NodeTree`; connections and graph-distance placement remain future
 extensions.
-
-`TimeCompassScreen` consumes `defaultTimeCompassLayout`. Its default polar grid
-shares the perceptual map's screen-center origin, Cartesian grid, and
-directional guidelines. The Cartesian field uses 120x120 dimensions and a
-layout-owned intersection-mode `GuideGrid` that batches 2px dots instead of
-drawing 598 complete grid lines. Only the lower half-plane is segmented: a
-semicircle extends downward from the horizontal zero axis and remains centered
-on the vertical axis. Its radius is derived exclusively from the available X-axis
-span, so its eleven radial layers reach the horizontal viewport edges even when
-the lower arc extends beyond the screen. The layers are Relative, Hour, Day,
-Week, Month, Quarter, Season, Year, Decade, Century, and Millennia. The innermost
-Relative layer is `0.5fr`; every following radial layer is `1fr`. A dedicated
-blank `TimeCompassCenterSlot` is painted above the segmented rings with `Now`
-centered inside it. Its semicircle diameter matches the responsive SVG character
-width, providing shared space across the zero axis for later character
-animations and deliberate top-to-bottom overlap. The shared
-angular axis uses `LayoutFraction.fullSpan`: slots without explicit columns
-auto-flow by list order, and their resolved total expands across the full
-180-degree sweep.
-Independent row cursors prevent Hour and Day placements from shifting one
-another. Its edge columns are single `0.25fr` `…` slots with `rowSpan: 11`, so
-they cover every radial layer. Hour uses `3fr / 24fr / 3fr` for
-previous-day hours 21–23, current-day hours 0–23, and next-day hours 1–3. Day
-uses the same spans for Yesterday, Today, and Tomorrow. Hour and Day are each
-one `TimeCompassSlot` whose nested `LineView` owns those three subsegments.
-Radial grid lines are omitted inside
-row-spanning slots, so each full-height ellipsis is one continuous visual cell.
-Their `outermostRow` label alignment places the ellipsis text in the radial row
-farthest from the center instead of at the middle of the span. The Relative
-layer's third boundaries continue virtually through deeper layers as faint
-dashed guides; cross-layer alignment is intentionally deferred. The geometry
-exposes `rotationRadians`, so later time-driven updates can rotate the compass
-without changing its topology.
-The screen places the configured `MeepleLayout` in the upper center using
-`flutter_svg`, with its bottom edge anchored to the center origin on the
-horizontal X-axis. Its defaults live in `meeple_defaults.dart`; the placeholder
-under `assets/time_compass/` is a primitive 100x200 restroom-style silhouette
-whose solid fill comes from `MeepleLayoutConfig`. The layout occupies
-two-thirds of the upper half-plane and its content follows the SVG's `1:2`
-aspect ratio. Top, left, and right padding are visible against the configured
-layout background; default bottom padding is zero so the feet remain on the
-X-axis directly above the `Now` semicircle. The `Now` semicircle starts from
-the resulting SVG content width and adds the meeple's top padding to its radius,
-carrying the same breathing room through the origin into the lower layout.
-The generic `CompassLayout` resolves its radial boundaries against the
-responsive padded `MeepleLayout` bounds and extends them to the viewport edge.
-Time Compass currently configures Left center as `225°–315°`, Top center as
-`315°–45°`, and Right center as `45°–135°`. Their shared boundaries form the
-upper diagonal joins while the lower `135°–225°` sector remains open for the
-temporal semicircle.
 
 `PerceptualMapScreen` lives under `lib/screens/perceptual_map_screen.dart`. It consumes
 `defaultPerceptualMapLayout`, a `PerceptualMapLayout` with a 120x120
@@ -550,8 +487,8 @@ perspective seams. Every alignment aid is a `Guideline` or `GuideGrid` inside
 `Layout.layouts`. Shared `GuideStyle` supports solid, dashed, and dotted
 patterns, configurable dash length and interval, stroke width, color, and cap.
 `drawGuideGrids` projects Cartesian guide grids onto rectangular and
-perspective surfaces and recursively follows nested two-dimensional layouts;
-specialized Flame components consume radial guide-grid entities. Explicit guidelines
+perspective surfaces and recursively follows nested two-dimensional layouts.
+Explicit guidelines
 use normalized endpoints, so later editing tools can add, remove, or reposition
 them without changing layout subclasses or graph rendering.
 
@@ -563,24 +500,20 @@ The current geometry and rendering live in
 `lib/models/concept_timeline.dart`, and the BCE/CE track lives in
 `lib/models/era_timeline.dart`. The second-screen layout lives in
 `lib/models/perceptual_map_layout.dart`; the active compass layout lives in
-`lib/models/compass_layout.dart`, which also contains the Time Compass
-specialization. The recursive screen/safe-area/scene hierarchy lives in
+`lib/models/compass_layout.dart`. The recursive screen/safe-area/scene hierarchy lives in
 `lib/models/landscape_xl_layout.dart`. Default dimensions and layout presets live in
 `lib/constants/layout_defaults.dart`, reusable guide entities live in
 `lib/constants/layout_guides.dart`, perceptual-map defaults live in
 `lib/constants/perceptual_map_defaults.dart`, the active hierarchy preset lives
 in `lib/constants/layout/presets/lg_ergo/lg_ergo_layout_config.dart`,
-time-compass defaults live in
-`lib/constants/time_compass_defaults.dart`, timeline defaults live under
-`lib/constants/timeline/`, shared colors live in
+timeline defaults live under `lib/constants/timeline/`, shared colors live in
 `lib/constants/interface_colors.dart`. Flame components own rendering and use
 the canvas primitives in
 `lib/utils/guide_grid_painter.dart`, explicit guideline drawing lives in
 `lib/utils/layout_guidelines.dart`, perceptual slot drawing lives in
 `lib/utils/perceptual_map_slots.dart`, generic degree-based compass slot drawing
 lives in `lib/utils/compass_slots.dart`, generic center-figure drawing lives in
-`lib/utils/compass_figure_painter.dart`, time-compass drawing lives in
-`lib/utils/time_compass_painter.dart`, and dashed guide drawing lives in
+`lib/utils/compass_figure_painter.dart`, and dashed guide drawing lives in
 `lib/utils/canvas_guides.dart`. Recursive layout composition, SafeArea geometry,
 and the `GameWidget` host live in `lib/widgets/landscape_xl_layout_view.dart`;
 the layout render tree inside that host is composed entirely of Flame

@@ -6,9 +6,6 @@ const sceneLayoutDimensionsColor = Color(0x224B5563);
 const guidelineRedColor = Color(0xCCDC2626);
 const perceptualMapDiagonalColor = Color(0xCC2563EB);
 const perceptualMapSlotColor = Color(0xCC8A6D0A);
-const timeCompassGridColor = Color(0xCC8A6D0A);
-const timeCompassVirtualGridColor = Color(0x662563EB);
-
 const topWallColor = Color(0xFFD6BD58);
 const rightWallColor = Color(0xFFC7AA3F);
 const bottomWallColor = Color(0xFFE1CB70);

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"time"
 
 	nodev2 "github.com/Matey2010/seville/proto/gen/go/seville/node/v2"
@@ -120,9 +121,14 @@ func (s *Neo4jStore) NodeTree(
 	ctx context.Context,
 	rootNodeID string,
 	relationshipType nodesv1.NodeRelationshipType,
+	nodeFilter *nodesv1.NodeSearchFilter,
 	depth uint32,
 ) (*nodesv1.NodeTree, error) {
 	relationshipName, err := neo4jRelationshipName(relationshipType)
+	if err != nil {
+		return nil, err
+	}
+	compiledFilter, err := compileNodeSearchFilter(nodeFilter)
 	if err != nil {
 		return nil, err
 	}
@@ -192,6 +198,7 @@ WITH parent, child, relationship, graphTags,
      [emojiProperties IN collect(properties(emoji)) WHERE emojiProperties IS NOT NULL] AS emojis
 RETURN parent.id AS parent_id,
        child.id AS id, child.path AS path, child.title AS title, child.body AS body,
+       labels(child) AS labels,
        CASE WHEN size(graphTags) > 0 THEN graphTags ELSE child.tags END AS tags,
        child.frontmatter_json AS frontmatter_json,
        child.modified_at AS modified_at, properties(child) AS properties,
@@ -208,7 +215,11 @@ ORDER BY parent.id, child.path, child.id, relationship_id`, map[string]any{
 		for result.Next(ctx) {
 			record := result.Record()
 			parentID, _ := recordString(record, "parent_id")
-			childrenByParent[parentID] = append(childrenByParent[parentID], nodeFromRecord(record))
+			child := nodeFromRecord(record)
+			if !compiledFilter.matches(child, nodeLabelsFromRecord(record)) {
+				continue
+			}
+			childrenByParent[parentID] = append(childrenByParent[parentID], child)
 		}
 		if err := result.Err(); err != nil {
 			return nil, fmt.Errorf("read radial tree depth %d: %w", level, err)
@@ -235,6 +246,139 @@ ORDER BY parent.id, child.path, child.id, relationship_id`, map[string]any{
 		return nil, err
 	}
 	return tree, nil
+}
+
+type nodeSearchMatcher struct {
+	parameter nodesv1.NodeParameterType
+	exact     string
+	regexp    *regexp.Regexp
+}
+
+type compiledNodeSearchFilter struct {
+	include []nodeSearchMatcher
+	exclude []nodeSearchMatcher
+}
+
+func compileNodeSearchFilter(filter *nodesv1.NodeSearchFilter) (compiledNodeSearchFilter, error) {
+	if filter == nil {
+		return compiledNodeSearchFilter{}, nil
+	}
+	include, err := compileNodeSearchMatchers(filter.GetIncludeNodesMatching())
+	if err != nil {
+		return compiledNodeSearchFilter{}, fmt.Errorf("include_nodes_matching: %w", err)
+	}
+	exclude, err := compileNodeSearchMatchers(filter.GetExcludeNodesMatching())
+	if err != nil {
+		return compiledNodeSearchFilter{}, fmt.Errorf("exclude_nodes_matching: %w", err)
+	}
+	return compiledNodeSearchFilter{include: include, exclude: exclude}, nil
+}
+
+func (filter compiledNodeSearchFilter) matches(node *nodev2.Node, labels []string) bool {
+	if len(filter.include) > 0 && !matchesAnyNodeSearchMatcher(node, labels, filter.include) {
+		return false
+	}
+	return !matchesAnyNodeSearchMatcher(node, labels, filter.exclude)
+}
+
+func compileNodeSearchMatchers(parameters []*nodesv1.NodeSearchParameter) ([]nodeSearchMatcher, error) {
+	matchers := make([]nodeSearchMatcher, 0, len(parameters))
+	for index, parameter := range parameters {
+		if parameter == nil || !supportedNodeParameter(parameter.GetParameter()) {
+			return nil, fmt.Errorf("%w at index %d: unsupported parameter", ErrInvalidNodeSearchParameter, index)
+		}
+		if _, ok := parameter.GetValue().(*nodesv1.NodeSearchParameter_StringValue); !ok {
+			return nil, fmt.Errorf("%w at index %d: string_value is required", ErrInvalidNodeSearchParameter, index)
+		}
+		matcher := nodeSearchMatcher{
+			parameter: parameter.GetParameter(),
+			exact:     parameter.GetStringValue(),
+		}
+		switch parameter.GetOperator() {
+		case nodesv1.NodeSearchMatchOperator_NODE_SEARCH_MATCH_OPERATOR_EXACT:
+		case nodesv1.NodeSearchMatchOperator_NODE_SEARCH_MATCH_OPERATOR_REGULAR_EXPRESSION:
+			compiled, err := regexp.Compile(parameter.GetStringValue())
+			if err != nil {
+				return nil, fmt.Errorf("%w at index %d: invalid regular expression: %v", ErrInvalidNodeSearchParameter, index, err)
+			}
+			matcher.regexp = compiled
+		default:
+			return nil, fmt.Errorf("%w at index %d: unsupported operator", ErrInvalidNodeSearchParameter, index)
+		}
+		matchers = append(matchers, matcher)
+	}
+	return matchers, nil
+}
+
+func supportedNodeParameter(parameter nodesv1.NodeParameterType) bool {
+	switch parameter {
+	case nodesv1.NodeParameterType_NODE_PARAMETER_TYPE_NAME,
+		nodesv1.NodeParameterType_NODE_PARAMETER_TYPE_ID,
+		nodesv1.NodeParameterType_NODE_PARAMETER_TYPE_PATH,
+		nodesv1.NodeParameterType_NODE_PARAMETER_TYPE_TITLE,
+		nodesv1.NodeParameterType_NODE_PARAMETER_TYPE_TAG,
+		nodesv1.NodeParameterType_NODE_PARAMETER_TYPE_LABEL:
+		return true
+	default:
+		return false
+	}
+}
+
+func matchesAnyNodeSearchMatcher(node *nodev2.Node, labels []string, matchers []nodeSearchMatcher) bool {
+	for _, matcher := range matchers {
+		for _, value := range nodeParameterValues(node, labels, matcher.parameter) {
+			if matcher.regexp != nil {
+				if matcher.regexp.MatchString(value) {
+					return true
+				}
+				continue
+			}
+			if value == matcher.exact {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func nodeParameterValues(node *nodev2.Node, labels []string, parameter nodesv1.NodeParameterType) []string {
+	switch parameter {
+	case nodesv1.NodeParameterType_NODE_PARAMETER_TYPE_NAME:
+		return []string{node.GetFrontmatter()["name"]}
+	case nodesv1.NodeParameterType_NODE_PARAMETER_TYPE_ID:
+		return []string{node.GetId()}
+	case nodesv1.NodeParameterType_NODE_PARAMETER_TYPE_PATH:
+		return []string{node.GetPath()}
+	case nodesv1.NodeParameterType_NODE_PARAMETER_TYPE_TITLE:
+		return []string{node.GetTitle()}
+	case nodesv1.NodeParameterType_NODE_PARAMETER_TYPE_TAG:
+		return node.GetTags()
+	case nodesv1.NodeParameterType_NODE_PARAMETER_TYPE_LABEL:
+		return labels
+	default:
+		return nil
+	}
+}
+
+func nodeLabelsFromRecord(record *neo4j.Record) []string {
+	value, ok := record.Get("labels")
+	if !ok {
+		return nil
+	}
+	switch labels := value.(type) {
+	case []string:
+		return labels
+	case []any:
+		result := make([]string, 0, len(labels))
+		for _, label := range labels {
+			if text, ok := label.(string); ok {
+				result = append(result, text)
+			}
+		}
+		return result
+	default:
+		return nil
+	}
 }
 
 func (s *Neo4jStore) incrementNodeRequestCounters(

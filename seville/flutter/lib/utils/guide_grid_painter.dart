@@ -52,9 +52,7 @@ void drawGuideGrids(
   final dimensions = layout.dimensions;
   if (dimensions.dimensionCount >= 2) {
     for (final guide in layout.layouts.values.whereType<LayoutGuide>()) {
-      if (guide is! GuideGrid ||
-          !guide.visible ||
-          guide.geometry != GuideGridGeometry.cartesian) {
+      if (guide is! GuideGrid || !guide.visible) {
         continue;
       }
       if (guide.renderMode == GuideGridRenderMode.intersections) {

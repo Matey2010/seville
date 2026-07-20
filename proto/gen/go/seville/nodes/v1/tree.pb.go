@@ -71,6 +71,318 @@ func (NodeRelationshipType) EnumDescriptor() ([]byte, []int) {
 	return file_seville_nodes_v1_tree_proto_rawDescGZIP(), []int{0}
 }
 
+type NodeParameterType int32
+
+const (
+	NodeParameterType_NODE_PARAMETER_TYPE_UNSPECIFIED NodeParameterType = 0
+	NodeParameterType_NODE_PARAMETER_TYPE_NAME        NodeParameterType = 1
+	NodeParameterType_NODE_PARAMETER_TYPE_ID          NodeParameterType = 2
+	NodeParameterType_NODE_PARAMETER_TYPE_PATH        NodeParameterType = 3
+	NodeParameterType_NODE_PARAMETER_TYPE_TITLE       NodeParameterType = 4
+	NodeParameterType_NODE_PARAMETER_TYPE_TAG         NodeParameterType = 5
+	NodeParameterType_NODE_PARAMETER_TYPE_LABEL       NodeParameterType = 6
+)
+
+// Enum value maps for NodeParameterType.
+var (
+	NodeParameterType_name = map[int32]string{
+		0: "NODE_PARAMETER_TYPE_UNSPECIFIED",
+		1: "NODE_PARAMETER_TYPE_NAME",
+		2: "NODE_PARAMETER_TYPE_ID",
+		3: "NODE_PARAMETER_TYPE_PATH",
+		4: "NODE_PARAMETER_TYPE_TITLE",
+		5: "NODE_PARAMETER_TYPE_TAG",
+		6: "NODE_PARAMETER_TYPE_LABEL",
+	}
+	NodeParameterType_value = map[string]int32{
+		"NODE_PARAMETER_TYPE_UNSPECIFIED": 0,
+		"NODE_PARAMETER_TYPE_NAME":        1,
+		"NODE_PARAMETER_TYPE_ID":          2,
+		"NODE_PARAMETER_TYPE_PATH":        3,
+		"NODE_PARAMETER_TYPE_TITLE":       4,
+		"NODE_PARAMETER_TYPE_TAG":         5,
+		"NODE_PARAMETER_TYPE_LABEL":       6,
+	}
+)
+
+func (x NodeParameterType) Enum() *NodeParameterType {
+	p := new(NodeParameterType)
+	*p = x
+	return p
+}
+
+func (x NodeParameterType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (NodeParameterType) Descriptor() protoreflect.EnumDescriptor {
+	return file_seville_nodes_v1_tree_proto_enumTypes[1].Descriptor()
+}
+
+func (NodeParameterType) Type() protoreflect.EnumType {
+	return &file_seville_nodes_v1_tree_proto_enumTypes[1]
+}
+
+func (x NodeParameterType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use NodeParameterType.Descriptor instead.
+func (NodeParameterType) EnumDescriptor() ([]byte, []int) {
+	return file_seville_nodes_v1_tree_proto_rawDescGZIP(), []int{1}
+}
+
+type NodeSearchMatchOperator int32
+
+const (
+	NodeSearchMatchOperator_NODE_SEARCH_MATCH_OPERATOR_UNSPECIFIED        NodeSearchMatchOperator = 0
+	NodeSearchMatchOperator_NODE_SEARCH_MATCH_OPERATOR_EXACT              NodeSearchMatchOperator = 1
+	NodeSearchMatchOperator_NODE_SEARCH_MATCH_OPERATOR_REGULAR_EXPRESSION NodeSearchMatchOperator = 2
+)
+
+// Enum value maps for NodeSearchMatchOperator.
+var (
+	NodeSearchMatchOperator_name = map[int32]string{
+		0: "NODE_SEARCH_MATCH_OPERATOR_UNSPECIFIED",
+		1: "NODE_SEARCH_MATCH_OPERATOR_EXACT",
+		2: "NODE_SEARCH_MATCH_OPERATOR_REGULAR_EXPRESSION",
+	}
+	NodeSearchMatchOperator_value = map[string]int32{
+		"NODE_SEARCH_MATCH_OPERATOR_UNSPECIFIED":        0,
+		"NODE_SEARCH_MATCH_OPERATOR_EXACT":              1,
+		"NODE_SEARCH_MATCH_OPERATOR_REGULAR_EXPRESSION": 2,
+	}
+)
+
+func (x NodeSearchMatchOperator) Enum() *NodeSearchMatchOperator {
+	p := new(NodeSearchMatchOperator)
+	*p = x
+	return p
+}
+
+func (x NodeSearchMatchOperator) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (NodeSearchMatchOperator) Descriptor() protoreflect.EnumDescriptor {
+	return file_seville_nodes_v1_tree_proto_enumTypes[2].Descriptor()
+}
+
+func (NodeSearchMatchOperator) Type() protoreflect.EnumType {
+	return &file_seville_nodes_v1_tree_proto_enumTypes[2]
+}
+
+func (x NodeSearchMatchOperator) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use NodeSearchMatchOperator.Descriptor instead.
+func (NodeSearchMatchOperator) EnumDescriptor() ([]byte, []int) {
+	return file_seville_nodes_v1_tree_proto_rawDescGZIP(), []int{2}
+}
+
+type NodeSearchParameter struct {
+	state     protoimpl.MessageState  `protogen:"open.v1"`
+	Parameter NodeParameterType       `protobuf:"varint,1,opt,name=parameter,proto3,enum=seville.nodes.v1.NodeParameterType" json:"parameter,omitempty"`
+	Operator  NodeSearchMatchOperator `protobuf:"varint,2,opt,name=operator,proto3,enum=seville.nodes.v1.NodeSearchMatchOperator" json:"operator,omitempty"`
+	// Types that are valid to be assigned to Value:
+	//
+	//	*NodeSearchParameter_StringValue
+	Value         isNodeSearchParameter_Value `protobuf_oneof:"value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NodeSearchParameter) Reset() {
+	*x = NodeSearchParameter{}
+	mi := &file_seville_nodes_v1_tree_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NodeSearchParameter) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NodeSearchParameter) ProtoMessage() {}
+
+func (x *NodeSearchParameter) ProtoReflect() protoreflect.Message {
+	mi := &file_seville_nodes_v1_tree_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NodeSearchParameter.ProtoReflect.Descriptor instead.
+func (*NodeSearchParameter) Descriptor() ([]byte, []int) {
+	return file_seville_nodes_v1_tree_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *NodeSearchParameter) GetParameter() NodeParameterType {
+	if x != nil {
+		return x.Parameter
+	}
+	return NodeParameterType_NODE_PARAMETER_TYPE_UNSPECIFIED
+}
+
+func (x *NodeSearchParameter) GetOperator() NodeSearchMatchOperator {
+	if x != nil {
+		return x.Operator
+	}
+	return NodeSearchMatchOperator_NODE_SEARCH_MATCH_OPERATOR_UNSPECIFIED
+}
+
+func (x *NodeSearchParameter) GetValue() isNodeSearchParameter_Value {
+	if x != nil {
+		return x.Value
+	}
+	return nil
+}
+
+func (x *NodeSearchParameter) GetStringValue() string {
+	if x != nil {
+		if x, ok := x.Value.(*NodeSearchParameter_StringValue); ok {
+			return x.StringValue
+		}
+	}
+	return ""
+}
+
+type isNodeSearchParameter_Value interface {
+	isNodeSearchParameter_Value()
+}
+
+type NodeSearchParameter_StringValue struct {
+	StringValue string `protobuf:"bytes,3,opt,name=string_value,json=stringValue,proto3,oneof"`
+}
+
+func (*NodeSearchParameter_StringValue) isNodeSearchParameter_Value() {}
+
+type NodeSearchFilter struct {
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	IncludeNodesMatching []*NodeSearchParameter `protobuf:"bytes,1,rep,name=include_nodes_matching,json=includeNodesMatching,proto3" json:"include_nodes_matching,omitempty"`
+	ExcludeNodesMatching []*NodeSearchParameter `protobuf:"bytes,2,rep,name=exclude_nodes_matching,json=excludeNodesMatching,proto3" json:"exclude_nodes_matching,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *NodeSearchFilter) Reset() {
+	*x = NodeSearchFilter{}
+	mi := &file_seville_nodes_v1_tree_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NodeSearchFilter) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NodeSearchFilter) ProtoMessage() {}
+
+func (x *NodeSearchFilter) ProtoReflect() protoreflect.Message {
+	mi := &file_seville_nodes_v1_tree_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NodeSearchFilter.ProtoReflect.Descriptor instead.
+func (*NodeSearchFilter) Descriptor() ([]byte, []int) {
+	return file_seville_nodes_v1_tree_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *NodeSearchFilter) GetIncludeNodesMatching() []*NodeSearchParameter {
+	if x != nil {
+		return x.IncludeNodesMatching
+	}
+	return nil
+}
+
+func (x *NodeSearchFilter) GetExcludeNodesMatching() []*NodeSearchParameter {
+	if x != nil {
+		return x.ExcludeNodesMatching
+	}
+	return nil
+}
+
+type NodeTreeQuery struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RootNodeId    *string                `protobuf:"bytes,1,opt,name=root_node_id,json=rootNodeId,proto3,oneof" json:"root_node_id,omitempty"`
+	Depth         *uint32                `protobuf:"varint,2,opt,name=depth,proto3,oneof" json:"depth,omitempty"`
+	TraverseBy    NodeRelationshipType   `protobuf:"varint,3,opt,name=traverse_by,json=traverseBy,proto3,enum=seville.nodes.v1.NodeRelationshipType" json:"traverse_by,omitempty"`
+	NodeFilter    *NodeSearchFilter      `protobuf:"bytes,4,opt,name=node_filter,json=nodeFilter,proto3,oneof" json:"node_filter,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NodeTreeQuery) Reset() {
+	*x = NodeTreeQuery{}
+	mi := &file_seville_nodes_v1_tree_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NodeTreeQuery) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NodeTreeQuery) ProtoMessage() {}
+
+func (x *NodeTreeQuery) ProtoReflect() protoreflect.Message {
+	mi := &file_seville_nodes_v1_tree_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NodeTreeQuery.ProtoReflect.Descriptor instead.
+func (*NodeTreeQuery) Descriptor() ([]byte, []int) {
+	return file_seville_nodes_v1_tree_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *NodeTreeQuery) GetRootNodeId() string {
+	if x != nil && x.RootNodeId != nil {
+		return *x.RootNodeId
+	}
+	return ""
+}
+
+func (x *NodeTreeQuery) GetDepth() uint32 {
+	if x != nil && x.Depth != nil {
+		return *x.Depth
+	}
+	return 0
+}
+
+func (x *NodeTreeQuery) GetTraverseBy() NodeRelationshipType {
+	if x != nil {
+		return x.TraverseBy
+	}
+	return NodeRelationshipType_NODE_RELATIONSHIP_TYPE_UNSPECIFIED
+}
+
+func (x *NodeTreeQuery) GetNodeFilter() *NodeSearchFilter {
+	if x != nil {
+		return x.NodeFilter
+	}
+	return nil
+}
+
 type NodeTreeOccurrence struct {
 	state              protoimpl.MessageState `protogen:"open.v1"`
 	OccurrenceId       string                 `protobuf:"bytes,1,opt,name=occurrence_id,json=occurrenceId,proto3" json:"occurrence_id,omitempty"`
@@ -83,7 +395,7 @@ type NodeTreeOccurrence struct {
 
 func (x *NodeTreeOccurrence) Reset() {
 	*x = NodeTreeOccurrence{}
-	mi := &file_seville_nodes_v1_tree_proto_msgTypes[0]
+	mi := &file_seville_nodes_v1_tree_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -95,7 +407,7 @@ func (x *NodeTreeOccurrence) String() string {
 func (*NodeTreeOccurrence) ProtoMessage() {}
 
 func (x *NodeTreeOccurrence) ProtoReflect() protoreflect.Message {
-	mi := &file_seville_nodes_v1_tree_proto_msgTypes[0]
+	mi := &file_seville_nodes_v1_tree_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -108,7 +420,7 @@ func (x *NodeTreeOccurrence) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeTreeOccurrence.ProtoReflect.Descriptor instead.
 func (*NodeTreeOccurrence) Descriptor() ([]byte, []int) {
-	return file_seville_nodes_v1_tree_proto_rawDescGZIP(), []int{0}
+	return file_seville_nodes_v1_tree_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *NodeTreeOccurrence) GetOccurrenceId() string {
@@ -151,7 +463,7 @@ type NodeTree struct {
 
 func (x *NodeTree) Reset() {
 	*x = NodeTree{}
-	mi := &file_seville_nodes_v1_tree_proto_msgTypes[1]
+	mi := &file_seville_nodes_v1_tree_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -163,7 +475,7 @@ func (x *NodeTree) String() string {
 func (*NodeTree) ProtoMessage() {}
 
 func (x *NodeTree) ProtoReflect() protoreflect.Message {
-	mi := &file_seville_nodes_v1_tree_proto_msgTypes[1]
+	mi := &file_seville_nodes_v1_tree_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -176,7 +488,7 @@ func (x *NodeTree) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeTree.ProtoReflect.Descriptor instead.
 func (*NodeTree) Descriptor() ([]byte, []int) {
-	return file_seville_nodes_v1_tree_proto_rawDescGZIP(), []int{1}
+	return file_seville_nodes_v1_tree_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *NodeTree) GetRootNodeId() string {
@@ -211,7 +523,26 @@ var File_seville_nodes_v1_tree_proto protoreflect.FileDescriptor
 
 const file_seville_nodes_v1_tree_proto_rawDesc = "" +
 	"\n" +
-	"\x1bseville/nodes/v1/tree.proto\x12\x10seville.nodes.v1\x1a\x1aseville/node/v2/node.proto\"\xca\x01\n" +
+	"\x1bseville/nodes/v1/tree.proto\x12\x10seville.nodes.v1\x1a\x1aseville/node/v2/node.proto\"\xcd\x01\n" +
+	"\x13NodeSearchParameter\x12A\n" +
+	"\tparameter\x18\x01 \x01(\x0e2#.seville.nodes.v1.NodeParameterTypeR\tparameter\x12E\n" +
+	"\boperator\x18\x02 \x01(\x0e2).seville.nodes.v1.NodeSearchMatchOperatorR\boperator\x12#\n" +
+	"\fstring_value\x18\x03 \x01(\tH\x00R\vstringValueB\a\n" +
+	"\x05value\"\xcc\x01\n" +
+	"\x10NodeSearchFilter\x12[\n" +
+	"\x16include_nodes_matching\x18\x01 \x03(\v2%.seville.nodes.v1.NodeSearchParameterR\x14includeNodesMatching\x12[\n" +
+	"\x16exclude_nodes_matching\x18\x02 \x03(\v2%.seville.nodes.v1.NodeSearchParameterR\x14excludeNodesMatching\"\x8f\x02\n" +
+	"\rNodeTreeQuery\x12%\n" +
+	"\froot_node_id\x18\x01 \x01(\tH\x00R\n" +
+	"rootNodeId\x88\x01\x01\x12\x19\n" +
+	"\x05depth\x18\x02 \x01(\rH\x01R\x05depth\x88\x01\x01\x12G\n" +
+	"\vtraverse_by\x18\x03 \x01(\x0e2&.seville.nodes.v1.NodeRelationshipTypeR\n" +
+	"traverseBy\x12H\n" +
+	"\vnode_filter\x18\x04 \x01(\v2\".seville.nodes.v1.NodeSearchFilterH\x02R\n" +
+	"nodeFilter\x88\x01\x01B\x0f\n" +
+	"\r_root_node_idB\b\n" +
+	"\x06_depthB\x0e\n" +
+	"\f_node_filter\"\xca\x01\n" +
 	"\x12NodeTreeOccurrence\x12#\n" +
 	"\roccurrence_id\x18\x01 \x01(\tR\foccurrenceId\x125\n" +
 	"\x14parent_occurrence_id\x18\x02 \x01(\tH\x00R\x12parentOccurrenceId\x88\x01\x01\x12\x14\n" +
@@ -227,7 +558,19 @@ const file_seville_nodes_v1_tree_proto_rawDesc = "" +
 	"\x14NodeRelationshipType\x12&\n" +
 	"\"NODE_RELATIONSHIP_TYPE_UNSPECIFIED\x10\x00\x12\"\n" +
 	"\x1eNODE_RELATIONSHIP_TYPE_PART_OF\x10\x01\x12!\n" +
-	"\x1dNODE_RELATIONSHIP_TYPE_FAMILY\x10\x02BDZBgithub.com/Matey2010/seville/proto/gen/go/seville/nodes/v1;nodesv1b\x06proto3"
+	"\x1dNODE_RELATIONSHIP_TYPE_FAMILY\x10\x02*\xeb\x01\n" +
+	"\x11NodeParameterType\x12#\n" +
+	"\x1fNODE_PARAMETER_TYPE_UNSPECIFIED\x10\x00\x12\x1c\n" +
+	"\x18NODE_PARAMETER_TYPE_NAME\x10\x01\x12\x1a\n" +
+	"\x16NODE_PARAMETER_TYPE_ID\x10\x02\x12\x1c\n" +
+	"\x18NODE_PARAMETER_TYPE_PATH\x10\x03\x12\x1d\n" +
+	"\x19NODE_PARAMETER_TYPE_TITLE\x10\x04\x12\x1b\n" +
+	"\x17NODE_PARAMETER_TYPE_TAG\x10\x05\x12\x1d\n" +
+	"\x19NODE_PARAMETER_TYPE_LABEL\x10\x06*\x9e\x01\n" +
+	"\x17NodeSearchMatchOperator\x12*\n" +
+	"&NODE_SEARCH_MATCH_OPERATOR_UNSPECIFIED\x10\x00\x12$\n" +
+	" NODE_SEARCH_MATCH_OPERATOR_EXACT\x10\x01\x121\n" +
+	"-NODE_SEARCH_MATCH_OPERATOR_REGULAR_EXPRESSION\x10\x02BDZBgithub.com/Matey2010/seville/proto/gen/go/seville/nodes/v1;nodesv1b\x06proto3"
 
 var (
 	file_seville_nodes_v1_tree_proto_rawDescOnce sync.Once
@@ -241,23 +584,34 @@ func file_seville_nodes_v1_tree_proto_rawDescGZIP() []byte {
 	return file_seville_nodes_v1_tree_proto_rawDescData
 }
 
-var file_seville_nodes_v1_tree_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_seville_nodes_v1_tree_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_seville_nodes_v1_tree_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_seville_nodes_v1_tree_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_seville_nodes_v1_tree_proto_goTypes = []any{
-	(NodeRelationshipType)(0),  // 0: seville.nodes.v1.NodeRelationshipType
-	(*NodeTreeOccurrence)(nil), // 1: seville.nodes.v1.NodeTreeOccurrence
-	(*NodeTree)(nil),           // 2: seville.nodes.v1.NodeTree
-	(*v2.Node)(nil),            // 3: seville.node.v2.Node
+	(NodeRelationshipType)(0),    // 0: seville.nodes.v1.NodeRelationshipType
+	(NodeParameterType)(0),       // 1: seville.nodes.v1.NodeParameterType
+	(NodeSearchMatchOperator)(0), // 2: seville.nodes.v1.NodeSearchMatchOperator
+	(*NodeSearchParameter)(nil),  // 3: seville.nodes.v1.NodeSearchParameter
+	(*NodeSearchFilter)(nil),     // 4: seville.nodes.v1.NodeSearchFilter
+	(*NodeTreeQuery)(nil),        // 5: seville.nodes.v1.NodeTreeQuery
+	(*NodeTreeOccurrence)(nil),   // 6: seville.nodes.v1.NodeTreeOccurrence
+	(*NodeTree)(nil),             // 7: seville.nodes.v1.NodeTree
+	(*v2.Node)(nil),              // 8: seville.node.v2.Node
 }
 var file_seville_nodes_v1_tree_proto_depIdxs = []int32{
-	3, // 0: seville.nodes.v1.NodeTreeOccurrence.node:type_name -> seville.node.v2.Node
-	0, // 1: seville.nodes.v1.NodeTree.relationship:type_name -> seville.nodes.v1.NodeRelationshipType
-	1, // 2: seville.nodes.v1.NodeTree.occurrences:type_name -> seville.nodes.v1.NodeTreeOccurrence
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	1, // 0: seville.nodes.v1.NodeSearchParameter.parameter:type_name -> seville.nodes.v1.NodeParameterType
+	2, // 1: seville.nodes.v1.NodeSearchParameter.operator:type_name -> seville.nodes.v1.NodeSearchMatchOperator
+	3, // 2: seville.nodes.v1.NodeSearchFilter.include_nodes_matching:type_name -> seville.nodes.v1.NodeSearchParameter
+	3, // 3: seville.nodes.v1.NodeSearchFilter.exclude_nodes_matching:type_name -> seville.nodes.v1.NodeSearchParameter
+	0, // 4: seville.nodes.v1.NodeTreeQuery.traverse_by:type_name -> seville.nodes.v1.NodeRelationshipType
+	4, // 5: seville.nodes.v1.NodeTreeQuery.node_filter:type_name -> seville.nodes.v1.NodeSearchFilter
+	8, // 6: seville.nodes.v1.NodeTreeOccurrence.node:type_name -> seville.node.v2.Node
+	0, // 7: seville.nodes.v1.NodeTree.relationship:type_name -> seville.nodes.v1.NodeRelationshipType
+	6, // 8: seville.nodes.v1.NodeTree.occurrences:type_name -> seville.nodes.v1.NodeTreeOccurrence
+	9, // [9:9] is the sub-list for method output_type
+	9, // [9:9] is the sub-list for method input_type
+	9, // [9:9] is the sub-list for extension type_name
+	9, // [9:9] is the sub-list for extension extendee
+	0, // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_seville_nodes_v1_tree_proto_init() }
@@ -265,14 +619,18 @@ func file_seville_nodes_v1_tree_proto_init() {
 	if File_seville_nodes_v1_tree_proto != nil {
 		return
 	}
-	file_seville_nodes_v1_tree_proto_msgTypes[0].OneofWrappers = []any{}
+	file_seville_nodes_v1_tree_proto_msgTypes[0].OneofWrappers = []any{
+		(*NodeSearchParameter_StringValue)(nil),
+	}
+	file_seville_nodes_v1_tree_proto_msgTypes[2].OneofWrappers = []any{}
+	file_seville_nodes_v1_tree_proto_msgTypes[3].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_seville_nodes_v1_tree_proto_rawDesc), len(file_seville_nodes_v1_tree_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   2,
+			NumEnums:      3,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

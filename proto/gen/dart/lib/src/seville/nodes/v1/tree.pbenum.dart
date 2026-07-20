@@ -39,5 +39,69 @@ class NodeRelationshipType extends $pb.ProtobufEnum {
   const NodeRelationshipType._(super.value, super.name);
 }
 
+class NodeParameterType extends $pb.ProtobufEnum {
+  static const NodeParameterType NODE_PARAMETER_TYPE_UNSPECIFIED =
+      NodeParameterType._(
+          0, _omitEnumNames ? '' : 'NODE_PARAMETER_TYPE_UNSPECIFIED');
+  static const NodeParameterType NODE_PARAMETER_TYPE_NAME =
+      NodeParameterType._(1, _omitEnumNames ? '' : 'NODE_PARAMETER_TYPE_NAME');
+  static const NodeParameterType NODE_PARAMETER_TYPE_ID =
+      NodeParameterType._(2, _omitEnumNames ? '' : 'NODE_PARAMETER_TYPE_ID');
+  static const NodeParameterType NODE_PARAMETER_TYPE_PATH =
+      NodeParameterType._(3, _omitEnumNames ? '' : 'NODE_PARAMETER_TYPE_PATH');
+  static const NodeParameterType NODE_PARAMETER_TYPE_TITLE =
+      NodeParameterType._(4, _omitEnumNames ? '' : 'NODE_PARAMETER_TYPE_TITLE');
+  static const NodeParameterType NODE_PARAMETER_TYPE_TAG =
+      NodeParameterType._(5, _omitEnumNames ? '' : 'NODE_PARAMETER_TYPE_TAG');
+  static const NodeParameterType NODE_PARAMETER_TYPE_LABEL =
+      NodeParameterType._(6, _omitEnumNames ? '' : 'NODE_PARAMETER_TYPE_LABEL');
+
+  static const $core.List<NodeParameterType> values = <NodeParameterType>[
+    NODE_PARAMETER_TYPE_UNSPECIFIED,
+    NODE_PARAMETER_TYPE_NAME,
+    NODE_PARAMETER_TYPE_ID,
+    NODE_PARAMETER_TYPE_PATH,
+    NODE_PARAMETER_TYPE_TITLE,
+    NODE_PARAMETER_TYPE_TAG,
+    NODE_PARAMETER_TYPE_LABEL,
+  ];
+
+  static final $core.List<NodeParameterType?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 6);
+  static NodeParameterType? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const NodeParameterType._(super.value, super.name);
+}
+
+class NodeSearchMatchOperator extends $pb.ProtobufEnum {
+  static const NodeSearchMatchOperator NODE_SEARCH_MATCH_OPERATOR_UNSPECIFIED =
+      NodeSearchMatchOperator._(
+          0, _omitEnumNames ? '' : 'NODE_SEARCH_MATCH_OPERATOR_UNSPECIFIED');
+  static const NodeSearchMatchOperator NODE_SEARCH_MATCH_OPERATOR_EXACT =
+      NodeSearchMatchOperator._(
+          1, _omitEnumNames ? '' : 'NODE_SEARCH_MATCH_OPERATOR_EXACT');
+  static const NodeSearchMatchOperator
+      NODE_SEARCH_MATCH_OPERATOR_REGULAR_EXPRESSION = NodeSearchMatchOperator._(
+          2,
+          _omitEnumNames
+              ? ''
+              : 'NODE_SEARCH_MATCH_OPERATOR_REGULAR_EXPRESSION');
+
+  static const $core.List<NodeSearchMatchOperator> values =
+      <NodeSearchMatchOperator>[
+    NODE_SEARCH_MATCH_OPERATOR_UNSPECIFIED,
+    NODE_SEARCH_MATCH_OPERATOR_EXACT,
+    NODE_SEARCH_MATCH_OPERATOR_REGULAR_EXPRESSION,
+  ];
+
+  static final $core.List<NodeSearchMatchOperator?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 2);
+  static NodeSearchMatchOperator? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const NodeSearchMatchOperator._(super.value, super.name);
+}
+
 const $core.bool _omitEnumNames =
     $core.bool.fromEnvironment('protobuf.omit_enum_names');

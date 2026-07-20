@@ -1,9 +1,11 @@
 import 'dart:math' as math;
 import 'dart:ui';
 
-import 'package:seville_proto/seville_proto.dart';
+import 'package:seville_proto/seville_proto.dart'
+    hide NodeSearchFilter, NodeSearchParameter;
 
 import 'graph_traverse_type.dart';
+import 'node_search.dart';
 
 abstract class Layout {
   const Layout.fromAxes({
@@ -505,14 +507,6 @@ enum GuideLinePattern { solid, dashed, dotted }
 
 enum GuideGridRenderMode { lines, intersections }
 
-enum GuideGridGeometry { cartesian, radial, radialVirtual }
-
-class LayoutConfig {
-  const LayoutConfig({this.backgroundColor = const Color(0x00000000)});
-
-  final Color backgroundColor;
-}
-
 class LayoutDefaults {
   const LayoutDefaults({
     this.padding = 0,
@@ -684,7 +678,6 @@ class GuideGrid extends LayoutGuide {
   const GuideGrid({
     required super.style,
     super.visible,
-    this.geometry = GuideGridGeometry.cartesian,
     this.drawColumns = true,
     this.drawRows = true,
     this.renderMode = GuideGridRenderMode.lines,
@@ -695,7 +688,6 @@ class GuideGrid extends LayoutGuide {
     super.inputSources,
   });
 
-  final GuideGridGeometry geometry;
   final bool drawColumns;
   final bool drawRows;
   final GuideGridRenderMode renderMode;
@@ -1353,6 +1345,7 @@ class FanLayout extends Layout with TableLayoutMixin {
     this.rootNodeId,
     this.rootNodePointer,
     this.traverseBy = GraphTraverseType.partOf,
+    this.nodeFilter,
     this.minDepth = 1,
     this.maxDepth = 3,
     this.maxSectionCount = 6,
@@ -1378,6 +1371,7 @@ class FanLayout extends Layout with TableLayoutMixin {
   final String? rootNodeId;
   final LayoutNodePointer? rootNodePointer;
   final GraphTraverseType traverseBy;
+  final NodeSearchFilter? nodeFilter;
 
   /// Minimum number of visible radial rows, including the root row.
   ///
@@ -1744,12 +1738,6 @@ class LayoutSlot {
 
   /// Maximum cross-axis width in the container's fraction units.
   final double? maxWidth;
-}
-
-class LineView {
-  const LineView({required this.segments});
-
-  final List<LayoutSlot> segments;
 }
 
 class LayoutElement {

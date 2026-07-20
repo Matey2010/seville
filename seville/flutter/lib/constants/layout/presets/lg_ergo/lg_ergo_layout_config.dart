@@ -4,6 +4,7 @@ import '../../../../models/layout.dart';
 import '../../../../models/graph_traverse_type.dart';
 import '../../../../models/landscape_xl_layout.dart';
 import '../../../../models/node_property_table.dart';
+import '../../../../models/node_search.dart';
 import '../../../interface_colors.dart';
 import '../../../paths/default_vault_paths.dart';
 
@@ -462,8 +463,34 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               style: lgErgoCortexNodeBorderStyle,
               layoutDefaults: lgErgoNodeLayoutDefaults,
               traverseBy: GraphTraverseType.partOf,
+              nodeFilter: const NodeSearchFilter(
+                includeNodesMatching: [
+                  NodeSearchParameter(
+                    parameter: NodeParameter.label,
+                    value: 'Section',
+                  ),
+                ],
+                excludeNodesMatching: [
+                  NodeSearchParameter(
+                    parameter: NodeParameter.name,
+                    value: 'space',
+                  ),
+                  NodeSearchParameter(
+                    parameter: NodeParameter.name,
+                    value: 'space-section',
+                  ),
+                  NodeSearchParameter(
+                    parameter: NodeParameter.name,
+                    value: 'time',
+                  ),
+                  NodeSearchParameter(
+                    parameter: NodeParameter.name,
+                    value: 'time-section',
+                  ),
+                ],
+              ),
               maxDepth: 3,
-              maxSectionCount: 3,
+              maxSectionCount: 4,
               label: 'cortex',
               labelColor: lgErgoCortexNodeLabelColor,
               labelSize: 10,

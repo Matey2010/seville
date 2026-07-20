@@ -318,6 +318,15 @@ Use `rootNodeId` for a fixed API root, or
 the current Riverpod-selected Node. These options are mutually exclusive. A
 selected-Node pointer issues no tree request until the selected Node has a
 stable ID.
+Use the optional `nodeFilter` for data-level fan matching. Its
+`includeNodesMatching` and `excludeNodesMatching` lists accept structured
+`NodeSearchParameter` values, currently supporting exact and
+regular-expression matching over Node `name`, `id`, `path`, `title`, `tag`, and
+Neo4j `label`. A non-empty include list requires any include to match; any
+exclude match rejects the occurrence. Matching is performed by the tree API
+before occurrences reach the Flame component, and a rejected occurrence's
+branch is pruned. The LG Ergo `cortex-bush` includes the exact `Section` label,
+then omits exact names `space`, `space-section`, `time`, and `time-section`.
 `GraphLayout` is the selected Node pool used by the center scene. It is owned by
 a `LayoutPath`, reads the complete Riverpod-selected Node collection, and gives
 every Node an equal centered cell. `nodeExtentFactor` controls the circular

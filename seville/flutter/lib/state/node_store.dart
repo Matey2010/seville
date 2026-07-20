@@ -1,9 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:seville_proto/seville_proto.dart';
+import 'package:seville_proto/seville_proto.dart'
+    hide NodeSearchFilter, NodeSearchParameter;
 
 import '../data/seville_api.dart';
 import '../models/graph_traverse_type.dart';
 import '../models/layout.dart';
+import '../models/node_search.dart';
 import '../utils/vault_node_resolver.dart';
 
 final sevilleApiProvider = Provider<SevilleApi>((ref) {
@@ -43,11 +45,30 @@ final systemInfoProvider = FutureProvider<SystemInfo>((ref) async {
   return api.systemInfo();
 });
 
-typedef NodeTreeRequest = ({
-  String? rootNodeId,
-  int depth,
-  GraphTraverseType traverseBy,
-});
+class NodeTreeRequest {
+  NodeTreeRequest({
+    required this.rootNodeId,
+    required this.depth,
+    required this.traverseBy,
+    this.nodeFilter,
+  });
+
+  final String? rootNodeId;
+  final int depth;
+  final GraphTraverseType traverseBy;
+  final NodeSearchFilter? nodeFilter;
+
+  @override
+  bool operator ==(Object other) =>
+      other is NodeTreeRequest &&
+      rootNodeId == other.rootNodeId &&
+      depth == other.depth &&
+      traverseBy == other.traverseBy &&
+      nodeFilter == other.nodeFilter;
+
+  @override
+  int get hashCode => Object.hash(rootNodeId, depth, traverseBy, nodeFilter);
+}
 
 final nodeTreeProvider = FutureProvider.family<NodeTree, NodeTreeRequest>((
   ref,
@@ -58,6 +79,7 @@ final nodeTreeProvider = FutureProvider.family<NodeTree, NodeTreeRequest>((
     rootNodeId: request.rootNodeId,
     depth: request.depth,
     traverseBy: request.traverseBy,
+    nodeFilter: request.nodeFilter,
   );
 });
 

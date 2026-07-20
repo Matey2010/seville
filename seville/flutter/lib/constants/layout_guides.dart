@@ -30,20 +30,3 @@ const timelineGuideGrid = GuideGrid(
     pattern: GuideLinePattern.dashed,
   ),
 );
-
-const timeCompassRadialGuideGrid = GuideGrid(
-  geometry: GuideGridGeometry.radial,
-  style: GuideStyle(color: timeCompassGridColor, strokeWidth: 1.4),
-);
-
-const timeCompassVirtualGuideGrid = GuideGrid(
-  geometry: GuideGridGeometry.radialVirtual,
-  style: GuideStyle(
-    color: timeCompassVirtualGridColor,
-    strokeWidth: 1.2,
-    pattern: GuideLinePattern.dashed,
-    dashLength: 8,
-    dashInterval: 6,
-  ),
-  drawRows: false,
-);
