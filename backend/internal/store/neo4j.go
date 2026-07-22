@@ -133,6 +133,28 @@ func (s *Neo4jStore) NodeTree(
 	if err != nil {
 		return nil, err
 	}
+	childQuery := `MATCH (child:Node)-[relationship]->(parent:Node)
+WHERE parent.id IN $parent_node_ids
+  AND type(relationship) = $relationship_type
+OPTIONAL MATCH (child)-[:TAGGED_WITH]->(tag:Tag)
+WITH parent, child, relationship,
+     [tagId IN collect(tag.id) WHERE tagId IS NOT NULL] AS graphTags
+WITH parent, child, relationship, graphTags,
+     CASE WHEN size(graphTags) > 0 THEN graphTags ELSE coalesce(child.tags, []) END AS effectiveTags` +
+		compiledFilter.whereClause + `
+OPTIONAL MATCH (child)-[:HAS_EMOJI]->(emoji)
+WITH parent, child, relationship, graphTags, emoji
+ORDER BY parent.id, child.path, child.id, elementId(relationship), emoji.id
+WITH parent, child, relationship, graphTags,
+     [emojiProperties IN collect(properties(emoji)) WHERE emojiProperties IS NOT NULL] AS emojis
+RETURN parent.id AS parent_id,
+       child.id AS id, child.path AS path, child.title AS title, child.body AS body,
+       CASE WHEN size(graphTags) > 0 THEN graphTags ELSE child.tags END AS tags,
+       child.frontmatter_json AS frontmatter_json,
+       child.modified_at AS modified_at, properties(child) AS properties,
+       emojis,
+       elementId(relationship) AS relationship_id
+ORDER BY parent.id, child.path, child.id, relationship_id`
 	session := s.session(ctx, neo4j.AccessModeRead)
 	defer session.Close(ctx)
 
@@ -186,29 +208,14 @@ RETURN node.id AS id, node.path AS path, node.title AS title, node.body AS body,
 			parentIDs = append(parentIDs, id)
 		}
 
-		result, err := session.Run(ctx, `MATCH (child:Node)-[relationship]->(parent:Node)
-WHERE parent.id IN $parent_node_ids
-  AND type(relationship) = $relationship_type
-OPTIONAL MATCH (child)-[:TAGGED_WITH]->(tag:Tag)
-WITH parent, child, relationship,
-     [tagId IN collect(tag.id) WHERE tagId IS NOT NULL] AS graphTags
-OPTIONAL MATCH (child)-[:HAS_EMOJI]->(emoji)
-WITH parent, child, relationship, graphTags, emoji
-ORDER BY parent.id, child.path, child.id, elementId(relationship), emoji.id
-WITH parent, child, relationship, graphTags,
-     [emojiProperties IN collect(properties(emoji)) WHERE emojiProperties IS NOT NULL] AS emojis
-RETURN parent.id AS parent_id,
-       child.id AS id, child.path AS path, child.title AS title, child.body AS body,
-       labels(child) AS labels,
-       CASE WHEN size(graphTags) > 0 THEN graphTags ELSE child.tags END AS tags,
-       child.frontmatter_json AS frontmatter_json,
-       child.modified_at AS modified_at, properties(child) AS properties,
-       emojis,
-       elementId(relationship) AS relationship_id
-ORDER BY parent.id, child.path, child.id, relationship_id`, map[string]any{
+		parameters := map[string]any{
 			"parent_node_ids":   parentIDs,
 			"relationship_type": relationshipName,
-		})
+		}
+		for name, value := range compiledFilter.parameters {
+			parameters[name] = value
+		}
+		result, err := session.Run(ctx, childQuery, parameters)
 		if err != nil {
 			return nil, fmt.Errorf("query radial tree depth %d: %w", level, err)
 		}
@@ -216,11 +223,7 @@ ORDER BY parent.id, child.path, child.id, relationship_id`, map[string]any{
 		for result.Next(ctx) {
 			record := result.Record()
 			parentID, _ := recordString(record, "parent_id")
-			child := nodeFromRecord(record)
-			if !compiledFilter.matches(child, nodeLabelsFromRecord(record)) {
-				continue
-			}
-			childrenByParent[parentID] = append(childrenByParent[parentID], child)
+			childrenByParent[parentID] = append(childrenByParent[parentID], nodeFromRecord(record))
 		}
 		if err := result.Err(); err != nil {
 			return nil, fmt.Errorf("read radial tree depth %d: %w", level, err)
@@ -249,71 +252,76 @@ ORDER BY parent.id, child.path, child.id, relationship_id`, map[string]any{
 	return tree, nil
 }
 
-type nodeSearchMatcher struct {
-	parameter nodesv1.NodeParameterType
-	operator  nodesv1.NodeSearchMatchOperator
-	value     string
-	regexp    *regexp.Regexp
-}
-
 type compiledNodeSearchFilter struct {
-	include []nodeSearchMatcher
-	exclude []nodeSearchMatcher
+	whereClause string
+	parameters  map[string]any
 }
 
 func compileNodeSearchFilter(filter *nodesv1.NodeSearchFilter) (compiledNodeSearchFilter, error) {
 	if filter == nil {
-		return compiledNodeSearchFilter{}, nil
+		return compiledNodeSearchFilter{parameters: map[string]any{}}, nil
 	}
-	include, err := compileNodeSearchMatchers(filter.GetIncludeNodesMatching())
+	parameters := make(map[string]any)
+	include, err := compileNodeSearchPredicates(
+		filter.GetIncludeNodesMatching(),
+		"node_filter_include",
+		parameters,
+	)
 	if err != nil {
 		return compiledNodeSearchFilter{}, fmt.Errorf("include_nodes_matching: %w", err)
 	}
-	exclude, err := compileNodeSearchMatchers(filter.GetExcludeNodesMatching())
+	exclude, err := compileNodeSearchPredicates(
+		filter.GetExcludeNodesMatching(),
+		"node_filter_exclude",
+		parameters,
+	)
 	if err != nil {
 		return compiledNodeSearchFilter{}, fmt.Errorf("exclude_nodes_matching: %w", err)
 	}
-	return compiledNodeSearchFilter{include: include, exclude: exclude}, nil
-}
-
-func (filter compiledNodeSearchFilter) matches(node *nodev2.Node, labels []string) bool {
-	if len(filter.include) > 0 && !matchesAnyNodeSearchMatcher(node, labels, filter.include) {
-		return false
+	clauses := make([]string, 0, 2)
+	if len(include) > 0 {
+		clauses = append(clauses, "("+strings.Join(include, " OR ")+")")
 	}
-	return !matchesAnyNodeSearchMatcher(node, labels, filter.exclude)
+	if len(exclude) > 0 {
+		clauses = append(clauses, "NOT ("+strings.Join(exclude, " OR ")+")")
+	}
+	whereClause := ""
+	if len(clauses) > 0 {
+		whereClause = "\nWHERE " + strings.Join(clauses, " AND ")
+	}
+	return compiledNodeSearchFilter{
+		whereClause: whereClause,
+		parameters:  parameters,
+	}, nil
 }
 
-func compileNodeSearchMatchers(parameters []*nodesv1.NodeSearchParameter) ([]nodeSearchMatcher, error) {
-	matchers := make([]nodeSearchMatcher, 0, len(parameters))
-	for index, parameter := range parameters {
+func compileNodeSearchPredicates(
+	searchParameters []*nodesv1.NodeSearchParameter,
+	parameterPrefix string,
+	queryParameters map[string]any,
+) ([]string, error) {
+	predicates := make([]string, 0, len(searchParameters))
+	for index, parameter := range searchParameters {
 		if parameter == nil || !supportedNodeParameter(parameter.GetParameter()) {
 			return nil, fmt.Errorf("%w at index %d: unsupported parameter", ErrInvalidNodeSearchParameter, index)
 		}
 		if _, ok := parameter.GetValue().(*nodesv1.NodeSearchParameter_StringValue); !ok {
 			return nil, fmt.Errorf("%w at index %d: string_value is required", ErrInvalidNodeSearchParameter, index)
 		}
-		matcher := nodeSearchMatcher{
-			parameter: parameter.GetParameter(),
-			operator:  parameter.GetOperator(),
-			value:     parameter.GetStringValue(),
-		}
-		switch parameter.GetOperator() {
-		case nodesv1.NodeSearchMatchOperator_NODE_SEARCH_MATCH_OPERATOR_EXACT,
-			nodesv1.NodeSearchMatchOperator_NODE_SEARCH_MATCH_OPERATOR_STARTS_WITH,
-			nodesv1.NodeSearchMatchOperator_NODE_SEARCH_MATCH_OPERATOR_ENDS_WITH,
-			nodesv1.NodeSearchMatchOperator_NODE_SEARCH_MATCH_OPERATOR_CONTAINS:
-		case nodesv1.NodeSearchMatchOperator_NODE_SEARCH_MATCH_OPERATOR_REGULAR_EXPRESSION:
-			compiled, err := regexp.Compile(parameter.GetStringValue())
-			if err != nil {
+		if parameter.GetOperator() == nodesv1.NodeSearchMatchOperator_NODE_SEARCH_MATCH_OPERATOR_REGULAR_EXPRESSION {
+			if _, err := regexp.Compile(parameter.GetStringValue()); err != nil {
 				return nil, fmt.Errorf("%w at index %d: invalid regular expression: %v", ErrInvalidNodeSearchParameter, index, err)
 			}
-			matcher.regexp = compiled
-		default:
-			return nil, fmt.Errorf("%w at index %d: unsupported operator", ErrInvalidNodeSearchParameter, index)
 		}
-		matchers = append(matchers, matcher)
+		parameterName := fmt.Sprintf("%s_%d", parameterPrefix, index)
+		predicate, err := nodeSearchPredicate(parameter, parameterName)
+		if err != nil {
+			return nil, fmt.Errorf("%w at index %d: %v", ErrInvalidNodeSearchParameter, index, err)
+		}
+		queryParameters[parameterName] = parameter.GetStringValue()
+		predicates = append(predicates, predicate)
 	}
-	return matchers, nil
+	return predicates, nil
 }
 
 func supportedNodeParameter(parameter nodesv1.NodeParameterType) bool {
@@ -330,73 +338,59 @@ func supportedNodeParameter(parameter nodesv1.NodeParameterType) bool {
 	}
 }
 
-func matchesAnyNodeSearchMatcher(node *nodev2.Node, labels []string, matchers []nodeSearchMatcher) bool {
-	for _, matcher := range matchers {
-		for _, value := range nodeParameterValues(node, labels, matcher.parameter) {
-			switch matcher.operator {
-			case nodesv1.NodeSearchMatchOperator_NODE_SEARCH_MATCH_OPERATOR_REGULAR_EXPRESSION:
-				if matcher.regexp.MatchString(value) {
-					return true
-				}
-			case nodesv1.NodeSearchMatchOperator_NODE_SEARCH_MATCH_OPERATOR_EXACT:
-				if value == matcher.value {
-					return true
-				}
-			case nodesv1.NodeSearchMatchOperator_NODE_SEARCH_MATCH_OPERATOR_STARTS_WITH:
-				if strings.HasPrefix(value, matcher.value) {
-					return true
-				}
-			case nodesv1.NodeSearchMatchOperator_NODE_SEARCH_MATCH_OPERATOR_ENDS_WITH:
-				if strings.HasSuffix(value, matcher.value) {
-					return true
-				}
-			case nodesv1.NodeSearchMatchOperator_NODE_SEARCH_MATCH_OPERATOR_CONTAINS:
-				if strings.Contains(value, matcher.value) {
-					return true
-				}
-			}
-		}
-	}
-	return false
-}
-
-func nodeParameterValues(node *nodev2.Node, labels []string, parameter nodesv1.NodeParameterType) []string {
-	switch parameter {
+func nodeSearchPredicate(parameter *nodesv1.NodeSearchParameter, parameterName string) (string, error) {
+	valueExpression := ""
+	isList := false
+	switch parameter.GetParameter() {
 	case nodesv1.NodeParameterType_NODE_PARAMETER_TYPE_NAME:
-		return []string{node.GetFrontmatter()["name"]}
+		valueExpression = "coalesce(toString(child.name), '')"
 	case nodesv1.NodeParameterType_NODE_PARAMETER_TYPE_ID:
-		return []string{node.GetId()}
+		valueExpression = "coalesce(toString(child.id), '')"
 	case nodesv1.NodeParameterType_NODE_PARAMETER_TYPE_PATH:
-		return []string{node.GetPath()}
+		valueExpression = "coalesce(toString(child.path), '')"
 	case nodesv1.NodeParameterType_NODE_PARAMETER_TYPE_TITLE:
-		return []string{node.GetTitle()}
+		valueExpression = "coalesce(toString(child.title), '')"
 	case nodesv1.NodeParameterType_NODE_PARAMETER_TYPE_TAG:
-		return node.GetTags()
+		valueExpression = "effectiveTags"
+		isList = true
 	case nodesv1.NodeParameterType_NODE_PARAMETER_TYPE_LABEL:
-		return labels
+		valueExpression = "labels(child)"
+		isList = true
 	default:
-		return nil
+		return "", fmt.Errorf("unsupported parameter")
 	}
+	if isList {
+		predicate, err := nodeSearchOperatorPredicate(
+			"toString(nodeSearchValue)",
+			parameterName,
+			parameter.GetOperator(),
+		)
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("any(nodeSearchValue IN %s WHERE %s)", valueExpression, predicate), nil
+	}
+	return nodeSearchOperatorPredicate(valueExpression, parameterName, parameter.GetOperator())
 }
 
-func nodeLabelsFromRecord(record *neo4j.Record) []string {
-	value, ok := record.Get("labels")
-	if !ok {
-		return nil
-	}
-	switch labels := value.(type) {
-	case []string:
-		return labels
-	case []any:
-		result := make([]string, 0, len(labels))
-		for _, label := range labels {
-			if text, ok := label.(string); ok {
-				result = append(result, text)
-			}
-		}
-		return result
+func nodeSearchOperatorPredicate(
+	valueExpression string,
+	parameterName string,
+	operator nodesv1.NodeSearchMatchOperator,
+) (string, error) {
+	switch operator {
+	case nodesv1.NodeSearchMatchOperator_NODE_SEARCH_MATCH_OPERATOR_EXACT:
+		return fmt.Sprintf("%s = $%s", valueExpression, parameterName), nil
+	case nodesv1.NodeSearchMatchOperator_NODE_SEARCH_MATCH_OPERATOR_STARTS_WITH:
+		return fmt.Sprintf("%s STARTS WITH $%s", valueExpression, parameterName), nil
+	case nodesv1.NodeSearchMatchOperator_NODE_SEARCH_MATCH_OPERATOR_ENDS_WITH:
+		return fmt.Sprintf("%s ENDS WITH $%s", valueExpression, parameterName), nil
+	case nodesv1.NodeSearchMatchOperator_NODE_SEARCH_MATCH_OPERATOR_CONTAINS:
+		return fmt.Sprintf("%s CONTAINS $%s", valueExpression, parameterName), nil
+	case nodesv1.NodeSearchMatchOperator_NODE_SEARCH_MATCH_OPERATOR_REGULAR_EXPRESSION:
+		return fmt.Sprintf("%s =~ $%s", valueExpression, parameterName), nil
 	default:
-		return nil
+		return "", fmt.Errorf("unsupported operator")
 	}
 }
 

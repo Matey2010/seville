@@ -295,26 +295,22 @@ fixed logical-pixel width; `LayoutSize.pt` is its readable alias.
 fallback fraction today, and its `derivative` names the future layout/context
 value that should drive it.
 
-The current LG Ergo preset removes `now` from the grid itself. `now` is a red
-overlay `RayLayout` owned by `bottom-plane`, while the base plane keeps equal
-`previous`, `current`, and `next` columns. Calculated derivatives can drive
-future overlay layers, for example
-`now-in-current-hour.passed`, `now-in-current-hour.left`,
-`now-in-current-day.passed`, and `now-in-current-day.left`. The current LG Ergo
-bottom time grid keeps the base plane simpler: rows `hour`, `day`, and `week`
-share `previous`, `current`, and `next` columns, while fine passed/left
-adjustment belongs to a later timeline-point layer. The surrounding screen
-and safe-area anchors stay unpadded; each plane owns its own side-specific
-`LayoutPath.padding`, derived from `lgErgoLayoutDefaults.padding` where needed.
+The LG Ergo bottom plane no longer owns the earlier hour/day/week perspective
+grid or `now` ray. It owns the `time-fan` graph presentation instead. The
+surrounding screen and safe-area anchors stay unpadded; each plane owns its own
+side-specific `LayoutPath.padding`, derived from `lgErgoLayoutDefaults.padding`
+where needed.
 The LG Ergo top and bottom planes themselves live in `safe-area.layouts`, and
 future plane-specific content belongs in each plane's own `layouts` map.
-`FanLayout` is the graph presentation used by the top plane. Its cardinal
+`FanLayout` is the graph presentation used by both planes. Its cardinal
 positions span 180 degrees, angular `LayoutRelativePosition.d(...)` positions
 span 90 degrees, and non-directional positions span 360 degrees. Sections split
-that span equally; internal bands keep a regular radius while the final band
-adapts to the owning `LayoutPath` boundary. Final-band separator endpoints
-divide that visible boundary by equal path length, preventing sloped triangle
-or trapezoid edges from making the first and last cells wider.
+that span according to `sectionSizing`. `FanSectionSizing.equal` preserves equal
+sibling widths. `FanSectionSizing.directPartsWeighted` assigns each occurrence
+`1 + visibleDirectPartCount` fraction units after depth and `maxSectionCount`
+limits. Internal bands keep a regular radius while the final band adapts the
+same cumulative fractions to the owning `LayoutPath` boundary by path length,
+preventing triangle or trapezoid perspective from adding unintended edge width.
 Use `rootNodeId` for a fixed API root, or
 `rootNodePointer: LayoutNodePointer.selectedNode()` when the fan must follow
 the current Riverpod-selected Node. These options are mutually exclusive. A
@@ -328,7 +324,10 @@ ends-with, contains, and regular-expression matching over Node `name`, `id`,
 exclude match rejects the occurrence. Matching is performed by the tree API
 before occurrences reach the Flame component, and a rejected occurrence's
 branch is pruned. The LG Ergo `cortex-bush` includes the exact `Section` label,
-then omits exact names `space`, `space-section`, `time`, and `time-section`.
+then omits exact names `space`, `space-section`, `time`, and `time-section`. It
+uses direct-parts-weighted section sizing. `time-fan` reuses that exact-name
+list as its include filter and uses equal section sizing, keeping the two sizing
+policies visible in mirrored planes.
 `GraphLayout` is the selected Node pool used by the center scene. It is owned by
 a `LayoutPath`, reads the complete Riverpod-selected Node collection, and gives
 every Node an equal centered cell. `nodeExtentFactor` controls the circular

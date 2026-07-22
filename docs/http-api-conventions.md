@@ -117,8 +117,9 @@ The optional `node_filter` contains `include_nodes_matching` and
 Entries within each list are OR-combined. When includes exist, a candidate must
 match at least one; matching any exclude rejects it. Supported parameters are
 `name`, `id`, `path`, `title`, `tag`, and Neo4j `label`; supported operators are
-case-sensitive exact, starts-with, ends-with, contains, and Go regular-expression
-matching. `name` addresses the
+case-sensitive exact, starts-with, ends-with, contains, and regular-expression
+matching. Regular expressions are validated before they are passed to Neo4j's
+parameterized `=~` operator. `name` addresses the
 additional Neo4j `name` property transported in `Node.frontmatter`; it is not a
 second identity field and does not replace `Node.id` or `Node.title`. `label`
 matches values returned by Neo4j's `labels(node)` and is not transported as
@@ -128,6 +129,11 @@ Filters apply to traversed children, not the requested root. Rejecting an
 occurrence also prunes traversal below that occurrence, so its descendants do
 not appear at a later depth. Unsupported parameters, missing values, operators,
 and invalid regular expressions return `400 invalid_node_search_parameter`.
+Go compiles only allowlisted parameter and operator enums into Cypher predicate
+fragments. Search values are always supplied through named Neo4j parameters and
+are never interpolated into query text. Filtering runs in Neo4j before Node and
+Emoji hydration; the backend does not fetch rejected children for in-memory
+post-filtering.
 
 The endpoint follows incoming relationships: `part_of` maps to `PART_OF` and
 `family` maps to `FAMILY`, both stored as

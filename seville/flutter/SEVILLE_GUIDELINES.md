@@ -357,12 +357,17 @@ New top- and bottom-plane layers are added beneath their respective
 screen root. Existing graph, perceptual-map, and Compass models remain
 available but inactive.
 
-The top plane presents its occurrence-preserving `NodeTree` through a
-`FanLayout`. Cardinal fan positions span 180 degrees, angular positions span 90
-degrees, and other positions span 360 degrees. Internal bands use a regular
-radius and equal angular sections; only the final band conforms to the owning
-plane boundary. Its separator endpoints divide the visible polygon boundary by
-equal path length so triangular and trapezoidal planes retain equal outer cells.
+The top and bottom planes present occurrence-preserving `NodeTree` values
+through `FanLayout`. The top `cortex-bush` uses direct-parts weighting and
+excludes the shared space-time name match list. The bottom `time-fan` includes
+that same list and retains equal sizing, making both policies visible at once.
+Cardinal fan positions span 180 degrees, angular positions span 90 degrees, and
+other positions span 360 degrees. Internal bands use a regular radius.
+`sectionSizing` determines sibling spans: equal sizing assigns `1fr` to each
+occurrence, while direct-parts weighting assigns
+`1 + visibleDirectPartCount` fractions. Only the final band conforms to the
+owning plane boundary, projecting the same cumulative fractions by boundary
+path length so polygon perspective introduces no additional edge weighting.
 Fan data matching belongs to the optional `FanLayout.nodeFilter`. Its
 `includeNodesMatching` and `excludeNodesMatching` lists contain structured
 `NodeSearchParameter` values. They are part of the Riverpod request identity
@@ -518,4 +523,15 @@ lives in `lib/utils/compass_slots.dart`, generic center-figure drawing lives in
 `lib/utils/canvas_guides.dart`. Recursive layout composition, SafeArea geometry,
 and the `GameWidget` host live in `lib/widgets/landscape_xl_layout_view.dart`;
 the layout render tree inside that host is composed entirely of Flame
-components.
+components. `SearchHud` is the first explicit Flutter HUD overlay and is owned
+by the screen above the `GameWidget`. Its visibility and submitted query are
+stored in `hudStateProvider`; the corresponding action-plane button remains a
+Flame-rendered layout element. This exception does not permit ordinary layout
+content to become Flutter widgets.
+
+Application keyboard bindings live in `lib/constants/keymap.dart`. The keymap
+maps macOS hardware key events to application actions without depending on
+Riverpod. The screen owns the lifecycle handler and resolves those actions into
+provider updates, avoiding focus conflicts with `GameWidget` and HUD text
+fields. Command-F opens the search HUD, while Escape clears selected Nodes and
+hides search.

@@ -1349,6 +1349,7 @@ class FanLayout extends Layout with TableLayoutMixin {
     this.minDepth = 1,
     this.maxDepth = 3,
     this.maxSectionCount = 6,
+    this.sectionSizing = FanSectionSizing.equal,
     this.label,
     this.labelColor = const Color(0xFFFFFFFF),
     this.labelSize = 12,
@@ -1380,6 +1381,7 @@ class FanLayout extends Layout with TableLayoutMixin {
   final int minDepth;
   final int maxDepth;
   final int maxSectionCount;
+  final FanSectionSizing sectionSizing;
   final Color labelColor;
   final double labelSize;
   final LayoutRelativePosition position;
@@ -1428,6 +1430,8 @@ class FanLayout extends Layout with TableLayoutMixin {
   @override
   GuideStyle? get tableGuideStyle => gridStyle;
 }
+
+enum FanSectionSizing { equal, directPartsWeighted }
 
 class GraphLayout extends Layout {
   const GraphLayout({

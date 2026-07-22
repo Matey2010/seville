@@ -112,6 +112,19 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                   labelColor: lgErgoActionButtonLabelColor,
                   labelSize: 18,
                 ),
+                'search': PanelLayout(
+                  size: GridAxisVariable(size: LayoutSize.fr(1)),
+                  aliases: [
+                    'action-button',
+                    'search-action',
+                    'open-search-hud',
+                  ],
+                  fillColor: lgErgoActionButtonColor,
+                  borderStyle: lgErgoActionButtonBorderStyle,
+                  label: '🔍',
+                  labelColor: lgErgoActionButtonLabelColor,
+                  labelSize: 18,
+                ),
                 'close-selection': PanelLayout(
                   size: GridAxisVariable(size: LayoutSize.fr(1)),
                   aliases: [
@@ -463,34 +476,10 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               style: lgErgoCortexNodeBorderStyle,
               layoutDefaults: lgErgoNodeLayoutDefaults,
               traverseBy: GraphTraverseType.partOf,
-              nodeFilter: const NodeSearchFilter(
-                includeNodesMatching: [
-                  NodeSearchParameter(
-                    parameter: NodeParameter.label,
-                    value: 'Section',
-                  ),
-                ],
-                excludeNodesMatching: [
-                  NodeSearchParameter(
-                    parameter: NodeParameter.name,
-                    value: 'space',
-                  ),
-                  NodeSearchParameter(
-                    parameter: NodeParameter.name,
-                    value: 'space-section',
-                  ),
-                  NodeSearchParameter(
-                    parameter: NodeParameter.name,
-                    value: 'time',
-                  ),
-                  NodeSearchParameter(
-                    parameter: NodeParameter.name,
-                    value: 'time-section',
-                  ),
-                ],
-              ),
+              nodeFilter: lgErgoCortexBushNodeFilter,
               maxDepth: 3,
               maxSectionCount: 4,
+              sectionSizing: FanSectionSizing.directPartsWeighted,
               label: 'cortex',
               labelColor: lgErgoCortexNodeLabelColor,
               labelSize: 10,
@@ -513,98 +502,29 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
             fillColor: Color(0x55C59A1A),
             strokeStyle: lgErgoPlaneLineStyle,
           ),
-          grid: PerspectiveGridLayout(
-            aliases: ['bottom-plane-grid', 'time-grid'],
-            guideStyle: lgErgoPlaneDashStyle,
-            topStartIndex: 1,
-            topEndIndex: 1,
-            bottomStartIndex: 0,
-            bottomEndIndex: 2,
-            rowsConfig: {
-              'hour': GridAxisVariable(size: LayoutSize.fr(1)),
-              'day': GridAxisVariable(size: LayoutSize.fr(1)),
-              'week': GridAxisVariable(size: LayoutSize.fr(1)),
-            },
-            columnsConfig: {
-              'past-padding': GridAxisVariable(
-                size: LayoutSize.pt(lgErgoLayoutDefaultPadding),
-              ),
-              'previous': GridAxisVariable(size: LayoutSize.fr(1)),
-              'current': GridAxisVariable(size: LayoutSize.fr(1)),
-              'next': GridAxisVariable(size: LayoutSize.fr(1)),
-              'future-padding': GridAxisVariable(
-                size: LayoutSize.pt(lgErgoLayoutDefaultPadding),
-              ),
-            },
-            areas: {
-              'previous-hour': PerspectiveGridArea(
-                row: 'hour',
-                column: 'previous',
-                aliases: ['previous-hour'],
-                label: 'previous hour',
-              ),
-              'current-hour': PerspectiveGridArea(
-                row: 'hour',
-                column: 'current',
-                aliases: ['current-hour', 'now-hour'],
-                fillColor: lgErgoCurrentTimeBackgroundColor,
-                label: 'now',
-              ),
-              'next-hour': PerspectiveGridArea(
-                row: 'hour',
-                column: 'next',
-                aliases: ['next-hour'],
-                label: 'next hour',
-              ),
-              'previous-day': PerspectiveGridArea(
-                row: 'day',
-                column: 'previous',
-                aliases: ['previous-day', 'yesterday'],
-                label: 'yesterday',
-              ),
-              'current-day': PerspectiveGridArea(
-                row: 'day',
-                column: 'current',
-                aliases: ['current-day', 'today'],
-                defaultPath: DefaultTimelineVaultPaths.today,
-                fillColor: lgErgoCurrentTimeBackgroundColor,
-                label: 'today',
-              ),
-              'next-day': PerspectiveGridArea(
-                row: 'day',
-                column: 'next',
-                aliases: ['next-day', 'tomorrow'],
-                label: 'tomorrow',
-              ),
-              'last-week': PerspectiveGridArea(
-                row: 'week',
-                column: 'previous',
-                aliases: ['previous-week', 'last-week'],
-                label: 'last week',
-              ),
-              'current-week': PerspectiveGridArea(
-                row: 'week',
-                column: 'current',
-                aliases: ['current-week', 'this-week'],
-                fillColor: lgErgoCurrentTimeBackgroundColor,
-                label: 'this week',
-              ),
-              'next-week': PerspectiveGridArea(
-                row: 'week',
-                column: 'next',
-                aliases: ['next-week'],
-                label: 'next week',
-              ),
-            },
-          ),
           layouts: {
-            'now-ray': RayLayout(
-              start: LayoutDerivativeReference(derivative: 'AD-center'),
-              towards: LayoutDerivativeReference(
-                layoutPath: ['safe-area'],
-                derivative: 'AD-center',
-              ),
-              style: lgErgoNowRayStyle,
+            'time-fan': FanLayout(
+              aliases: [
+                'time-tree',
+                'fan-layout',
+                'time-bush',
+                'space-time-fan',
+                'space-time-tree',
+                'bottom-node-tree',
+                'bottom-fan',
+              ],
+              style: lgErgoCortexNodeBorderStyle,
+              layoutDefaults: lgErgoNodeLayoutDefaults,
+              traverseBy: GraphTraverseType.partOf,
+              nodeFilter: lgErgoSpaceTimeFanNodeFilter,
+              maxDepth: 3,
+              maxSectionCount: 4,
+              sectionSizing: FanSectionSizing.equal,
+              label: 'space-time',
+              labelColor: lgErgoCortexNodeLabelColor,
+              labelSize: 10,
+              gridStyle: lgErgoFanGridStyle,
+              position: LayoutRelativePosition.bottom,
             ),
           },
         ),
@@ -762,6 +682,24 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
       },
     ),
   },
+);
+
+const lgErgoSpaceTimeSectionNodeMatches = <NodeSearchParameter>[
+  NodeSearchParameter(parameter: NodeParameter.name, value: 'space'),
+  NodeSearchParameter(parameter: NodeParameter.name, value: 'space-section'),
+  NodeSearchParameter(parameter: NodeParameter.name, value: 'time'),
+  NodeSearchParameter(parameter: NodeParameter.name, value: 'time-section'),
+];
+
+const lgErgoCortexBushNodeFilter = NodeSearchFilter(
+  includeNodesMatching: [
+    NodeSearchParameter(parameter: NodeParameter.label, value: 'Section'),
+  ],
+  excludeNodesMatching: lgErgoSpaceTimeSectionNodeMatches,
+);
+
+const lgErgoSpaceTimeFanNodeFilter = NodeSearchFilter(
+  includeNodesMatching: lgErgoSpaceTimeSectionNodeMatches,
 );
 
 const lgErgoLayoutDefaultPadding = 20.0;

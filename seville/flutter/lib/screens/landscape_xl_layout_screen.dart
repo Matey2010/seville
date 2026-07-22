@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:seville_proto/seville_proto.dart';
 
 import '../components/layout_component_registry.dart';
+import '../constants/keymap.dart';
 import '../constants/layout/presets/lg_ergo/lg_ergo_layout_config.dart';
 import '../models/landscape_xl_layout.dart';
 import '../models/layout.dart';
+import '../state/hud_store.dart';
 import '../state/node_store.dart';
 import '../utils/common_utilities.dart';
 import '../utils/vault_node_resolver.dart';
 import '../widgets/landscape_xl_layout_view.dart';
+import '../widgets/search_hud.dart';
 
 class LandscapeXlLayoutScreen extends ConsumerStatefulWidget {
   const LandscapeXlLayoutScreen({
@@ -28,6 +32,18 @@ class LandscapeXlLayoutScreen extends ConsumerStatefulWidget {
 
 class _LandscapeXlLayoutScreenState
     extends ConsumerState<LandscapeXlLayoutScreen> {
+  @override
+  void initState() {
+    super.initState();
+    HardwareKeyboard.instance.addHandler(_handleKeyEvent);
+  }
+
+  @override
+  void dispose() {
+    HardwareKeyboard.instance.removeHandler(_handleKeyEvent);
+    super.dispose();
+  }
+
   ResolvedVaultNode? _resolveInitialHighlightedNode(
     VaultNodeResolver resolver,
   ) {
@@ -42,6 +58,7 @@ class _LandscapeXlLayoutScreenState
     final layout = widget.layout ?? lgErgoLayoutConfig;
     final highlightedNodes = ref.watch(highlightedNodesProvider);
     final selectedNodes = ref.watch(selectedNodesProvider);
+    final hudState = ref.watch(hudStateProvider);
     final resolverState = ref.watch(vaultNodeResolverProvider);
     final systemInfoState = ref.watch(systemInfoProvider);
     ref.listen(vaultNodeResolverProvider, (_, next) {
@@ -93,15 +110,21 @@ class _LandscapeXlLayoutScreenState
       }
     }
     return Scaffold(
-      body: LandscapeXlLayoutView(
-        layout: layout,
-        componentRegistry: widget.componentRegistry,
-        vaultNodeResolver: resolver,
-        systemInfo: systemInfo,
-        nodeTrees: nodeTrees,
-        highlightedNodes: highlightedNodes,
-        selectedNodes: selectedNodes,
-        onLayoutTap: _handleLayoutTap,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          LandscapeXlLayoutView(
+            layout: layout,
+            componentRegistry: widget.componentRegistry,
+            vaultNodeResolver: resolver,
+            systemInfo: systemInfo,
+            nodeTrees: nodeTrees,
+            highlightedNodes: highlightedNodes,
+            selectedNodes: selectedNodes,
+            onLayoutTap: _handleLayoutTap,
+          ),
+          if (hudState.isSearchEnabled) const SearchHud(),
+        ],
       ),
     );
   }
@@ -114,6 +137,10 @@ class _LandscapeXlLayoutScreenState
   }
 
   void _handleLayoutTap(LayoutTapTarget target) {
+    if (target.layout.aliases.contains('open-search-hud')) {
+      _showSearch();
+      return;
+    }
     if (target.layout.aliases.contains('clear-selection-action')) {
       ref.read(selectedNodesProvider.notifier).clear();
       CommonUtilities.log('[action panel] cleared selected nodes');
@@ -175,6 +202,30 @@ class _LandscapeXlLayoutScreenState
 
     _logResolvedNodeTap(target, resolvedNode, resolvedGraphNode);
     ref.read(selectedNodesProvider.notifier).toggle(resolvedNode);
+  }
+
+  void _showSearch() {
+    ref.read(hudStateProvider.notifier).showSearch();
+    CommonUtilities.log('[interface] opened search HUD');
+  }
+
+  void _clearInterface() {
+    ref.read(selectedNodesProvider.notifier).clear();
+    ref.read(hudStateProvider.notifier).hideSearch();
+    CommonUtilities.log('[interface] cleared selected nodes and hid HUD');
+  }
+
+  bool _handleKeyEvent(KeyEvent event) {
+    switch (resolveSevilleKeymapAction(event, HardwareKeyboard.instance)) {
+      case SevilleKeymapAction.showSearch:
+        _showSearch();
+        return true;
+      case SevilleKeymapAction.clearInterface:
+        _clearInterface();
+        return true;
+      case null:
+        return false;
+    }
   }
 
   void _logResolvedNodeTap(

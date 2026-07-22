@@ -108,7 +108,11 @@
   owning polygon boundary; do not add a parallel radius/semicircle renderer.
   Cardinal positions (`top`, `right`, `bottom`, and `left`) own a 180-degree
   fan, `LayoutRelativePosition.d(...)` owns a 90-degree fan, and other
-  positions own a 360-degree fan. Divide that span into equal angular sections.
+  positions own a 360-degree fan. `FanSectionSizing.equal` divides sibling
+  spans equally. `FanSectionSizing.directPartsWeighted` gives each occurrence
+  `1 + visibleDirectPartCount` fraction units after `maxSectionCount` and depth
+  limits are applied. Use the same calculated stops for paths, guides, labels,
+  and hit testing.
   Configure data-level matching through the optional `nodeFilter`, whose
   `includeNodesMatching` and `excludeNodesMatching` lists contain structured
   `NodeSearchParameter` values. These filters belong to the tree API request
@@ -117,10 +121,9 @@
   occurrence prunes its traversal branch.
   Keep internal bands on a shared regular radius so polygon perspective does
   not visually widen the edge sections; only the final row reaches the owning
-  polygon boundary. Internal separators remain equally angular, while their
-  final-row endpoints divide the visible polygon boundary by equal path length;
-  this keeps the first and last outer cells equal to the middle cells in both
-  triangular and trapezoidal planes.
+  polygon boundary. Final-row endpoints project the sizing policy's cumulative
+  fractions onto the visible polygon boundary by path length, so triangular and
+  trapezoidal perspective does not add unintended edge width.
   Fan `rowsConfig` are radial bands from root outward and
   `columnsConfig` are angular segments across the tree fan.
   LG Ergo keeps its always-available shallow fan under `top-plane`.
@@ -138,16 +141,16 @@
   map key owns identity, preventing IDs and measurements from drifting apart.
   Use `LayoutSize.fr` for flexible space, `LayoutSize.pt` (`px` alias)
   for fixed gaps, and `LayoutSize.calculatedFr` when a track is a computed
-  fraction with a fallback value. The current LG Ergo bottom time grid is
-  intentionally simple: rows `hour`, `day`, and `week` use shared `previous`,
-  `current`, and `next` columns. `now` itself is not a grid column in this
-  preset; render it as a red overlay `RayLayout` owned by `bottom-plane`. Do not
-  pad root screen or safe-area anchors in LG Ergo; each plane owns its own padding using
-  `LayoutPath.padding` and `lgErgoLayoutDefaults.padding`, not fake grid tracks.
+  fraction with a fallback value. Do not pad root screen or safe-area anchors
+  in LG Ergo; each plane owns its own padding using `LayoutPath.padding` and
+  `lgErgoLayoutDefaults.padding`, not fake grid tracks.
   The LG Ergo `top-plane` and `bottom-plane` are owned by
-  `safe-area.layouts`; future controls, radial branches, temporal bands, and
-  overlays for those planes belong beneath those plane nodes rather than at the
-  screen root.
+  `safe-area.layouts` and each owns a `FanLayout`. `cortex-bush` uses
+  direct-parts-weighted sizing and excludes the shared space-time name matches;
+  `time-fan` includes those matches and uses equal sizing. Keep the shared match
+  list as the configuration dependency between their complementary filters.
+  Future controls, radial branches, temporal bands, and overlays for those
+  planes belong beneath those plane nodes rather than at the screen root.
   The scene inner circle resolves through the
   owning layout's `padding + borderWidth`, while the outer circle remains the
   scene boundary for anchors and shape framing.
@@ -192,10 +195,19 @@
 - Renderable layouts are Flame components. Route taps through
   `LandscapeXlLayoutView.onLayoutTap` and return a `LayoutTapTarget` from the
   same geometry rendered by the component. Flutter widgets are reserved for
-  the `GameWidget` host and an explicitly introduced HUD. Seville has no HUD
-  implementation today, so do not classify ordinary interface content as HUD
-  to justify a widget. Do not build Flutter widget renderers, interaction
+  the `GameWidget` host and explicitly introduced HUDs. `SearchHud` is the only
+  HUD implementation today, so do not classify ordinary interface content as
+  HUD to justify a widget. Do not build Flutter widget renderers, interaction
   layers, or hit boxes for layout content.
+- `SearchHud` is the first explicit Flutter HUD exception. Its visibility and
+  submitted value belong to `hudStateProvider`; its action-plane trigger
+  remains a Flame-rendered `PanelLayout`. Additional ordinary layout content
+  must not be reclassified as HUD merely because this overlay exists.
+- Keyboard bindings resolve centrally in `lib/constants/keymap.dart` from
+  Flutter hardware key events to application actions. The screen owns the one
+  lifecycle keyboard handler and translates those actions into Riverpod
+  notifier calls. Do not import providers into the keymap or duplicate key
+  interpretation inside Flame components and HUD widgets.
 - Classify layouts with `List<LayoutAttribute>` using lower-camel enum values.
   Put reusable computed geometry in attribute-provided derivatives and let
   explicit snapshots override only the values they specialize.

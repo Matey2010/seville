@@ -1448,6 +1448,12 @@ typedef _FanSegment = ({
   double labelWidth,
 });
 
+typedef _FanOccurrenceHierarchy = ({
+  NodeTreeOccurrence root,
+  List<NodeTreeOccurrence> occurrences,
+  Map<String, List<NodeTreeOccurrence>> childrenByParent,
+});
+
 typedef _FanFrame = ({
   Offset center,
   double growthAngle,
@@ -1470,16 +1476,18 @@ void _drawFanLayout(
   required List<Offset> planePoints,
 }) {
   if (tree == null || tree.occurrences.isEmpty) return;
+  final hierarchy = _fanOccurrenceHierarchy(fan, tree);
+  if (hierarchy == null) return;
   final frame = _resolveFanFrame(
     fan,
-    tree,
+    hierarchy,
     bounds,
     layouts,
     layoutContext,
     planePoints: planePoints,
   );
   if (frame == null) return;
-  final segments = _fanSegmentsInFrame(fan, tree, frame);
+  final segments = _fanSegmentsInFrame(fan, hierarchy, frame);
   final borderStyle = fan.style;
   final borderWidth =
       fan.layoutDefaults?.borderWidth ?? borderStyle.strokeWidth;
@@ -1560,20 +1568,60 @@ List<_FanSegment> _fanSegments(
   LayoutContext layoutContext, {
   required List<Offset> planePoints,
 }) {
+  final hierarchy = _fanOccurrenceHierarchy(fan, tree);
+  if (hierarchy == null) return const [];
   final frame = _resolveFanFrame(
     fan,
-    tree,
+    hierarchy,
     bounds,
     layouts,
     layoutContext,
     planePoints: planePoints,
   );
-  return frame == null ? const [] : _fanSegmentsInFrame(fan, tree, frame);
+  return frame == null ? const [] : _fanSegmentsInFrame(fan, hierarchy, frame);
+}
+
+_FanOccurrenceHierarchy? _fanOccurrenceHierarchy(FanLayout fan, NodeTree tree) {
+  final depthLimitedOccurrences = tree.occurrences
+      .where((occurrence) => occurrence.depth < fan.maxDepth)
+      .toList(growable: false);
+  final root = depthLimitedOccurrences
+      .where((occurrence) => occurrence.depth == 0)
+      .firstOrNull;
+  if (root == null) return null;
+
+  final uncappedChildren = <String, List<NodeTreeOccurrence>>{};
+  for (final occurrence in depthLimitedOccurrences) {
+    if (!occurrence.hasParentOccurrenceId()) continue;
+    uncappedChildren
+        .putIfAbsent(occurrence.parentOccurrenceId, () => [])
+        .add(occurrence);
+  }
+  final occurrences = <NodeTreeOccurrence>[];
+  final childrenByParent = <String, List<NodeTreeOccurrence>>{};
+  void addVisibleOccurrence(NodeTreeOccurrence occurrence) {
+    occurrences.add(occurrence);
+    final children = (uncappedChildren[occurrence.occurrenceId] ?? const [])
+        .take(fan.maxSectionCount)
+        .toList(growable: false);
+    if (children.isEmpty) return;
+    childrenByParent[occurrence.occurrenceId] = children;
+    for (final child in children) {
+      addVisibleOccurrence(child);
+    }
+  }
+
+  addVisibleOccurrence(root);
+  return (
+    root: root,
+    occurrences: occurrences,
+    childrenByParent: childrenByParent,
+  );
 }
 
 _FanFrame? _resolveFanFrame(
   FanLayout fan,
-  NodeTree tree,
+  _FanOccurrenceHierarchy hierarchy,
   Rect bounds,
   Map<String, _ResolvedLayout> layouts,
   LayoutContext layoutContext, {
@@ -1622,14 +1670,7 @@ _FanFrame? _resolveFanFrame(
     );
   }
   if (boundaryStops.last <= 0) return null;
-  final visibleOccurrences = tree.occurrences
-      .where((occurrence) => occurrence.depth < fan.maxDepth)
-      .toList(growable: false);
-  final root = visibleOccurrences
-      .where((occurrence) => occurrence.depth == 0)
-      .firstOrNull;
-  if (root == null) return null;
-  final deepestDepth = visibleOccurrences.fold<int>(
+  final deepestDepth = hierarchy.occurrences.fold<int>(
     0,
     (deepest, occurrence) => math.max(deepest, occurrence.depth.toInt()),
   );
@@ -1637,27 +1678,16 @@ _FanFrame? _resolveFanFrame(
     fan.maxDepth,
     math.max(fan.minDepth, deepestDepth + 1),
   );
-  final rootSectionCount = visibleOccurrences
-      .where(
-        (occurrence) =>
-            occurrence.hasParentOccurrenceId() &&
-            occurrence.parentOccurrenceId == root.occurrenceId,
-      )
-      .length;
-  final columnCount = math.min(
-    fan.maxSectionCount,
-    math.max(rootSectionCount, 1),
-  );
   final rowStops = _gridTrackStops([
     for (final row in fan.rowsConfig.values.take(rowCount)) row.size,
   ], regularRadius);
-  final columnStops = _gridTrackStops(
-    [
-      for (final column in fan.columnsConfig.values.take(columnCount))
-        column.size,
-    ],
-    angleSpan,
-  ).map((stop) => startTheta + stop * angleSpan).toList(growable: false);
+  final columnStops = _fanSectionStops(
+    fan,
+    hierarchy,
+    hierarchy.childrenByParent[hierarchy.root.occurrenceId] ?? const [],
+    startTheta,
+    endTheta,
+  );
   return (
     center: center,
     growthAngle: growthAngle,
@@ -1673,21 +1703,9 @@ _FanFrame? _resolveFanFrame(
 
 List<_FanSegment> _fanSegmentsInFrame(
   FanLayout fan,
-  NodeTree tree,
+  _FanOccurrenceHierarchy hierarchy,
   _FanFrame frame,
 ) {
-  final childrenByParent = <String, List<NodeTreeOccurrence>>{};
-  NodeTreeOccurrence? root;
-  for (final occurrence in tree.occurrences) {
-    if (occurrence.depth == 0 && root == null) root = occurrence;
-    if (occurrence.hasParentOccurrenceId()) {
-      childrenByParent
-          .putIfAbsent(occurrence.parentOccurrenceId, () => [])
-          .add(occurrence);
-    }
-  }
-  if (root == null) return const [];
-
   final segments = <_FanSegment>[];
   late void Function(NodeTreeOccurrence, double, double) addOccurrence;
   addOccurrence = (occurrence, startTheta, endTheta) {
@@ -1723,20 +1741,50 @@ List<_FanSegment> _fanSegmentsInFrame(
       labelWidth: math.max((labelEnd - labelStart).distance - 8, 0),
     ));
 
-    final children = (childrenByParent[occurrence.occurrenceId] ?? const [])
-        .take(fan.maxSectionCount)
-        .toList(growable: false);
+    final children =
+        hierarchy.childrenByParent[occurrence.occurrenceId] ?? const [];
     if (children.isEmpty) return;
-    final childSpan = (endTheta - startTheta) / children.length;
-    var childStart = startTheta;
-    for (final child in children) {
-      final childEnd = childStart + childSpan;
-      addOccurrence(child, childStart, childEnd);
-      childStart = childEnd;
+    final childStops = _fanSectionStops(
+      fan,
+      hierarchy,
+      children,
+      startTheta,
+      endTheta,
+    );
+    for (var index = 0; index < children.length; index += 1) {
+      addOccurrence(children[index], childStops[index], childStops[index + 1]);
     }
   };
-  addOccurrence(root, frame.startTheta, frame.endTheta);
+  addOccurrence(hierarchy.root, frame.startTheta, frame.endTheta);
   return segments;
+}
+
+List<double> _fanSectionStops(
+  FanLayout fan,
+  _FanOccurrenceHierarchy hierarchy,
+  List<NodeTreeOccurrence> sections,
+  double startTheta,
+  double endTheta,
+) {
+  if (sections.isEmpty) return [startTheta, endTheta];
+  final weights = [
+    for (final section in sections)
+      switch (fan.sectionSizing) {
+        FanSectionSizing.equal => 1.0,
+        FanSectionSizing.directPartsWeighted =>
+          1.0 + (hierarchy.childrenByParent[section.occurrenceId]?.length ?? 0),
+      },
+  ];
+  final totalWeight = weights.fold<double>(0, (sum, weight) => sum + weight);
+  final span = endTheta - startTheta;
+  final stops = <double>[startTheta];
+  var consumedWeight = 0.0;
+  for (final weight in weights) {
+    consumedWeight += weight;
+    stops.add(startTheta + span * consumedWeight / totalWeight);
+  }
+  stops[stops.length - 1] = endTheta;
+  return stops;
 }
 
 void _drawFanGrid(Canvas canvas, FanLayout fan, _FanFrame frame) {
