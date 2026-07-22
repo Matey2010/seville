@@ -123,6 +123,9 @@ class Node extends $pb.GeneratedMessage {
     $core.Iterable<$core.MapEntry<$core.String, $core.String>>? frontmatter,
     $0.Timestamp? modifiedAt,
     $core.Iterable<Emoji>? emojis,
+    $core.Iterable<$core.String>? labels,
+    $core.String? slug,
+    $fixnum.Int64? updateCount,
   }) {
     final result = create();
     if (id != null) result.id = id;
@@ -133,6 +136,9 @@ class Node extends $pb.GeneratedMessage {
     if (frontmatter != null) result.frontmatter.addEntries(frontmatter);
     if (modifiedAt != null) result.modifiedAt = modifiedAt;
     if (emojis != null) result.emojis.addAll(emojis);
+    if (labels != null) result.labels.addAll(labels);
+    if (slug != null) result.slug = slug;
+    if (updateCount != null) result.updateCount = updateCount;
     return result;
   }
 
@@ -163,6 +169,11 @@ class Node extends $pb.GeneratedMessage {
     ..aOM<$0.Timestamp>(7, _omitFieldNames ? '' : 'modifiedAt',
         subBuilder: $0.Timestamp.create)
     ..pPM<Emoji>(8, _omitFieldNames ? '' : 'emojis', subBuilder: Emoji.create)
+    ..pPS(9, _omitFieldNames ? '' : 'labels')
+    ..aOS(10, _omitFieldNames ? '' : 'slug')
+    ..a<$fixnum.Int64>(
+        11, _omitFieldNames ? '' : 'updateCount', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -238,6 +249,27 @@ class Node extends $pb.GeneratedMessage {
 
   @$pb.TagNumber(8)
   $pb.PbList<Emoji> get emojis => $_getList(7);
+
+  @$pb.TagNumber(9)
+  $pb.PbList<$core.String> get labels => $_getList(8);
+
+  @$pb.TagNumber(10)
+  $core.String get slug => $_getSZ(9);
+  @$pb.TagNumber(10)
+  set slug($core.String value) => $_setString(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasSlug() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearSlug() => $_clearField(10);
+
+  @$pb.TagNumber(11)
+  $fixnum.Int64 get updateCount => $_getI64(10);
+  @$pb.TagNumber(11)
+  set updateCount($fixnum.Int64 value) => $_setInt64(10, value);
+  @$pb.TagNumber(11)
+  $core.bool hasUpdateCount() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearUpdateCount() => $_clearField(11);
 }
 
 class Emoji extends $pb.GeneratedMessage {

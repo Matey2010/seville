@@ -20,6 +20,7 @@ enum NodeParameterType {
   NODE_PARAMETER_TYPE_TITLE = 4;
   NODE_PARAMETER_TYPE_TAG = 5;
   NODE_PARAMETER_TYPE_LABEL = 6;
+  NODE_PARAMETER_TYPE_SLUG = 7;
 }
 
 enum NodeSearchMatchOperator {
@@ -29,6 +30,12 @@ enum NodeSearchMatchOperator {
   NODE_SEARCH_MATCH_OPERATOR_STARTS_WITH = 3;
   NODE_SEARCH_MATCH_OPERATOR_ENDS_WITH = 4;
   NODE_SEARCH_MATCH_OPERATOR_CONTAINS = 5;
+}
+
+enum NodeSearchMatchMode {
+  NODE_SEARCH_MATCH_MODE_UNSPECIFIED = 0;
+  NODE_SEARCH_MATCH_MODE_ANY = 1;
+  NODE_SEARCH_MATCH_MODE_ALL = 2;
 }
 
 message NodeSearchParameter {
@@ -43,6 +50,17 @@ message NodeSearchParameter {
 message NodeSearchFilter {
   repeated NodeSearchParameter include_nodes_matching = 1;
   repeated NodeSearchParameter exclude_nodes_matching = 2;
+  NodeSearchMatchMode include_match_mode = 3;
+  bool negated = 4;
+}
+
+message NodeSearchQuery {
+  NodeSearchFilter node_filter = 1;
+  optional uint32 limit = 2;
+}
+
+message NodeSearchResult {
+  repeated seville.node.v2.Node nodes = 1;
 }
 
 message NodeTreeQuery {
@@ -50,6 +68,7 @@ message NodeTreeQuery {
   optional uint32 depth = 2;
   NodeRelationshipType traverse_by = 3;
   optional NodeSearchFilter node_filter = 4;
+  optional NodeSearchFilter root_node_filter = 5;
 }
 
 message NodeTreeOccurrence {

@@ -11,4 +11,5 @@ protoc \
   --dart_out=proto/gen/dart/lib/src \
   proto/seville/node/v2/node.proto \
   proto/seville/nodes/v1/tree.proto \
+  proto/seville/notification/v1/notification.proto \
   proto/seville/system/v1/system.proto

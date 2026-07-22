@@ -132,21 +132,24 @@ identity. Notes without IDs are skipped and reported.
 The current core graph uses:
 
 ```cypher
-(:Node {
+({
   id, path, title, body, tags, frontmatter_json
 })
 
 (:Tag {id, name})
 
-(:Node)-[:TAGGED_WITH {
+(node)-[:TAGGED_WITH {
   weight: 1.0,
   source: "markdown"
 }]->(:Tag)
 
-(:Node)-[:LINKS_TO]->(:Node)
+(source)-[:LINKS_TO]->(target)
 ```
 
-`Node.id` and `Tag.id` are unique. Unresolved targets are retained as
+Seville Nodes do not require a `Node` or `EvolvedNode` Neo4j label. Their
+labels are classification metadata transported by the API, while stable `id`
+and graph role establish identity. `Node.id` values must remain unique among
+Seville Nodes, and `Tag.id` is label-scoped unique. Unresolved targets are retained as
 `SevilleUnresolvedLink` records rather than discarded. `SevilleScanState`
 stores ingestion status and diagnostics.
 

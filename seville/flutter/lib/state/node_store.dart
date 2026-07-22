@@ -28,11 +28,12 @@ final vaultNodeResolverProvider = FutureProvider<VaultNodeResolver>((
 
 final nodeEmojisProvider = Provider.family<AsyncValue<List<Emoji>>, String>((
   ref,
-  nodeId,
+  nodeSlug,
 ) {
+  final normalizedSlug = nodeSlug.trim();
   return ref.watch(nodeSnapshotProvider).whenData((snapshot) {
     for (final node in snapshot.nodes) {
-      if (node.id == nodeId) {
+      if (node.slug.trim() == normalizedSlug) {
         return List<Emoji>.unmodifiable(node.emojis);
       }
     }
@@ -45,15 +46,27 @@ final systemInfoProvider = FutureProvider<SystemInfo>((ref) async {
   return api.systemInfo();
 });
 
+final nodeSearchProvider = FutureProvider.family<NodeSearchResult, String>((
+  ref,
+  value,
+) async {
+  final normalizedValue = value.trim();
+  if (normalizedValue.isEmpty) return NodeSearchResult();
+  final api = ref.watch(sevilleApiProvider);
+  return api.searchNodes(normalizedValue);
+});
+
 class NodeTreeRequest {
   NodeTreeRequest({
     required this.rootNodeId,
+    required this.rootNodeFilter,
     required this.depth,
     required this.traverseBy,
     this.nodeFilter,
   });
 
   final String? rootNodeId;
+  final NodeSearchFilter? rootNodeFilter;
   final int depth;
   final GraphTraverseType traverseBy;
   final NodeSearchFilter? nodeFilter;
@@ -62,12 +75,14 @@ class NodeTreeRequest {
   bool operator ==(Object other) =>
       other is NodeTreeRequest &&
       rootNodeId == other.rootNodeId &&
+      rootNodeFilter == other.rootNodeFilter &&
       depth == other.depth &&
       traverseBy == other.traverseBy &&
       nodeFilter == other.nodeFilter;
 
   @override
-  int get hashCode => Object.hash(rootNodeId, depth, traverseBy, nodeFilter);
+  int get hashCode =>
+      Object.hash(rootNodeId, rootNodeFilter, depth, traverseBy, nodeFilter);
 }
 
 final nodeTreeProvider = FutureProvider.family<NodeTree, NodeTreeRequest>((
@@ -77,6 +92,7 @@ final nodeTreeProvider = FutureProvider.family<NodeTree, NodeTreeRequest>((
   final api = ref.watch(sevilleApiProvider);
   return api.nodeTree(
     rootNodeId: request.rootNodeId,
+    rootNodeFilter: request.rootNodeFilter,
     depth: request.depth,
     traverseBy: request.traverseBy,
     nodeFilter: request.nodeFilter,
@@ -123,13 +139,11 @@ class SelectedNodesNotifier extends Notifier<List<ResolvedVaultNode>> {
 }
 
 bool _representsSameNode(ResolvedVaultNode left, ResolvedVaultNode right) {
-  final leftId = left.node?.id.trim();
-  final rightId = right.node?.id.trim();
-  if (leftId != null &&
-      leftId.isNotEmpty &&
-      rightId != null &&
-      rightId.isNotEmpty) {
-    return leftId == rightId;
-  }
-  return left.path == right.path;
+  final leftSlug = left.node?.slug.trim();
+  final rightSlug = right.node?.slug.trim();
+  return leftSlug != null &&
+      leftSlug.isNotEmpty &&
+      rightSlug != null &&
+      rightSlug.isNotEmpty &&
+      leftSlug == rightSlug;
 }

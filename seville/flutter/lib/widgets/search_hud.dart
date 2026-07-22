@@ -57,7 +57,7 @@ class _SearchHudState extends ConsumerState<SearchHud> {
                   ),
                   TextButton(
                     onPressed: () => _submit(_controller.text),
-                    child: const Text('OK'),
+                    child: const Text('Search'),
                   ),
                   IconButton(
                     tooltip: 'Close',

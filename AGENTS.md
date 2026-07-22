@@ -118,7 +118,13 @@
   `NodeSearchParameter` values. These filters belong to the tree API request
   and Riverpod provider identity, not to the painter. Include entries are
   OR-matched when present, exclude entries are always OR-matched, and a rejected
-  occurrence prunes its traversal branch.
+  occurrence prunes its traversal branch. Configure root discovery separately
+  with `rootNodeFilter`; LG Ergo resolves its shared Fan root with a `slug`
+  contains `cortex` parameter instead of process environment configuration.
+  Preserve every matching root as a depth-zero occurrence, capped by
+  `maxSectionCount`. Divide the root band equally between matches before
+  applying each root's normal child sizing policy; two roots occupy the two
+  halves separated by the Fan's center ray.
   Keep internal bands on a shared regular radius so polygon perspective does
   not visually widen the edge sections; only the final row reaches the owning
   polygon boundary. Final-row endpoints project the sizing policy's cumulative
@@ -179,9 +185,15 @@
   only a border when it does not. Keep `fillColor` for manual/background fills
   that are not graph-node assignments.
 - For compact Node labels, render the first assigned non-empty
-  `Emoji.character` before textual metadata. Fall back to `Node.title`, then
-  `Node.id`. Keep this priority in the shared Node presentation helper rather
-  than implementing different selection rules in individual Flame components.
+  `Emoji.character` before textual metadata. Fall back to `Node.slug`; legacy
+  title and ID values are only last-resort compatibility labels. When a slug is
+  rendered, wrap it with `LayoutDefaults.nodeSlugPrefix` and
+  `LayoutDefaults.nodeSlugSuffix`; LG Ergo uses `[[` and `]]`. Search result
+  rows deliberately render the wrapped slug even when the Node has an Emoji.
+  Keep this priority and formatting in the shared Node presentation helper
+  rather than implementing different rules in individual Flame components.
+  Riverpod-selected
+  Node identity and active renderer state use the unique slug, never `Node.id`.
 - Store `LayoutBackgroundElement` values in the parent `Layout.layouts` map.
   `orderPosition` is frontend stacking metadata: lower values paint first,
   while guides and content stay above background children.
@@ -195,19 +207,40 @@
 - Renderable layouts are Flame components. Route taps through
   `LandscapeXlLayoutView.onLayoutTap` and return a `LayoutTapTarget` from the
   same geometry rendered by the component. Flutter widgets are reserved for
-  the `GameWidget` host and explicitly introduced HUDs. `SearchHud` is the only
-  HUD implementation today, so do not classify ordinary interface content as
-  HUD to justify a widget. Do not build Flutter widget renderers, interaction
-  layers, or hit boxes for layout content.
+  the `GameWidget` host and explicitly introduced HUDs. `SearchHud` and
+  `HudToastLayer` are the only HUD implementations today, so do not classify
+  ordinary interface content as HUD to justify a widget. Do not build Flutter
+  widget renderers, interaction layers, or hit boxes for layout content.
 - `SearchHud` is the first explicit Flutter HUD exception. Its visibility and
   submitted value belong to `hudStateProvider`; its action-plane trigger
   remains a Flame-rendered `PanelLayout`. Additional ordinary layout content
   must not be reclassified as HUD merely because this overlay exists.
+- Search submission from the HUD Search button and keyboard Enter writes one
+  normalized value to `hudStateProvider`. `nodeSearchProvider` sends that value
+  through `QUERY /nodes/v1/search`. Results are ordinary Flame content rendered
+  by the configured right-plane `NodeListLayout`, never Flutter HUD children.
+  Node-list rows use the shared selected-node slug set for active opacity and
+  return normal `LayoutTapTarget` values so tapping toggles
+  `selectedNodesProvider` for Fan and Graph consumers too.
+- Toast producers append `HudToastEvent` values only through
+  `hudToastProvider`. Its Riverpod state is a durable queue until dismissal;
+  `HudToastLayer` is the single adapter from that queue to the public
+  `overlay_layers` API. It owns the top-right stack, three-second
+  dismissal, and overlay cleanup. Keep this boundary compatible with replacing
+  the hosted dependency by `packages/overlay_layers`; do not import
+  `overlay_layers` into actions, Flame components, or Riverpod notifiers.
+  Every event carries the protobuf `NotificationType`. `HudNotification` is the
+  Flutter widget body and currently owns the fixed mappings: info blue
+  `#1976D2`, error red `#D32F2F`, warning yellow `#F9A825`, and success green
+  `#388E3C`. Do not move colors into protobuf.
 - Keyboard bindings resolve centrally in `lib/constants/keymap.dart` from
   Flutter hardware key events to application actions. The screen owns the one
   lifecycle keyboard handler and translates those actions into Riverpod
   notifier calls. Do not import providers into the keymap or duplicate key
-  interpretation inside Flame components and HUD widgets.
+  interpretation inside Flame components and HUD widgets. Command-R refreshes
+  every currently watched Fan `NodeTree` provider through the screen action.
+  Command-C copies the last Riverpod-selected Node slug through the same screen
+  action used by the Flame-rendered copy button.
 - Classify layouts with `List<LayoutAttribute>` using lower-camel enum values.
   Put reusable computed geometry in attribute-provided derivatives and let
   explicit snapshots override only the values they specialize.

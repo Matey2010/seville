@@ -19,10 +19,10 @@ instructions, and workspace-specific documentation.
 ## Client rendering policy
 
 Seville interface content is rendered and interacted with through Flame
-components. Flutter widgets may host the `GameWidget` and may eventually host
-an explicitly designed HUD; there is no HUD implementation today. Do not add
-Flutter widget renderers, gesture layers, or hit boxes for layout or graph
-content.
+components. Flutter widgets host the `GameWidget` and explicit HUDs:
+`SearchHud` and Riverpod-driven toast overlays backed by `overlay_layers`.
+Do not add Flutter widget renderers, gesture layers, or hit boxes for layout or
+graph content.
 
 ## Verification policy
 

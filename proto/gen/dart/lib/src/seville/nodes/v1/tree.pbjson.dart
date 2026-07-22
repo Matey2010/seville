@@ -42,6 +42,7 @@ const NodeParameterType$json = {
     {'1': 'NODE_PARAMETER_TYPE_TITLE', '2': 4},
     {'1': 'NODE_PARAMETER_TYPE_TAG', '2': 5},
     {'1': 'NODE_PARAMETER_TYPE_LABEL', '2': 6},
+    {'1': 'NODE_PARAMETER_TYPE_SLUG', '2': 7},
   ],
 };
 
@@ -51,7 +52,7 @@ final $typed_data.Uint8List nodeParameterTypeDescriptor = $convert.base64Decode(
     'ASHAoYTk9ERV9QQVJBTUVURVJfVFlQRV9OQU1FEAESGgoWTk9ERV9QQVJBTUVURVJfVFlQRV9J'
     'RBACEhwKGE5PREVfUEFSQU1FVEVSX1RZUEVfUEFUSBADEh0KGU5PREVfUEFSQU1FVEVSX1RZUE'
     'VfVElUTEUQBBIbChdOT0RFX1BBUkFNRVRFUl9UWVBFX1RBRxAFEh0KGU5PREVfUEFSQU1FVEVS'
-    'X1RZUEVfTEFCRUwQBg==');
+    'X1RZUEVfTEFCRUwQBhIcChhOT0RFX1BBUkFNRVRFUl9UWVBFX1NMVUcQBw==');
 
 @$core.Deprecated('Use nodeSearchMatchOperatorDescriptor instead')
 const NodeSearchMatchOperator$json = {
@@ -74,6 +75,22 @@ final $typed_data.Uint8List nodeSearchMatchOperatorDescriptor = $convert.base64D
     '9TRUFSQ0hfTUFUQ0hfT1BFUkFUT1JfU1RBUlRTX1dJVEgQAxIoCiROT0RFX1NFQVJDSF9NQVRD'
     'SF9PUEVSQVRPUl9FTkRTX1dJVEgQBBInCiNOT0RFX1NFQVJDSF9NQVRDSF9PUEVSQVRPUl9DT0'
     '5UQUlOUxAF');
+
+@$core.Deprecated('Use nodeSearchMatchModeDescriptor instead')
+const NodeSearchMatchMode$json = {
+  '1': 'NodeSearchMatchMode',
+  '2': [
+    {'1': 'NODE_SEARCH_MATCH_MODE_UNSPECIFIED', '2': 0},
+    {'1': 'NODE_SEARCH_MATCH_MODE_ANY', '2': 1},
+    {'1': 'NODE_SEARCH_MATCH_MODE_ALL', '2': 2},
+  ],
+};
+
+/// Descriptor for `NodeSearchMatchMode`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List nodeSearchMatchModeDescriptor = $convert.base64Decode(
+    'ChNOb2RlU2VhcmNoTWF0Y2hNb2RlEiYKIk5PREVfU0VBUkNIX01BVENIX01PREVfVU5TUEVDSU'
+    'ZJRUQQABIeChpOT0RFX1NFQVJDSF9NQVRDSF9NT0RFX0FOWRABEh4KGk5PREVfU0VBUkNIX01B'
+    'VENIX01PREVfQUxMEAI=');
 
 @$core.Deprecated('Use nodeSearchParameterDescriptor instead')
 const NodeSearchParameter$json = {
@@ -129,6 +146,15 @@ const NodeSearchFilter$json = {
       '6': '.seville.nodes.v1.NodeSearchParameter',
       '10': 'excludeNodesMatching'
     },
+    {
+      '1': 'include_match_mode',
+      '3': 3,
+      '4': 1,
+      '5': 14,
+      '6': '.seville.nodes.v1.NodeSearchMatchMode',
+      '10': 'includeMatchMode'
+    },
+    {'1': 'negated', '3': 4, '4': 1, '5': 8, '10': 'negated'},
   ],
 };
 
@@ -137,7 +163,54 @@ final $typed_data.Uint8List nodeSearchFilterDescriptor = $convert.base64Decode(
     'ChBOb2RlU2VhcmNoRmlsdGVyElsKFmluY2x1ZGVfbm9kZXNfbWF0Y2hpbmcYASADKAsyJS5zZX'
     'ZpbGxlLm5vZGVzLnYxLk5vZGVTZWFyY2hQYXJhbWV0ZXJSFGluY2x1ZGVOb2Rlc01hdGNoaW5n'
     'ElsKFmV4Y2x1ZGVfbm9kZXNfbWF0Y2hpbmcYAiADKAsyJS5zZXZpbGxlLm5vZGVzLnYxLk5vZG'
-    'VTZWFyY2hQYXJhbWV0ZXJSFGV4Y2x1ZGVOb2Rlc01hdGNoaW5n');
+    'VTZWFyY2hQYXJhbWV0ZXJSFGV4Y2x1ZGVOb2Rlc01hdGNoaW5nElMKEmluY2x1ZGVfbWF0Y2hf'
+    'bW9kZRgDIAEoDjIlLnNldmlsbGUubm9kZXMudjEuTm9kZVNlYXJjaE1hdGNoTW9kZVIQaW5jbH'
+    'VkZU1hdGNoTW9kZRIYCgduZWdhdGVkGAQgASgIUgduZWdhdGVk');
+
+@$core.Deprecated('Use nodeSearchQueryDescriptor instead')
+const NodeSearchQuery$json = {
+  '1': 'NodeSearchQuery',
+  '2': [
+    {
+      '1': 'node_filter',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.seville.nodes.v1.NodeSearchFilter',
+      '10': 'nodeFilter'
+    },
+    {'1': 'limit', '3': 2, '4': 1, '5': 13, '9': 0, '10': 'limit', '17': true},
+  ],
+  '8': [
+    {'1': '_limit'},
+  ],
+};
+
+/// Descriptor for `NodeSearchQuery`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List nodeSearchQueryDescriptor = $convert.base64Decode(
+    'Cg9Ob2RlU2VhcmNoUXVlcnkSQwoLbm9kZV9maWx0ZXIYASABKAsyIi5zZXZpbGxlLm5vZGVzLn'
+    'YxLk5vZGVTZWFyY2hGaWx0ZXJSCm5vZGVGaWx0ZXISGQoFbGltaXQYAiABKA1IAFIFbGltaXSI'
+    'AQFCCAoGX2xpbWl0');
+
+@$core.Deprecated('Use nodeSearchResultDescriptor instead')
+const NodeSearchResult$json = {
+  '1': 'NodeSearchResult',
+  '2': [
+    {
+      '1': 'nodes',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.seville.node.v2.Node',
+      '10': 'nodes'
+    },
+  ],
+};
+
+/// Descriptor for `NodeSearchResult`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List nodeSearchResultDescriptor = $convert.base64Decode(
+    'ChBOb2RlU2VhcmNoUmVzdWx0EisKBW5vZGVzGAEgAygLMhUuc2V2aWxsZS5ub2RlLnYyLk5vZG'
+    'VSBW5vZGVz');
 
 @$core.Deprecated('Use nodeTreeQueryDescriptor instead')
 const NodeTreeQuery$json = {
@@ -171,11 +244,22 @@ const NodeTreeQuery$json = {
       '10': 'nodeFilter',
       '17': true
     },
+    {
+      '1': 'root_node_filter',
+      '3': 5,
+      '4': 1,
+      '5': 11,
+      '6': '.seville.nodes.v1.NodeSearchFilter',
+      '9': 3,
+      '10': 'rootNodeFilter',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_root_node_id'},
     {'1': '_depth'},
     {'1': '_node_filter'},
+    {'1': '_root_node_filter'},
   ],
 };
 
@@ -185,7 +269,9 @@ final $typed_data.Uint8List nodeTreeQueryDescriptor = $convert.base64Decode(
     'kKBWRlcHRoGAIgASgNSAFSBWRlcHRoiAEBEkcKC3RyYXZlcnNlX2J5GAMgASgOMiYuc2V2aWxs'
     'ZS5ub2Rlcy52MS5Ob2RlUmVsYXRpb25zaGlwVHlwZVIKdHJhdmVyc2VCeRJICgtub2RlX2ZpbH'
     'RlchgEIAEoCzIiLnNldmlsbGUubm9kZXMudjEuTm9kZVNlYXJjaEZpbHRlckgCUgpub2RlRmls'
-    'dGVyiAEBQg8KDV9yb290X25vZGVfaWRCCAoGX2RlcHRoQg4KDF9ub2RlX2ZpbHRlcg==');
+    'dGVyiAEBElEKEHJvb3Rfbm9kZV9maWx0ZXIYBSABKAsyIi5zZXZpbGxlLm5vZGVzLnYxLk5vZG'
+    'VTZWFyY2hGaWx0ZXJIA1IOcm9vdE5vZGVGaWx0ZXKIAQFCDwoNX3Jvb3Rfbm9kZV9pZEIICgZf'
+    'ZGVwdGhCDgoMX25vZGVfZmlsdGVyQhMKEV9yb290X25vZGVfZmlsdGVy');
 
 @$core.Deprecated('Use nodeTreeOccurrenceDescriptor instead')
 const NodeTreeOccurrence$json = {

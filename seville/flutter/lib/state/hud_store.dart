@@ -1,4 +1,57 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:seville_proto/seville_proto.dart';
+
+class HudToastEvent {
+  const HudToastEvent({
+    required this.id,
+    required this.message,
+    required this.type,
+  });
+
+  final int id;
+  final String message;
+  final NotificationType type;
+}
+
+final hudToastProvider =
+    NotifierProvider<HudToastNotifier, List<HudToastEvent>>(
+      HudToastNotifier.new,
+    );
+
+class HudToastNotifier extends Notifier<List<HudToastEvent>> {
+  var _nextId = 0;
+
+  @override
+  List<HudToastEvent> build() => const [];
+
+  void show(
+    String message, {
+    NotificationType type = NotificationType.NOTIFICATION_TYPE_INFO,
+  }) {
+    final normalizedMessage = message.trim();
+    if (normalizedMessage.isEmpty) return;
+    state = [
+      ...state,
+      HudToastEvent(id: _nextId++, message: normalizedMessage, type: type),
+    ];
+  }
+
+  void dismiss(int id) {
+    state = [
+      for (final toast in state)
+        if (toast.id != id) toast,
+    ];
+  }
+
+  void showCopiedText(String text) {
+    final normalizedText = text.trim();
+    if (normalizedText.isEmpty) return;
+    show(
+      'Copied: $normalizedText',
+      type: NotificationType.NOTIFICATION_TYPE_SUCCESS,
+    );
+  }
+}
 
 class HudState {
   const HudState({this.searchEnabled = false, this.searchValue = ''});

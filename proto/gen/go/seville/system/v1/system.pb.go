@@ -25,6 +25,9 @@ type SystemInfo struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	NodeCount         uint64                 `protobuf:"varint,1,opt,name=node_count,json=nodeCount,proto3" json:"node_count,omitempty"`
 	NodePropertyCount uint64                 `protobuf:"varint,2,opt,name=node_property_count,json=nodePropertyCount,proto3" json:"node_property_count,omitempty"`
+	Neo4JLabels       []string               `protobuf:"bytes,3,rep,name=neo4j_labels,json=neo4jLabels,proto3" json:"neo4j_labels,omitempty"`
+	GoVersion         string                 `protobuf:"bytes,4,opt,name=go_version,json=goVersion,proto3" json:"go_version,omitempty"`
+	Neo4JVersion      string                 `protobuf:"bytes,5,opt,name=neo4j_version,json=neo4jVersion,proto3" json:"neo4j_version,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -73,16 +76,41 @@ func (x *SystemInfo) GetNodePropertyCount() uint64 {
 	return 0
 }
 
+func (x *SystemInfo) GetNeo4JLabels() []string {
+	if x != nil {
+		return x.Neo4JLabels
+	}
+	return nil
+}
+
+func (x *SystemInfo) GetGoVersion() string {
+	if x != nil {
+		return x.GoVersion
+	}
+	return ""
+}
+
+func (x *SystemInfo) GetNeo4JVersion() string {
+	if x != nil {
+		return x.Neo4JVersion
+	}
+	return ""
+}
+
 var File_seville_system_v1_system_proto protoreflect.FileDescriptor
 
 const file_seville_system_v1_system_proto_rawDesc = "" +
 	"\n" +
-	"\x1eseville/system/v1/system.proto\x12\x11seville.system.v1\"[\n" +
+	"\x1eseville/system/v1/system.proto\x12\x11seville.system.v1\"\xc2\x01\n" +
 	"\n" +
 	"SystemInfo\x12\x1d\n" +
 	"\n" +
 	"node_count\x18\x01 \x01(\x04R\tnodeCount\x12.\n" +
-	"\x13node_property_count\x18\x02 \x01(\x04R\x11nodePropertyCountBFZDgithub.com/Matey2010/seville/proto/gen/go/seville/system/v1;systemv1b\x06proto3"
+	"\x13node_property_count\x18\x02 \x01(\x04R\x11nodePropertyCount\x12!\n" +
+	"\fneo4j_labels\x18\x03 \x03(\tR\vneo4jLabels\x12\x1d\n" +
+	"\n" +
+	"go_version\x18\x04 \x01(\tR\tgoVersion\x12#\n" +
+	"\rneo4j_version\x18\x05 \x01(\tR\fneo4jVersionBFZDgithub.com/Matey2010/seville/proto/gen/go/seville/system/v1;systemv1b\x06proto3"
 
 var (
 	file_seville_system_v1_system_proto_rawDescOnce sync.Once

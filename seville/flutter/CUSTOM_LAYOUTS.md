@@ -117,9 +117,10 @@ PositionComponent buildOrbitLayout(
 ```
 
 Renderable layout content is a Flame component. Flutter widgets are reserved
-for application composition, the `GameWidget` host, and a future explicitly
-designed HUD. There is no HUD today, so ordinary layout content must not be
-implemented as a widget or parallel gesture layer.
+for application composition, the `GameWidget` host, and explicitly designed
+HUDs. The current HUDs are `SearchHud` and the Riverpod-driven
+`HudToastLayer`; ordinary layout content must not be implemented as a widget or
+parallel gesture layer.
 
 ## 4. Register it
 
@@ -311,29 +312,55 @@ sibling widths. `FanSectionSizing.directPartsWeighted` assigns each occurrence
 limits. Internal bands keep a regular radius while the final band adapts the
 same cumulative fractions to the owning `LayoutPath` boundary by path length,
 preventing triangle or trapezoid perspective from adding unintended edge width.
-Use `rootNodeId` for a fixed API root, or
+Use `rootNodeId` for a fixed API root,
+`rootNodeFilter` for data-driven root discovery, or
 `rootNodePointer: LayoutNodePointer.selectedNode()` when the fan must follow
-the current Riverpod-selected Node. These options are mutually exclusive. A
+the current Riverpod-selected Node. These options are mutually exclusive. LG
+Ergo uses an `all`-mode `rootNodeFilter` combining the `Calendar` label with an
+exact cortex slug, so its Fans do not depend on a configured root ID. A
 selected-Node pointer issues no tree request until the selected Node has a
 stable ID.
+Every root-filter match becomes a depth-zero occurrence up to
+`maxSectionCount`. Root slices divide the root band equally; two matches form
+two halves around the center ray. Descendants then apply `sectionSizing`
+independently inside their owning root slice.
 Use the optional `nodeFilter` for data-level fan matching. Its
 `includeNodesMatching` and `excludeNodesMatching` lists accept structured
 `NodeSearchParameter` values, currently supporting exact, starts-with,
 ends-with, contains, and regular-expression matching over Node `name`, `id`,
-`path`, `title`, `tag`, and Neo4j `label`. A non-empty include list requires any include to match; any
-exclude match rejects the occurrence. Matching is performed by the tree API
+`path`, `title`, `tag`, `slug`, and Neo4j `label`. A non-empty include list uses
+`includeMatchMode`: `any` is the default, while `all` requires every include to
+match. Any exclude match rejects the occurrence. Use
+`NodeSearchFilter.reverseOf(filter)` in const layout configuration, or
+`filter.reversed()` at runtime, to invert the complete predicate without
+copying its parameters.
+Matching is performed by the tree API
 before occurrences reach the Flame component, and a rejected occurrence's
-branch is pruned. The LG Ergo `cortex-bush` includes the exact `Section` label,
-then omits exact names `space`, `space-section`, `time`, and `time-section`. It
-uses direct-parts-weighted section sizing. `time-fan` reuses that exact-name
-list as its include filter and uses equal section sizing, keeping the two sizing
-policies visible in mirrored planes.
+branch is pruned. The LG Ergo `cortex-bush` includes the `Section` label and
+excludes the shared space-time slug matches. `time-fan` starts from the same
+cortex root and reverses that complete child filter, keeping the two planes as
+derived complementary partitions. The top uses direct-parts-weighted sizing;
+the bottom uses equal sizing.
 `GraphLayout` is the selected Node pool used by the center scene. It is owned by
 a `LayoutPath`, reads the complete Riverpod-selected Node collection, and gives
 every Node an equal centered cell. `nodeExtentFactor` controls the circular
 Node diameter relative to that cell and defaults to `0.5`. The pool becomes
 denser as selection grows; it does not fetch a `NodeTree` or infer graph
-connections yet.
+connections yet. Selection membership and active fill state use the Node's
+unique slug. Fan and Graph compact labels render emoji first and wrap the slug
+fallback with `LayoutDefaults.nodeSlugPrefix` and `nodeSlugSuffix`. LG Ergo's
+Node defaults use `[[` and `]]`, producing `[[slug]]` without changing stored
+Node identity.
+`NodeListLayout` renders a dynamic Node collection as equal rows inside a
+row/column composition. The LG Ergo right plane configures one with
+`NodeListDataSource.searchResults` between its action rows and Gamepad content.
+The Search HUD only submits text to Riverpod; it does not render those rows.
+Riverpod performs `QUERY /nodes/v1/search`, and the Flame layout paints the
+returned Nodes using the shared random/frontmatter color, selected-slug active
+opacity, and layout tap path. Search rows always show the wrapped slug, even
+when an Emoji exists, so each proposal exposes its Node identity. Tapping a row
+therefore toggles the same
+selected-node set used by Fan and Graph layouts.
 The `left-plane`
 provides the 12-segment x/space plane between scene-left and screen-left; its
 grid contains only the real space rows, not fake padding tracks. The scene inner

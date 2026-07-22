@@ -112,6 +112,19 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                   labelColor: lgErgoActionButtonLabelColor,
                   labelSize: 18,
                 ),
+                'refresh-fans': PanelLayout(
+                  size: GridAxisVariable(size: LayoutSize.fr(1)),
+                  aliases: [
+                    'action-button',
+                    'refresh-action',
+                    'refresh-fan-data',
+                  ],
+                  fillColor: lgErgoActionButtonColor,
+                  borderStyle: lgErgoActionButtonBorderStyle,
+                  label: '🔄',
+                  labelColor: lgErgoActionButtonLabelColor,
+                  labelSize: 18,
+                ),
                 'search': PanelLayout(
                   size: GridAxisVariable(size: LayoutSize.fr(1)),
                   aliases: [
@@ -140,6 +153,73 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                   labelSize: 18,
                 ),
               },
+            ),
+            'node-actions-row': RowLayout(
+              size: GridAxisVariable(size: LayoutSize.px(48)),
+              aliases: ['node-actions', 'node-actions-row'],
+              layouts: {
+                'forward': PanelLayout(
+                  size: GridAxisVariable(size: LayoutSize.fr(1)),
+                  aliases: [
+                    'action-button',
+                    'selected-node-action',
+                    'node-forward-action',
+                  ],
+                  fillColor: lgErgoActionButtonColor,
+                  borderStyle: lgErgoActionButtonBorderStyle,
+                  label: '⏩',
+                  labelColor: lgErgoActionButtonLabelColor,
+                  labelSize: 18,
+                ),
+                'backward': PanelLayout(
+                  size: GridAxisVariable(size: LayoutSize.fr(1)),
+                  aliases: [
+                    'action-button',
+                    'selected-node-action',
+                    'node-backward-action',
+                  ],
+                  fillColor: lgErgoActionButtonColor,
+                  borderStyle: lgErgoActionButtonBorderStyle,
+                  label: '⏪',
+                  labelColor: lgErgoActionButtonLabelColor,
+                  labelSize: 18,
+                ),
+                'copy': PanelLayout(
+                  size: GridAxisVariable(size: LayoutSize.fr(1)),
+                  aliases: [
+                    'action-button',
+                    'selected-node-action',
+                    'copy-action',
+                    'copy-selected-node-slug',
+                  ],
+                  fillColor: lgErgoActionButtonColor,
+                  borderStyle: lgErgoActionButtonBorderStyle,
+                  label: '📋',
+                  labelColor: lgErgoActionButtonLabelColor,
+                  labelSize: 18,
+                ),
+                'share': PanelLayout(
+                  size: GridAxisVariable(size: LayoutSize.fr(1)),
+                  aliases: [
+                    'action-button',
+                    'selected-node-action',
+                    'share-action',
+                  ],
+                  fillColor: lgErgoActionButtonColor,
+                  borderStyle: lgErgoActionButtonBorderStyle,
+                  label: '📤',
+                  labelColor: lgErgoActionButtonLabelColor,
+                  labelSize: 18,
+                ),
+              },
+            ),
+            'search-results': NodeListLayout(
+              dataSource: NodeListDataSource.searchResults,
+              style: lgErgoCortexNodeBorderStyle,
+              layoutDefaults: lgErgoNodeLayoutDefaults,
+              aliases: ['search-results', 'query-results', 'node-options'],
+              labelColor: lgErgoActionButtonLabelColor,
+              size: GridAxisVariable(size: LayoutSize.fr(1)),
             ),
             'browser-content': PanelLayout(
               size: GridAxisVariable(size: LayoutSize.fr(1)),
@@ -225,6 +305,24 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                 groupId: 'system',
                 size: GridAxisVariable(size: LayoutSize.fr(1)),
               ),
+              TableField(
+                key: 'neo4j_labels',
+                label: 'Neo4j labels',
+                groupId: 'system',
+                size: GridAxisVariable(size: LayoutSize.fr(1)),
+              ),
+              TableField(
+                key: 'go_version',
+                label: 'Go version',
+                groupId: 'system',
+                size: GridAxisVariable(size: LayoutSize.fr(1)),
+              ),
+              TableField(
+                key: 'neo4j_version',
+                label: 'Neo4j version',
+                groupId: 'system',
+                size: GridAxisVariable(size: LayoutSize.fr(1)),
+              ),
             ],
           ),
           columns: [
@@ -252,7 +350,8 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
             ],
             fields: [
               TableField(
-                key: 'id',
+                key: 'slug',
+                label: 'Slug',
                 groupId: 'identity',
                 size: GridAxisVariable(size: LayoutSize.fr(1)),
               ),
@@ -475,6 +574,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               ],
               style: lgErgoCortexNodeBorderStyle,
               layoutDefaults: lgErgoNodeLayoutDefaults,
+              rootNodeFilter: lgErgoCortexRootNodeFilter,
               traverseBy: GraphTraverseType.partOf,
               nodeFilter: lgErgoCortexBushNodeFilter,
               maxDepth: 3,
@@ -494,7 +594,11 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
             LayoutDerivativeReference(derivative: 'A'),
             LayoutDerivativeReference(
               layoutPath: ['safe-area'],
-              derivative: 'innerSquare.AD-center',
+              derivative: 'leftPlane.bottom',
+            ),
+            LayoutDerivativeReference(
+              layoutPath: ['safe-area'],
+              derivative: 'rightPlane.bottom',
             ),
             LayoutDerivativeReference(derivative: 'D'),
           ],
@@ -512,11 +616,15 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                 'space-time-tree',
                 'bottom-node-tree',
                 'bottom-fan',
+                'space-tree',
               ],
               style: lgErgoCortexNodeBorderStyle,
               layoutDefaults: lgErgoNodeLayoutDefaults,
+              rootNodeFilter: lgErgoCortexRootNodeFilter,
               traverseBy: GraphTraverseType.partOf,
-              nodeFilter: lgErgoSpaceTimeFanNodeFilter,
+              nodeFilter: const NodeSearchFilter.reverseOf(
+                lgErgoCortexBushNodeFilter,
+              ),
               maxDepth: 3,
               maxSectionCount: 4,
               sectionSizing: FanSectionSizing.equal,
@@ -684,23 +792,45 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
   },
 );
 
+const lgErgoCortexRootNodeFilter = NodeSearchFilter.allOf([
+  NodeSearchParameter(
+    parameter: NodeParameter.slug,
+    value: 'cortex-timeline-calendar-2026-06-fr6h',
+    operator: NodeMatchOperator.exact,
+  ),
+  NodeSearchParameter(
+    parameter: NodeParameter.label,
+    value: 'Calendar',
+    operator: NodeMatchOperator.contains,
+  ),
+]);
+
 const lgErgoSpaceTimeSectionNodeMatches = <NodeSearchParameter>[
-  NodeSearchParameter(parameter: NodeParameter.name, value: 'space'),
-  NodeSearchParameter(parameter: NodeParameter.name, value: 'space-section'),
-  NodeSearchParameter(parameter: NodeParameter.name, value: 'time'),
-  NodeSearchParameter(parameter: NodeParameter.name, value: 'time-section'),
+  NodeSearchParameter(
+    parameter: NodeParameter.slug,
+    value: 'space',
+    operator: NodeMatchOperator.contains,
+  ),
+  NodeSearchParameter(
+    parameter: NodeParameter.slug,
+    value: 'space-section',
+    operator: NodeMatchOperator.contains,
+  ),
+  NodeSearchParameter(
+    parameter: NodeParameter.slug,
+    value: 'time',
+    operator: NodeMatchOperator.contains,
+  ),
+  NodeSearchParameter(
+    parameter: NodeParameter.slug,
+    value: 'time-section',
+    operator: NodeMatchOperator.contains,
+  ),
 ];
 
-const lgErgoCortexBushNodeFilter = NodeSearchFilter(
-  includeNodesMatching: [
-    NodeSearchParameter(parameter: NodeParameter.label, value: 'Section'),
-  ],
-  excludeNodesMatching: lgErgoSpaceTimeSectionNodeMatches,
-);
-
-const lgErgoSpaceTimeFanNodeFilter = NodeSearchFilter(
-  includeNodesMatching: lgErgoSpaceTimeSectionNodeMatches,
-);
+const lgErgoCortexBushNodeFilter = NodeSearchFilter.anyOf([
+  NodeSearchParameter(parameter: NodeParameter.label, value: 'Section'),
+], excluding: lgErgoSpaceTimeSectionNodeMatches);
 
 const lgErgoLayoutDefaultPadding = 20.0;
 const lgErgoLayoutDefaultGap = 20.0;
@@ -713,6 +843,8 @@ const lgErgoLayoutDefaults = LayoutDefaults(
 const lgErgoNodeBorderWidth = 1.8;
 const lgErgoNodeLayoutDefaults = LayoutDefaults(
   borderWidth: lgErgoNodeBorderWidth,
+  nodeSlugPrefix: '[[',
+  nodeSlugSuffix: ']]',
 );
 
 const lgErgoPastColor = Color(0x553F51B5);

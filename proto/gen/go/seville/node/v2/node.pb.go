@@ -160,6 +160,9 @@ type Node struct {
 	Frontmatter   map[string]string      `protobuf:"bytes,6,rep,name=frontmatter,proto3" json:"frontmatter,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	ModifiedAt    *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=modified_at,json=modifiedAt,proto3" json:"modified_at,omitempty"`
 	Emojis        []*Emoji               `protobuf:"bytes,8,rep,name=emojis,proto3" json:"emojis,omitempty"`
+	Labels        []string               `protobuf:"bytes,9,rep,name=labels,proto3" json:"labels,omitempty"`
+	Slug          string                 `protobuf:"bytes,10,opt,name=slug,proto3" json:"slug,omitempty"`
+	UpdateCount   uint64                 `protobuf:"varint,11,opt,name=update_count,json=updateCount,proto3" json:"update_count,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -248,6 +251,27 @@ func (x *Node) GetEmojis() []*Emoji {
 		return x.Emojis
 	}
 	return nil
+}
+
+func (x *Node) GetLabels() []string {
+	if x != nil {
+		return x.Labels
+	}
+	return nil
+}
+
+func (x *Node) GetSlug() string {
+	if x != nil {
+		return x.Slug
+	}
+	return ""
+}
+
+func (x *Node) GetUpdateCount() uint64 {
+	if x != nil {
+		return x.UpdateCount
+	}
+	return 0
 }
 
 type Emoji struct {
@@ -648,7 +672,7 @@ const file_seville_node_v2_node_proto_rawDesc = "" +
 	"\fgenerated_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\vgeneratedAt\x12+\n" +
 	"\x05nodes\x18\x03 \x03(\v2\x15.seville.node.v2.NodeR\x05nodes\x12A\n" +
 	"\vconnections\x18\x04 \x03(\v2\x1f.seville.node.v2.NodeConnectionR\vconnections\x12:\n" +
-	"\bwarnings\x18\x05 \x03(\v2\x1e.seville.node.v2.ImportWarningR\bwarnings\"\xdf\x02\n" +
+	"\bwarnings\x18\x05 \x03(\v2\x1e.seville.node.v2.ImportWarningR\bwarnings\"\xae\x03\n" +
 	"\x04Node\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04path\x18\x02 \x01(\tR\x04path\x12\x14\n" +
@@ -658,7 +682,11 @@ const file_seville_node_v2_node_proto_rawDesc = "" +
 	"\vfrontmatter\x18\x06 \x03(\v2&.seville.node.v2.Node.FrontmatterEntryR\vfrontmatter\x12;\n" +
 	"\vmodified_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\n" +
 	"modifiedAt\x12.\n" +
-	"\x06emojis\x18\b \x03(\v2\x16.seville.node.v2.EmojiR\x06emojis\x1a>\n" +
+	"\x06emojis\x18\b \x03(\v2\x16.seville.node.v2.EmojiR\x06emojis\x12\x16\n" +
+	"\x06labels\x18\t \x03(\tR\x06labels\x12\x12\n" +
+	"\x04slug\x18\n" +
+	" \x01(\tR\x04slug\x12!\n" +
+	"\fupdate_count\x18\v \x01(\x04R\vupdateCount\x1a>\n" +
 	"\x10FrontmatterEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xe0\x02\n" +

@@ -120,12 +120,16 @@ class NodeSearchFilter extends $pb.GeneratedMessage {
   factory NodeSearchFilter({
     $core.Iterable<NodeSearchParameter>? includeNodesMatching,
     $core.Iterable<NodeSearchParameter>? excludeNodesMatching,
+    NodeSearchMatchMode? includeMatchMode,
+    $core.bool? negated,
   }) {
     final result = create();
     if (includeNodesMatching != null)
       result.includeNodesMatching.addAll(includeNodesMatching);
     if (excludeNodesMatching != null)
       result.excludeNodesMatching.addAll(excludeNodesMatching);
+    if (includeMatchMode != null) result.includeMatchMode = includeMatchMode;
+    if (negated != null) result.negated = negated;
     return result;
   }
 
@@ -147,6 +151,9 @@ class NodeSearchFilter extends $pb.GeneratedMessage {
         subBuilder: NodeSearchParameter.create)
     ..pPM<NodeSearchParameter>(2, _omitFieldNames ? '' : 'excludeNodesMatching',
         subBuilder: NodeSearchParameter.create)
+    ..aE<NodeSearchMatchMode>(3, _omitFieldNames ? '' : 'includeMatchMode',
+        enumValues: NodeSearchMatchMode.values)
+    ..aOB(4, _omitFieldNames ? '' : 'negated')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -173,6 +180,144 @@ class NodeSearchFilter extends $pb.GeneratedMessage {
 
   @$pb.TagNumber(2)
   $pb.PbList<NodeSearchParameter> get excludeNodesMatching => $_getList(1);
+
+  @$pb.TagNumber(3)
+  NodeSearchMatchMode get includeMatchMode => $_getN(2);
+  @$pb.TagNumber(3)
+  set includeMatchMode(NodeSearchMatchMode value) => $_setField(3, value);
+  @$pb.TagNumber(3)
+  $core.bool hasIncludeMatchMode() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearIncludeMatchMode() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.bool get negated => $_getBF(3);
+  @$pb.TagNumber(4)
+  set negated($core.bool value) => $_setBool(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasNegated() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearNegated() => $_clearField(4);
+}
+
+class NodeSearchQuery extends $pb.GeneratedMessage {
+  factory NodeSearchQuery({
+    NodeSearchFilter? nodeFilter,
+    $core.int? limit,
+  }) {
+    final result = create();
+    if (nodeFilter != null) result.nodeFilter = nodeFilter;
+    if (limit != null) result.limit = limit;
+    return result;
+  }
+
+  NodeSearchQuery._();
+
+  factory NodeSearchQuery.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory NodeSearchQuery.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'NodeSearchQuery',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'seville.nodes.v1'),
+      createEmptyInstance: create)
+    ..aOM<NodeSearchFilter>(1, _omitFieldNames ? '' : 'nodeFilter',
+        subBuilder: NodeSearchFilter.create)
+    ..aI(2, _omitFieldNames ? '' : 'limit', fieldType: $pb.PbFieldType.OU3)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  NodeSearchQuery clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  NodeSearchQuery copyWith(void Function(NodeSearchQuery) updates) =>
+      super.copyWith((message) => updates(message as NodeSearchQuery))
+          as NodeSearchQuery;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static NodeSearchQuery create() => NodeSearchQuery._();
+  @$core.override
+  NodeSearchQuery createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static NodeSearchQuery getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<NodeSearchQuery>(create);
+  static NodeSearchQuery? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  NodeSearchFilter get nodeFilter => $_getN(0);
+  @$pb.TagNumber(1)
+  set nodeFilter(NodeSearchFilter value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasNodeFilter() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearNodeFilter() => $_clearField(1);
+  @$pb.TagNumber(1)
+  NodeSearchFilter ensureNodeFilter() => $_ensure(0);
+
+  @$pb.TagNumber(2)
+  $core.int get limit => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set limit($core.int value) => $_setUnsignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasLimit() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearLimit() => $_clearField(2);
+}
+
+class NodeSearchResult extends $pb.GeneratedMessage {
+  factory NodeSearchResult({
+    $core.Iterable<$0.Node>? nodes,
+  }) {
+    final result = create();
+    if (nodes != null) result.nodes.addAll(nodes);
+    return result;
+  }
+
+  NodeSearchResult._();
+
+  factory NodeSearchResult.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory NodeSearchResult.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'NodeSearchResult',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'seville.nodes.v1'),
+      createEmptyInstance: create)
+    ..pPM<$0.Node>(1, _omitFieldNames ? '' : 'nodes',
+        subBuilder: $0.Node.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  NodeSearchResult clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  NodeSearchResult copyWith(void Function(NodeSearchResult) updates) =>
+      super.copyWith((message) => updates(message as NodeSearchResult))
+          as NodeSearchResult;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static NodeSearchResult create() => NodeSearchResult._();
+  @$core.override
+  NodeSearchResult createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static NodeSearchResult getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<NodeSearchResult>(create);
+  static NodeSearchResult? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<$0.Node> get nodes => $_getList(0);
 }
 
 class NodeTreeQuery extends $pb.GeneratedMessage {
@@ -181,12 +326,14 @@ class NodeTreeQuery extends $pb.GeneratedMessage {
     $core.int? depth,
     NodeRelationshipType? traverseBy,
     NodeSearchFilter? nodeFilter,
+    NodeSearchFilter? rootNodeFilter,
   }) {
     final result = create();
     if (rootNodeId != null) result.rootNodeId = rootNodeId;
     if (depth != null) result.depth = depth;
     if (traverseBy != null) result.traverseBy = traverseBy;
     if (nodeFilter != null) result.nodeFilter = nodeFilter;
+    if (rootNodeFilter != null) result.rootNodeFilter = rootNodeFilter;
     return result;
   }
 
@@ -209,6 +356,8 @@ class NodeTreeQuery extends $pb.GeneratedMessage {
     ..aE<NodeRelationshipType>(3, _omitFieldNames ? '' : 'traverseBy',
         enumValues: NodeRelationshipType.values)
     ..aOM<NodeSearchFilter>(4, _omitFieldNames ? '' : 'nodeFilter',
+        subBuilder: NodeSearchFilter.create)
+    ..aOM<NodeSearchFilter>(5, _omitFieldNames ? '' : 'rootNodeFilter',
         subBuilder: NodeSearchFilter.create)
     ..hasRequiredFields = false;
 
@@ -268,6 +417,17 @@ class NodeTreeQuery extends $pb.GeneratedMessage {
   void clearNodeFilter() => $_clearField(4);
   @$pb.TagNumber(4)
   NodeSearchFilter ensureNodeFilter() => $_ensure(3);
+
+  @$pb.TagNumber(5)
+  NodeSearchFilter get rootNodeFilter => $_getN(4);
+  @$pb.TagNumber(5)
+  set rootNodeFilter(NodeSearchFilter value) => $_setField(5, value);
+  @$pb.TagNumber(5)
+  $core.bool hasRootNodeFilter() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearRootNodeFilter() => $_clearField(5);
+  @$pb.TagNumber(5)
+  NodeSearchFilter ensureRootNodeFilter() => $_ensure(4);
 }
 
 class NodeTreeOccurrence extends $pb.GeneratedMessage {

@@ -175,7 +175,7 @@ class LayoutContext {
     this.selectedNodePaths = const [],
     this.highlightedNodePaths = const [],
     this.currentNodePath,
-    this.activeNodeIds = const [],
+    this.activeNodeSlugs = const [],
     this.activeNodePaths = const [],
     this.layoutPath = const [],
   });
@@ -188,7 +188,7 @@ class LayoutContext {
   final List<String> selectedNodePaths;
   final List<String> highlightedNodePaths;
   final String? currentNodePath;
-  final List<String> activeNodeIds;
+  final List<String> activeNodeSlugs;
   final List<String> activeNodePaths;
   final List<String> layoutPath;
 
@@ -205,7 +205,7 @@ class LayoutContext {
       selectedNodePaths: selectedNodePaths,
       highlightedNodePaths: highlightedNodePaths,
       currentNodePath: path,
-      activeNodeIds: activeNodeIds,
+      activeNodeSlugs: activeNodeSlugs,
       activeNodePaths: activeNodePaths,
       layoutPath: layoutPath,
     );
@@ -514,6 +514,8 @@ class LayoutDefaults {
     this.borderWidth = 1,
     this.inactiveNodeBackgroundOpacity = 0.1,
     this.activeNodeBackgroundOpacity = 1,
+    this.nodeSlugPrefix = '',
+    this.nodeSlugSuffix = '',
   }) : assert(
          inactiveNodeBackgroundOpacity >= 0 &&
              inactiveNodeBackgroundOpacity <= 1,
@@ -527,6 +529,10 @@ class LayoutDefaults {
   final double borderWidth;
   final double inactiveNodeBackgroundOpacity;
   final double activeNodeBackgroundOpacity;
+  final String nodeSlugPrefix;
+  final String nodeSlugSuffix;
+
+  String formatNodeSlug(String slug) => '$nodeSlugPrefix$slug$nodeSlugSuffix';
 }
 
 class LayoutColor {
@@ -1344,6 +1350,7 @@ class FanLayout extends Layout with TableLayoutMixin {
     required this.style,
     this.rootNodeId,
     this.rootNodePointer,
+    this.rootNodeFilter,
     this.traverseBy = GraphTraverseType.partOf,
     this.nodeFilter,
     this.minDepth = 1,
@@ -1361,7 +1368,12 @@ class FanLayout extends Layout with TableLayoutMixin {
     super.layoutDefaults,
     super.visibility,
     super.inputSources,
-  }) : assert(rootNodeId == null || rootNodePointer == null),
+  }) : assert(
+         (rootNodeId == null ? 0 : 1) +
+                 (rootNodePointer == null ? 0 : 1) +
+                 (rootNodeFilter == null ? 0 : 1) <=
+             1,
+       ),
        assert(minDepth > 0),
        assert(maxDepth > 0),
        assert(minDepth <= maxDepth),
@@ -1371,6 +1383,7 @@ class FanLayout extends Layout with TableLayoutMixin {
   final String? label;
   final String? rootNodeId;
   final LayoutNodePointer? rootNodePointer;
+  final NodeSearchFilter? rootNodeFilter;
   final GraphTraverseType traverseBy;
   final NodeSearchFilter? nodeFilter;
 
@@ -1453,6 +1466,28 @@ class GraphLayout extends Layout {
   final double labelSize;
   final GuideStyle style;
 }
+
+class NodeListLayout extends Layout {
+  const NodeListLayout({
+    required this.dataSource,
+    required this.style,
+    this.labelColor = const Color(0xFFFFFFFF),
+    this.labelSize = 12,
+    super.size,
+    super.aliases,
+    super.attributes = const [LayoutAttribute.rectangular],
+    super.layoutDefaults,
+    super.visibility,
+    super.inputSources,
+  }) : super.fromAxes();
+
+  final NodeListDataSource dataSource;
+  final Color labelColor;
+  final double labelSize;
+  final GuideStyle style;
+}
+
+enum NodeListDataSource { searchResults }
 
 abstract class LayoutNodePointer {
   const LayoutNodePointer._();

@@ -7,4 +7,7 @@ option go_package = "github.com/Matey2010/seville/proto/gen/go/seville/system/v1
 message SystemInfo {
   uint64 node_count = 1;
   uint64 node_property_count = 2;
+  repeated string neo4j_labels = 3;
+  string go_version = 4;
+  string neo4j_version = 5;
 }

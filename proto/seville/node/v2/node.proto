@@ -23,6 +23,9 @@ message Node {
   map<string, string> frontmatter = 6;
   google.protobuf.Timestamp modified_at = 7;
   repeated Emoji emojis = 8;
+  repeated string labels = 9;
+  string slug = 10;
+  uint64 update_count = 11;
 }
 
 message Emoji {

@@ -21,10 +21,16 @@ class SystemInfo extends $pb.GeneratedMessage {
   factory SystemInfo({
     $fixnum.Int64? nodeCount,
     $fixnum.Int64? nodePropertyCount,
+    $core.Iterable<$core.String>? neo4jLabels,
+    $core.String? goVersion,
+    $core.String? neo4jVersion,
   }) {
     final result = create();
     if (nodeCount != null) result.nodeCount = nodeCount;
     if (nodePropertyCount != null) result.nodePropertyCount = nodePropertyCount;
+    if (neo4jLabels != null) result.neo4jLabels.addAll(neo4jLabels);
+    if (goVersion != null) result.goVersion = goVersion;
+    if (neo4jVersion != null) result.neo4jVersion = neo4jVersion;
     return result;
   }
 
@@ -48,6 +54,9 @@ class SystemInfo extends $pb.GeneratedMessage {
     ..a<$fixnum.Int64>(
         2, _omitFieldNames ? '' : 'nodePropertyCount', $pb.PbFieldType.OU6,
         defaultOrMaker: $fixnum.Int64.ZERO)
+    ..pPS(3, _omitFieldNames ? '' : 'neo4jLabels')
+    ..aOS(4, _omitFieldNames ? '' : 'goVersion')
+    ..aOS(5, _omitFieldNames ? '' : 'neo4jVersion')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -85,6 +94,27 @@ class SystemInfo extends $pb.GeneratedMessage {
   $core.bool hasNodePropertyCount() => $_has(1);
   @$pb.TagNumber(2)
   void clearNodePropertyCount() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $pb.PbList<$core.String> get neo4jLabels => $_getList(2);
+
+  @$pb.TagNumber(4)
+  $core.String get goVersion => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set goVersion($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasGoVersion() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearGoVersion() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get neo4jVersion => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set neo4jVersion($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasNeo4jVersion() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearNeo4jVersion() => $_clearField(5);
 }
 
 const $core.bool _omitFieldNames =

@@ -1,6 +1,11 @@
 import 'package:flutter/services.dart';
 
-enum SevilleKeymapAction { showSearch, clearInterface }
+enum SevilleKeymapAction {
+  showSearch,
+  refreshFanData,
+  copySelectedNodeSlug,
+  clearInterface,
+}
 
 SevilleKeymapAction? resolveSevilleKeymapAction(
   KeyEvent event,
@@ -10,6 +15,12 @@ SevilleKeymapAction? resolveSevilleKeymapAction(
 
   if (event.logicalKey == LogicalKeyboardKey.keyF && keyboard.isMetaPressed) {
     return SevilleKeymapAction.showSearch;
+  }
+  if (event.logicalKey == LogicalKeyboardKey.keyR && keyboard.isMetaPressed) {
+    return SevilleKeymapAction.refreshFanData;
+  }
+  if (event.logicalKey == LogicalKeyboardKey.keyC && keyboard.isMetaPressed) {
+    return SevilleKeymapAction.copySelectedNodeSlug;
   }
   if (event.logicalKey == LogicalKeyboardKey.escape) {
     return SevilleKeymapAction.clearInterface;

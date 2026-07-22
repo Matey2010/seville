@@ -9,9 +9,10 @@ same terms.
 `Node` is Seville's primary data unit and the center of the system.
 
 A node has a stable Seville `id` plus data such as title, body, tags,
-frontmatter, emoji assignments, provenance, and timestamps. The stable `id` is application
-identity; Neo4j `elementId()` is an internal database locator and must not cross
-the API boundary.
+frontmatter, Neo4j labels, emoji assignments, provenance, and timestamps. The
+stable `id` is application identity; Neo4j labels are transported classification
+metadata rather than Node identity. Neo4j `elementId()` is an internal database
+locator and must not cross the API boundary.
 
 Seville:
 
@@ -43,8 +44,12 @@ Node while the API embeds assigned Emoji values in its Node representation for
 convenient rendering and Riverpod consumption.
 
 Node renderers use the first assigned non-empty `Emoji.character` as the
-primary compact display label. They fall back to the Node title and then its id
-when no displayable emoji is assigned.
+primary compact display label. They fall back to the Node slug when no
+displayable emoji is assigned. Legacy title and ID values remain last-resort
+compatibility labels only. Rendered slugs remain visibly identifiable as Node
+references by using the owning layout defaults' prefix and suffix; LG Ergo uses
+the familiar `[[slug]]` form. Search results intentionally show this wrapped
+slug even when an Emoji is assigned because identity is the proposal's purpose.
 
 ## Node snapshot
 
@@ -69,6 +74,21 @@ The layout map key is stable layout identity. `Layout.aliases` adds vocabulary
 without replacing that identity. `Layout.size` uses `GridAxisVariable` and
 `LayoutSize` for composition.
 
+## Notification
+
+`NotificationType` is shared protobuf vocabulary describing semantic severity:
+`info`, `error`, `warning`, or `success`. It does not define color, duration,
+placement, or widget structure. Flutter owns the current `HudNotification`
+presentation and Riverpod owns the active notification queue.
+
+## Node search
+
+Node search is a flat, structured query returning complete Nodes rather than a
+relationship traversal. `SearchHud` captures the query, Riverpod owns its
+asynchronous state, and `NodeListLayout` renders the result inside the configured
+Flame layout tree. Selecting a search result changes the same slug-identified
+active Node set used by Fan and Graph layouts.
+
 ## Renderer
 
 The renderer turns resolved layouts into visible, interactive geometry. All
@@ -86,11 +106,18 @@ implemented deliberately.
 ## Reserved distinctions
 
 - `Node.id`: stable Seville identity.
+- `Node.slug`: unique human-facing identity used by Flutter Riverpod selection,
+  active renderer state, and compact Node labels.
+- `Node.labels`: sorted or unsorted Neo4j classification metadata; no label is
+  required to establish Node identity.
+- `Node.update_count`: number of canonical backend mutation requests applied to
+  the Node; reads and source imports do not increment it.
 - `elementId(node)`: private Neo4j storage identity.
 - `Node`: primary data unit.
 - `Emoji`: typed metadata assigned through `HAS_EMOJI`.
 - `Tag`: a graph classification connected to nodes.
 - `Layout`: configurable presentation and interaction structure.
+- `NotificationType`: shared notification severity, not presentation styling.
 - `Panel`: a visible layout role, not a data entity.
 - `NodeConnection`: API/domain edge.
 - Neo4j relationship: stored graph edge.

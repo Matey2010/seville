@@ -11,7 +11,7 @@ if [ -f "$ROOT/.env" ]; then
     key=${line%%=*}
     raw=${line#*=}
     case "$key" in
-      SEVILLE_TOKEN|SEVILLE_BASE_URL) ;;
+      SEVILLE_TOKEN|SEVILLE_BASE_URL|SEVILLE_NEO4J_QUERY_LOG) ;;
       *) continue ;;
     esac
     case "$raw" in
@@ -24,8 +24,21 @@ fi
 
 "$ROOT/scripts/seville" start
 
+LOG_TAIL_PID=""
+cleanup_log_tail() {
+  if [ -n "$LOG_TAIL_PID" ]; then
+    kill "$LOG_TAIL_PID" 2>/dev/null || true
+  fi
+}
+trap cleanup_log_tail EXIT
+
+if [ "${SEVILLE_NEO4J_QUERY_LOG:-false}" = "true" ]; then
+  tail -n 0 -f "$ROOT/.local/seville.log" &
+  LOG_TAIL_PID=$!
+fi
+
 cd "$ROOT/seville/flutter"
-exec flutter run \
+flutter run \
   -d "${1:-macos}" \
   --dart-define="SEVILLE_BASE_URL=${SEVILLE_BASE_URL:-http://127.0.0.1:8787}" \
   --dart-define="SEVILLE_TOKEN=${SEVILLE_TOKEN:-local-seville-token}"

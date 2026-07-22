@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,6 +15,7 @@ import '../state/node_store.dart';
 import '../utils/common_utilities.dart';
 import '../utils/vault_node_resolver.dart';
 import '../widgets/landscape_xl_layout_view.dart';
+import '../widgets/hud_toast_layer.dart';
 import '../widgets/search_hud.dart';
 
 class LandscapeXlLayoutScreen extends ConsumerStatefulWidget {
@@ -59,6 +62,7 @@ class _LandscapeXlLayoutScreenState
     final highlightedNodes = ref.watch(highlightedNodesProvider);
     final selectedNodes = ref.watch(selectedNodesProvider);
     final hudState = ref.watch(hudStateProvider);
+    final searchState = ref.watch(nodeSearchProvider(hudState.searchValue));
     final resolverState = ref.watch(vaultNodeResolverProvider);
     final systemInfoState = ref.watch(systemInfoProvider);
     ref.listen(vaultNodeResolverProvider, (_, next) {
@@ -76,6 +80,17 @@ class _LandscapeXlLayoutScreenState
         CommonUtilities.log('[system info] load failed: $error');
       }
     });
+    ref.listen(nodeSearchProvider(hudState.searchValue), (_, next) {
+      if (next case AsyncError(:final error)) {
+        CommonUtilities.log('[node search] failed: $error');
+        ref
+            .read(hudToastProvider.notifier)
+            .show(
+              'Node search failed',
+              type: NotificationType.NOTIFICATION_TYPE_ERROR,
+            );
+      }
+    });
     final resolver = switch (resolverState) {
       AsyncData(:final value) => value,
       _ => null,
@@ -84,6 +99,17 @@ class _LandscapeXlLayoutScreenState
       AsyncData(:final value) => value,
       _ => null,
     };
+    final queryNodes = switch (searchState) {
+      AsyncData(:final value) => [
+        for (final node in value.nodes)
+          ResolvedVaultNode(
+            path: node.path.trim().isEmpty ? node.slug : node.path,
+            node: node,
+            resolvedStatus: LayoutHttpStatus.ok,
+          ),
+      ],
+      _ => const <ResolvedVaultNode>[],
+    };
     final nodeTrees = <FanLayout, NodeTree>{};
     final selectedNode = selectedNodes.lastOrNull?.node;
     for (final fan in _fanLayouts(layout)) {
@@ -91,6 +117,7 @@ class _LandscapeXlLayoutScreenState
       if (fan.rootNodePointer != null && rootNodeId == null) continue;
       final request = NodeTreeRequest(
         rootNodeId: rootNodeId,
+        rootNodeFilter: fan.rootNodeFilter,
         depth: fan.maxDepth - 1,
         traverseBy: fan.traverseBy,
         nodeFilter: fan.nodeFilter,
@@ -119,11 +146,13 @@ class _LandscapeXlLayoutScreenState
             vaultNodeResolver: resolver,
             systemInfo: systemInfo,
             nodeTrees: nodeTrees,
+            queryNodes: queryNodes,
             highlightedNodes: highlightedNodes,
             selectedNodes: selectedNodes,
             onLayoutTap: _handleLayoutTap,
           ),
           if (hudState.isSearchEnabled) const SearchHud(),
+          const HudToastLayer(),
         ],
       ),
     );
@@ -137,8 +166,21 @@ class _LandscapeXlLayoutScreenState
   }
 
   void _handleLayoutTap(LayoutTapTarget target) {
+    if (target.layout.aliases.contains('selected-node-action') &&
+        ref.read(selectedNodesProvider).isEmpty) {
+      _showNoNodeSelected();
+      return;
+    }
     if (target.layout.aliases.contains('open-search-hud')) {
       _showSearch();
+      return;
+    }
+    if (target.layout.aliases.contains('refresh-fan-data')) {
+      _refreshFanData();
+      return;
+    }
+    if (target.layout.aliases.contains('copy-selected-node-slug')) {
+      _copySelectedNodeSlug();
       return;
     }
     if (target.layout.aliases.contains('clear-selection-action')) {
@@ -209,6 +251,42 @@ class _LandscapeXlLayoutScreenState
     CommonUtilities.log('[interface] opened search HUD');
   }
 
+  void _refreshFanData() {
+    ref.invalidate(nodeTreeProvider);
+    CommonUtilities.log('[interface] refreshed Fan data');
+  }
+
+  void _copySelectedNodeSlug() {
+    final slug = ref.read(selectedNodesProvider).lastOrNull?.node?.slug.trim();
+    if (slug == null || slug.isEmpty) {
+      CommonUtilities.log('[interface] no selected Node slug to copy');
+      _showNoNodeSelected();
+      return;
+    }
+    unawaited(
+      Clipboard.setData(ClipboardData(text: slug)).then(
+        (_) {
+          CommonUtilities.log('[interface] copied Node slug: $slug');
+          if (!mounted) return;
+          ref.read(hudToastProvider.notifier).showCopiedText(slug);
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          CommonUtilities.log('[interface] copy Node slug failed: $error');
+        },
+      ),
+    );
+  }
+
+  void _showNoNodeSelected() {
+    CommonUtilities.log('[interface] selected Node action has no selection');
+    ref
+        .read(hudToastProvider.notifier)
+        .show(
+          '🔴 No Node Selected',
+          type: NotificationType.NOTIFICATION_TYPE_ERROR,
+        );
+  }
+
   void _clearInterface() {
     ref.read(selectedNodesProvider.notifier).clear();
     ref.read(hudStateProvider.notifier).hideSearch();
@@ -219,6 +297,12 @@ class _LandscapeXlLayoutScreenState
     switch (resolveSevilleKeymapAction(event, HardwareKeyboard.instance)) {
       case SevilleKeymapAction.showSearch:
         _showSearch();
+        return true;
+      case SevilleKeymapAction.refreshFanData:
+        _refreshFanData();
+        return true;
+      case SevilleKeymapAction.copySelectedNodeSlug:
+        _copySelectedNodeSlug();
         return true;
       case SevilleKeymapAction.clearInterface:
         _clearInterface();

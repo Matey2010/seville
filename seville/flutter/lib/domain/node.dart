@@ -12,6 +12,8 @@ extension NodeMetadata on Node {
   String get displayLabel {
     final emoji = primaryEmojiCharacter;
     if (emoji != null) return emoji;
+    final normalizedSlug = slug.trim();
+    if (normalizedSlug.isNotEmpty) return normalizedSlug;
     final normalizedTitle = title.trim();
     return normalizedTitle.isNotEmpty ? normalizedTitle : id;
   }

@@ -67,25 +67,38 @@ It returns a `seville.system.v1.SystemInfo` message:
 message SystemInfo {
   uint64 node_count = 1;
   uint64 node_property_count = 2;
+  repeated string neo4j_labels = 3;
+  string go_version = 4;
+  string neo4j_version = 5;
 }
 ```
 
-`node_count` is the number of Neo4j nodes labeled `Node` that have a non-empty
-stable Seville `id`. It does not count `Tag` nodes, alias records, unresolved
+`node_count` is the number of graph Nodes that have a non-empty unique `slug`.
+It does not count `Tag` nodes, alias records, unresolved
 connection records, or relationships.
 
 `node_property_count` is the total number of stored Neo4j property assignments
 across those same stable Nodes. If one stable Node has `id`, `title`, and
 `body`, it contributes three. The metric counts assignments, not distinct
-property keys. Relationship properties and properties attached to other labels
-are excluded.
+property keys. Relationship properties and properties attached to Tag or Emoji
+metadata graph roles are excluded. Neo4j labels classify Nodes but do not
+determine whether a graph entity is a Seville Node.
+
+`neo4j_labels` is the sorted list returned by Neo4j's label catalog.
+`go_version` comes from the running Go process, and `neo4j_version` comes from
+the connected Neo4j DBMS. These are administrative runtime facts rather than
+Node properties.
 
 The storage query should compute both values from one graph view so they
 describe the same instant:
 
 ```cypher
-MATCH (node:Node)
-WHERE node.id IS NOT NULL AND trim(toString(node.id)) <> ''
+MATCH (node)
+WHERE node.slug IS NOT NULL AND trim(toString(node.slug)) <> ''
+  AND NOT node:Tag
+  AND NOT node:Emoji
+  AND NOT EXISTS { MATCH ()-[:TAGGED_WITH]->(node) }
+  AND NOT EXISTS { MATCH ()-[:HAS_EMOJI]->(node) }
 RETURN count(node) AS node_count,
        sum(size(keys(node))) AS node_property_count
 ```
@@ -96,10 +109,24 @@ A distinct count of property names would be a different future metric named
 
 ## Nodes v1
 
+`QUERY /nodes/v1/search` accepts an `application/x-protobuf`
+`seville.nodes.v1.NodeSearchQuery` body and returns a flat
+`NodeSearchResult`. Its `node_filter` is required. `limit` defaults to 20 and
+must be between 1 and 100. The endpoint returns complete Nodes in deterministic
+slug/path order and does not traverse relationships. Flutter's interactive
+search builds an OR filter across slug, title, tags, and Neo4j labels with an
+escaped case-insensitive regular expression, so user text remains data rather
+than query syntax. Search does not increment `Node.update_count`.
+
 `QUERY /nodes/v1/tree` accepts an `application/x-protobuf`
 `seville.nodes.v1.NodeTreeQuery` body and returns a
-`seville.nodes.v1.NodeTree`. The optional `root_node_id` field overrides
-`SEVILLE_ROOT_NODE_ID`; one of them must provide the stable root Node ID. The
+`seville.nodes.v1.NodeTree`. A request must provide either `root_node_id` or a
+structured `root_node_filter`. A root filter permits discovery even when the
+root has no stable Node ID; Neo4j's internal element ID remains store-private
+while traversal is evaluated. Every matching root is returned as a depth-zero
+occurrence in deterministic order: shortest stringified `slug`, then `slug`,
+`path`, stable Node ID, and finally the internal locator. `root_node_id` in the
+response is populated only when exactly one root is returned. The
 optional unsigned `depth` defaults to `3`, with the root at depth zero. The
 optional `traverse_by` field defaults to `part_of` and accepts only `part_of`
 or `family`. URL query parameters remain a filterless compatibility contract
@@ -112,20 +139,28 @@ only after a method-routing response (`404`, `405`, or `501`) when no Node
 filters were requested. A filtered request must never silently retry as an
 unfiltered `GET`.
 
-The optional `node_filter` contains `include_nodes_matching` and
+The optional `root_node_filter` and `node_filter` contain
+`include_nodes_matching` and
 `exclude_nodes_matching` lists of structured `NodeSearchParameter` values.
-Entries within each list are OR-combined. When includes exist, a candidate must
-match at least one; matching any exclude rejects it. Supported parameters are
-`name`, `id`, `path`, `title`, `tag`, and Neo4j `label`; supported operators are
+`include_match_mode` controls whether a candidate must match `any` (the default)
+or `all` include entries. Exclude entries are always OR-combined, and matching
+any exclude rejects the candidate. Use `all` for a compound selector such as a
+Neo4j label plus an exact slug. When `negated` is true, the complete predicate
+is inverted after include and exclude composition; this is the transport form
+of Flutter's `NodeSearchFilter.reverseOf(...)` and `.reversed()` APIs.
+Supported parameters are
+`name`, `id`, `path`, `title`, `tag`, `slug`, and Neo4j `label`; supported operators are
 case-sensitive exact, starts-with, ends-with, contains, and regular-expression
 matching. Regular expressions are validated before they are passed to Neo4j's
 parameterized `=~` operator. `name` addresses the
 additional Neo4j `name` property transported in `Node.frontmatter`; it is not a
 second identity field and does not replace `Node.id` or `Node.title`. `label`
-matches values returned by Neo4j's `labels(node)` and is not transported as
+matches values returned by Neo4j's `labels(node)`. Every returned Node also
+transports those values through `Node.labels`; labels are never flattened into
 frontmatter.
 
-Filters apply to traversed children, not the requested root. Rejecting an
+`root_node_filter` applies only to root discovery; `node_filter` applies to
+traversed children. Rejecting an
 occurrence also prunes traversal below that occurrence, so its descendants do
 not appear at a later depth. Unsupported parameters, missing values, operators,
 and invalid regular expressions return `400 invalid_node_search_parameter`.
@@ -147,18 +182,16 @@ store. Cypher uses a fixed query and passes the corresponding Neo4j relationship
 name as a parameter to `type(relationship)`; request text is never interpolated
 into Cypher.
 
-After successfully resolving the tree, the store increments the Neo4j
-`counter` property once for each unique Node included in that response. The
-root is included; repeated occurrences and cycles do not increment the same
-Node more than once per request. Snapshot hydration does not increment
-counters. Counter values are normalized with `toInteger`, with missing or
-non-numeric values treated as zero.
+`QUERY` endpoints are read-only. Tree refreshes, searches, retries, and Fan
+requests never mutate a Node or increment `update_count`.
 
-`QUERY` describes the safe, idempotent graph lookup. The `counter` mutation is
-server-side access telemetry, analogous to request logging, rather than the
-requested effect of the method. Client retries, refreshes, and separate Fan
-requests can still increment the returned Nodes again, so `counter` must not be
-interpreted as a count of unique human views.
+Canonical Node mutations go through the store's filter-driven `MutateNodes`
+boundary. The selected Node update and
+`update_count = coalesce(toInteger(update_count), 0) + 1` execute in the same
+Neo4j write transaction. `update_count` is store-managed and cannot be supplied
+as an ordinary property mutation. Source import remains ingestion rather than a
+canonical Node update and does not increment it. The legacy `counter` property
+is not read, written, migrated, or removed by this policy.
 
 ## Implementation boundary
 
@@ -168,8 +201,8 @@ Flutter consumes generated protobuf types rather than decoding untyped maps.
 
 Every returned `seville.node.v2.Node` includes its typed `emojis` collection,
 hydrated from outgoing `HAS_EMOJI` relationships. This applies consistently to
-both snapshot Nodes and Nodes embedded in tree occurrences.
+snapshot Nodes, search results, and Nodes embedded in tree occurrences.
 
-This endpoint reports current canonical database state and mutates only the
-request counters described above. It must not scan a vault, run migration
-logic, or derive its values from the legacy import snapshot.
+This endpoint reports current canonical database state without mutating it. It
+must not scan a vault, run migration logic, or derive its values from the legacy
+import snapshot.

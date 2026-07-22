@@ -17,13 +17,12 @@ import (
 )
 
 type Server struct {
-	store      store.Reader
-	token      string
-	rootNodeID string
+	store store.Reader
+	token string
 }
 
-func New(store store.Reader, token, rootNodeID string) *Server {
-	return &Server{store: store, token: token, rootNodeID: rootNodeID}
+func New(store store.Reader, token string) *Server {
+	return &Server{store: store, token: token}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -36,10 +35,42 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /v2/status", s.auth(http.HandlerFunc(s.status)))
 	mux.Handle("GET /v2/snapshot", s.auth(http.HandlerFunc(s.snapshot)))
 	mux.Handle("GET /system/v1/info", s.auth(http.HandlerFunc(s.systemInfo)))
+	mux.Handle("QUERY /nodes/v1/search", s.auth(http.HandlerFunc(s.nodeSearch)))
 	nodeTreeHandler := s.auth(http.HandlerFunc(s.nodeTree))
 	mux.Handle("QUERY /nodes/v1/tree", nodeTreeHandler)
 	mux.Handle("GET /nodes/v1/tree", nodeTreeHandler)
 	return localCORS(mux)
+}
+
+func (s *Server) nodeSearch(w http.ResponseWriter, r *http.Request) {
+	query := &nodesv1.NodeSearchQuery{}
+	if err := readProtoQuery(r, query); err != nil {
+		s.writeError(w, http.StatusBadRequest, "invalid_query", err.Error())
+		return
+	}
+	if nodeSearchFilterEmpty(query.GetNodeFilter()) {
+		s.writeError(w, http.StatusBadRequest, "node_filter_required", "node_filter is required.")
+		return
+	}
+	limit := uint32(20)
+	if query.Limit != nil {
+		limit = query.GetLimit()
+	}
+	if limit == 0 || limit > 100 {
+		s.writeError(w, http.StatusBadRequest, "invalid_limit", "limit must be between 1 and 100.")
+		return
+	}
+	result, err := s.store.NodeSearch(r.Context(), query.GetNodeFilter(), limit)
+	if errors.Is(err, store.ErrInvalidNodeSearchParameter) {
+		s.writeError(w, http.StatusBadRequest, "invalid_node_search_parameter", err.Error())
+		return
+	}
+	if err != nil {
+		slog.Error("search Nodes failed", "error", err, "limit", limit)
+		s.writeError(w, http.StatusInternalServerError, "storage_error", "Nodes could not be searched.")
+		return
+	}
+	s.writeProto(w, http.StatusOK, result)
 }
 
 func (s *Server) nodeTree(w http.ResponseWriter, r *http.Request) {
@@ -52,9 +83,6 @@ func (s *Server) nodeTree(w http.ResponseWriter, r *http.Request) {
 	rootNodeID := strings.TrimSpace(query.GetRootNodeId())
 	if query.RootNodeId == nil {
 		rootNodeID = strings.TrimSpace(r.URL.Query().Get("root_node_id"))
-	}
-	if rootNodeID == "" {
-		rootNodeID = strings.TrimSpace(s.rootNodeID)
 	}
 	relationshipType := query.GetTraverseBy()
 	ok := supportedNodeTreeRelationshipType(relationshipType)
@@ -70,8 +98,9 @@ func (s *Server) nodeTree(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	if rootNodeID == "" {
-		s.writeError(w, http.StatusBadRequest, "root_node_id_required", "root_node_id is required when SEVILLE_ROOT_NODE_ID is not configured.")
+	rootNodeFilter := query.GetRootNodeFilter()
+	if rootNodeID == "" && nodeSearchFilterEmpty(rootNodeFilter) {
+		s.writeError(w, http.StatusBadRequest, "root_node_selector_required", "root_node_id or root_node_filter is required.")
 		return
 	}
 
@@ -89,6 +118,7 @@ func (s *Server) nodeTree(w http.ResponseWriter, r *http.Request) {
 	tree, err := s.store.NodeTree(
 		r.Context(),
 		rootNodeID,
+		rootNodeFilter,
 		relationshipType,
 		query.GetNodeFilter(),
 		uint32(depth),
@@ -106,6 +136,7 @@ func (s *Server) nodeTree(w http.ResponseWriter, r *http.Request) {
 			"read node tree failed",
 			"error", err,
 			"root_node_id", rootNodeID,
+			"root_filter_parameter_count", len(rootNodeFilter.GetIncludeNodesMatching())+len(rootNodeFilter.GetExcludeNodesMatching()),
 			"traverse_by", relationshipType,
 			"included_parameter_count", len(query.GetNodeFilter().GetIncludeNodesMatching()),
 			"excluded_parameter_count", len(query.GetNodeFilter().GetExcludeNodesMatching()),
@@ -117,27 +148,41 @@ func (s *Server) nodeTree(w http.ResponseWriter, r *http.Request) {
 	s.writeProto(w, http.StatusOK, tree)
 }
 
+func nodeSearchFilterEmpty(filter *nodesv1.NodeSearchFilter) bool {
+	return filter == nil ||
+		(!filter.GetNegated() &&
+			len(filter.GetIncludeNodesMatching()) == 0 &&
+			len(filter.GetExcludeNodesMatching()) == 0)
+}
+
 const maxNodeTreeQueryBytes = 1 << 20
 
 func readNodeTreeQuery(r *http.Request) (*nodesv1.NodeTreeQuery, error) {
 	query := &nodesv1.NodeTreeQuery{}
+	if err := readProtoQuery(r, query); err != nil {
+		return nil, err
+	}
+	return query, nil
+}
+
+func readProtoQuery(r *http.Request, query proto.Message) error {
 	if r.Body == nil {
-		return query, nil
+		return nil
 	}
 	body, err := io.ReadAll(io.LimitReader(r.Body, maxNodeTreeQueryBytes+1))
 	if err != nil {
-		return nil, fmt.Errorf("read protobuf query: %w", err)
+		return fmt.Errorf("read protobuf query: %w", err)
 	}
 	if len(body) > maxNodeTreeQueryBytes {
-		return nil, fmt.Errorf("protobuf query exceeds %d bytes", maxNodeTreeQueryBytes)
+		return fmt.Errorf("protobuf query exceeds %d bytes", maxNodeTreeQueryBytes)
 	}
 	if len(body) == 0 {
-		return query, nil
+		return nil
 	}
 	if err := proto.Unmarshal(body, query); err != nil {
-		return nil, fmt.Errorf("decode protobuf query: %w", err)
+		return fmt.Errorf("decode protobuf query: %w", err)
 	}
-	return query, nil
+	return nil
 }
 
 func supportedNodeTreeRelationshipType(value nodesv1.NodeRelationshipType) bool {

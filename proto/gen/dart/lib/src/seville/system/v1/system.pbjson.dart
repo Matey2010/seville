@@ -27,10 +27,15 @@ const SystemInfo$json = {
       '5': 4,
       '10': 'nodePropertyCount'
     },
+    {'1': 'neo4j_labels', '3': 3, '4': 3, '5': 9, '10': 'neo4jLabels'},
+    {'1': 'go_version', '3': 4, '4': 1, '5': 9, '10': 'goVersion'},
+    {'1': 'neo4j_version', '3': 5, '4': 1, '5': 9, '10': 'neo4jVersion'},
   ],
 };
 
 /// Descriptor for `SystemInfo`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List systemInfoDescriptor = $convert.base64Decode(
     'CgpTeXN0ZW1JbmZvEh0KCm5vZGVfY291bnQYASABKARSCW5vZGVDb3VudBIuChNub2RlX3Byb3'
-    'BlcnR5X2NvdW50GAIgASgEUhFub2RlUHJvcGVydHlDb3VudA==');
+    'BlcnR5X2NvdW50GAIgASgEUhFub2RlUHJvcGVydHlDb3VudBIhCgxuZW80al9sYWJlbHMYAyAD'
+    'KAlSC25lbzRqTGFiZWxzEh0KCmdvX3ZlcnNpb24YBCABKAlSCWdvVmVyc2lvbhIjCg1uZW80al'
+    '92ZXJzaW9uGAUgASgJUgxuZW80alZlcnNpb24=');

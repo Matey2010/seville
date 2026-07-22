@@ -40,8 +40,8 @@ HTTP port configured by Compose, normally `http://127.0.0.1:7474`.
 Query by Seville's stable ID:
 
 ```cypher
-MATCH (n:Node {id: $id})
-RETURN n;
+MATCH (n {id: $id})
+RETURN n, labels(n);
 ```
 
 Do not query a frontmatter ID with `elementId(n)`. `elementId()` is a Neo4j
@@ -50,15 +50,30 @@ internal locator and is not Seville identity.
 Useful checks:
 
 ```cypher
-MATCH (n:Node) RETURN count(n);
+MATCH (n)
+WHERE n.id IS NOT NULL
+  AND NOT n:Tag
+  AND NOT n:Emoji
+  AND NOT EXISTS { MATCH ()-[:TAGGED_WITH]->(n) }
+  AND NOT EXISTS { MATCH ()-[:HAS_EMOJI]->(n) }
+RETURN count(n);
 
-MATCH (n:Node)-[r:TAGGED_WITH]->(t:Tag)
+MATCH (n)-[r:TAGGED_WITH]->(t:Tag)
 RETURN n.id, t.name, r.weight
 LIMIT 100;
 
-MATCH (a:Node)-[:LINKS_TO]->(b:Node)
+MATCH (a)-[:LINKS_TO]->(b)
 RETURN a.id, b.id
 LIMIT 100;
+```
+
+Remove the obsolete classification labels without deleting graph entities:
+
+```cypher
+MATCH (n)
+WHERE n:Node OR n:EvolvedNode
+REMOVE n:Node, n:EvolvedNode
+RETURN count(n) AS updated_nodes;
 ```
 
 ## Legacy migration semantics

@@ -43,6 +43,7 @@ class LandscapeXlLayoutView extends StatefulWidget {
     this.vaultNodeResolver,
     this.systemInfo,
     this.nodeTrees = const {},
+    this.queryNodes = const [],
     this.highlightedNodes = const [],
     this.selectedNodes = const [],
     this.onLayoutTap,
@@ -54,6 +55,7 @@ class LandscapeXlLayoutView extends StatefulWidget {
   final VaultNodeResolver? vaultNodeResolver;
   final SystemInfo? systemInfo;
   final Map<FanLayout, NodeTree> nodeTrees;
+  final List<ResolvedVaultNode> queryNodes;
   final List<ResolvedVaultNode> highlightedNodes;
   final List<ResolvedVaultNode> selectedNodes;
   final LandscapeXlLayoutTapCallback? onLayoutTap;
@@ -69,6 +71,7 @@ class _LandscapeXlLayoutViewState extends State<LandscapeXlLayoutView> {
     vaultNodeResolver: widget.vaultNodeResolver,
     systemInfo: widget.systemInfo,
     nodeTrees: widget.nodeTrees,
+    queryNodes: widget.queryNodes,
     highlightedNodes: widget.highlightedNodes,
     selectedNodes: widget.selectedNodes,
     onLayoutTap: widget.onLayoutTap,
@@ -91,6 +94,7 @@ class _LandscapeXlLayoutViewState extends State<LandscapeXlLayoutView> {
         vaultNodeResolver: widget.vaultNodeResolver,
         systemInfo: widget.systemInfo,
         nodeTrees: widget.nodeTrees,
+        queryNodes: widget.queryNodes,
         highlightedNodes: widget.highlightedNodes,
         selectedNodes: widget.selectedNodes,
         onLayoutTap: widget.onLayoutTap,
@@ -103,6 +107,7 @@ class _LandscapeXlLayoutViewState extends State<LandscapeXlLayoutView> {
       vaultNodeResolver: widget.vaultNodeResolver,
       systemInfo: widget.systemInfo,
       nodeTrees: widget.nodeTrees,
+      queryNodes: widget.queryNodes,
       highlightedNodes: widget.highlightedNodes,
       selectedNodes: widget.selectedNodes,
       onLayoutTap: widget.onLayoutTap,
@@ -121,6 +126,7 @@ class LandscapeXlLayoutGame extends FlameGame {
     required this.vaultNodeResolver,
     required this.systemInfo,
     required this.nodeTrees,
+    required this.queryNodes,
     required this.highlightedNodes,
     required this.selectedNodes,
     required this.onLayoutTap,
@@ -131,6 +137,7 @@ class LandscapeXlLayoutGame extends FlameGame {
   VaultNodeResolver? vaultNodeResolver;
   SystemInfo? systemInfo;
   Map<FanLayout, NodeTree> nodeTrees;
+  List<ResolvedVaultNode> queryNodes;
   List<ResolvedVaultNode> highlightedNodes;
   List<ResolvedVaultNode> selectedNodes;
   LandscapeXlLayoutTapCallback? onLayoutTap;
@@ -181,6 +188,7 @@ class LandscapeXlLayoutGame extends FlameGame {
     required VaultNodeResolver? vaultNodeResolver,
     required SystemInfo? systemInfo,
     required Map<FanLayout, NodeTree> nodeTrees,
+    required List<ResolvedVaultNode> queryNodes,
     required List<ResolvedVaultNode> highlightedNodes,
     required List<ResolvedVaultNode> selectedNodes,
     required LandscapeXlLayoutTapCallback? onLayoutTap,
@@ -190,6 +198,7 @@ class LandscapeXlLayoutGame extends FlameGame {
     this.vaultNodeResolver = vaultNodeResolver;
     this.systemInfo = systemInfo;
     this.nodeTrees = nodeTrees;
+    this.queryNodes = queryNodes;
     this.highlightedNodes = highlightedNodes;
     this.selectedNodes = selectedNodes;
     this.onLayoutTap = onLayoutTap;
@@ -675,7 +684,8 @@ LayoutColor _nodeColor(Node node) {
     }
   }
 
-  final identity = node.id.isNotEmpty ? node.id : node.path;
+  final normalizedSlug = node.slug.trim();
+  final identity = normalizedSlug.isNotEmpty ? normalizedSlug : node.path;
   var seed = 0;
   for (final codeUnit in identity.codeUnits) {
     seed = (seed * 31 + codeUnit) & 0x7FFFFFFF;
@@ -747,6 +757,7 @@ class _LandscapeXlSceneComponent extends PositionComponent
           vaultNodeResolver,
           systemInfo,
           selectedNode,
+          game.queryNodes,
           hoverPosition,
           layoutContext,
         );
@@ -850,6 +861,7 @@ class _LandscapeXlSceneComponent extends PositionComponent
       game.safePadding,
       localPosition,
       game.vaultNodeResolver,
+      game.queryNodes,
       game.highlightedNodes,
       game.selectedNodes,
     );
@@ -938,14 +950,14 @@ class _FanComponent extends PositionComponent
       planePoints: planePoints,
     );
     if (occurrence == null) return;
-    final resolvedNode = _resolvedFanNode(occurrence);
+    final resolvedNode = _resolvedFanNode(occurrence, fan.layoutDefaults);
     tapHandler(
       LayoutTapTarget(
         key: '${placement.key}/${occurrence.occurrenceId}',
         layout: fan,
         node: resolvedNode,
         resolvedNode: resolvedNode,
-        label: occurrence.node.displayLabel,
+        label: _nodePresentationLabel(occurrence.node, fan.layoutDefaults),
       ),
     );
     event.continuePropagation = false;
@@ -1003,11 +1015,14 @@ class _GraphComponent extends PositionComponent
     if (graphNode == null) return;
     tapHandler(
       LayoutTapTarget(
-        key: '${placement.key}/${graphNode.node.id}',
+        key: '${placement.key}/${graphNode.node.slug}',
         layout: placement.layout,
         node: graphNode.resolvedNode,
         resolvedNode: graphNode.resolvedNode,
-        label: graphNode.node.displayLabel,
+        label: _nodePresentationLabel(
+          graphNode.node,
+          placement.layout.layoutDefaults,
+        ),
       ),
     );
     event.continuePropagation = false;
@@ -1038,11 +1053,15 @@ LayoutContext _layoutContext(
     selectedNodePath: selectedPath,
     selectedNodePaths: selectedPaths,
     highlightedNodePaths: [for (final node in highlightedNodes) node.path],
-    activeNodeIds: [
+    activeNodeSlugs: [
       for (final node in selectedNodes)
-        if (node.node case final graphNode?) graphNode.id,
+        if (node.node case final graphNode?)
+          if (graphNode.slug.trim().isNotEmpty) graphNode.slug.trim(),
     ],
-    activeNodePaths: selectedPaths,
+    activeNodePaths: [
+      for (final path in selectedPaths)
+        if (path.trim().isNotEmpty) path.trim(),
+    ],
   );
   return nodeContext;
 }
@@ -1055,6 +1074,7 @@ void _drawLayoutPath(
   VaultNodeResolver? vaultNodeResolver,
   SystemInfo? systemInfo,
   ResolvedVaultNode? selectedNode,
+  List<ResolvedVaultNode> queryNodes,
   Offset? hoverPosition,
   LayoutContext layoutContext,
 ) {
@@ -1126,6 +1146,7 @@ void _drawLayoutPath(
       _screenOrderedQuadrilateral(resolvedPoints),
       composition,
       layoutContext,
+      queryNodes,
     );
   }
   for (final composition in layoutPath.layouts.values.whereType<RowLayout>()) {
@@ -1135,6 +1156,7 @@ void _drawLayoutPath(
       _screenOrderedQuadrilateral(resolvedPoints),
       composition,
       layoutContext,
+      queryNodes,
     );
   }
   for (final table
@@ -1163,6 +1185,9 @@ TableData _tableData(
     NodePropertyTableDataSource.systemInfo => TableData({
       'node_count': systemInfo?.nodeCount,
       'node_property_count': systemInfo?.nodePropertyCount,
+      'neo4j_labels': systemInfo?.neo4jLabels,
+      'go_version': systemInfo?.goVersion,
+      'neo4j_version': systemInfo?.neo4jVersion,
     }),
   };
 }
@@ -1347,8 +1372,7 @@ void _drawGraphLayout(
   for (final graphNode in nodes) {
     final fillColor = _nodeBackgroundColor(
       _nodeColor(graphNode.node).resolve(),
-      graphNode.node.id,
-      graphNode.resolvedNode.path,
+      graphNode.node.slug,
       layoutContext,
       graph.layoutDefaults,
     );
@@ -1368,7 +1392,7 @@ void _drawGraphLayout(
     );
     _paintNodeLabel(
       canvas,
-      graphNode.node.displayLabel,
+      _nodePresentationLabel(graphNode.node, graph.layoutDefaults),
       graphNode.circleBounds.center,
       graphNode.circleBounds.width * 0.8,
       graph.labelColor,
@@ -1441,6 +1465,128 @@ _GraphNodeFrame? _hitTestGraph(
   return null;
 }
 
+typedef _NodeListEntryFrame = ({
+  ResolvedVaultNode resolvedNode,
+  Node node,
+  List<Offset> points,
+});
+
+void _drawNodeListLayout(
+  Canvas canvas,
+  List<Offset> points,
+  NodeListLayout layout,
+  List<ResolvedVaultNode> queryNodes,
+  LayoutContext layoutContext,
+) {
+  final entries = _nodeListEntries(layout, queryNodes, points);
+  final borderWidth =
+      layout.layoutDefaults?.borderWidth ?? layout.style.strokeWidth;
+  for (final entry in entries) {
+    final path = _polygonPath(entry.points);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = _nodeBackgroundColor(
+          _nodeColor(entry.node).resolve(),
+          entry.node.slug,
+          layoutContext,
+          layout.layoutDefaults,
+        )
+        ..style = PaintingStyle.fill,
+    );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = layout.style.color
+        ..strokeWidth = borderWidth
+        ..strokeCap = layout.style.strokeCap
+        ..style = PaintingStyle.stroke,
+    );
+    final center =
+        entry.points.fold<Offset>(Offset.zero, (sum, point) => sum + point) /
+        entry.points.length.toDouble();
+    final topWidth = (entry.points[1] - entry.points[0]).distance;
+    final bottomWidth = (entry.points[2] - entry.points[3]).distance;
+    _paintNodeLabel(
+      canvas,
+      _nodePresentationLabel(
+        entry.node,
+        layout.layoutDefaults,
+        forceSlug: true,
+      ),
+      center,
+      math.min(topWidth, bottomWidth) * 0.88,
+      layout.labelColor,
+      layout.labelSize,
+    );
+  }
+}
+
+List<_NodeListEntryFrame> _nodeListEntries(
+  NodeListLayout layout,
+  List<ResolvedVaultNode> queryNodes,
+  List<Offset> points,
+) {
+  if (points.length != 4) return const [];
+  final nodes = switch (layout.dataSource) {
+    NodeListDataSource.searchResults => queryNodes,
+  };
+  final resolvedNodes = [
+    for (final resolvedNode in nodes)
+      if (resolvedNode.node case final node?)
+        (resolvedNode: resolvedNode, node: node),
+  ];
+  if (resolvedNodes.isEmpty) return const [];
+  return [
+    for (var index = 0; index < resolvedNodes.length; index += 1)
+      (
+        resolvedNode: resolvedNodes[index].resolvedNode,
+        node: resolvedNodes[index].node,
+        points: _quadrilateralSlice(
+          points,
+          top: index / resolvedNodes.length,
+          bottom: (index + 1) / resolvedNodes.length,
+        ),
+      ),
+  ];
+}
+
+_NodeListEntryFrame? _hitTestNodeList(
+  NodeListLayout layout,
+  List<ResolvedVaultNode> queryNodes,
+  List<Offset> points,
+  Offset position,
+) {
+  for (final entry in _nodeListEntries(layout, queryNodes, points).reversed) {
+    if (_polygonContains(entry.points, position)) return entry;
+  }
+  return null;
+}
+
+Path _polygonPath(List<Offset> points) {
+  final path = Path()..moveTo(points.first.dx, points.first.dy);
+  for (final point in points.skip(1)) {
+    path.lineTo(point.dx, point.dy);
+  }
+  return path..close();
+}
+
+String _nodePresentationLabel(
+  Node node,
+  LayoutDefaults? layoutDefaults, {
+  bool forceSlug = false,
+}) {
+  final slug = node.slug.trim();
+  if (!forceSlug) {
+    final emoji = node.primaryEmojiCharacter;
+    if (emoji != null) return emoji;
+  }
+  if (slug.isNotEmpty) {
+    return (layoutDefaults ?? const LayoutDefaults()).formatNodeSlug(slug);
+  }
+  return node.displayLabel;
+}
+
 typedef _FanSegment = ({
   NodeTreeOccurrence occurrence,
   Path path,
@@ -1449,7 +1595,7 @@ typedef _FanSegment = ({
 });
 
 typedef _FanOccurrenceHierarchy = ({
-  NodeTreeOccurrence root,
+  List<NodeTreeOccurrence> roots,
   List<NodeTreeOccurrence> occurrences,
   Map<String, List<NodeTreeOccurrence>> childrenByParent,
 });
@@ -1495,8 +1641,7 @@ void _drawFanLayout(
     final node = segment.occurrence.node;
     final fillColor = _nodeBackgroundColor(
       _nodeColor(node).resolve(),
-      node.id,
-      node.path,
+      node.slug,
       layoutContext,
       fan.layoutDefaults,
     );
@@ -1522,7 +1667,7 @@ void _drawFanLayout(
     final node = segment.occurrence.node;
     _paintNodeLabel(
       canvas,
-      node.displayLabel,
+      _nodePresentationLabel(node, fan.layoutDefaults),
       segment.labelPoint,
       segment.labelWidth,
       fan.labelColor,
@@ -1585,10 +1730,11 @@ _FanOccurrenceHierarchy? _fanOccurrenceHierarchy(FanLayout fan, NodeTree tree) {
   final depthLimitedOccurrences = tree.occurrences
       .where((occurrence) => occurrence.depth < fan.maxDepth)
       .toList(growable: false);
-  final root = depthLimitedOccurrences
+  final roots = depthLimitedOccurrences
       .where((occurrence) => occurrence.depth == 0)
-      .firstOrNull;
-  if (root == null) return null;
+      .take(fan.maxSectionCount)
+      .toList(growable: false);
+  if (roots.isEmpty) return null;
 
   final uncappedChildren = <String, List<NodeTreeOccurrence>>{};
   for (final occurrence in depthLimitedOccurrences) {
@@ -1611,9 +1757,11 @@ _FanOccurrenceHierarchy? _fanOccurrenceHierarchy(FanLayout fan, NodeTree tree) {
     }
   }
 
-  addVisibleOccurrence(root);
+  for (final root in roots) {
+    addVisibleOccurrence(root);
+  }
   return (
-    root: root,
+    roots: roots,
     occurrences: occurrences,
     childrenByParent: childrenByParent,
   );
@@ -1681,13 +1829,7 @@ _FanFrame? _resolveFanFrame(
   final rowStops = _gridTrackStops([
     for (final row in fan.rowsConfig.values.take(rowCount)) row.size,
   ], regularRadius);
-  final columnStops = _fanSectionStops(
-    fan,
-    hierarchy,
-    hierarchy.childrenByParent[hierarchy.root.occurrenceId] ?? const [],
-    startTheta,
-    endTheta,
-  );
+  final columnStops = _fanTopLevelStops(fan, hierarchy, startTheta, endTheta);
   return (
     center: center,
     growthAngle: growthAngle,
@@ -1755,8 +1897,59 @@ List<_FanSegment> _fanSegmentsInFrame(
       addOccurrence(children[index], childStops[index], childStops[index + 1]);
     }
   };
-  addOccurrence(hierarchy.root, frame.startTheta, frame.endTheta);
+  final rootStops = _equalSectionStops(
+    hierarchy.roots.length,
+    frame.startTheta,
+    frame.endTheta,
+  );
+  for (var index = 0; index < hierarchy.roots.length; index += 1) {
+    addOccurrence(
+      hierarchy.roots[index],
+      rootStops[index],
+      rootStops[index + 1],
+    );
+  }
   return segments;
+}
+
+List<double> _fanTopLevelStops(
+  FanLayout fan,
+  _FanOccurrenceHierarchy hierarchy,
+  double startTheta,
+  double endTheta,
+) {
+  final rootStops = _equalSectionStops(
+    hierarchy.roots.length,
+    startTheta,
+    endTheta,
+  );
+  final stops = <double>[startTheta];
+  for (var rootIndex = 0; rootIndex < hierarchy.roots.length; rootIndex += 1) {
+    final root = hierarchy.roots[rootIndex];
+    final children = hierarchy.childrenByParent[root.occurrenceId] ?? const [];
+    final childStops = _fanSectionStops(
+      fan,
+      hierarchy,
+      children,
+      rootStops[rootIndex],
+      rootStops[rootIndex + 1],
+    );
+    stops.addAll(childStops.skip(1));
+  }
+  return stops;
+}
+
+List<double> _equalSectionStops(
+  int sectionCount,
+  double startTheta,
+  double endTheta,
+) {
+  if (sectionCount <= 0) return [startTheta, endTheta];
+  final span = endTheta - startTheta;
+  return [
+    for (var index = 0; index <= sectionCount; index += 1)
+      startTheta + span * index / sectionCount,
+  ];
 }
 
 List<double> _fanSectionStops(
@@ -1946,6 +2139,7 @@ LayoutTapTarget? _hitTestLayoutTapTarget(
   EdgeInsets safePadding,
   Offset position,
   VaultNodeResolver? vaultNodeResolver,
+  List<ResolvedVaultNode> queryNodes,
   List<ResolvedVaultNode> highlightedNodes,
   List<ResolvedVaultNode> selectedNodes,
 ) {
@@ -1983,6 +2177,7 @@ LayoutTapTarget? _hitTestLayoutTapTarget(
               position,
               '${entry.key}/${compositionEntry.key}',
               layoutContext,
+              queryNodes,
             );
             if (target != null) return target;
           }
@@ -2008,6 +2203,7 @@ void _drawFlexComposition(
   List<Offset> points,
   Layout composition,
   LayoutContext layoutContext,
+  List<ResolvedVaultNode> queryNodes,
 ) {
   if (points.length != 4) return;
 
@@ -2030,7 +2226,13 @@ void _drawFlexComposition(
     recorder,
     Rect.fromLTWH(0, 0, flatWidth, flatHeight),
   )..clipRect(Rect.fromLTWH(0, 0, flatWidth, flatHeight));
-  _drawFlatFlexComposition(flatCanvas, flatPoints, composition, layoutContext);
+  _drawFlatFlexComposition(
+    flatCanvas,
+    flatPoints,
+    composition,
+    layoutContext,
+    queryNodes,
+  );
 
   final picture = recorder.endRecording();
   final clipPath = Path()..moveTo(points.first.dx, points.first.dy);
@@ -2051,6 +2253,7 @@ void _drawFlatFlexComposition(
   List<Offset> points,
   Layout composition,
   LayoutContext layoutContext,
+  List<ResolvedVaultNode> queryNodes,
 ) {
   for (final child in _resolveFlexChildren(
     composition,
@@ -2060,8 +2263,22 @@ void _drawFlatFlexComposition(
     final layout = child.layout;
     if (layout is PanelLayout) {
       _drawPanelLayout(canvas, child.points, layout);
+    } else if (layout is NodeListLayout) {
+      _drawNodeListLayout(
+        canvas,
+        child.points,
+        layout,
+        queryNodes,
+        layoutContext,
+      );
     } else if (layout is ColumnLayout || layout is RowLayout) {
-      _drawFlatFlexComposition(canvas, child.points, layout, layoutContext);
+      _drawFlatFlexComposition(
+        canvas,
+        child.points,
+        layout,
+        layoutContext,
+        queryNodes,
+      );
     }
   }
 }
@@ -2072,6 +2289,7 @@ LayoutTapTarget? _hitTestFlexComposition(
   Offset position,
   String path,
   LayoutContext layoutContext,
+  List<ResolvedVaultNode> queryNodes,
 ) {
   final children = _resolveFlexChildren(
     composition,
@@ -2088,8 +2306,30 @@ LayoutTapTarget? _hitTestFlexComposition(
         position,
         childPath,
         layoutContext,
+        queryNodes,
       );
       if (nested != null) return nested;
+    }
+    if (layout is NodeListLayout) {
+      final entry = _hitTestNodeList(
+        layout,
+        queryNodes,
+        child.points,
+        position,
+      );
+      if (entry != null) {
+        return LayoutTapTarget(
+          key: '$childPath/${entry.node.slug}',
+          layout: layout,
+          node: entry.resolvedNode,
+          resolvedNode: entry.resolvedNode,
+          label: _nodePresentationLabel(
+            entry.node,
+            layout.layoutDefaults,
+            forceSlug: true,
+          ),
+        );
+      }
     }
     if (layout is PanelLayout &&
         layout.aliases.contains('action-button') &&
@@ -2249,12 +2489,15 @@ NodeTreeOccurrence? _hitTestFan(
   return null;
 }
 
-ResolvedVaultNode _resolvedFanNode(NodeTreeOccurrence occurrence) {
+ResolvedVaultNode _resolvedFanNode(
+  NodeTreeOccurrence occurrence,
+  LayoutDefaults? layoutDefaults,
+) {
   final node = occurrence.node;
   return ResolvedVaultNode(
     path: node.path,
     color: _nodeColor(node),
-    label: node.displayLabel,
+    label: _nodePresentationLabel(node, layoutDefaults),
     node: node,
     resolvedStatus: LayoutHttpStatus.ok,
   );
@@ -2297,8 +2540,7 @@ void _drawPerspectiveGridArea(
       ? resolvedFillColor ?? area.fillColor
       : _nodeBackgroundColor(
           resolvedFillColor,
-          resolvedNode!.node!.id,
-          resolvedNode.path,
+          resolvedNode!.node!.slug,
           layoutContext,
           area.layoutDefaults ?? grid.layoutDefaults,
         );
@@ -2400,15 +2642,15 @@ void _drawPerspectiveGridArea(
 
 Color _nodeBackgroundColor(
   Color color,
-  String nodeId,
-  String nodePath,
+  String nodeSlug,
   LayoutContext layoutContext,
   LayoutDefaults? layoutDefaults,
 ) {
   final defaults = layoutDefaults ?? const LayoutDefaults();
+  final normalizedNodeSlug = nodeSlug.trim();
   final active =
-      (nodeId.isNotEmpty && layoutContext.activeNodeIds.contains(nodeId)) ||
-      layoutContext.activeNodePaths.contains(nodePath);
+      normalizedNodeSlug.isNotEmpty &&
+      layoutContext.activeNodeSlugs.contains(normalizedNodeSlug);
   final opacity = active
       ? defaults.activeNodeBackgroundOpacity
       : defaults.inactiveNodeBackgroundOpacity;
@@ -2784,7 +3026,7 @@ Map<String, Object?> _nodeInfoValues(ResolvedVaultNode selectedNode) {
   final node = selectedNode.node;
   final frontmatter = node?.frontmatter ?? const <String, String>{};
   return {
-    'id': node?.id ?? selectedNode.path,
+    'slug': node?.slug ?? selectedNode.path,
     'version':
         frontmatter['version'] ??
         frontmatter['node_version'] ??

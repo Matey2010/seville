@@ -23,6 +23,7 @@ func main() {
 		cfg.Neo4jUsername,
 		cfg.Neo4jPassword,
 		cfg.Neo4jDatabase,
+		cfg.Neo4jQueryLog,
 	)
 	if err != nil {
 		slog.Error("migration database failed", "error", err)

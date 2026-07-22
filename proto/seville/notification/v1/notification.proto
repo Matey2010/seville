@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package seville.notification.v1;
+
+option go_package = "github.com/Matey2010/seville/proto/gen/go/seville/notification/v1;notificationv1";
+
+enum NotificationType {
+  NOTIFICATION_TYPE_INFO = 0;
+  NOTIFICATION_TYPE_ERROR = 1;
+  NOTIFICATION_TYPE_WARNING = 2;
+  NOTIFICATION_TYPE_SUCCESS = 3;
+}

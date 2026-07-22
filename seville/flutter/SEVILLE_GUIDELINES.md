@@ -372,9 +372,13 @@ Fan data matching belongs to the optional `FanLayout.nodeFilter`. Its
 `includeNodesMatching` and `excludeNodesMatching` lists contain structured
 `NodeSearchParameter` values. They are part of the Riverpod request identity
 and are enforced by the tree API before Flame rendering. Include entries are
-OR-matched when present, any exclude match rejects, and a rejected occurrence
-prunes that branch. Painters and components must not independently reimplement
-the filter.
+matched according to `includeMatchMode`: `any` retains OR behavior and `all`
+requires every include. Any exclude match rejects, and a rejected occurrence
+prunes that branch. `NodeSearchFilter.reverseOf(filter)` provides a const-safe
+logical inverse and `filter.reversed()` provides the runtime equivalent. The
+LG Ergo bottom Fan uses the reversed top filter from the same root, so the two
+planes remain complementary without duplicating parameters. Painters and
+components must not independently reimplement the filter.
 
 Selected Nodes have an explicit center configuration at
 `safe-area/inner-circle-plane/wrapped-scene-square/scene-graph-plane/scene-graph`.
@@ -454,8 +458,9 @@ encountering its interchangeable implementation vocabulary.
   models or shared tokens inline.
 - Flame components orchestrate and render interface content. Flutter widgets
   are limited to application composition, the `GameWidget` host, and an
-  explicitly introduced HUD. No HUD exists today: panels, controls, overlays,
-  graphs, and layout content remain Flame components. Neither layer stores
+  explicitly introduced HUD. `SearchHud` and `HudToastLayer` are the current
+  HUDs; panels, controls, graphs, and layout content remain Flame components.
+  Neither layer stores
   global design rules, raw color systems, layout presets, or reusable helper
   algorithms.
 
@@ -529,9 +534,33 @@ stored in `hudStateProvider`; the corresponding action-plane button remains a
 Flame-rendered layout element. This exception does not permit ordinary layout
 content to become Flutter widgets.
 
+`HudToastLayer` is the second explicit HUD. Toast producers write
+`HudToastEvent` values to the durable queue in `hudToastProvider`; they never
+call an overlay API. The layer listens to Riverpod with immediate replay and
+adapts the queue to `overlay_layers`, stacking messages at the safe top-right
+and dismissing each after three seconds.
+Each event carries the protobuf `NotificationType`, while the Flutter
+`HudNotification` widget owns the body and fixed blue/info, red/error,
+yellow/warning, and green/success backgrounds. Protobuf never owns UI colors.
+The hosted package currently supplies the generic `OverlayManager` and
+`OverlayType.toast`; Seville keeps that package-specific API inside this one
+adapter so a future `packages/overlay_layers` path dependency can replace it
+without changing actions, providers, or Flame components. See [`HUD.md`](HUD.md).
+
 Application keyboard bindings live in `lib/constants/keymap.dart`. The keymap
 maps macOS hardware key events to application actions without depending on
 Riverpod. The screen owns the lifecycle handler and resolves those actions into
 provider updates, avoiding focus conflicts with `GameWidget` and HUD text
-fields. Command-F opens the search HUD, while Escape clears selected Nodes and
-hides search.
+fields. Command-F opens the search HUD, Command-R refreshes every currently
+watched Fan `NodeTree` provider, Command-C copies the last selected Node slug,
+and Escape clears selected Nodes and hides search.
+
+Search HUD submission is shared by its Search button and keyboard Enter. The
+normalized value is stored in `hudStateProvider`, and `nodeSearchProvider`
+performs `QUERY /nodes/v1/search`. Results are rendered beneath the right-plane
+action buttons by the configured Flame `NodeListLayout`; they are not Flutter
+HUD children. Each result row paints active/inactive state from the same
+slug-based selected-node set and toggles that set through the ordinary layout
+tap path. LG Ergo configures `LayoutDefaults.nodeSlugPrefix` and
+`nodeSlugSuffix` as `[[` and `]]`; Fan and Graph apply them only to their slug
+fallback, while search rows always expose the wrapped slug.

@@ -1,14 +1,16 @@
 import 'package:dio/dio.dart';
 import 'package:seville_proto/seville_proto.dart'
-    hide NodeSearchFilter, NodeSearchParameter;
+    hide NodeSearchFilter, NodeSearchMatchMode, NodeSearchParameter;
 import 'package:seville_proto/seville_proto.dart'
     as wire
     show
         NodeParameterType,
         NodeRelationshipType,
         NodeSearchFilter,
+        NodeSearchMatchMode,
         NodeSearchMatchOperator,
         NodeSearchParameter,
+        NodeSearchQuery,
         NodeTreeQuery;
 
 import '../models/graph_traverse_type.dart';
@@ -73,6 +75,7 @@ class SevilleApi {
 
   Future<NodeTree> nodeTree({
     String? rootNodeId,
+    NodeSearchFilter? rootNodeFilter,
     int depth = 3,
     GraphTraverseType traverseBy = GraphTraverseType.partOf,
     NodeSearchFilter? nodeFilter,
@@ -88,6 +91,9 @@ class SevilleApi {
     };
     final query = wire.NodeTreeQuery(
       rootNodeId: rootNodeId?.trim(),
+      rootNodeFilter: rootNodeFilter == null
+          ? null
+          : _wireSearchFilter(rootNodeFilter),
       depth: depth,
       traverseBy: _wireTraverseType(traverseBy),
       nodeFilter: nodeFilter == null ? null : _wireSearchFilter(nodeFilter),
@@ -104,7 +110,8 @@ class SevilleApi {
         ),
       );
     } on DioException catch (error) {
-      if ((nodeFilter == null || nodeFilter.isEmpty) &&
+      if ((rootNodeFilter == null || rootNodeFilter.isEmpty) &&
+          (nodeFilter == null || nodeFilter.isEmpty) &&
           const [404, 405, 501].contains(error.response?.statusCode)) {
         response = await _dio.get<List<int>>(
           '/nodes/v1/tree',
@@ -119,6 +126,42 @@ class SevilleApi {
       throw const FormatException('The backend returned an empty Node tree.');
     }
     return NodeTree.fromBuffer(bytes);
+  }
+
+  Future<NodeSearchResult> searchNodes(String value, {int limit = 12}) async {
+    final normalizedValue = value.trim();
+    if (normalizedValue.isEmpty) return NodeSearchResult();
+    if (limit < 1 || limit > 100) {
+      throw ArgumentError.value(limit, 'limit', 'must be between 1 and 100');
+    }
+    final pattern = '(?i).*${RegExp.escape(normalizedValue)}.*';
+    final filter = NodeSearchFilter.anyOf([
+      for (final parameter in const [
+        NodeParameter.slug,
+        NodeParameter.title,
+        NodeParameter.tag,
+        NodeParameter.label,
+      ])
+        NodeSearchParameter(
+          parameter: parameter,
+          value: pattern,
+          operator: NodeMatchOperator.regularExpression,
+        ),
+    ]);
+    final query = wire.NodeSearchQuery(
+      nodeFilter: _wireSearchFilter(filter),
+      limit: limit,
+    );
+    final response = await _dio.request<List<int>>(
+      '/nodes/v1/search',
+      data: query.writeToBuffer(),
+      options: Options(method: 'QUERY', contentType: 'application/x-protobuf'),
+    );
+    final bytes = response.data;
+    if (bytes == null) {
+      throw const FormatException('The backend returned empty Node search.');
+    }
+    return NodeSearchResult.fromBuffer(bytes);
   }
 
   void close() => _dio.close();
@@ -137,6 +180,13 @@ wire.NodeSearchFilter _wireSearchFilter(
 ) => wire.NodeSearchFilter(
   includeNodesMatching: value.includeNodesMatching.map(_wireSearchParameter),
   excludeNodesMatching: value.excludeNodesMatching.map(_wireSearchParameter),
+  includeMatchMode: switch (value.includeMatchMode) {
+    NodeSearchMatchMode.any =>
+      wire.NodeSearchMatchMode.NODE_SEARCH_MATCH_MODE_ANY,
+    NodeSearchMatchMode.all =>
+      wire.NodeSearchMatchMode.NODE_SEARCH_MATCH_MODE_ALL,
+  },
+  negated: value.isNegated,
 );
 
 wire.NodeSearchParameter _wireSearchParameter(NodeSearchParameter value) =>
@@ -148,6 +198,7 @@ wire.NodeSearchParameter _wireSearchParameter(NodeSearchParameter value) =>
         NodeParameter.title => wire.NodeParameterType.NODE_PARAMETER_TYPE_TITLE,
         NodeParameter.tag => wire.NodeParameterType.NODE_PARAMETER_TYPE_TAG,
         NodeParameter.label => wire.NodeParameterType.NODE_PARAMETER_TYPE_LABEL,
+        NodeParameter.slug => wire.NodeParameterType.NODE_PARAMETER_TYPE_SLUG,
       },
       operator: switch (value.operator) {
         NodeMatchOperator.exact =>

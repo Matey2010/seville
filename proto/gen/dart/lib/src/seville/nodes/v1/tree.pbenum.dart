@@ -55,6 +55,8 @@ class NodeParameterType extends $pb.ProtobufEnum {
       NodeParameterType._(5, _omitEnumNames ? '' : 'NODE_PARAMETER_TYPE_TAG');
   static const NodeParameterType NODE_PARAMETER_TYPE_LABEL =
       NodeParameterType._(6, _omitEnumNames ? '' : 'NODE_PARAMETER_TYPE_LABEL');
+  static const NodeParameterType NODE_PARAMETER_TYPE_SLUG =
+      NodeParameterType._(7, _omitEnumNames ? '' : 'NODE_PARAMETER_TYPE_SLUG');
 
   static const $core.List<NodeParameterType> values = <NodeParameterType>[
     NODE_PARAMETER_TYPE_UNSPECIFIED,
@@ -64,10 +66,11 @@ class NodeParameterType extends $pb.ProtobufEnum {
     NODE_PARAMETER_TYPE_TITLE,
     NODE_PARAMETER_TYPE_TAG,
     NODE_PARAMETER_TYPE_LABEL,
+    NODE_PARAMETER_TYPE_SLUG,
   ];
 
   static final $core.List<NodeParameterType?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 6);
+      $pb.ProtobufEnum.$_initByValueList(values, 7);
   static NodeParameterType? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 
@@ -113,6 +116,31 @@ class NodeSearchMatchOperator extends $pb.ProtobufEnum {
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 
   const NodeSearchMatchOperator._(super.value, super.name);
+}
+
+class NodeSearchMatchMode extends $pb.ProtobufEnum {
+  static const NodeSearchMatchMode NODE_SEARCH_MATCH_MODE_UNSPECIFIED =
+      NodeSearchMatchMode._(
+          0, _omitEnumNames ? '' : 'NODE_SEARCH_MATCH_MODE_UNSPECIFIED');
+  static const NodeSearchMatchMode NODE_SEARCH_MATCH_MODE_ANY =
+      NodeSearchMatchMode._(
+          1, _omitEnumNames ? '' : 'NODE_SEARCH_MATCH_MODE_ANY');
+  static const NodeSearchMatchMode NODE_SEARCH_MATCH_MODE_ALL =
+      NodeSearchMatchMode._(
+          2, _omitEnumNames ? '' : 'NODE_SEARCH_MATCH_MODE_ALL');
+
+  static const $core.List<NodeSearchMatchMode> values = <NodeSearchMatchMode>[
+    NODE_SEARCH_MATCH_MODE_UNSPECIFIED,
+    NODE_SEARCH_MATCH_MODE_ANY,
+    NODE_SEARCH_MATCH_MODE_ALL,
+  ];
+
+  static final $core.List<NodeSearchMatchMode?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 2);
+  static NodeSearchMatchMode? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const NodeSearchMatchMode._(super.value, super.name);
 }
 
 const $core.bool _omitEnumNames =

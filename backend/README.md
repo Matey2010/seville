@@ -23,7 +23,7 @@ The manual Obsidian migration tool:
 
 1. parses Markdown and typed YAML frontmatter using a YAML 1.2 parser;
 2. normalizes frontmatter and inline tags into canonical lowercase tag IDs;
-3. stores tags as `(:Node)-[:TAGGED_WITH {weight: 1.0}]->(:Tag)`;
+3. stores tags as `(node)-[:TAGGED_WITH {weight: 1.0}]->(:Tag)`;
 4. rejects duplicate IDs and reports source records without IDs as import warnings;
 5. creates only IDs that do not already exist in Neo4j;
 6. creates resolved `LINKS_TO` relationships for newly imported nodes; and
@@ -75,8 +75,8 @@ It does not fetch, merge, commit, or push.
 | `SEVILLE_NEO4J_USERNAME` | `neo4j` | Neo4j user |
 | `SEVILLE_NEO4J_PASSWORD` | Required | Neo4j password |
 | `SEVILLE_NEO4J_DATABASE` | `neo4j` | Neo4j database |
+| `SEVILLE_NEO4J_QUERY_LOG` | `false` | Print generated Node-tree Cypher, parameters, selected roots, and latency |
 | `SEVILLE_TOKEN` | Required | Client-to-Go API bearer token; not an encryption key |
-| `SEVILLE_ROOT_NODE_ID` | Optional | Default stable Node ID for graph-backed tree requests |
 
 `compose.yaml` contains wiring only. Put real credentials in the ignored
 repository-root `.env`; never put them in Compose or commit them.
@@ -85,19 +85,40 @@ repository-root `.env`; never put them in Compose or commit them.
 an existing database. To rotate an existing local password, change it once in
 Neo4j Browser, update `SEVILLE_NEO4J_PASSWORD` in `.env`, and restart Seville.
 
+For temporary Node-tree query debugging, set
+`SEVILLE_NEO4J_QUERY_LOG=true` in `.env`. The macOS launcher mirrors new backend
+log entries into its console. Each root and depth query prints a copyable block
+of sorted Neo4j Browser `:param` commands followed by the exact Cypher, then
+reports the selected root and these timings:
+
+- `dispatch_duration`: Go driver time until `Session.Run` returns;
+- `total_duration`: total Go-side time through result consumption;
+- `server_available_after`: Neo4j server time until results became available;
+- `server_consumed_after`: Neo4j server result-consumption time.
+
+Disable the flag after diagnosis because query parameters can contain Node IDs
+and search values and the output is intentionally verbose.
+
 ## API
 
 - `GET /healthz`: process health.
 - `GET /v2/status`: latest import metadata.
 - `GET /v2/snapshot`: live Neo4j graph as a binary `NodeSnapshot`.
-- `GET /system/v1/info`: stable Node and Node-property counts as binary
-  `SystemInfo`.
+- `GET /system/v1/info`: stable Node and Node-property counts, Neo4j labels,
+  Go version, and Neo4j version as binary `SystemInfo`.
 - `QUERY /nodes/v1/tree`: depth-limited incoming relationship tree as binary
-  `NodeTree`; `root_node_id` overrides `SEVILLE_ROOT_NODE_ID`, while the
-  allowlisted `traverse_by` selects `PART_OF` or `FAMILY`. Each successful
-  request increments `counter` once on every unique Node returned. `GET` is
-  accepted only as a compatibility alias for clients or proxies without
-  `QUERY` support.
+  `NodeTree`; either `root_node_id` or a structured `root_node_filter` selects
+  the root set, while the allowlisted `traverse_by` selects `PART_OF` or
+  `FAMILY`. Every filter match becomes a depth-zero occurrence.
+  Filter includes support explicit `any` (default) or `all` matching; excludes
+  always reject on any match, and filter-level negation reverses the complete
+  composed predicate.
+  `GET` is accepted only as a compatibility alias for clients or proxies
+  without `QUERY` support. Tree reads never mutate Node counters.
+- `QUERY /nodes/v1/search`: structured flat Node search as binary
+  `NodeSearchResult`. The protobuf body carries a required `node_filter` and an
+  optional limit from 1 through 100; the default limit is 20. Search returns
+  complete Nodes, including labels, tags, frontmatter, and assigned Emoji.
 
 Source migration is intentionally not exposed through the running API. Future
 user-facing migration should be a deliberate workflow with preview, source
@@ -106,6 +127,12 @@ identity, provenance, and duplicate/conflict reporting.
 GraphQL CRUD and WebSocket change delivery are planned application boundaries;
 they are not implemented yet. Clients must continue using Go rather than
 connecting directly to Neo4j.
+
+Canonical Node property writes use the store's `MutateNodes` boundary. It
+combines an allowlisted `NodeSearchFilter`, a parameterized property map, and an
+atomic `update_count` increment. Read queries and source import do not increment
+`update_count`; the legacy `counter` property is left untouched for a separate
+owner-controlled migration.
 
 ## Containers
 

@@ -307,6 +307,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "8.0.0"
+  overlay_layers:
+    dependency: "direct main"
+    description:
+      name: overlay_layers
+      sha256: "473496a208290198057da4a09d798d60156983df76cd025d6b71bc408c6c6390"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.0.0"
   package_config:
     dependency: transitive
     description:

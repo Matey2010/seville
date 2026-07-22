@@ -24,6 +24,7 @@ func main() {
 		cfg.Neo4jUsername,
 		cfg.Neo4jPassword,
 		cfg.Neo4jDatabase,
+		cfg.Neo4jQueryLog,
 	)
 	if err != nil {
 		slog.Error("database failed", "error", err)
@@ -31,7 +32,7 @@ func main() {
 	}
 	defer database.Close()
 
-	app := server.New(database, cfg.Token, cfg.RootNodeID)
+	app := server.New(database, cfg.Token)
 
 	httpServer := &http.Server{
 		Addr:              cfg.Addr,

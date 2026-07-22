@@ -114,6 +114,9 @@ const Node$json = {
       '6': '.seville.node.v2.Emoji',
       '10': 'emojis'
     },
+    {'1': 'labels', '3': 9, '4': 3, '5': 9, '10': 'labels'},
+    {'1': 'slug', '3': 10, '4': 1, '5': 9, '10': 'slug'},
+    {'1': 'update_count', '3': 11, '4': 1, '5': 4, '10': 'updateCount'},
   ],
   '3': [Node_FrontmatterEntry$json],
 };
@@ -135,8 +138,9 @@ final $typed_data.Uint8List nodeDescriptor = $convert.base64Decode(
     'bnRtYXR0ZXIYBiADKAsyJi5zZXZpbGxlLm5vZGUudjIuTm9kZS5Gcm9udG1hdHRlckVudHJ5Ug'
     'tmcm9udG1hdHRlchI7Cgttb2RpZmllZF9hdBgHIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1l'
     'c3RhbXBSCm1vZGlmaWVkQXQSLgoGZW1vamlzGAggAygLMhYuc2V2aWxsZS5ub2RlLnYyLkVtb2'
-    'ppUgZlbW9qaXMaPgoQRnJvbnRtYXR0ZXJFbnRyeRIQCgNrZXkYASABKAlSA2tleRIUCgV2YWx1'
-    'ZRgCIAEoCVIFdmFsdWU6AjgB');
+    'ppUgZlbW9qaXMSFgoGbGFiZWxzGAkgAygJUgZsYWJlbHMSEgoEc2x1ZxgKIAEoCVIEc2x1ZxIh'
+    'Cgx1cGRhdGVfY291bnQYCyABKARSC3VwZGF0ZUNvdW50Gj4KEEZyb250bWF0dGVyRW50cnkSEA'
+    'oDa2V5GAEgASgJUgNrZXkSFAoFdmFsdWUYAiABKAlSBXZhbHVlOgI4AQ==');
 
 @$core.Deprecated('Use emojiDescriptor instead')
 const Emoji$json = {
