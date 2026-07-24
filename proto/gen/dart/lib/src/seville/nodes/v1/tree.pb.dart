@@ -12,6 +12,7 @@
 
 import 'dart:core' as $core;
 
+import 'package:fixnum/fixnum.dart' as $fixnum;
 import 'package:protobuf/protobuf.dart' as $pb;
 
 import '../../node/v2/node.pb.dart' as $0;
@@ -318,6 +319,323 @@ class NodeSearchResult extends $pb.GeneratedMessage {
 
   @$pb.TagNumber(1)
   $pb.PbList<$0.Node> get nodes => $_getList(0);
+}
+
+class NodeCreateRequest extends $pb.GeneratedMessage {
+  factory NodeCreateRequest({
+    $core.String? slug,
+    $core.Iterable<$core.String>? labels,
+  }) {
+    final result = create();
+    if (slug != null) result.slug = slug;
+    if (labels != null) result.labels.addAll(labels);
+    return result;
+  }
+
+  NodeCreateRequest._();
+
+  factory NodeCreateRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory NodeCreateRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'NodeCreateRequest',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'seville.nodes.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'slug')
+    ..pPS(2, _omitFieldNames ? '' : 'labels')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  NodeCreateRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  NodeCreateRequest copyWith(void Function(NodeCreateRequest) updates) =>
+      super.copyWith((message) => updates(message as NodeCreateRequest))
+          as NodeCreateRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static NodeCreateRequest create() => NodeCreateRequest._();
+  @$core.override
+  NodeCreateRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static NodeCreateRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<NodeCreateRequest>(create);
+  static NodeCreateRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get slug => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set slug($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSlug() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSlug() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $pb.PbList<$core.String> get labels => $_getList(1);
+}
+
+enum NodePropertyValue_Value {
+  stringValue,
+  integerValue,
+  doubleValue,
+  booleanValue,
+  notSet
+}
+
+class NodePropertyValue extends $pb.GeneratedMessage {
+  factory NodePropertyValue({
+    $core.String? stringValue,
+    $fixnum.Int64? integerValue,
+    $core.double? doubleValue,
+    $core.bool? booleanValue,
+  }) {
+    final result = create();
+    if (stringValue != null) result.stringValue = stringValue;
+    if (integerValue != null) result.integerValue = integerValue;
+    if (doubleValue != null) result.doubleValue = doubleValue;
+    if (booleanValue != null) result.booleanValue = booleanValue;
+    return result;
+  }
+
+  NodePropertyValue._();
+
+  factory NodePropertyValue.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory NodePropertyValue.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static const $core.Map<$core.int, NodePropertyValue_Value>
+      _NodePropertyValue_ValueByTag = {
+    1: NodePropertyValue_Value.stringValue,
+    2: NodePropertyValue_Value.integerValue,
+    3: NodePropertyValue_Value.doubleValue,
+    4: NodePropertyValue_Value.booleanValue,
+    0: NodePropertyValue_Value.notSet
+  };
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'NodePropertyValue',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'seville.nodes.v1'),
+      createEmptyInstance: create)
+    ..oo(0, [1, 2, 3, 4])
+    ..aOS(1, _omitFieldNames ? '' : 'stringValue')
+    ..aInt64(2, _omitFieldNames ? '' : 'integerValue')
+    ..aD(3, _omitFieldNames ? '' : 'doubleValue')
+    ..aOB(4, _omitFieldNames ? '' : 'booleanValue')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  NodePropertyValue clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  NodePropertyValue copyWith(void Function(NodePropertyValue) updates) =>
+      super.copyWith((message) => updates(message as NodePropertyValue))
+          as NodePropertyValue;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static NodePropertyValue create() => NodePropertyValue._();
+  @$core.override
+  NodePropertyValue createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static NodePropertyValue getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<NodePropertyValue>(create);
+  static NodePropertyValue? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  @$pb.TagNumber(2)
+  @$pb.TagNumber(3)
+  @$pb.TagNumber(4)
+  NodePropertyValue_Value whichValue() =>
+      _NodePropertyValue_ValueByTag[$_whichOneof(0)]!;
+  @$pb.TagNumber(1)
+  @$pb.TagNumber(2)
+  @$pb.TagNumber(3)
+  @$pb.TagNumber(4)
+  void clearValue() => $_clearField($_whichOneof(0));
+
+  @$pb.TagNumber(1)
+  $core.String get stringValue => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set stringValue($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasStringValue() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearStringValue() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get integerValue => $_getI64(1);
+  @$pb.TagNumber(2)
+  set integerValue($fixnum.Int64 value) => $_setInt64(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasIntegerValue() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearIntegerValue() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.double get doubleValue => $_getN(2);
+  @$pb.TagNumber(3)
+  set doubleValue($core.double value) => $_setDouble(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasDoubleValue() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearDoubleValue() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.bool get booleanValue => $_getBF(3);
+  @$pb.TagNumber(4)
+  set booleanValue($core.bool value) => $_setBool(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasBooleanValue() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearBooleanValue() => $_clearField(4);
+}
+
+class NodeMutationRequest extends $pb.GeneratedMessage {
+  factory NodeMutationRequest({
+    NodeSearchFilter? nodeFilter,
+    $core.Iterable<$core.MapEntry<$core.String, NodePropertyValue>>?
+        setProperties,
+    $core.Iterable<$core.String>? removeProperties,
+  }) {
+    final result = create();
+    if (nodeFilter != null) result.nodeFilter = nodeFilter;
+    if (setProperties != null) result.setProperties.addEntries(setProperties);
+    if (removeProperties != null)
+      result.removeProperties.addAll(removeProperties);
+    return result;
+  }
+
+  NodeMutationRequest._();
+
+  factory NodeMutationRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory NodeMutationRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'NodeMutationRequest',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'seville.nodes.v1'),
+      createEmptyInstance: create)
+    ..aOM<NodeSearchFilter>(1, _omitFieldNames ? '' : 'nodeFilter',
+        subBuilder: NodeSearchFilter.create)
+    ..m<$core.String, NodePropertyValue>(
+        2, _omitFieldNames ? '' : 'setProperties',
+        entryClassName: 'NodeMutationRequest.SetPropertiesEntry',
+        keyFieldType: $pb.PbFieldType.OS,
+        valueFieldType: $pb.PbFieldType.OM,
+        valueCreator: NodePropertyValue.create,
+        valueDefaultOrMaker: NodePropertyValue.getDefault,
+        packageName: const $pb.PackageName('seville.nodes.v1'))
+    ..pPS(3, _omitFieldNames ? '' : 'removeProperties')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  NodeMutationRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  NodeMutationRequest copyWith(void Function(NodeMutationRequest) updates) =>
+      super.copyWith((message) => updates(message as NodeMutationRequest))
+          as NodeMutationRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static NodeMutationRequest create() => NodeMutationRequest._();
+  @$core.override
+  NodeMutationRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static NodeMutationRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<NodeMutationRequest>(create);
+  static NodeMutationRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  NodeSearchFilter get nodeFilter => $_getN(0);
+  @$pb.TagNumber(1)
+  set nodeFilter(NodeSearchFilter value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasNodeFilter() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearNodeFilter() => $_clearField(1);
+  @$pb.TagNumber(1)
+  NodeSearchFilter ensureNodeFilter() => $_ensure(0);
+
+  @$pb.TagNumber(2)
+  $pb.PbMap<$core.String, NodePropertyValue> get setProperties => $_getMap(1);
+
+  @$pb.TagNumber(3)
+  $pb.PbList<$core.String> get removeProperties => $_getList(2);
+}
+
+class NodeMutationResult extends $pb.GeneratedMessage {
+  factory NodeMutationResult({
+    $fixnum.Int64? mutatedNodeCount,
+  }) {
+    final result = create();
+    if (mutatedNodeCount != null) result.mutatedNodeCount = mutatedNodeCount;
+    return result;
+  }
+
+  NodeMutationResult._();
+
+  factory NodeMutationResult.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory NodeMutationResult.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'NodeMutationResult',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'seville.nodes.v1'),
+      createEmptyInstance: create)
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'mutatedNodeCount', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  NodeMutationResult clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  NodeMutationResult copyWith(void Function(NodeMutationResult) updates) =>
+      super.copyWith((message) => updates(message as NodeMutationResult))
+          as NodeMutationResult;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static NodeMutationResult create() => NodeMutationResult._();
+  @$core.override
+  NodeMutationResult createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static NodeMutationResult getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<NodeMutationResult>(create);
+  static NodeMutationResult? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get mutatedNodeCount => $_getI64(0);
+  @$pb.TagNumber(1)
+  set mutatedNodeCount($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasMutatedNodeCount() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearMutatedNodeCount() => $_clearField(1);
 }
 
 class NodeTreeQuery extends $pb.GeneratedMessage {

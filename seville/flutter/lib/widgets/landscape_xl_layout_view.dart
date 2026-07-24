@@ -1382,13 +1382,12 @@ void _drawGraphLayout(
         ..color = fillColor
         ..style = PaintingStyle.fill,
     );
-    canvas.drawOval(
-      graphNode.circleBounds,
-      Paint()
-        ..color = borderStyle.color
-        ..strokeWidth = borderWidth
-        ..strokeCap = borderStyle.strokeCap
-        ..style = PaintingStyle.stroke,
+    _drawNodeBorder(
+      canvas,
+      Path()..addOval(graphNode.circleBounds),
+      borderStyle,
+      borderWidth,
+      isVirtual: graphNode.resolvedNode.isVirtual,
     );
     _paintNodeLabel(
       canvas,
@@ -1494,13 +1493,12 @@ void _drawNodeListLayout(
         )
         ..style = PaintingStyle.fill,
     );
-    canvas.drawPath(
+    _drawNodeBorder(
+      canvas,
       path,
-      Paint()
-        ..color = layout.style.color
-        ..strokeWidth = borderWidth
-        ..strokeCap = layout.style.strokeCap
-        ..style = PaintingStyle.stroke,
+      layout.style,
+      borderWidth,
+      isVirtual: entry.resolvedNode.isVirtual,
     );
     final center =
         entry.points.fold<Offset>(Offset.zero, (sum, point) => sum + point) /
@@ -1569,6 +1567,35 @@ Path _polygonPath(List<Offset> points) {
     path.lineTo(point.dx, point.dy);
   }
   return path..close();
+}
+
+void _drawNodeBorder(
+  Canvas canvas,
+  Path path,
+  GuideStyle style,
+  double strokeWidth, {
+  required bool isVirtual,
+}) {
+  final paint = Paint()
+    ..color = style.color
+    ..strokeWidth = strokeWidth
+    ..strokeCap = style.strokeCap
+    ..style = PaintingStyle.stroke;
+  if (!isVirtual) {
+    canvas.drawPath(path, paint);
+    return;
+  }
+
+  final dashLength = style.dashLength <= 0 ? 7.0 : style.dashLength;
+  final dashInterval = style.dashInterval <= 0 ? 5.0 : style.dashInterval;
+  for (final metric in path.computeMetrics()) {
+    var offset = 0.0;
+    while (offset < metric.length) {
+      final end = math.min(offset + dashLength, metric.length);
+      canvas.drawPath(metric.extractPath(offset, end), paint);
+      offset = end + dashInterval;
+    }
+  }
 }
 
 String _nodePresentationLabel(
@@ -1654,13 +1681,12 @@ void _drawFanLayout(
   }
   _drawFanGrid(canvas, fan, frame);
   for (final segment in segments) {
-    canvas.drawPath(
+    _drawNodeBorder(
+      canvas,
       segment.path,
-      Paint()
-        ..color = borderStyle.color
-        ..strokeWidth = borderWidth
-        ..strokeCap = borderStyle.strokeCap
-        ..style = PaintingStyle.stroke,
+      borderStyle,
+      borderWidth,
+      isVirtual: false,
     );
   }
   for (final segment in segments) {

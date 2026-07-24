@@ -109,7 +109,14 @@ A distinct count of property names would be a different future metric named
 
 ## Nodes v1
 
-`QUERY /nodes/v1/search` accepts an `application/x-protobuf`
+Seville uses the registered HTTP methods according to their protocol semantics:
+`QUERY` for safe, idempotent reads whose structured request belongs in a body,
+`POST` for server-identified creation, `PUT` for complete idempotent replacement,
+`PATCH` for partial mutation, and `DELETE` for removal. Neither `CREATE` nor
+`MUTATE` is an HTTP method in the Seville API; those words remain domain
+operations rather than custom transport verbs.
+
+`QUERY /api/v1/node/search` accepts an `application/x-protobuf`
 `seville.nodes.v1.NodeSearchQuery` body and returns a flat
 `NodeSearchResult`. Its `node_filter` is required. `limit` defaults to 20 and
 must be between 1 and 100. The endpoint returns complete Nodes in deterministic
@@ -118,7 +125,7 @@ search builds an OR filter across slug, title, tags, and Neo4j labels with an
 escaped case-insensitive regular expression, so user text remains data rather
 than query syntax. Search does not increment `Node.update_count`.
 
-`QUERY /nodes/v1/tree` accepts an `application/x-protobuf`
+`QUERY /api/v1/node/tree` accepts an `application/x-protobuf`
 `seville.nodes.v1.NodeTreeQuery` body and returns a
 `seville.nodes.v1.NodeTree`. A request must provide either `root_node_id` or a
 structured `root_node_filter`. A root filter permits discovery even when the
@@ -185,6 +192,21 @@ into Cypher.
 `QUERY` endpoints are read-only. Tree refreshes, searches, retries, and Fan
 requests never mutate a Node or increment `update_count`.
 
+`POST /api/v1/node/` creates one canonical Node from a protobuf
+`NodeCreateRequest`. The request contains a required `slug` and zero or more
+Neo4j labels. The backend assigns a stable random `id`, initializes
+`update_count` to zero, records `modified_at`, and returns the complete Node with
+`201 Created`. An existing slug returns `409 node_already_exists`. Slugs remain
+Cypher parameters. Labels are trimmed, deduplicated, sorted, and accepted as
+Cypher identifiers only when they match `[A-Za-z_][A-Za-z0-9_]*`; the request
+therefore cannot inject Cypher through either field. Creation does not add the
+redundant `Node` or `EvolvedNode` label automatically.
+
+`PUT` and `DELETE` retain their standard meanings, but no Node replacement or
+deletion route is exposed until relationship handling and deletion policy have
+an explicit contract. Advertising a method through CORS does not define that
+resource operation.
+
 Canonical Node mutations go through the store's filter-driven `MutateNodes`
 boundary. The selected Node update and
 `update_count = coalesce(toInteger(update_count), 0) + 1` execute in the same
@@ -192,6 +214,15 @@ Neo4j write transaction. `update_count` is store-managed and cannot be supplied
 as an ordinary property mutation. Source import remains ingestion rather than a
 canonical Node update and does not increment it. The legacy `counter` property
 is not read, written, migrated, or removed by this policy.
+
+`PATCH /api/v1/node/` is the authenticated mutation API. Its protobuf
+`NodeMutationRequest` contains a required `node_filter`, typed scalar
+`set_properties`, and explicit `remove_properties`. A property cannot be set
+and removed in the same request. `counter` and `update_count` are reserved and
+cannot be supplied by clients. The response is `NodeMutationResult`, containing
+`mutated_node_count`. Because every successful application increments
+`update_count`, this PATCH operation is intentionally not idempotent. There is
+no read-method fallback for `PATCH` requests.
 
 ## Implementation boundary
 

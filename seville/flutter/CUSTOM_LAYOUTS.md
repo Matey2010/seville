@@ -355,12 +355,28 @@ Node identity.
 row/column composition. The LG Ergo right plane configures one with
 `NodeListDataSource.searchResults` between its action rows and Gamepad content.
 The Search HUD only submits text to Riverpod; it does not render those rows.
-Riverpod performs `QUERY /nodes/v1/search`, and the Flame layout paints the
+Riverpod performs `QUERY /api/v1/node/search`, and the Flame layout paints the
 returned Nodes using the shared random/frontmatter color, selected-slug active
 opacity, and layout tap path. Search rows always show the wrapped slug, even
 when an Emoji exists, so each proposal exposes its Node identity. Tapping a row
 therefore toggles the same
 selected-node set used by Fan and Graph layouts.
+The LG Ergo right-plane green Add action appends a uniquely slugged virtual
+Node (`new-node`, `new-node-2`, and so on) to `selectedNodesProvider`. Virtual
+status is carried by `ResolvedVaultNode.isVirtual`; it is not written into the
+Node protobuf. Graph uses the shared Node border path to render that draft with
+a dashed border while retaining normal active fill and tap behavior.
+The bottom ✅ action submits the first virtual Node with `New` and `Virtual`
+labels through `POST /api/v1/node/`. On success,
+`SelectedNodesNotifier.replaceVirtualNode` preserves the selected-list position
+but swaps in the canonical response, making the shared border solid. Plain
+Enter invokes this action outside Search HUD; Search HUD retains Enter while it
+is visible.
+
+The right-plane cross and Escape both dispatch the same nuclear cancel action.
+It clears canonical and virtual selection, empties the submitted search value
+and visible results, hides `SearchHud`, invalidates cached Node searches, and
+therefore closes the selected-node scene. The left plane is not involved.
 The `left-plane`
 provides the 12-segment x/space plane between scene-left and screen-left; its
 grid contains only the real space rows, not fake padding tracks. The scene inner

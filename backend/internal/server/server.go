@@ -17,11 +17,11 @@ import (
 )
 
 type Server struct {
-	store store.Reader
+	store store.NodeService
 	token string
 }
 
-func New(store store.Reader, token string) *Server {
+func New(store store.NodeService, token string) *Server {
 	return &Server{store: store, token: token}
 }
 
@@ -35,16 +35,114 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /v2/status", s.auth(http.HandlerFunc(s.status)))
 	mux.Handle("GET /v2/snapshot", s.auth(http.HandlerFunc(s.snapshot)))
 	mux.Handle("GET /system/v1/info", s.auth(http.HandlerFunc(s.systemInfo)))
-	mux.Handle("QUERY /nodes/v1/search", s.auth(http.HandlerFunc(s.nodeSearch)))
+	mux.Handle("QUERY /api/v1/node/search", s.auth(http.HandlerFunc(s.nodeSearch)))
+	mux.Handle("POST /api/v1/node/{$}", s.auth(http.HandlerFunc(s.createNode)))
+	mux.Handle("PATCH /api/v1/node/{$}", s.auth(http.HandlerFunc(s.mutateNodes)))
 	nodeTreeHandler := s.auth(http.HandlerFunc(s.nodeTree))
-	mux.Handle("QUERY /nodes/v1/tree", nodeTreeHandler)
-	mux.Handle("GET /nodes/v1/tree", nodeTreeHandler)
+	mux.Handle("QUERY /api/v1/node/tree", nodeTreeHandler)
+	mux.Handle("GET /api/v1/node/tree", nodeTreeHandler)
 	return localCORS(mux)
+}
+
+func (s *Server) createNode(w http.ResponseWriter, r *http.Request) {
+	request := &nodesv1.NodeCreateRequest{}
+	if err := readProtoBody(r, request); err != nil {
+		s.writeError(w, http.StatusBadRequest, "invalid_node_create", err.Error())
+		return
+	}
+	node, err := s.store.CreateNode(r.Context(), store.NodeCreate{
+		Slug:   request.GetSlug(),
+		Labels: request.GetLabels(),
+	})
+	if errors.Is(err, store.ErrInvalidNodeCreate) {
+		s.writeError(w, http.StatusBadRequest, "invalid_node_create", err.Error())
+		return
+	}
+	if errors.Is(err, store.ErrNodeAlreadyExists) {
+		s.writeError(w, http.StatusConflict, "node_already_exists", err.Error())
+		return
+	}
+	if err != nil {
+		slog.Error("create Node failed", "error", err)
+		s.writeError(w, http.StatusInternalServerError, "storage_error", "The Node could not be created.")
+		return
+	}
+	s.writeProto(w, http.StatusCreated, node)
+}
+
+func (s *Server) mutateNodes(w http.ResponseWriter, r *http.Request) {
+	request := &nodesv1.NodeMutationRequest{}
+	if err := readProtoBody(r, request); err != nil {
+		s.writeError(w, http.StatusBadRequest, "invalid_mutation", err.Error())
+		return
+	}
+	if nodeSearchFilterEmpty(request.GetNodeFilter()) {
+		s.writeError(w, http.StatusBadRequest, "node_filter_required", "node_filter is required.")
+		return
+	}
+	mutation, err := nodeMutation(request)
+	if err != nil {
+		s.writeError(w, http.StatusBadRequest, "invalid_mutation", err.Error())
+		return
+	}
+	mutatedNodeCount, err := s.store.MutateNodes(
+		r.Context(),
+		request.GetNodeFilter(),
+		mutation,
+	)
+	if errors.Is(err, store.ErrInvalidNodeSearchParameter) ||
+		errors.Is(err, store.ErrInvalidNodeMutation) {
+		s.writeError(w, http.StatusBadRequest, "invalid_mutation", err.Error())
+		return
+	}
+	if err != nil {
+		slog.Error("mutate Nodes failed", "error", err)
+		s.writeError(w, http.StatusInternalServerError, "storage_error", "Nodes could not be mutated.")
+		return
+	}
+	s.writeProto(w, http.StatusOK, &nodesv1.NodeMutationResult{
+		MutatedNodeCount: mutatedNodeCount,
+	})
+}
+
+func nodeMutation(request *nodesv1.NodeMutationRequest) (store.NodeMutation, error) {
+	properties := make(map[string]any, len(request.GetSetProperties())+len(request.GetRemoveProperties()))
+	for property, value := range request.GetSetProperties() {
+		if value == nil {
+			return store.NodeMutation{}, fmt.Errorf("set_properties[%q] requires a value", property)
+		}
+		switch typed := value.GetValue().(type) {
+		case *nodesv1.NodePropertyValue_StringValue:
+			properties[property] = typed.StringValue
+		case *nodesv1.NodePropertyValue_IntegerValue:
+			properties[property] = typed.IntegerValue
+		case *nodesv1.NodePropertyValue_DoubleValue:
+			properties[property] = typed.DoubleValue
+		case *nodesv1.NodePropertyValue_BooleanValue:
+			properties[property] = typed.BooleanValue
+		default:
+			return store.NodeMutation{}, fmt.Errorf("set_properties[%q] requires a supported scalar value", property)
+		}
+	}
+	for _, property := range request.GetRemoveProperties() {
+		property = strings.TrimSpace(property)
+		if property == "" {
+			return store.NodeMutation{}, fmt.Errorf("remove_properties must not contain empty names")
+		}
+		if _, exists := properties[property]; exists {
+			return store.NodeMutation{}, fmt.Errorf("property %q cannot be set and removed together", property)
+		}
+		properties[property] = nil
+	}
+	if len(properties) == 0 {
+		return store.NodeMutation{}, fmt.Errorf("at least one property change is required")
+	}
+	return store.NodeMutation{SetProperties: properties}, nil
 }
 
 func (s *Server) nodeSearch(w http.ResponseWriter, r *http.Request) {
 	query := &nodesv1.NodeSearchQuery{}
-	if err := readProtoQuery(r, query); err != nil {
+	if err := readProtoBody(r, query); err != nil {
 		s.writeError(w, http.StatusBadRequest, "invalid_query", err.Error())
 		return
 	}
@@ -155,26 +253,26 @@ func nodeSearchFilterEmpty(filter *nodesv1.NodeSearchFilter) bool {
 			len(filter.GetExcludeNodesMatching()) == 0)
 }
 
-const maxNodeTreeQueryBytes = 1 << 20
+const maxProtoQueryBytes = 1 << 20
 
 func readNodeTreeQuery(r *http.Request) (*nodesv1.NodeTreeQuery, error) {
 	query := &nodesv1.NodeTreeQuery{}
-	if err := readProtoQuery(r, query); err != nil {
+	if err := readProtoBody(r, query); err != nil {
 		return nil, err
 	}
 	return query, nil
 }
 
-func readProtoQuery(r *http.Request, query proto.Message) error {
+func readProtoBody(r *http.Request, query proto.Message) error {
 	if r.Body == nil {
 		return nil
 	}
-	body, err := io.ReadAll(io.LimitReader(r.Body, maxNodeTreeQueryBytes+1))
+	body, err := io.ReadAll(io.LimitReader(r.Body, maxProtoQueryBytes+1))
 	if err != nil {
 		return fmt.Errorf("read protobuf query: %w", err)
 	}
-	if len(body) > maxNodeTreeQueryBytes {
-		return fmt.Errorf("protobuf query exceeds %d bytes", maxNodeTreeQueryBytes)
+	if len(body) > maxProtoQueryBytes {
+		return fmt.Errorf("protobuf request exceeds %d bytes", maxProtoQueryBytes)
 	}
 	if len(body) == 0 {
 		return nil
@@ -222,7 +320,7 @@ func localCORS(next http.Handler) http.Handler {
 		if strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:") {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, If-None-Match")
-			w.Header().Set("Access-Control-Allow-Methods", "GET, QUERY, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, QUERY, PATCH, DELETE, OPTIONS")
 			w.Header().Add("Vary", "Origin")
 		}
 		if r.Method == http.MethodOptions {

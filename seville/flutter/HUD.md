@@ -33,13 +33,22 @@ being lost when the HUD listener mounts again after a rebuild or hot reload.
 `SearchHud` only captures query text. Its Search button and the keyboard Enter
 action both call the same submission method, which stores the normalized value
 in `hudStateProvider` and closes the HUD. `nodeSearchProvider` then issues
-`QUERY /nodes/v1/search` and retains the asynchronous response in Riverpod.
+`QUERY /api/v1/node/search` and retains the asynchronous response in Riverpod.
 
 Search results are not HUD widgets. The configured right-plane
 `NodeListLayout` renders returned Nodes as Flame rows between the action buttons
 and Gamepad content. Rows use slug-based active membership and the shared Node
 opacity defaults. Tapping an inactive or active result toggles the same
 `selectedNodesProvider` set consumed by Fan and Graph layouts.
+
+Enter belongs to the focused Search field while `SearchHud` is visible. The
+screen's global keyboard handler deliberately declines its normal right-plane
+submit action in that state, preventing one keypress from both searching and
+creating a virtual Node.
+
+Escape and the right-plane cross share the global cancel action. It resets the
+HUD state rather than merely hiding the input, so the submitted query and
+visible result list are cleared together with selected and virtual Nodes.
 
 ## Notification widget
 

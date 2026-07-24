@@ -75,7 +75,7 @@ It does not fetch, merge, commit, or push.
 | `SEVILLE_NEO4J_USERNAME` | `neo4j` | Neo4j user |
 | `SEVILLE_NEO4J_PASSWORD` | Required | Neo4j password |
 | `SEVILLE_NEO4J_DATABASE` | `neo4j` | Neo4j database |
-| `SEVILLE_NEO4J_QUERY_LOG` | `false` | Print generated Node-tree Cypher, parameters, selected roots, and latency |
+| `SEVILLE_NEO4J_QUERY_LOG` | `false` | Print generated Node read/mutation Cypher, parameters, selected roots, and latency |
 | `SEVILLE_TOKEN` | Required | Client-to-Go API bearer token; not an encryption key |
 
 `compose.yaml` contains wiring only. Put real credentials in the ignored
@@ -106,7 +106,7 @@ and search values and the output is intentionally verbose.
 - `GET /v2/snapshot`: live Neo4j graph as a binary `NodeSnapshot`.
 - `GET /system/v1/info`: stable Node and Node-property counts, Neo4j labels,
   Go version, and Neo4j version as binary `SystemInfo`.
-- `QUERY /nodes/v1/tree`: depth-limited incoming relationship tree as binary
+- `QUERY /api/v1/node/tree`: depth-limited incoming relationship tree as binary
   `NodeTree`; either `root_node_id` or a structured `root_node_filter` selects
   the root set, while the allowlisted `traverse_by` selects `PART_OF` or
   `FAMILY`. Every filter match becomes a depth-zero occurrence.
@@ -115,10 +115,17 @@ and search values and the output is intentionally verbose.
   composed predicate.
   `GET` is accepted only as a compatibility alias for clients or proxies
   without `QUERY` support. Tree reads never mutate Node counters.
-- `QUERY /nodes/v1/search`: structured flat Node search as binary
+- `QUERY /api/v1/node/search`: structured flat Node search as binary
   `NodeSearchResult`. The protobuf body carries a required `node_filter` and an
   optional limit from 1 through 100; the default limit is 20. Search returns
   complete Nodes, including labels, tags, frontmatter, and assigned Emoji.
+- `POST /api/v1/node/`: create one Node from a protobuf `NodeCreateRequest`.
+  The backend assigns its stable ID, initializes `update_count` to zero, safely
+  applies validated Neo4j labels, and returns the complete Node with status 201.
+  An existing slug returns 409.
+- `PATCH /api/v1/node/`: filter-driven scalar property updates and removals
+  as protobuf. Every matched Node increments `update_count` atomically with the
+  requested mutation; `counter` and `update_count` are client-reserved.
 
 Source migration is intentionally not exposed through the running API. Future
 user-facing migration should be a deliberate workflow with preview, source

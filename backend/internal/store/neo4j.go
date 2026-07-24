@@ -2,6 +2,8 @@ package store
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -13,6 +15,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	nodev2 "github.com/Matey2010/seville/proto/gen/go/seville/node/v2"
 	nodesv1 "github.com/Matey2010/seville/proto/gen/go/seville/nodes/v1"
@@ -20,6 +23,8 @@ import (
 	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
+
+var neo4jNodeLabelPattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
 type Neo4jStore struct {
 	driver        neo4j.Driver
@@ -554,12 +559,16 @@ func (s *Neo4jStore) MutateNodes(
 	}
 	session := s.session(ctx, neo4j.AccessModeWrite)
 	defer session.Close(ctx)
+	traceStarted := s.startQueryTrace("node_mutation", query, parameters)
 	result, err := session.Run(ctx, query, parameters)
+	dispatchDuration := queryTraceDuration(traceStarted)
 	if err != nil {
+		s.logQueryRunError("node_mutation", traceStarted, err)
 		return 0, fmt.Errorf("mutate Nodes: %w", err)
 	}
 	if !result.Next(ctx) {
 		if err := result.Err(); err != nil {
+			s.logQueryRunError("node_mutation", traceStarted, err)
 			return 0, fmt.Errorf("read Node mutation result: %w", err)
 		}
 		return 0, fmt.Errorf("read Node mutation result: empty result")
@@ -568,10 +577,141 @@ func (s *Neo4jStore) MutateNodes(
 	if !ok || mutatedNodeCount < 0 {
 		return 0, fmt.Errorf("read Node mutation result: invalid mutated_node_count")
 	}
-	if _, err := result.Consume(ctx); err != nil {
+	if s.queryLog {
+		if err := s.finishQueryTrace(
+			ctx,
+			"node_mutation",
+			traceStarted,
+			dispatchDuration,
+			1,
+			result,
+		); err != nil {
+			return 0, fmt.Errorf("read Node mutation summary: %w", err)
+		}
+	} else if _, err := result.Consume(ctx); err != nil {
 		return 0, fmt.Errorf("consume Node mutation result: %w", err)
 	}
 	return uint64(mutatedNodeCount), nil
+}
+
+// CreateNode creates one canonical Node identified by slug. Labels are
+// validated before becoming Cypher syntax; all ordinary values stay query
+// parameters.
+func (s *Neo4jStore) CreateNode(
+	ctx context.Context,
+	create NodeCreate,
+) (*nodev2.Node, error) {
+	query, parameters, slug, err := compileNodeCreate(create)
+	if err != nil {
+		return nil, err
+	}
+	tokenBytes := make([]byte, 16)
+	if _, err := rand.Read(tokenBytes); err != nil {
+		return nil, fmt.Errorf("create Node token: %w", err)
+	}
+	parameters["create_token"] = hex.EncodeToString(tokenBytes)
+
+	session := s.session(ctx, neo4j.AccessModeWrite)
+	defer session.Close(ctx)
+	traceStarted := s.startQueryTrace("node_create", query, parameters)
+	result, err := session.Run(ctx, query, parameters)
+	dispatchDuration := queryTraceDuration(traceStarted)
+	if err != nil {
+		s.logQueryRunError("node_create", traceStarted, err)
+		return nil, fmt.Errorf("create Node: %w", err)
+	}
+	if !result.Next(ctx) {
+		if err := result.Err(); err != nil {
+			s.logQueryRunError("node_create", traceStarted, err)
+			return nil, fmt.Errorf("read created Node: %w", err)
+		}
+		return nil, fmt.Errorf("read created Node: empty result")
+	}
+	record := result.Record()
+	createdValue, ok := record.Get("created")
+	created, ok := createdValue.(bool)
+	if !ok {
+		return nil, fmt.Errorf("read created Node: invalid created flag")
+	}
+	node := nodeFromRecord(record)
+	if s.queryLog {
+		if err := s.finishQueryTrace(ctx, "node_create", traceStarted, dispatchDuration, 1, result); err != nil {
+			return nil, fmt.Errorf("read Node creation summary: %w", err)
+		}
+	} else if _, err := result.Consume(ctx); err != nil {
+		return nil, fmt.Errorf("consume Node creation result: %w", err)
+	}
+	if !created {
+		return nil, fmt.Errorf("%w: slug %q", ErrNodeAlreadyExists, slug)
+	}
+	return node, nil
+}
+
+func compileNodeCreate(create NodeCreate) (string, map[string]any, string, error) {
+	slug := strings.TrimSpace(create.Slug)
+	if slug == "" {
+		return "", nil, "", fmt.Errorf("%w: slug is required", ErrInvalidNodeCreate)
+	}
+	if len(slug) > 512 {
+		return "", nil, "", fmt.Errorf("%w: slug exceeds 512 bytes", ErrInvalidNodeCreate)
+	}
+	if strings.IndexFunc(slug, unicode.IsControl) >= 0 {
+		return "", nil, "", fmt.Errorf("%w: slug must not contain control characters", ErrInvalidNodeCreate)
+	}
+	if len(create.Labels) > 64 {
+		return "", nil, "", fmt.Errorf("%w: at most 64 labels are allowed", ErrInvalidNodeCreate)
+	}
+	labelSet := make(map[string]struct{}, len(create.Labels))
+	labels := make([]string, 0, len(create.Labels))
+	for _, rawLabel := range create.Labels {
+		label := strings.TrimSpace(rawLabel)
+		if !neo4jNodeLabelPattern.MatchString(label) {
+			return "", nil, "", fmt.Errorf(
+				"%w: label %q must match %s",
+				ErrInvalidNodeCreate,
+				label,
+				neo4jNodeLabelPattern.String(),
+			)
+		}
+		if _, exists := labelSet[label]; exists {
+			continue
+		}
+		labelSet[label] = struct{}{}
+		labels = append(labels, label)
+	}
+	sort.Strings(labels)
+
+	labelMutation := ""
+	if len(labels) > 0 {
+		quotedLabels := make([]string, len(labels))
+		for index, label := range labels {
+			quotedLabels[index] = "`" + label + "`"
+		}
+		labelMutation = `
+FOREACH (_ IN CASE WHEN created THEN [1] ELSE [] END |
+  SET node:` + strings.Join(quotedLabels, ":") + `
+)`
+	}
+	query := `MERGE (node {slug: $slug})
+ON CREATE SET node.id = randomUUID(),
+              node.update_count = 0,
+              node.modified_at = $modified_at,
+              node.__seville_create_token = $create_token
+WITH node, coalesce(node.__seville_create_token = $create_token, false) AS created` + labelMutation + `
+FOREACH (_ IN CASE WHEN created THEN [1] ELSE [] END |
+  REMOVE node.__seville_create_token
+)
+RETURN created,
+       node.id AS id, node.slug AS slug, node.path AS path,
+       node.title AS title, node.body AS body,
+       labels(node) AS labels, coalesce(node.tags, []) AS tags,
+       node.frontmatter_json AS frontmatter_json,
+       node.modified_at AS modified_at, properties(node) AS properties,
+       [] AS emojis`
+	return query, map[string]any{
+		"slug":        slug,
+		"modified_at": time.Now().UTC().UnixNano(),
+	}, slug, nil
 }
 
 func compileNodeMutation(
@@ -592,6 +732,9 @@ func compileNodeMutation(
 		}
 		if property == "update_count" {
 			return "", nil, fmt.Errorf("%w: update_count is managed by the store", ErrInvalidNodeMutation)
+		}
+		if property == "counter" {
+			return "", nil, fmt.Errorf("%w: legacy counter is not mutable", ErrInvalidNodeMutation)
 		}
 	}
 	compiledFilter, err := compileNodeSearchFilter(filter)

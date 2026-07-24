@@ -593,10 +593,15 @@ class ResolvedVaultNode extends VaultNodeUiComponent {
     super.backgrounds,
     required this.node,
     required this.resolvedStatus,
+    this.isVirtual = false,
   });
 
   final Node? node;
   final int resolvedStatus;
+
+  /// True while this Node exists only in frontend state and has not been
+  /// created in the canonical graph store.
+  final bool isVirtual;
 
   bool get found => resolvedStatus == LayoutHttpStatus.ok;
 

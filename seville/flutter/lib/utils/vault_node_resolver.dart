@@ -124,9 +124,12 @@ class VaultNodeResolver {
 
   static bool _isCortexRootNode(Node node) {
     final path = normalizePath(node.path);
+    final slug = normalizePath(node.slug);
     final title = normalizePath(node.title);
     return path == 'cortex' ||
         path == 'cortex/cortex' ||
+        slug == 'cortex' ||
+        slug.contains('cortex') ||
         title == 'cortex' ||
         path.endsWith('/cortex');
   }

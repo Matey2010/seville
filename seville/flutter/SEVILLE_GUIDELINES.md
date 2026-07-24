@@ -557,10 +557,22 @@ and Escape clears selected Nodes and hides search.
 
 Search HUD submission is shared by its Search button and keyboard Enter. The
 normalized value is stored in `hudStateProvider`, and `nodeSearchProvider`
-performs `QUERY /nodes/v1/search`. Results are rendered beneath the right-plane
+performs `QUERY /api/v1/node/search`. Results are rendered beneath the right-plane
 action buttons by the configured Flame `NodeListLayout`; they are not Flutter
 HUD children. Each result row paints active/inactive state from the same
 slug-based selected-node set and toggles that set through the ordinary layout
 tap path. LG Ergo configures `LayoutDefaults.nodeSlugPrefix` and
 `nodeSlugSuffix` as `[[` and `]]`; Fan and Graph apply them only to their slug
 fallback, while search rows always expose the wrapped slug.
+
+The green right-plane Add button creates a frontend-only selected Node through
+`SelectedNodesNotifier.addVirtualNode()`. `ResolvedVaultNode.isVirtual` is the
+explicit not-yet-persisted flag, and the shared Flame Node border renderer
+paints virtual geometry dashed. The right-plane cross and Escape use the same
+`SevilleKeymapAction.cancel` path, which clears selection and drafts, resets and
+hides search, invalidates Node-search results, and closes the Graph scene.
+The bottom ✅ action and plain Enter create the first virtual Node through the
+backend with Neo4j labels `New` and `Virtual`, then replace that exact Riverpod
+entry with the canonical response. If `SearchHud` is visible, the lifecycle
+keyboard handler returns Enter unhandled so its focused text field submits
+Search instead of creating a Node.

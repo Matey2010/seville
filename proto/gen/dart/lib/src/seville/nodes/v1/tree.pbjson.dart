@@ -212,6 +212,132 @@ final $typed_data.Uint8List nodeSearchResultDescriptor = $convert.base64Decode(
     'ChBOb2RlU2VhcmNoUmVzdWx0EisKBW5vZGVzGAEgAygLMhUuc2V2aWxsZS5ub2RlLnYyLk5vZG'
     'VSBW5vZGVz');
 
+@$core.Deprecated('Use nodeCreateRequestDescriptor instead')
+const NodeCreateRequest$json = {
+  '1': 'NodeCreateRequest',
+  '2': [
+    {'1': 'slug', '3': 1, '4': 1, '5': 9, '10': 'slug'},
+    {'1': 'labels', '3': 2, '4': 3, '5': 9, '10': 'labels'},
+  ],
+};
+
+/// Descriptor for `NodeCreateRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List nodeCreateRequestDescriptor = $convert.base64Decode(
+    'ChFOb2RlQ3JlYXRlUmVxdWVzdBISCgRzbHVnGAEgASgJUgRzbHVnEhYKBmxhYmVscxgCIAMoCV'
+    'IGbGFiZWxz');
+
+@$core.Deprecated('Use nodePropertyValueDescriptor instead')
+const NodePropertyValue$json = {
+  '1': 'NodePropertyValue',
+  '2': [
+    {'1': 'string_value', '3': 1, '4': 1, '5': 9, '9': 0, '10': 'stringValue'},
+    {
+      '1': 'integer_value',
+      '3': 2,
+      '4': 1,
+      '5': 3,
+      '9': 0,
+      '10': 'integerValue'
+    },
+    {'1': 'double_value', '3': 3, '4': 1, '5': 1, '9': 0, '10': 'doubleValue'},
+    {
+      '1': 'boolean_value',
+      '3': 4,
+      '4': 1,
+      '5': 8,
+      '9': 0,
+      '10': 'booleanValue'
+    },
+  ],
+  '8': [
+    {'1': 'value'},
+  ],
+};
+
+/// Descriptor for `NodePropertyValue`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List nodePropertyValueDescriptor = $convert.base64Decode(
+    'ChFOb2RlUHJvcGVydHlWYWx1ZRIjCgxzdHJpbmdfdmFsdWUYASABKAlIAFILc3RyaW5nVmFsdW'
+    'USJQoNaW50ZWdlcl92YWx1ZRgCIAEoA0gAUgxpbnRlZ2VyVmFsdWUSIwoMZG91YmxlX3ZhbHVl'
+    'GAMgASgBSABSC2RvdWJsZVZhbHVlEiUKDWJvb2xlYW5fdmFsdWUYBCABKAhIAFIMYm9vbGVhbl'
+    'ZhbHVlQgcKBXZhbHVl');
+
+@$core.Deprecated('Use nodeMutationRequestDescriptor instead')
+const NodeMutationRequest$json = {
+  '1': 'NodeMutationRequest',
+  '2': [
+    {
+      '1': 'node_filter',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.seville.nodes.v1.NodeSearchFilter',
+      '10': 'nodeFilter'
+    },
+    {
+      '1': 'set_properties',
+      '3': 2,
+      '4': 3,
+      '5': 11,
+      '6': '.seville.nodes.v1.NodeMutationRequest.SetPropertiesEntry',
+      '10': 'setProperties'
+    },
+    {
+      '1': 'remove_properties',
+      '3': 3,
+      '4': 3,
+      '5': 9,
+      '10': 'removeProperties'
+    },
+  ],
+  '3': [NodeMutationRequest_SetPropertiesEntry$json],
+};
+
+@$core.Deprecated('Use nodeMutationRequestDescriptor instead')
+const NodeMutationRequest_SetPropertiesEntry$json = {
+  '1': 'SetPropertiesEntry',
+  '2': [
+    {'1': 'key', '3': 1, '4': 1, '5': 9, '10': 'key'},
+    {
+      '1': 'value',
+      '3': 2,
+      '4': 1,
+      '5': 11,
+      '6': '.seville.nodes.v1.NodePropertyValue',
+      '10': 'value'
+    },
+  ],
+  '7': {'7': true},
+};
+
+/// Descriptor for `NodeMutationRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List nodeMutationRequestDescriptor = $convert.base64Decode(
+    'ChNOb2RlTXV0YXRpb25SZXF1ZXN0EkMKC25vZGVfZmlsdGVyGAEgASgLMiIuc2V2aWxsZS5ub2'
+    'Rlcy52MS5Ob2RlU2VhcmNoRmlsdGVyUgpub2RlRmlsdGVyEl8KDnNldF9wcm9wZXJ0aWVzGAIg'
+    'AygLMjguc2V2aWxsZS5ub2Rlcy52MS5Ob2RlTXV0YXRpb25SZXF1ZXN0LlNldFByb3BlcnRpZX'
+    'NFbnRyeVINc2V0UHJvcGVydGllcxIrChFyZW1vdmVfcHJvcGVydGllcxgDIAMoCVIQcmVtb3Zl'
+    'UHJvcGVydGllcxplChJTZXRQcm9wZXJ0aWVzRW50cnkSEAoDa2V5GAEgASgJUgNrZXkSOQoFdm'
+    'FsdWUYAiABKAsyIy5zZXZpbGxlLm5vZGVzLnYxLk5vZGVQcm9wZXJ0eVZhbHVlUgV2YWx1ZToC'
+    'OAE=');
+
+@$core.Deprecated('Use nodeMutationResultDescriptor instead')
+const NodeMutationResult$json = {
+  '1': 'NodeMutationResult',
+  '2': [
+    {
+      '1': 'mutated_node_count',
+      '3': 1,
+      '4': 1,
+      '5': 4,
+      '10': 'mutatedNodeCount'
+    },
+  ],
+};
+
+/// Descriptor for `NodeMutationResult`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List nodeMutationResultDescriptor = $convert.base64Decode(
+    'ChJOb2RlTXV0YXRpb25SZXN1bHQSLAoSbXV0YXRlZF9ub2RlX2NvdW50GAEgASgEUhBtdXRhdG'
+    'VkTm9kZUNvdW50');
+
 @$core.Deprecated('Use nodeTreeQueryDescriptor instead')
 const NodeTreeQuery$json = {
   '1': 'NodeTreeQuery',

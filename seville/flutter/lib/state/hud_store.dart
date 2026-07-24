@@ -86,4 +86,8 @@ class HudNotifier extends Notifier<HudState> {
   void submitSearch(String value) {
     state = state.copyWith(searchEnabled: false, searchValue: value.trim());
   }
+
+  void cancel() {
+    state = const HudState();
+  }
 }

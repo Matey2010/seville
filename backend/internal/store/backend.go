@@ -11,8 +11,17 @@ import (
 
 var ErrSnapshotUnavailable = errors.New("snapshot unavailable")
 var ErrNodeNotFound = errors.New("node not found")
+var ErrNodeAlreadyExists = errors.New("Node already exists")
+var ErrInvalidNodeCreate = errors.New("invalid Node creation")
 var ErrInvalidNodeSearchParameter = errors.New("invalid Node search parameter")
 var ErrInvalidNodeMutation = errors.New("invalid Node mutation")
+
+// NodeCreate describes the caller-owned fields accepted when creating a Node.
+// Stable identity and canonical defaults remain owned by the store.
+type NodeCreate struct {
+	Slug   string
+	Labels []string
+}
 
 // NodeMutation describes canonical Node data changes. Additional mutation
 // kinds belong here rather than in raw Cypher accepted from an API handler.
@@ -40,6 +49,10 @@ type NodeMutator interface {
 	MutateNodes(context.Context, *nodesv1.NodeSearchFilter, NodeMutation) (uint64, error)
 }
 
+type NodeCreator interface {
+	CreateNode(context.Context, NodeCreate) (*nodev2.Node, error)
+}
+
 type Reader interface {
 	SnapshotReader
 	SystemReader
@@ -47,13 +60,18 @@ type Reader interface {
 	NodeSearchReader
 }
 
+type NodeService interface {
+	Reader
+	NodeCreator
+	NodeMutator
+}
+
 type Importer interface {
 	ImportNew(context.Context, *nodev2.NodeSnapshot) error
 }
 
 type Backend interface {
-	Reader
+	NodeService
 	Importer
-	NodeMutator
 	Close() error
 }

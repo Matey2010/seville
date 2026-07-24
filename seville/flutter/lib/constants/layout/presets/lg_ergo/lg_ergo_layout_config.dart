@@ -138,14 +138,27 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                   labelColor: lgErgoActionButtonLabelColor,
                   labelSize: 18,
                 ),
+                'add-node': PanelLayout(
+                  size: GridAxisVariable(size: LayoutSize.fr(1)),
+                  aliases: [
+                    'action-button',
+                    'add-action',
+                    'create-virtual-node',
+                  ],
+                  fillColor: lgErgoSubmitButtonColor,
+                  borderStyle: lgErgoActionButtonBorderStyle,
+                  label: 'Add',
+                  labelColor: lgErgoActionButtonLabelColor,
+                  labelSize: 12,
+                ),
                 'close-selection': PanelLayout(
                   size: GridAxisVariable(size: LayoutSize.fr(1)),
                   aliases: [
                     'action-button',
                     'close-action',
+                    'cancel-interface-action',
                     'clear-selection-action',
                   ],
-                  visibility: [LayoutCondition.hasActiveNodes()],
                   fillColor: lgErgoRejectButtonColor,
                   borderStyle: lgErgoActionButtonBorderStyle,
                   label: '×',
@@ -234,10 +247,14 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               layouts: {
                 'submit': PanelLayout(
                   size: GridAxisVariable(size: LayoutSize.fr(1)),
-                  aliases: ['action-button', 'submit-action'],
+                  aliases: [
+                    'action-button',
+                    'submit-action',
+                    'create-first-virtual-node',
+                  ],
                   fillColor: lgErgoSubmitButtonColor,
                   borderStyle: lgErgoActionButtonBorderStyle,
-                  label: 'Submit',
+                  label: '✅',
                   labelColor: lgErgoActionButtonLabelColor,
                 ),
                 'reject': PanelLayout(

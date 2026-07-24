@@ -63,6 +63,30 @@ message NodeSearchResult {
   repeated seville.node.v2.Node nodes = 1;
 }
 
+message NodeCreateRequest {
+  string slug = 1;
+  repeated string labels = 2;
+}
+
+message NodePropertyValue {
+  oneof value {
+    string string_value = 1;
+    int64 integer_value = 2;
+    double double_value = 3;
+    bool boolean_value = 4;
+  }
+}
+
+message NodeMutationRequest {
+  NodeSearchFilter node_filter = 1;
+  map<string, NodePropertyValue> set_properties = 2;
+  repeated string remove_properties = 3;
+}
+
+message NodeMutationResult {
+  uint64 mutated_node_count = 1;
+}
+
 message NodeTreeQuery {
   optional string root_node_id = 1;
   optional uint32 depth = 2;

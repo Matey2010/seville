@@ -1,10 +1,15 @@
 import 'package:dio/dio.dart';
+import 'package:fixnum/fixnum.dart';
 import 'package:seville_proto/seville_proto.dart'
     hide NodeSearchFilter, NodeSearchMatchMode, NodeSearchParameter;
 import 'package:seville_proto/seville_proto.dart'
     as wire
     show
         NodeParameterType,
+        NodeCreateRequest,
+        NodeMutationRequest,
+        NodeMutationResult,
+        NodePropertyValue,
         NodeRelationshipType,
         NodeSearchFilter,
         NodeSearchMatchMode,
@@ -53,6 +58,9 @@ class SevilleApi {
     }
   }
 
+  /// Legacy bulk graph read used only by the standalone Node field screen.
+  ///
+  /// The layout interface deliberately uses focused tree and search queries.
   Future<NodeSnapshot> snapshot() async {
     final response = await _dio.get<List<int>>('/v2/snapshot');
     final bytes = response.data;
@@ -101,7 +109,7 @@ class SevilleApi {
     late final Response<List<int>> response;
     try {
       response = await _dio.request<List<int>>(
-        '/nodes/v1/tree',
+        '/api/v1/node/tree',
         queryParameters: queryParameters,
         data: query.writeToBuffer(),
         options: Options(
@@ -114,7 +122,7 @@ class SevilleApi {
           (nodeFilter == null || nodeFilter.isEmpty) &&
           const [404, 405, 501].contains(error.response?.statusCode)) {
         response = await _dio.get<List<int>>(
-          '/nodes/v1/tree',
+          '/api/v1/node/tree',
           queryParameters: queryParameters,
         );
       } else {
@@ -148,12 +156,25 @@ class SevilleApi {
           operator: NodeMatchOperator.regularExpression,
         ),
     ]);
+    return queryNodes(nodeFilter: filter, limit: limit);
+  }
+
+  Future<NodeSearchResult> queryNodes({
+    required NodeSearchFilter nodeFilter,
+    int limit = 12,
+  }) async {
+    if (nodeFilter.isEmpty) {
+      throw ArgumentError.value(nodeFilter, 'nodeFilter', 'must not be empty');
+    }
+    if (limit < 1 || limit > 100) {
+      throw ArgumentError.value(limit, 'limit', 'must be between 1 and 100');
+    }
     final query = wire.NodeSearchQuery(
-      nodeFilter: _wireSearchFilter(filter),
+      nodeFilter: _wireSearchFilter(nodeFilter),
       limit: limit,
     );
     final response = await _dio.request<List<int>>(
-      '/nodes/v1/search',
+      '/api/v1/node/search',
       data: query.writeToBuffer(),
       options: Options(method: 'QUERY', contentType: 'application/x-protobuf'),
     );
@@ -162,6 +183,59 @@ class SevilleApi {
       throw const FormatException('The backend returned empty Node search.');
     }
     return NodeSearchResult.fromBuffer(bytes);
+  }
+
+  Future<int> mutateNodes({
+    required NodeSearchFilter nodeFilter,
+    Map<String, Object> setProperties = const {},
+    Iterable<String> removeProperties = const [],
+  }) async {
+    if (nodeFilter.isEmpty) {
+      throw ArgumentError.value(nodeFilter, 'nodeFilter', 'must not be empty');
+    }
+    final request = wire.NodeMutationRequest(
+      nodeFilter: _wireSearchFilter(nodeFilter),
+      setProperties: setProperties.entries.map(
+        (entry) => MapEntry(entry.key, _wirePropertyValue(entry.value)),
+      ),
+      removeProperties: removeProperties,
+    );
+    final response = await _dio.request<List<int>>(
+      '/api/v1/node/',
+      data: request.writeToBuffer(),
+      options: Options(method: 'PATCH', contentType: 'application/x-protobuf'),
+    );
+    final bytes = response.data;
+    if (bytes == null) {
+      throw const FormatException(
+        'The backend returned empty Node mutation data.',
+      );
+    }
+    return wire.NodeMutationResult.fromBuffer(bytes).mutatedNodeCount.toInt();
+  }
+
+  Future<Node> createNode({
+    required String slug,
+    Iterable<String> labels = const [],
+  }) async {
+    final normalizedSlug = slug.trim();
+    if (normalizedSlug.isEmpty) {
+      throw ArgumentError.value(slug, 'slug', 'must not be empty');
+    }
+    final request = wire.NodeCreateRequest(
+      slug: normalizedSlug,
+      labels: labels,
+    );
+    final response = await _dio.post<List<int>>(
+      '/api/v1/node/',
+      data: request.writeToBuffer(),
+      options: Options(contentType: 'application/x-protobuf'),
+    );
+    final bytes = response.data;
+    if (bytes == null) {
+      throw const FormatException('The backend returned empty Node data.');
+    }
+    return Node.fromBuffer(bytes);
   }
 
   void close() => _dio.close();
@@ -216,6 +290,18 @@ wire.NodeSearchParameter _wireSearchParameter(NodeSearchParameter value) =>
       },
       stringValue: value.value,
     );
+
+wire.NodePropertyValue _wirePropertyValue(Object value) => switch (value) {
+  String value => wire.NodePropertyValue(stringValue: value),
+  int value => wire.NodePropertyValue(integerValue: Int64(value)),
+  double value => wire.NodePropertyValue(doubleValue: value),
+  bool value => wire.NodePropertyValue(booleanValue: value),
+  _ => throw ArgumentError.value(
+    value,
+    'setProperties',
+    'values must be String, int, double, or bool',
+  ),
+};
 
 class BackendSummary {
   const BackendSummary({this.status});

@@ -4,7 +4,8 @@ enum SevilleKeymapAction {
   showSearch,
   refreshFanData,
   copySelectedNodeSlug,
-  clearInterface,
+  submit,
+  cancel,
 }
 
 SevilleKeymapAction? resolveSevilleKeymapAction(
@@ -22,8 +23,12 @@ SevilleKeymapAction? resolveSevilleKeymapAction(
   if (event.logicalKey == LogicalKeyboardKey.keyC && keyboard.isMetaPressed) {
     return SevilleKeymapAction.copySelectedNodeSlug;
   }
+  if (event.logicalKey == LogicalKeyboardKey.enter ||
+      event.logicalKey == LogicalKeyboardKey.numpadEnter) {
+    return SevilleKeymapAction.submit;
+  }
   if (event.logicalKey == LogicalKeyboardKey.escape) {
-    return SevilleKeymapAction.clearInterface;
+    return SevilleKeymapAction.cancel;
   }
   return null;
 }

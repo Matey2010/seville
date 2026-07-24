@@ -14,31 +14,86 @@ final sevilleApiProvider = Provider<SevilleApi>((ref) {
   return api;
 });
 
-final nodeSnapshotProvider = FutureProvider<NodeSnapshot>((ref) async {
-  final api = ref.watch(sevilleApiProvider);
-  return api.snapshot();
-});
+class VaultNodeLookupRequest {
+  VaultNodeLookupRequest(Iterable<String> paths)
+    : paths = List.unmodifiable({
+        for (final path in paths)
+          if (path.trim().isNotEmpty) path.trim(),
+      });
 
-final vaultNodeResolverProvider = FutureProvider<VaultNodeResolver>((
-  ref,
-) async {
-  final snapshot = await ref.watch(nodeSnapshotProvider.future);
-  return VaultNodeResolver.fromNodes(snapshot.nodes);
-});
+  final List<String> paths;
 
-final nodeEmojisProvider = Provider.family<AsyncValue<List<Emoji>>, String>((
-  ref,
-  nodeSlug,
-) {
-  final normalizedSlug = nodeSlug.trim();
-  return ref.watch(nodeSnapshotProvider).whenData((snapshot) {
-    for (final node in snapshot.nodes) {
-      if (node.slug.trim() == normalizedSlug) {
-        return List<Emoji>.unmodifiable(node.emojis);
+  @override
+  bool operator ==(Object other) =>
+      other is VaultNodeLookupRequest && _sameStrings(paths, other.paths);
+
+  @override
+  int get hashCode => Object.hashAll(paths);
+}
+
+final vaultNodeResolverProvider =
+    FutureProvider.family<VaultNodeResolver, VaultNodeLookupRequest>((
+      ref,
+      request,
+    ) async {
+      if (request.paths.isEmpty) return VaultNodeResolver.empty;
+      final lookupParameters = <NodeSearchParameter>[];
+      for (final path in request.paths) {
+        final candidates = VaultNodeResolver.pathCandidates(path);
+        lookupParameters.addAll(
+          candidates
+              .where((candidate) => candidate.isNotEmpty)
+              .map(
+                (candidate) => NodeSearchParameter(
+                  parameter: NodeParameter.path,
+                  value: candidate,
+                ),
+              ),
+        );
+        final normalizedPath = VaultNodeResolver.normalizePath(path);
+        final leaf = normalizedPath.split('/').lastOrNull;
+        if (leaf != null && leaf.isNotEmpty) {
+          lookupParameters.add(
+            NodeSearchParameter(parameter: NodeParameter.slug, value: leaf),
+          );
+        }
+        if (VaultNodeResolver.isCortexRootPath(path)) {
+          lookupParameters.add(
+            const NodeSearchParameter(
+              parameter: NodeParameter.slug,
+              value: 'cortex',
+              operator: NodeMatchOperator.contains,
+            ),
+          );
+        }
       }
-    }
-    return const <Emoji>[];
-  });
+      final result = await ref
+          .watch(sevilleApiProvider)
+          .queryNodes(
+            nodeFilter: NodeSearchFilter.anyOf(lookupParameters),
+            limit: lookupParameters.length.clamp(1, 100),
+          );
+      return VaultNodeResolver.fromNodes(result.nodes);
+    });
+
+final nodeSlugExistsProvider = FutureProvider.family<bool, String>((
+  ref,
+  slug,
+) async {
+  final normalizedSlug = slug.trim();
+  if (normalizedSlug.isEmpty) return false;
+  final result = await ref
+      .watch(sevilleApiProvider)
+      .queryNodes(
+        nodeFilter: NodeSearchFilter.anyOf([
+          NodeSearchParameter(
+            parameter: NodeParameter.slug,
+            value: normalizedSlug,
+          ),
+        ]),
+        limit: 1,
+      );
+  return result.nodes.any((node) => node.slug.trim() == normalizedSlug);
 });
 
 final systemInfoProvider = FutureProvider<SystemInfo>((ref) async {
@@ -119,8 +174,67 @@ final selectedNodesProvider =
     );
 
 class SelectedNodesNotifier extends Notifier<List<ResolvedVaultNode>> {
+  var _nextVirtualNodeNumber = 1;
+
   @override
   List<ResolvedVaultNode> build() => const [];
+
+  ResolvedVaultNode? get firstVirtualNode {
+    for (final node in state) {
+      if (node.isVirtual) return node;
+    }
+    return null;
+  }
+
+  String nextVirtualNodeSlugCandidate() {
+    final usedSlugs = {
+      for (final selectedNode in state)
+        if (selectedNode.node?.slug.trim() case final slug?
+            when slug.isNotEmpty)
+          slug,
+    };
+    late String slug;
+    do {
+      final number = _nextVirtualNodeNumber++;
+      slug = number == 1 ? 'new-node' : 'new-node-$number';
+    } while (usedSlugs.contains(slug));
+    return slug;
+  }
+
+  ResolvedVaultNode addVirtualNode({required String slug}) {
+    final node = Node(slug: slug, path: slug, title: 'New Node');
+    final resolvedNode = ResolvedVaultNode(
+      path: slug,
+      node: node,
+      resolvedStatus: LayoutHttpStatus.noContent,
+      isVirtual: true,
+    );
+    state = List.unmodifiable([...state, resolvedNode]);
+    return resolvedNode;
+  }
+
+  bool replaceVirtualNode(ResolvedVaultNode virtualNode, Node createdNode) {
+    final virtualSlug = virtualNode.node?.slug.trim();
+    if (virtualSlug == null || virtualSlug.isEmpty) return false;
+    final index = state.indexWhere(
+      (candidate) =>
+          candidate.isVirtual && candidate.node?.slug.trim() == virtualSlug,
+    );
+    if (index < 0) return false;
+    final createdSlug = createdNode.slug.trim();
+    final createdPath = createdNode.path.trim();
+    final resolvedNode = ResolvedVaultNode(
+      path: createdPath.isEmpty ? createdSlug : createdPath,
+      node: createdNode,
+      resolvedStatus: LayoutHttpStatus.ok,
+    );
+    state = List.unmodifiable([
+      ...state.take(index),
+      resolvedNode,
+      ...state.skip(index + 1),
+    ]);
+    return true;
+  }
 
   void toggle(ResolvedVaultNode node) {
     final remaining = [
@@ -136,6 +250,14 @@ class SelectedNodesNotifier extends Notifier<List<ResolvedVaultNode>> {
   void clear() {
     state = const [];
   }
+}
+
+bool _sameStrings(List<String> left, List<String> right) {
+  if (left.length != right.length) return false;
+  for (var index = 0; index < left.length; index += 1) {
+    if (left[index] != right[index]) return false;
+  }
+  return true;
 }
 
 bool _representsSameNode(ResolvedVaultNode left, ResolvedVaultNode right) {

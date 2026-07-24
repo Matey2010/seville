@@ -17,6 +17,17 @@
   `./scripts/seville-interface`.
 - Do not suggest `./scripts/seville-interface chrome` or other Flutter targets.
 
+## HTTP methods
+
+- Use `QUERY` for safe, idempotent API reads whose structured request is sent
+  in the body, including Node search and graph traversal.
+- Use `POST` to create a Node when the server owns its stable identity. There is
+  no `CREATE` HTTP method.
+- Use `PUT` only for a complete, idempotent replacement at a known Node resource
+  URI, and `DELETE` to remove the identified resource.
+- Use `PATCH` for partial Node mutations. Do not introduce or restore a custom
+  `MUTATE` HTTP method; mutation remains domain vocabulary only.
+
 ## Development ownership
 
 - The project owner exclusively runs and debugs the final application.
@@ -141,6 +152,13 @@
   grows. Paint and hit-test from the same resolved circle geometry. Graph
   connections, distance, labels between Nodes, and alternate interaction modes
   remain future extensions; do not request a `NodeTree` for this layout.
+  A frontend-only draft is a normal selected `ResolvedVaultNode` with
+  `isVirtual: true`; it is not yet canonical Neo4j data. Shared Node border
+  rendering must use a dashed path for virtual Nodes and the configured solid
+  border for persisted Nodes. The right-plane submit action creates the first
+  virtual Node through `POST /api/v1/node/` with Neo4j labels `New` and
+  `Virtual`, then atomically replaces that draft at the same selected-node
+  index with the canonical Node returned by the backend.
 - Use `PerspectiveGridLayout` in `LayoutPath.grid` when a path needs normal
   rows and columns projected inside its quadrilateral. `rowsConfig` and
   `columnsConfig` must be ordered maps of the same `GridAxisVariable` type; the
@@ -181,9 +199,9 @@
   `ResolvedVaultNode.node` is the single source for tap/frontmatter behavior,
   and `ResolvedVaultNode.fillColor` is the single source for found/missing
   visuals. Node-backed layout visuals must not be optimistic: render a full
-  background only when the configured node resolves against the snapshot; render
-  only a border when it does not. Keep `fillColor` for manual/background fills
-  that are not graph-node assignments.
+  background only when the configured node resolves through its focused Node
+  query; render only a border when it does not. Keep `fillColor` for
+  manual/background fills that are not graph-node assignments.
 - For compact Node labels, render the first assigned non-empty
   `Emoji.character` before textual metadata. Fall back to `Node.slug`; legacy
   title and ID values are only last-resort compatibility labels. When a slug is
@@ -217,7 +235,7 @@
   must not be reclassified as HUD merely because this overlay exists.
 - Search submission from the HUD Search button and keyboard Enter writes one
   normalized value to `hudStateProvider`. `nodeSearchProvider` sends that value
-  through `QUERY /nodes/v1/search`. Results are ordinary Flame content rendered
+  through `QUERY /api/v1/node/search`. Results are ordinary Flame content rendered
   by the configured right-plane `NodeListLayout`, never Flutter HUD children.
   Node-list rows use the shared selected-node slug set for active opacity and
   return normal `LayoutTapTarget` values so tapping toggles
@@ -241,6 +259,13 @@
   every currently watched Fan `NodeTree` provider through the screen action.
   Command-C copies the last Riverpod-selected Node slug through the same screen
   action used by the Flame-rendered copy button.
+  Plain Enter dispatches the right-plane submit action unless `SearchHud` is
+  visible. While Search is visible, the global handler must return the event so
+  the focused text field owns Enter and submits the search instead.
+  `SevilleKeymapAction.cancel` is the global nuclear cancel action. Both Escape
+  and the right-plane cross dispatch it through the screen; it clears selected
+  and virtual Nodes, clears cached/search-visible results, hides `SearchHud`,
+  and closes the selected-node scene. Keep these effects on one action path.
 - Classify layouts with `List<LayoutAttribute>` using lower-camel enum values.
   Put reusable computed geometry in attribute-provided derivatives and let
   explicit snapshots override only the values they specialize.

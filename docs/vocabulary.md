@@ -57,6 +57,20 @@ slug even when an Emoji is assigned because identity is the proposal's purpose.
 connections, import warnings, and source revision. It is transport, not the
 canonical database. Neo4j remains the canonical live graph.
 
+Flutter does not retain a `NodeSnapshot` in Riverpod state. Fans fetch their
+own depth-limited trees, search fetches its own query results, and configured
+Node references use focused lookup requests.
+
+## Virtual Node
+
+A virtual Node is a frontend draft represented by `ResolvedVaultNode` with
+`isVirtual: true`. It participates in the same slug-identified selected-node
+state and Graph layout as canonical Nodes, but it has not been created in
+Neo4j. Flame renderers distinguish that status with a dashed Node border.
+Submitting creates the first virtual Node as canonical `:New:Virtual` data and
+replaces the draft in place with the backend response. Cancelling the interface
+discards virtual Nodes with the rest of selection.
+
 ## Source adapter
 
 A source adapter reads an external representation such as a local Git checkout
@@ -88,6 +102,16 @@ relationship traversal. `SearchHud` captures the query, Riverpod owns its
 asynchronous state, and `NodeListLayout` renders the result inside the configured
 Flame layout tree. Selecting a search result changes the same slug-identified
 active Node set used by Fan and Graph layouts.
+
+## HTTP graph operations
+
+`QUERY` is Seville's canonical HTTP method for safe, idempotent graph reads
+with structured request bodies, including Node search and tree traversal.
+`POST` creates a Node whose stable identity is assigned by the backend. `PUT`
+means complete, idempotent replacement of a known Node resource, `PATCH` means
+a partial Node mutation, and `DELETE` removes a known resource. The mutation
+domain may use names such as `NodeMutationRequest`, but neither `CREATE` nor
+`MUTATE` is a Seville HTTP method.
 
 ## Renderer
 

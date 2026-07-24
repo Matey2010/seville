@@ -35,6 +35,9 @@ class LandscapeXlLayoutScreen extends ConsumerStatefulWidget {
 
 class _LandscapeXlLayoutScreenState
     extends ConsumerState<LandscapeXlLayoutScreen> {
+  bool _isAddingVirtualNode = false;
+  bool _isCreatingVirtualNode = false;
+
   @override
   void initState() {
     super.initState();
@@ -63,14 +66,18 @@ class _LandscapeXlLayoutScreenState
     final selectedNodes = ref.watch(selectedNodesProvider);
     final hudState = ref.watch(hudStateProvider);
     final searchState = ref.watch(nodeSearchProvider(hudState.searchValue));
-    final resolverState = ref.watch(vaultNodeResolverProvider);
+    final vaultNodeLookup = VaultNodeLookupRequest(
+      _configuredVaultNodes(layout).map((node) => node.path),
+    );
+    final resolverProvider = vaultNodeResolverProvider(vaultNodeLookup);
+    final resolverState = ref.watch(resolverProvider);
     final systemInfoState = ref.watch(systemInfoProvider);
-    ref.listen(vaultNodeResolverProvider, (_, next) {
+    ref.listen(resolverProvider, (_, next) {
       switch (next) {
         case AsyncData(:final value):
           _highlightInitialNodeIfNeeded(value);
         case AsyncError(:final error):
-          CommonUtilities.log('[snapshot] load failed: $error');
+          CommonUtilities.log('[configured Node lookup] failed: $error');
         case AsyncLoading():
           break;
       }
@@ -165,6 +172,17 @@ class _LandscapeXlLayoutScreenState
     }
   }
 
+  Iterable<VaultNodeUiComponent> _configuredVaultNodes(Layout layout) sync* {
+    if (layout case LandscapeXlLayout(:final initialHighlightedNode?)) {
+      yield initialHighlightedNode;
+    }
+    if (layout case PerspectiveGridArea(:final node?)) yield node;
+    if (layout case PlaneLayout(:final node?)) yield node;
+    for (final child in layout.layouts.values) {
+      yield* _configuredVaultNodes(child);
+    }
+  }
+
   void _handleLayoutTap(LayoutTapTarget target) {
     if (target.layout.aliases.contains('selected-node-action') &&
         ref.read(selectedNodesProvider).isEmpty) {
@@ -183,9 +201,17 @@ class _LandscapeXlLayoutScreenState
       _copySelectedNodeSlug();
       return;
     }
-    if (target.layout.aliases.contains('clear-selection-action')) {
-      ref.read(selectedNodesProvider.notifier).clear();
-      CommonUtilities.log('[action panel] cleared selected nodes');
+    if (target.layout.aliases.contains('create-virtual-node')) {
+      unawaited(_createVirtualNode());
+      return;
+    }
+    if (target.layout.aliases.contains('create-first-virtual-node')) {
+      unawaited(_submitVirtualNode());
+      return;
+    }
+    if (target.layout.aliases.contains('cancel-interface-action') ||
+        target.layout.aliases.contains('clear-selection-action')) {
+      _cancelInterface();
       return;
     }
     if (target.layout is PanelLayout &&
@@ -210,14 +236,10 @@ class _LandscapeXlLayoutScreenState
       return;
     }
 
-    final resolverState = ref.read(vaultNodeResolverProvider);
-    final resolver = switch (resolverState) {
-      AsyncData(:final value) => value,
-      _ => null,
-    };
+    final resolver = _currentVaultNodeResolver();
     if (resolver == null) {
       CommonUtilities.log(
-        '[layout tap] ${target.key}: snapshot is not loaded yet; cannot resolve "${component.path}"',
+        '[layout tap] ${target.key}: configured Node lookup is not loaded yet; cannot resolve "${component.path}"',
       );
       return;
     }
@@ -227,7 +249,7 @@ class _LandscapeXlLayoutScreenState
     if (resolvedGraphNode == null) {
       if (resolver.isEmpty) {
         CommonUtilities.log(
-          '[layout tap] ${target.key}: snapshot is empty; cannot resolve "${component.path}"',
+          '[layout tap] ${target.key}: configured Node lookup is empty; cannot resolve "${component.path}"',
         );
         return;
       }
@@ -237,8 +259,8 @@ class _LandscapeXlLayoutScreenState
       CommonUtilities.log(
         'candidate paths: ${VaultNodeResolver.pathCandidates(component.path)}',
       );
-      CommonUtilities.log('snapshot paths sample: ${resolver.pathSample()}');
-      CommonUtilities.log('snapshot titles sample: ${resolver.titleSample()}');
+      CommonUtilities.log('resolved paths sample: ${resolver.pathSample()}');
+      CommonUtilities.log('resolved titles sample: ${resolver.titleSample()}');
       return;
     }
 
@@ -287,10 +309,96 @@ class _LandscapeXlLayoutScreenState
         );
   }
 
-  void _clearInterface() {
+  Future<void> _createVirtualNode() async {
+    if (_isAddingVirtualNode) return;
+    _isAddingVirtualNode = true;
+    try {
+      final selectedNodes = ref.read(selectedNodesProvider.notifier);
+      var slug = selectedNodes.nextVirtualNodeSlugCandidate();
+      while (await ref.read(nodeSlugExistsProvider(slug).future)) {
+        slug = selectedNodes.nextVirtualNodeSlugCandidate();
+      }
+      if (!mounted) return;
+      final node = selectedNodes.addVirtualNode(slug: slug);
+      CommonUtilities.log(
+        '[interface] created virtual Node: ${node.node?.slug}',
+      );
+    } catch (error) {
+      CommonUtilities.log('[interface] virtual Node lookup failed: $error');
+      if (!mounted) return;
+      ref
+          .read(hudToastProvider.notifier)
+          .show(
+            'Could not create virtual Node',
+            type: NotificationType.NOTIFICATION_TYPE_ERROR,
+          );
+    } finally {
+      _isAddingVirtualNode = false;
+    }
+  }
+
+  Future<void> _submitVirtualNode() async {
+    if (_isCreatingVirtualNode) return;
+    final selectedNodes = ref.read(selectedNodesProvider.notifier);
+    final virtualNode = selectedNodes.firstVirtualNode;
+    final slug = virtualNode?.node?.slug.trim();
+    if (virtualNode == null || slug == null || slug.isEmpty) {
+      CommonUtilities.log('[interface] no virtual Node to create');
+      ref
+          .read(hudToastProvider.notifier)
+          .show(
+            'No Virtual Node',
+            type: NotificationType.NOTIFICATION_TYPE_ERROR,
+          );
+      return;
+    }
+
+    _isCreatingVirtualNode = true;
+    try {
+      final createdNode = await ref
+          .read(sevilleApiProvider)
+          .createNode(slug: slug, labels: const ['New', 'Virtual']);
+      if (!mounted) return;
+      final replaced = ref
+          .read(selectedNodesProvider.notifier)
+          .replaceVirtualNode(virtualNode, createdNode);
+      ref.invalidate(nodeSlugExistsProvider(slug));
+      ref.invalidate(systemInfoProvider);
+      ref.invalidate(nodeSearchProvider);
+      if (!replaced) {
+        CommonUtilities.log(
+          '[interface] created Node $slug after its virtual selection was removed',
+        );
+        return;
+      }
+      CommonUtilities.log('[interface] created canonical Node: $slug');
+      ref
+          .read(hudToastProvider.notifier)
+          .show(
+            'Created: [[$slug]]',
+            type: NotificationType.NOTIFICATION_TYPE_SUCCESS,
+          );
+    } catch (error) {
+      CommonUtilities.log('[interface] create Node failed: $error');
+      if (!mounted) return;
+      ref
+          .read(hudToastProvider.notifier)
+          .show(
+            'Node creation failed',
+            type: NotificationType.NOTIFICATION_TYPE_ERROR,
+          );
+    } finally {
+      _isCreatingVirtualNode = false;
+    }
+  }
+
+  void _cancelInterface() {
     ref.read(selectedNodesProvider.notifier).clear();
-    ref.read(hudStateProvider.notifier).hideSearch();
-    CommonUtilities.log('[interface] cleared selected nodes and hid HUD');
+    ref.read(hudStateProvider.notifier).cancel();
+    ref.invalidate(nodeSearchProvider);
+    CommonUtilities.log(
+      '[interface] cancelled selection, virtual Nodes, search results, and HUD',
+    );
   }
 
   bool _handleKeyEvent(KeyEvent event) {
@@ -304,8 +412,12 @@ class _LandscapeXlLayoutScreenState
       case SevilleKeymapAction.copySelectedNodeSlug:
         _copySelectedNodeSlug();
         return true;
-      case SevilleKeymapAction.clearInterface:
-        _clearInterface();
+      case SevilleKeymapAction.submit:
+        if (ref.read(hudStateProvider).isSearchEnabled) return false;
+        unawaited(_submitVirtualNode());
+        return true;
+      case SevilleKeymapAction.cancel:
+        _cancelInterface();
         return true;
       case null:
         return false;
@@ -337,5 +449,16 @@ class _LandscapeXlLayoutScreenState
     final resolvedNode = _resolveInitialHighlightedNode(resolver);
     if (resolvedNode == null) return;
     ref.read(highlightedNodesProvider.notifier).setNodes([resolvedNode]);
+  }
+
+  VaultNodeResolver? _currentVaultNodeResolver() {
+    final layout = widget.layout ?? lgErgoLayoutConfig;
+    final request = VaultNodeLookupRequest(
+      _configuredVaultNodes(layout).map((node) => node.path),
+    );
+    return switch (ref.read(vaultNodeResolverProvider(request))) {
+      AsyncData(:final value) => value,
+      _ => null,
+    };
   }
 }

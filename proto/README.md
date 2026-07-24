@@ -7,7 +7,10 @@ snapshots, and connections;
 including Neo4j labels and the running Go and Neo4j versions.
 `seville/nodes/v1/tree.proto` defines occurrence-preserving Fan tree data,
 structured Node filters, and the flat `NodeSearchQuery`/`NodeSearchResult`
-contract used by `QUERY /nodes/v1/search`.
+contract used by `QUERY /api/v1/node/search`. It also owns the typed
+`NodeCreateRequest` contract used by `POST /api/v1/node/` and the
+`NodeMutationRequest`/`NodeMutationResult` contract used by
+`PATCH /api/v1/node/`.
 `seville/notification/v1/notification.proto` defines shared notification
 severity vocabulary without prescribing a renderer or transport endpoint.
 `Node` remains the primary data unit rather than an abstract knowledge
