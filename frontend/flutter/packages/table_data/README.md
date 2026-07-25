@@ -16,3 +16,6 @@ package. Consumers can pass `includeValue` to omit empty fields; a group with no
 included fields emits neither title nor rows. `TableGroup.foldable` and
 `initiallyFolded` are renderer-independent interaction metadata; animation and
 mutable expansion state remain the renderer's responsibility.
+`TableField.includeWhenEmpty` reserves an empty row only after another field
+has made its owning group visible; it does not force an otherwise empty group
+onto the screen.

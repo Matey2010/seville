@@ -397,21 +397,24 @@ fallback with `LayoutDefaults.nodeSlugPrefix` and `nodeSlugSuffix`. LG Ergo's
 Node defaults use `[[` and `]]`, producing `[[slug]]` without changing stored
 Node identity.
 `NodeListLayout` renders a dynamic Node collection as equal rows inside a
-row/column composition. The LG Ergo right plane configures one with
-`NodeListDataSource.searchResults` beneath its Node actions and a second with
-`NodeListDataSource.virtualNodes` in the former Gamepad area. The virtual source
-is the `isVirtual` subset of Riverpod-selected Nodes; it retains dashed borders,
-uses `LayoutDefaults.virtualNodeBackgroundOpacity` (50% by default), and keeps
-the normal Node tap/toggle target.
+row/column composition or a TableLayout value cell. The LG Ergo right plane
+configures one with `NodeListDataSource.searchResults` beneath its Node actions.
+The info table's Updates/Added field owns the virtual source, which reads the
+`isVirtual` subset of Riverpod-selected Nodes, retains dashed borders, uses
+`LayoutDefaults.virtualNodeBackgroundOpacity` (50% by default), and keeps the
+normal Node tap/toggle target.
 
 `TableLayout.includeUnconfiguredFields` combines declarative ordering with
 data-dependent rows. `unconfiguredFieldGroupId` places populated unconfigured
 keys alphabetically inside their owning group. LG Ergo has one info-panel
-table with three ordered groups: `last_selected_node`, `selected_nodes`, and
-`system`. The first keeps Slug and Labels before the remaining complete Node
-value; the second lists selected slugs followed by the deduplicated labels
-across all selected Nodes in alphabetical order; the third contains system
-data. An optional `TableGroup.title` creates a header only for a populated group.
+table with four ordered groups: `last_selected_node`, `selected_nodes`,
+`updates`, and `system`. The first keeps Slug and Labels before the remaining
+complete Node value; the second lists selected slugs followed by deduplicated
+labels; Updates owns Added, Updated, and Deleted rows; and the fourth contains
+system data. Added renders virtual Nodes through a nested `NodeListLayout`.
+Updated and Deleted remain empty placeholders whenever the Updates group is
+visible. An optional `TableGroup.title` creates a header only for a populated
+group.
 `TableLayout.groupGap` separates visible groups, and `groupBorderStyle` wraps
 each group independently. Empty groups produce no rows or decoration. A group
 with `foldable: true` uses its title as a Flame hit target and animates its

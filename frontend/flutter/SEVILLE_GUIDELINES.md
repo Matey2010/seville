@@ -568,20 +568,22 @@ tap path. LG Ergo configures `LayoutDefaults.nodeSlugPrefix` and
 `nodeSlugSuffix` as `[[` and `]]`; Fan and Graph apply them only to their slug
 fallback, while search rows always expose the wrapped slug.
 
-The former right-plane Gamepad placeholder is a second `NodeListLayout` sourced
-from selected Nodes whose `ResolvedVaultNode.isVirtual` flag is true. These rows
-use the shared Node paint and hit-test cycle, including 50% virtual background
-opacity, dashed draft borders, and slug-based selection toggling. The opacity is
-owned by `LayoutDefaults.virtualNodeBackgroundOpacity`.
+The left info-table Updates/Added field owns a `NodeListLayout` sourced from
+selected Nodes whose `ResolvedVaultNode.isVirtual` flag is true. These Nodes use
+the shared paint and hit-test cycle, including 50% virtual background opacity,
+dashed draft borders, slug-based selection toggling, and selection audio. The
+opacity is owned by `LayoutDefaults.virtualNodeBackgroundOpacity`.
 
 The left info panel contains one `TableLayout`, never separate Node and System
-tables. It orders three groups: Last Selected Node, Selected Nodes, and System.
-The first contains the complete latest Node value, the second lists every
-selected slug above the deduplicated alphabetical set of labels across every
-selected Node, and the third retains system information. Each populated group
+tables. It orders four groups: Last Selected Node, Selected Nodes, Updates, and
+System. The first contains the complete latest Node value, the second lists
+every selected slug above the deduplicated alphabetical label set, the third
+contains Added, Updated, and Deleted mutation rows, and the fourth retains
+system information. Added renders current virtual Nodes; Updated and Deleted
+are reserved for later state. Each populated group
 has its own optional title, border, and spacing from its neighbor. Empty groups
 have no title, geometry, or gap, so the same table naturally begins with System
-when nothing is selected. All three LG Ergo groups are foldable through their
+when nothing is selected. All four LG Ergo groups are foldable through their
 title rows. The Flame scene keeps their transient fold state and drives
 row-track expansion with `EffectController`; presentation-only folding does not
 enter Riverpod.

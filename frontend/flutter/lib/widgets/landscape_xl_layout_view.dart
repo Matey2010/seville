@@ -875,6 +875,7 @@ class _LandscapeXlSceneComponent extends PositionComponent
   final Map<TableLayout, Map<String, _TableGroupFoldAnimation>>
   _tableGroupAnimations = {};
   final List<_TableGroupHeaderHit> _tableGroupHeaderHits = [];
+  final List<_TableNodeHit> _tableNodeHits = [];
   Offset? hoverPosition;
 
   @override
@@ -896,6 +897,7 @@ class _LandscapeXlSceneComponent extends PositionComponent
   @override
   void render(Canvas canvas) {
     _tableGroupHeaderHits.clear();
+    _tableNodeHits.clear();
     final layout = game.layout;
     final viewport = Size(size.x, size.y);
     final safePadding = game.safePadding;
@@ -951,6 +953,9 @@ class _LandscapeXlSceneComponent extends PositionComponent
             _tableGroupHeaderHits.add(
               _TableGroupHeaderHit(table: table, groupId: groupId, path: path),
             );
+          },
+          onTableNode: (target, path) {
+            _tableNodeHits.add(_TableNodeHit(target: target, path: path));
           },
         );
       }
@@ -1045,6 +1050,12 @@ class _LandscapeXlSceneComponent extends PositionComponent
   @override
   void onTapUp(flame_events.TapUpEvent event) {
     final localPosition = Offset(event.localPosition.x, event.localPosition.y);
+    for (final nodeHit in _tableNodeHits.reversed) {
+      if (nodeHit.path.contains(localPosition)) {
+        game.dispatchLayoutTap(nodeHit.target);
+        return;
+      }
+    }
     for (final header in _tableGroupHeaderHits.reversed) {
       if (header.path.contains(localPosition)) {
         _toggleTableGroup(header.table, header.groupId);
@@ -1130,6 +1141,13 @@ class _TableGroupHeaderHit {
 
   final TableLayout table;
   final String groupId;
+  final Path path;
+}
+
+class _TableNodeHit {
+  const _TableNodeHit({required this.target, required this.path});
+
+  final LayoutTapTarget target;
   final Path path;
 }
 
@@ -1348,6 +1366,7 @@ void _drawLayoutPath(
   tableGroupExpansion,
   required void Function(TableLayout table, String groupId, Path path)
   onTableGroupHeader,
+  required void Function(LayoutTapTarget target, Path path) onTableNode,
 }) {
   final resolvedPoints = _resolvedLayoutPathPoints(
     layoutPath,
@@ -1448,9 +1467,12 @@ void _drawLayoutPath(
       _tableData(table, selectedNodes, systemInfo),
       hoverPosition,
       classificationLabelComponent,
+      nodeListSources: nodeListSources,
+      layoutContext: layoutContext,
       groupExpansion: (groupId) => tableGroupExpansion(table, groupId),
       onGroupHeader: (groupId, path) =>
           onTableGroupHeader(table, groupId, path),
+      onNode: onTableNode,
     );
   }
   canvas.restore();
@@ -1564,6 +1586,12 @@ TableData _tableData(
     if (selectedNode != null) ..._nodeInfoValues(selectedNode),
     'selected_node_slugs': _selectedNodeSlugs(selectedNodes, table),
     'selected_node_labels': _selectedNodeLabels(selectedNodes),
+    'added': [
+      for (final node in selectedNodes)
+        if (node.isVirtual) node,
+    ],
+    'updated': const <ResolvedVaultNode>[],
+    'deleted': const <ResolvedVaultNode>[],
     'node_count': systemInfo?.nodeCount,
     'node_property_count': systemInfo?.nodePropertyCount,
     'neo4j_labels': systemInfo?.neo4jLabels,
@@ -3128,8 +3156,11 @@ void _drawTableLayout(
   TableData data,
   Offset? hoverPosition,
   ClassificationLabelComponent classificationLabelComponent, {
+  required _NodeListSources nodeListSources,
+  required LayoutContext layoutContext,
   required double Function(String groupId) groupExpansion,
   required void Function(String groupId, Path path) onGroupHeader,
+  required void Function(LayoutTapTarget target, Path path) onNode,
 }) {
   if (parentPoints.length < 4 || table.columns.isEmpty) {
     return;
@@ -3168,17 +3199,6 @@ void _drawTableLayout(
   final columnStops = _gridTrackStops([
     for (final column in table.tableColumnsConfig.values) column.size,
   ], averageWidth);
-  for (var index = 0; index < rows.length; index += 1) {
-    final row = rows[index];
-    final groupId = row.groupId;
-    if (!row.section || groupId == null) continue;
-    final group = _tableGroup(table, groupId);
-    if (group == null || !group.foldable) continue;
-    onGroupHeader(
-      groupId,
-      _tableCellPath(tablePoints, rowStops[index], rowStops[index + 1], 0, 1),
-    );
-  }
   final tableTransformPoints = [
     _tableLayoutPoint(tablePoints, row: 0, column: 0),
     _tableLayoutPoint(tablePoints, row: 0, column: 1),
@@ -3191,6 +3211,31 @@ void _drawTableLayout(
     Offset(averageWidth, averageHeight),
     Offset(0, averageHeight),
   ];
+  final tableTransform = _rectToQuadTransform(
+    averageWidth,
+    averageHeight,
+    tableTransformPoints,
+  );
+  for (var index = 0; index < rows.length; index += 1) {
+    final row = rows[index];
+    final groupId = row.groupId;
+    if (!row.section || groupId == null) continue;
+    final group = _tableGroup(table, groupId);
+    if (group == null || !group.foldable) continue;
+    onGroupHeader(
+      groupId,
+      _polygonPath([
+        for (final point in _tableCellPoints(
+          flatTablePoints,
+          rowStops[index],
+          rowStops[index + 1],
+          0,
+          1,
+        ))
+          _transformCanvasPoint(tableTransform, point),
+      ]),
+    );
+  }
   final recorder = ui.PictureRecorder();
   final tableCanvas = Canvas(
     recorder,
@@ -3310,6 +3355,49 @@ void _drawTableLayout(
     ) {
       final column = table.tableColumnsConfig.entries.elementAt(columnIndex);
       final isKeyColumn = column.key == 'key';
+      final fieldLayout = isKeyColumn || row.key == null
+          ? null
+          : table.layouts[row.key];
+      if (fieldLayout is NodeListLayout &&
+          fieldLayout.isVisible(layoutContext)) {
+        final flatCellPoints = _tableCellPoints(
+          flatTablePoints,
+          rowStart,
+          rowEnd,
+          columnStops[columnIndex],
+          columnStops[columnIndex + 1],
+        );
+        _drawNodeListLayout(
+          tableCanvas,
+          flatCellPoints,
+          fieldLayout,
+          nodeListSources,
+          layoutContext,
+        );
+        for (final entry in _nodeListEntries(
+          fieldLayout,
+          nodeListSources,
+          flatCellPoints,
+        )) {
+          onNode(
+            LayoutTapTarget(
+              key: 'table/${row.groupId}/${row.key}/${entry.node.slug}',
+              layout: fieldLayout,
+              node: entry.resolvedNode,
+              resolvedNode: entry.resolvedNode,
+              label: _nodePresentationLabel(
+                entry.node,
+                fieldLayout.layoutDefaults,
+              ),
+            ),
+            _polygonPath([
+              for (final point in entry.points)
+                _transformCanvasPoint(tableTransform, point),
+            ]),
+          );
+        }
+        continue;
+      }
       final classificationLabels = isKeyColumn
           ? const <String>[]
           : _classificationLabels(row.key, row.value);
@@ -3359,9 +3447,7 @@ void _drawTableLayout(
   final tablePicture = recorder.endRecording();
   canvas.save();
   canvas.clipPath(panelPath);
-  canvas.transform(
-    _rectToQuadTransform(averageWidth, averageHeight, tableTransformPoints),
-  );
+  canvas.transform(tableTransform);
   canvas.drawPicture(tablePicture);
   canvas.restore();
   tablePicture.dispose();
@@ -3684,6 +3770,15 @@ Float64List _rectToQuadTransform(
   ]);
 }
 
+Offset _transformCanvasPoint(Float64List transform, Offset point) {
+  final w = transform[3] * point.dx + transform[7] * point.dy + transform[15];
+  final safeW = w.abs() <= 0.000001 ? 1.0 : w;
+  return Offset(
+    (transform[0] * point.dx + transform[4] * point.dy + transform[12]) / safeW,
+    (transform[1] * point.dx + transform[5] * point.dy + transform[13]) / safeW,
+  );
+}
+
 Path _tableCellPath(
   List<Offset> points,
   double rowStart,
@@ -3691,25 +3786,23 @@ Path _tableCellPath(
   double columnStart,
   double columnEnd,
 ) {
-  return Path()
-    ..moveTo(
-      _tableLayoutPoint(points, row: rowStart, column: columnStart).dx,
-      _tableLayoutPoint(points, row: rowStart, column: columnStart).dy,
-    )
-    ..lineTo(
-      _tableLayoutPoint(points, row: rowStart, column: columnEnd).dx,
-      _tableLayoutPoint(points, row: rowStart, column: columnEnd).dy,
-    )
-    ..lineTo(
-      _tableLayoutPoint(points, row: rowEnd, column: columnEnd).dx,
-      _tableLayoutPoint(points, row: rowEnd, column: columnEnd).dy,
-    )
-    ..lineTo(
-      _tableLayoutPoint(points, row: rowEnd, column: columnStart).dx,
-      _tableLayoutPoint(points, row: rowEnd, column: columnStart).dy,
-    )
-    ..close();
+  return _polygonPath(
+    _tableCellPoints(points, rowStart, rowEnd, columnStart, columnEnd),
+  );
 }
+
+List<Offset> _tableCellPoints(
+  List<Offset> points,
+  double rowStart,
+  double rowEnd,
+  double columnStart,
+  double columnEnd,
+) => [
+  _tableLayoutPoint(points, row: rowStart, column: columnStart),
+  _tableLayoutPoint(points, row: rowStart, column: columnEnd),
+  _tableLayoutPoint(points, row: rowEnd, column: columnEnd),
+  _tableLayoutPoint(points, row: rowEnd, column: columnStart),
+];
 
 GridAxisVariable _tableSeparatorSize(GridAxisVariable fieldSize) {
   const separatorScale = 0.5;

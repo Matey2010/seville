@@ -36,6 +36,7 @@ class TableLayout extends Layout
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
     super.backgrounds,
+    super.layouts,
     super.layoutDefaults,
     super.visibility,
     super.inputSources,

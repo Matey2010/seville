@@ -223,12 +223,16 @@
   the Flame scene owns transient expansion state and animates content tracks
   with an `EffectController` using `TableLayout.groupFoldDuration`. Keep this
   presentation state out of Riverpod and layout configuration. LG Ergo's single
-  info table orders
-  `last_selected_node`, `selected_nodes`, then `system`. The first owns complete
-  last-selected Node properties, the second owns the selected slug list followed
-  by the deduplicated alphabetical set of labels across all selected Nodes, and
-  the third owns system data. Empty groups emit no title, border, gap, or rows.
-  Do not restore parallel or visibility-switched table instances.
+  info table orders `last_selected_node`, `selected_nodes`, `updates`, then
+  `system`. The first owns complete last-selected Node properties, the second
+  owns the selected slug list followed by the deduplicated alphabetical label
+  set, the third owns Added/Updated/Deleted frontend mutation rows, and the
+  fourth owns system data. The Added field owns the virtual-Node
+  `NodeListLayout` as a child layout so it retains shared Node paint, hit-testing,
+  selection, and sound behavior. Updated and Deleted are reserved empty rows;
+  the Updates group remains absent until any mutation row has content. Empty
+  groups emit no title, border, gap, or rows. Do not restore parallel or
+  visibility-switched table instances.
 - For compact Node labels, render the first assigned non-empty
   `Emoji.character` before textual metadata. Fall back to `Node.slug`; legacy
   title and ID values are only last-resort compatibility labels. When a slug is
@@ -294,9 +298,9 @@
   Node-list rows use the shared selected-node slug set for active opacity and
   return normal `LayoutTapTarget` values so tapping toggles
   `selectedNodesProvider` for Fan and Graph consumers too.
-  The right-plane virtual-Node list uses `NodeListDataSource.virtualNodes` in
-  the former Gamepad slot and reads the `isVirtual` subset of selected Nodes;
-  keep its dashed border and tap behavior on the same shared Node cycle.
+  The info-table Updates/Added field uses
+  `NodeListDataSource.virtualNodes` and reads the `isVirtual` subset of selected
+  Nodes; keep its dashed border and tap behavior on the same shared Node cycle.
 - Toast producers append `ToastEvent` values only through `toastProvider`. Its
   Riverpod state is a durable queue until dismissal; `ToastOverlayPresenter`
   calls the public `overlay_layers` API without mounting an invisible layer in

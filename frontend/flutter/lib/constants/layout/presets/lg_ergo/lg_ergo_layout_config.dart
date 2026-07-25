@@ -232,14 +232,6 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               labelColor: lgErgoActionButtonLabelColor,
               size: GridAxisVariable(size: LayoutSize.fr(1)),
             ),
-            'virtual-nodes': NodeListLayout(
-              dataSource: NodeListDataSource.virtualNodes,
-              style: lgErgoCortexNodeBorderStyle,
-              layoutDefaults: lgErgoNodeLayoutDefaults,
-              size: GridAxisVariable(size: LayoutSize.fr(1)),
-              aliases: ['virtual-nodes', 'draft-nodes', 'uncreated-nodes'],
-              labelColor: lgErgoActionButtonLabelColor,
-            ),
             'direction-pad': ColumnLayout(
               size: GridAxisVariable(size: LayoutSize.px(144)),
               aliases: [
@@ -456,6 +448,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                 title: 'Selected Nodes',
                 foldable: true,
               ),
+              TableGroup(id: 'updates', title: 'Updates', foldable: true),
               TableGroup(id: 'system', title: 'System', foldable: true),
             ],
             fields: [
@@ -494,6 +487,27 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                 size: GridAxisVariable(size: LayoutSize.fr(1)),
               ),
               TableField(
+                key: 'added',
+                label: 'Added',
+                groupId: 'updates',
+                includeWhenEmpty: true,
+                size: GridAxisVariable(size: LayoutSize.fr(1)),
+              ),
+              TableField(
+                key: 'updated',
+                label: 'Updated',
+                groupId: 'updates',
+                includeWhenEmpty: true,
+                size: GridAxisVariable(size: LayoutSize.fr(1)),
+              ),
+              TableField(
+                key: 'deleted',
+                label: 'Deleted',
+                groupId: 'updates',
+                includeWhenEmpty: true,
+                size: GridAxisVariable(size: LayoutSize.fr(1)),
+              ),
+              TableField(
                 key: 'node_count',
                 label: 'Nodes',
                 groupId: 'system',
@@ -529,6 +543,15 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
             MapEntry('key', GridAxisVariable(size: LayoutSize.fr(1))),
             MapEntry('value', GridAxisVariable(size: LayoutSize.fr(3))),
           ],
+          layouts: {
+            'added': NodeListLayout(
+              dataSource: NodeListDataSource.virtualNodes,
+              style: lgErgoCortexNodeBorderStyle,
+              layoutDefaults: lgErgoNodeLayoutDefaults,
+              aliases: ['virtual-nodes', 'draft-nodes', 'uncreated-nodes'],
+              labelColor: lgErgoActionButtonLabelColor,
+            ),
+          },
         ),
       },
     ),

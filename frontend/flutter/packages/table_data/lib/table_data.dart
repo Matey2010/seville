@@ -49,12 +49,14 @@ class TableField<TSize> {
     required this.size,
     this.label,
     this.groupId,
+    this.includeWhenEmpty = false,
   });
 
   final String key;
   final TSize size;
   final String? label;
   final String? groupId;
+  final bool includeWhenEmpty;
 }
 
 class TableRow<TSize> {
@@ -93,15 +95,23 @@ List<TableRow<TSize>> buildTableRows<TSize>(
   final groupIds = {for (final group in groups) group.id};
 
   Iterable<TableRow<TSize>> rowsForGroup(TableGroup group) sync* {
-    final groupFields = [
+    final owningFields = [
       for (final field in fields)
         if ((groupIds.contains(field.groupId) ? field.groupId : null) ==
-                group.id &&
+            group.id)
+          field,
+    ];
+    final hasPopulatedField = owningFields.any(
+      (field) => includeValue?.call(data[field.key]) ?? true,
+    );
+    if (!hasPopulatedField) return;
+    final groupFields = [
+      for (final field in owningFields)
+        if (field.includeWhenEmpty ||
             (includeValue?.call(data[field.key]) ?? true))
           field,
     ];
     _sortFields(groupFields, group.ordering, data, formatValue);
-    if (groupFields.isEmpty) return;
 
     final groupTitle = group.title?.trim();
     if (groupTitle != null && groupTitle.isNotEmpty) {
