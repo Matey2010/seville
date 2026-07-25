@@ -4,9 +4,11 @@
 
 - Read and follow [`docs/vocabulary.md`](docs/vocabulary.md) before naming a
   domain entity, API message, database label, or node-backed layout concept.
-- `Node` is Seville's primary data unit across Neo4j, Go, protobuf, and Flutter.
-  Do not introduce `Note`, `SevilleNote`, or a redundant `Knowledge` container
-  as the core entity.
+- `Node` is Seville's primary API and domain data unit across Go, protobuf, and
+  Flutter. Neo4j labels are optional classification metadata: no identifying
+  label is required, and label presence must not decide whether a graph entity
+  is a Node. Do not introduce `Note`, `SevilleNote`, or a redundant `Knowledge`
+  container as the core entity.
 
 ## Supported runtime
 
@@ -159,6 +161,12 @@
   virtual Node through `POST /api/v1/node/` with Neo4j labels `New` and
   `Virtual`, then atomically replaces that draft at the same selected-node
   index with the canonical Node returned by the backend.
+  The right-plane top action row places the confirm action immediately beside
+  the nuclear close action. Copy and share remain in the second action row.
+  Direction controls belong to the bottom `direction-pad`: three equal rows
+  and three equal columns represent top-left through bottom-right, including
+  center. Keep their stable `direction-*` aliases in layout configuration;
+  directional behavior remains a later interaction-policy concern.
 - Use `PerspectiveGridLayout` in `LayoutPath.grid` when a path needs normal
   rows and columns projected inside its quadrilateral. `rowsConfig` and
   `columnsConfig` must be ordered maps of the same `GridAxisVariable` type; the
@@ -202,6 +210,12 @@
   background only when the configured node resolves through its focused Node
   query; render only a border when it does not. Keep `fillColor` for
   manual/background fills that are not graph-node assignments.
+- `NodePropertyTable.includeUnconfiguredFields` appends every populated data
+  value not already represented by its configured fields. Keep configured rows
+  first, append remaining keys alphabetically, and use
+  `unconfiguredFieldSize` for their tracks. LG Ergo uses this for the selected
+  Node table so Slug and Labels lead while the complete Node value remains
+  visible without hard-coding every backend property into the preset.
 - For compact Node labels, render the first assigned non-empty
   `Emoji.character` before textual metadata. Fall back to `Node.slug`; legacy
   title and ID values are only last-resort compatibility labels. When a slug is
@@ -212,9 +226,23 @@
   rather than implementing different rules in individual Flame components.
   Riverpod-selected
   Node identity and active renderer state use the unique slug, never `Node.id`.
-- Store `LayoutBackgroundElement` values in the parent `Layout.layouts` map.
-  `orderPosition` is frontend stacking metadata: lower values paint first,
-  while guides and content stay above background children.
+- `Node.labels` are Neo4j classification metadata, not Nodes and not compact
+  Node captions. `NodePropertyTable` renders `labels` and `neo4j_labels` values
+  through `ClassificationLabelComponent` as separate shopping-tag shapes
+  instead of comma-separated text. Their deterministic fill palette, border,
+  hole, and text colors belong to `LayoutDefaults`; Neo4j supplies only label
+  strings. Keep them on the table canvas so they obey its perspective.
+- Every `Layout` exposes its own ordered `backgrounds` list. Concrete layout
+  constructors must forward that base property. `orderPosition` is frontend
+  stacking metadata: lower values paint first, while guides and content stay
+  above backgrounds. `LayoutPath` backgrounds are clipped to the path's
+  resolved polygon; quadrilateral image backgrounds use the same projective
+  transform as `NodePropertyTable`, so both image and content follow one
+  perspective without separate renderer coordinates.
+  `LayoutDefaults.backgrounds` is the fallback for layouts whose own list is
+  empty. Resolve it through the nearest ancestor defaults that defines a
+  non-empty background list; explicit layout backgrounds always replace the
+  fallback. LG Ergo uses `dark-vintage-scheme.jpg` as this default.
 - Use `StickmanLayout` for the simple center-scene human scale reference. Its
   logical body lives in vertical `0..1`, where `1.0` equals `heightCm`
   (currently 200cm), and its visible frame can extend beyond that, e.g.
@@ -225,46 +253,50 @@
 - Renderable layouts are Flame components. Route taps through
   `LandscapeXlLayoutView.onLayoutTap` and return a `LayoutTapTarget` from the
   same geometry rendered by the component. Flutter widgets are reserved for
-  the `GameWidget` host and explicitly introduced HUDs. `SearchHud` and
-  `HudToastLayer` are the only HUD implementations today, so do not classify
-  ordinary interface content as HUD to justify a widget. Do not build Flutter
-  widget renderers, interaction layers, or hit boxes for layout content.
-- `SearchHud` is the first explicit Flutter HUD exception. Its visibility and
-  submitted value belong to `hudStateProvider`; its action-plane trigger
-  remains a Flame-rendered `PanelLayout`. Additional ordinary layout content
-  must not be reclassified as HUD merely because this overlay exists.
-- Search submission from the HUD Search button and keyboard Enter writes one
-  normalized value to `hudStateProvider`. `nodeSearchProvider` sends that value
+  the `GameWidget` host and transient overlays. `LandscapeXlLayoutView` is the
+  direct `Scaffold.body`; do not wrap it in a parallel HUD `Stack`. Do not build
+  Flutter widget renderers, interaction layers, or hit boxes for layout content.
+- `SearchHudComponent` is a Flame HUD owned by `LandscapeXlLayoutGame`. It owns
+  its visible state, text draft, drawing, and Flame keyboard subscription. The
+  action-plane Search button and Command-F open it. Enter hides it before
+  submitting its normalized value to `interfaceOverlayStateProvider`; Escape
+  hides it before dispatching the global cancel callback. Search must not use a
+  Flutter popup, `OverlayScaffold`, or focus-based text field.
+- Search submission from the Flame HUD writes one normalized value to
+  `interfaceOverlayStateProvider`. `nodeSearchProvider` sends that value
   through `QUERY /api/v1/node/search`. Results are ordinary Flame content rendered
-  by the configured right-plane `NodeListLayout`, never Flutter HUD children.
+  by the configured right-plane `NodeListLayout`, never popup children.
   Node-list rows use the shared selected-node slug set for active opacity and
   return normal `LayoutTapTarget` values so tapping toggles
   `selectedNodesProvider` for Fan and Graph consumers too.
-- Toast producers append `HudToastEvent` values only through
-  `hudToastProvider`. Its Riverpod state is a durable queue until dismissal;
-  `HudToastLayer` is the single adapter from that queue to the public
-  `overlay_layers` API. It owns the top-right stack, three-second
-  dismissal, and overlay cleanup. Keep this boundary compatible with replacing
+  The right-plane virtual-Node list uses `NodeListDataSource.virtualNodes` in
+  the former Gamepad slot and reads the `isVirtual` subset of selected Nodes;
+  keep its dashed border and tap behavior on the same shared Node cycle.
+- Toast producers append `ToastEvent` values only through `toastProvider`. Its
+  Riverpod state is a durable queue until dismissal; `ToastOverlayPresenter`
+  calls the public `overlay_layers` API without mounting an invisible layer in
+  the `Scaffold`. It owns the top-right `ToastWidgets`, three-second dismissal,
+  and overlay cleanup. Keep this boundary compatible with replacing
   the hosted dependency by `packages/overlay_layers`; do not import
   `overlay_layers` into actions, Flame components, or Riverpod notifiers.
-  Every event carries the protobuf `NotificationType`. `HudNotification` is the
+  Every event carries the protobuf `NotificationType`. `ToastWidget` is the
   Flutter widget body and currently owns the fixed mappings: info blue
   `#1976D2`, error red `#D32F2F`, warning yellow `#F9A825`, and success green
   `#388E3C`. Do not move colors into protobuf.
 - Keyboard bindings resolve centrally in `lib/constants/keymap.dart` from
-  Flutter hardware key events to application actions. The screen owns the one
-  lifecycle keyboard handler and translates those actions into Riverpod
-  notifier calls. Do not import providers into the keymap or duplicate key
-  interpretation inside Flame components and HUD widgets. Command-R refreshes
+  Flutter hardware key events to application actions. `SearchHudComponent` is
+  the game's keyboard-handler component and translates actions into callbacks;
+  the screen supplies Riverpod-backed callback implementations. Do not import
+  providers into the keymap or Flame component. Command-R refreshes
   every currently watched Fan `NodeTree` provider through the screen action.
   Command-C copies the last Riverpod-selected Node slug through the same screen
   action used by the Flame-rendered copy button.
-  Plain Enter dispatches the right-plane submit action unless `SearchHud` is
-  visible. While Search is visible, the global handler must return the event so
-  the focused text field owns Enter and submits the search instead.
+  Plain Enter dispatches the right-plane submit action unless the Search HUD is
+  visible. While visible, the component consumes Enter, hides itself, and
+  submits its local draft instead.
   `SevilleKeymapAction.cancel` is the global nuclear cancel action. Both Escape
   and the right-plane cross dispatch it through the screen; it clears selected
-  and virtual Nodes, clears cached/search-visible results, hides `SearchHud`,
+  and virtual Nodes, clears cached/search-visible results, closes the Search HUD,
   and closes the selected-node scene. Keep these effects on one action path.
 - Classify layouts with `List<LayoutAttribute>` using lower-camel enum values.
   Put reusable computed geometry in attribute-provided derivatives and let
@@ -275,7 +307,7 @@
 - Backend graph paths are relative to the configured knowledge root:
   `SEVILLE_VAULT_PATH`, or `SEVILLE_GIT_REPOSITORY_PATH` plus
   `SEVILLE_GIT_VAULT_SUBPATH` when the Git source adapter is active.
-- Shared vault path constants live in `seville/flutter/lib/constants/paths/`.
+- Shared vault path constants live in `frontend/flutter/lib/constants/paths/`.
   Timeline paths belong to `DefaultTimelineVaultPaths` there; broader vault
   roots or concepts belong to sibling static classes such as `DefaultVaultPaths`.
 - The current vault root directory is already `cortex`; never prefix configured

@@ -37,7 +37,7 @@ if [ "${SEVILLE_NEO4J_QUERY_LOG:-false}" = "true" ]; then
   LOG_TAIL_PID=$!
 fi
 
-cd "$ROOT/seville/flutter"
+cd "$ROOT/frontend/flutter"
 flutter run \
   -d "${1:-macos}" \
   --dart-define="SEVILLE_BASE_URL=${SEVILLE_BASE_URL:-http://127.0.0.1:8787}" \

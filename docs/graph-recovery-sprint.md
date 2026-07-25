@@ -67,15 +67,6 @@ RETURN a.id, b.id
 LIMIT 100;
 ```
 
-Remove the obsolete classification labels without deleting graph entities:
-
-```cypher
-MATCH (n)
-WHERE n:Node OR n:EvolvedNode
-REMOVE n:Node, n:EvolvedNode
-RETURN count(n) AS updated_nodes;
-```
-
 ## Legacy migration semantics
 
 The manual tool at `scripts/migrations/obsidian/import-vault-to-neo4j`

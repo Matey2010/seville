@@ -200,7 +200,7 @@ Neo4j labels. The backend assigns a stable random `id`, initializes
 Cypher parameters. Labels are trimmed, deduplicated, sorted, and accepted as
 Cypher identifiers only when they match `[A-Za-z_][A-Za-z0-9_]*`; the request
 therefore cannot inject Cypher through either field. Creation does not add the
-redundant `Node` or `EvolvedNode` label automatically.
+labels that were not explicitly requested.
 
 `PUT` and `DELETE` retain their standard meanings, but no Node replacement or
 deletion route is exposed until relationship handling and deletion policy have

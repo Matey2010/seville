@@ -51,6 +51,12 @@ references by using the owning layout defaults' prefix and suffix; LG Ergo uses
 the familiar `[[slug]]` form. Search results intentionally show this wrapped
 slug even when an Emoji is assigned because identity is the proposal's purpose.
 
+`Node.labels` are classification strings, not Nodes and not compact Node
+captions. The frontend presents them in property tables through the Flame
+`ClassificationLabelComponent`. Each string receives its own shopping-tag
+shape and a deterministic color from the owning `LayoutDefaults`; Neo4j does
+not store frontend paint.
+
 ## Node snapshot
 
 `NodeSnapshot` is the current bulk API representation of nodes, their
@@ -92,16 +98,16 @@ without replacing that identity. `Layout.size` uses `GridAxisVariable` and
 
 `NotificationType` is shared protobuf vocabulary describing semantic severity:
 `info`, `error`, `warning`, or `success`. It does not define color, duration,
-placement, or widget structure. Flutter owns the current `HudNotification`
+placement, or widget structure. Flutter owns the current `ToastWidget`
 presentation and Riverpod owns the active notification queue.
 
 ## Node search
 
 Node search is a flat, structured query returning complete Nodes rather than a
-relationship traversal. `SearchHud` captures the query, Riverpod owns its
-asynchronous state, and `NodeListLayout` renders the result inside the configured
-Flame layout tree. Selecting a search result changes the same slug-identified
-active Node set used by Fan and Graph layouts.
+relationship traversal. `SearchHudComponent` captures and submits the query,
+Riverpod owns its asynchronous state, and `NodeListLayout` renders the result
+inside the configured Flame layout tree. Selecting a search result changes the
+same slug-identified active Node set used by Fan and Graph layouts.
 
 ## HTTP graph operations
 
@@ -116,11 +122,11 @@ domain may use names such as `NodeMutationRequest`, but neither `CREATE` nor
 ## Renderer
 
 The renderer turns resolved layouts into visible, interactive geometry. All
-current renderers are Flame components. Flutter owns application composition
-and the `GameWidget` host only; an explicitly designed HUD may use widgets in
-the future, but no HUD exists today. Rendering and interaction must use the same
-component-owned resolved geometry. A Flutter widget renderer or parallel widget
-hit box is not a renderer in Seville's architecture.
+current renderers are Flame components. Flutter owns application composition,
+the `GameWidget` host, and transient `overlay_layers` popups/toasts; no HUD
+exists today. Rendering and interaction must use the same component-owned
+resolved geometry. A Flutter widget renderer or parallel widget hit box is not
+a renderer in Seville's architecture.
 
 Seville aims to become a strongly customizable data visualization,
 import/export, and interaction tool with broad platform portability. The

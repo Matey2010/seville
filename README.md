@@ -7,7 +7,7 @@ This README is an index to the repository. Detailed documentation belongs in
 
 | Folder | Responsibility |
 | --- | --- |
-| [`seville/`](seville/) | The Seville product client, currently implemented with Flutter and Flame |
+| [`frontend/`](frontend/) | User-facing clients, currently implemented with Flutter and Flame |
 | [`backend/`](backend/) | Go source ingestion, Neo4j graph storage, reconciliation, and HTTP API |
 | [`proto/`](proto/) | Canonical Protocol Buffer contracts and generated Go and Dart packages |
 | [`scripts/`](scripts/) | macOS process control and focused source, graph, and migration utilities |
@@ -19,8 +19,8 @@ instructions, and workspace-specific documentation.
 ## Client rendering policy
 
 Seville interface content is rendered and interacted with through Flame
-components. Flutter widgets host the `GameWidget` and explicit HUDs:
-`SearchHud` and Riverpod-driven toast overlays backed by `overlay_layers`.
+components. Flutter widgets host the `GameWidget` and Riverpod-driven toast
+widgets through `overlay_layers`; Search is a Flame HUD component.
 Do not add Flutter widget renderers, gesture layers, or hit boxes for layout or
 graph content.
 

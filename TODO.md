@@ -4,4 +4,5 @@
    selected.
 2. Add user-facing data migration functionality based on the legacy vault
    migration in `scripts/migrations/obsidian/`.
-3. Make every node in database linked
+3. Add Get Make every node in database linked
+4. Migrate Backend to fiber instead of using native go/http

@@ -65,14 +65,14 @@ persistence layer.
 
 The current client uses Flame components for all interface rendering and
 interaction. Flutter widgets provide application composition and host the
-`GameWidget`. Widgets are reserved for a future explicitly designed HUD, which
-does not exist yet; ordinary layout content must not be introduced as a widget,
+`GameWidget`; transient popups and toast widgets use `overlay_layers`. No HUD
+exists today. Ordinary layout content must not be introduced as a widget,
 gesture overlay, or parallel hit-test layer.
 
 ## Repository boundaries
 
 ```text
-seville/          User-facing clients; Flutter is the current macOS client
+frontend/         User-facing clients; Flutter is the current macOS client
 backend/          Go ingestion, graph storage, and API
 proto/            Canonical protobuf contracts and generated packages
 scripts/          macOS process control and focused maintenance utilities
@@ -80,8 +80,8 @@ docs/             Cross-workspace architecture and operational documentation
 compose.yaml      Local Neo4j service wiring
 ```
 
-The product is named Seville. `seville/flutter` is one client implementation,
-not the identity of the whole project and not a generic `interface` folder.
+The product is named Seville. `frontend/flutter` is one client implementation,
+not the identity of the whole project.
 
 ## Knowledge sources
 
@@ -146,12 +146,12 @@ The current core graph uses:
 (source)-[:LINKS_TO]->(target)
 ```
 
-Seville Nodes do not require a `Node` or `EvolvedNode` Neo4j label. Their
-labels are classification metadata transported by the API, while stable `id`
-and graph role establish identity. `Node.id` values must remain unique among
-Seville Nodes, and `Tag.id` is label-scoped unique. Unresolved targets are retained as
-`SevilleUnresolvedLink` records rather than discarded. `SevilleScanState`
-stores ingestion status and diagnostics.
+Neo4j labels are optional classification metadata transported by the API; they
+do not establish Node identity. Stable `id` and graph role establish identity.
+`Node.id` values must remain unique among Seville Nodes, and `Tag.id` is
+label-scoped unique. Unresolved targets are retained as `SevilleUnresolvedLink`
+records rather than discarded. `SevilleScanState` stores ingestion status and
+diagnostics.
 
 Tags are graph entities, not merely strings. Weighted `TAGGED_WITH`
 relationships create a foundation for ranked search and later source-specific
