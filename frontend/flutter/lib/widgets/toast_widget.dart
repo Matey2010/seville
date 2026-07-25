@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:overlay_layers/overlay_layers.dart';
 import 'package:seville_proto/seville_proto.dart';
 
+import '../constants/typography.dart';
 import '../state/overlay_store.dart';
 
 class ToastOverlayPresenter {
@@ -138,6 +139,7 @@ class ToastWidget extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       child: DefaultTextStyle(
         style: TextStyle(
+          fontFamily: SevilleTypography.fontFamily,
           color: _foregroundColor,
           fontSize: 13,
           fontWeight: FontWeight.w600,

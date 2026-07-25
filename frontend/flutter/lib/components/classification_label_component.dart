@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flame/components.dart';
 import 'package:flutter/painting.dart';
 
+import '../constants/typography.dart';
 import '../models/layout.dart';
 
 /// Flame renderer for Neo4j classification labels in table value cells.
@@ -46,6 +47,7 @@ class ClassificationLabelComponent extends PositionComponent {
         text: TextSpan(
           text: label,
           style: TextStyle(
+            fontFamily: SevilleTypography.fontFamily,
             color: defaults.classificationLabelTextColor,
             fontSize: fontSize,
             fontWeight: FontWeight.w700,

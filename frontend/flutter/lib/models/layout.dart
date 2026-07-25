@@ -524,6 +524,7 @@ class LayoutDefaults {
     this.backgrounds = const [],
     this.inactiveNodeBackgroundOpacity = 0.1,
     this.activeNodeBackgroundOpacity = 1,
+    this.virtualNodeBackgroundOpacity = 0.5,
     this.nodeSlugPrefix = '',
     this.nodeSlugSuffix = '',
     this.classificationLabelColors = const [
@@ -545,6 +546,9 @@ class LayoutDefaults {
        assert(
          activeNodeBackgroundOpacity >= 0 && activeNodeBackgroundOpacity <= 1,
        ),
+       assert(
+         virtualNodeBackgroundOpacity >= 0 && virtualNodeBackgroundOpacity <= 1,
+       ),
        assert(classificationLabelBorderWidth >= 0);
 
   final double padding;
@@ -553,6 +557,7 @@ class LayoutDefaults {
   final List<LayoutBackground> backgrounds;
   final double inactiveNodeBackgroundOpacity;
   final double activeNodeBackgroundOpacity;
+  final double virtualNodeBackgroundOpacity;
   final String nodeSlugPrefix;
   final String nodeSlugSuffix;
   final List<Color> classificationLabelColors;

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../constants/typography.dart';
 import '../models/layout.dart';
 import '../models/perceptual_map_layout.dart';
 import 'canvas_guides.dart';
@@ -327,6 +328,7 @@ void _drawCenteredLabel(
     text: TextSpan(
       text: label,
       style: TextStyle(
+        fontFamily: SevilleTypography.fontFamily,
         color: style.color,
         fontSize: style.fontSize,
         fontWeight: FontWeight.w700,

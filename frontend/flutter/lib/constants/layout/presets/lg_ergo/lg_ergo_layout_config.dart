@@ -426,10 +426,10 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
         LayoutDerivativeReference(derivative: 'A'),
       ],
       pointDerivatives: {'A': 0, 'B': 1, 'C': 2, 'D': 3},
-      style: LayoutPathStyle(
-        fillColor: lgErgoActionPlaneBandColor,
-        strokeStyle: lgErgoSpacePlaneLineStyle,
-      ),
+      // style: LayoutPathStyle(
+      //   // fillColor: lgErgoActionPlaneBandColor,
+      //   strokeStyle: lgErgoSpacePlaneLineStyle,
+      // ),
       layouts: {
         'info-table': TableLayout(
           aliases: ['info-table', 'table-layout', 'node-info', 'system-info'],
@@ -441,34 +441,57 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
             color: lgErgoNodeInfoCellHighlightColor,
           ),
           includeUnconfiguredFields: true,
-          unconfiguredFieldGroupId: 'node',
+          unconfiguredFieldGroupId: 'last_selected_node',
+          groupGap: lgErgoTableGroupGap,
+          groupBorderStyle: lgErgoNodeInfoGroupStyle,
           fieldBuilder: TableFieldBuilder(
             groups: [
-              TableGroup(id: 'node'),
-              TableGroup(id: 'system'),
+              TableGroup(
+                id: 'last_selected_node',
+                title: 'Last Selected Node',
+                foldable: true,
+              ),
+              TableGroup(
+                id: 'selected_nodes',
+                title: 'Selected Nodes',
+                foldable: true,
+              ),
+              TableGroup(id: 'system', title: 'System', foldable: true),
             ],
             fields: [
               TableField(
                 key: 'slug',
                 label: 'Slug',
-                groupId: 'node',
+                groupId: 'last_selected_node',
                 size: GridAxisVariable(size: LayoutSize.fr(1)),
               ),
               TableField(
                 key: 'labels',
                 label: 'Labels',
-                groupId: 'node',
+                groupId: 'last_selected_node',
                 size: GridAxisVariable(size: LayoutSize.fr(1)),
               ),
               TableField(
                 key: 'classification',
-                groupId: 'node',
+                groupId: 'last_selected_node',
                 size: GridAxisVariable(size: LayoutSize.fr(1)),
               ),
               TableField(
                 key: 'version',
-                groupId: 'node',
+                groupId: 'last_selected_node',
                 size: GridAxisVariable(size: LayoutSize.fr(0.5)),
+              ),
+              TableField(
+                key: 'selected_node_slugs',
+                label: 'Slugs',
+                groupId: 'selected_nodes',
+                size: GridAxisVariable(size: LayoutSize.fr(1)),
+              ),
+              TableField(
+                key: 'selected_node_labels',
+                label: 'Labels',
+                groupId: 'selected_nodes',
+                size: GridAxisVariable(size: LayoutSize.fr(1)),
               ),
               TableField(
                 key: 'node_count',
@@ -478,7 +501,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               ),
               TableField(
                 key: 'neo4j_labels',
-                label: 'Labels',
+                label: 'Most Popular Labels',
                 groupId: 'system',
                 size: GridAxisVariable(size: LayoutSize.fr(1)),
               ),
@@ -962,6 +985,7 @@ const lgErgoCortexBushNodeFilter = NodeSearchFilter.anyOf([
 const lgErgoLayoutDefaultPadding = 20.0;
 const lgErgoLayoutDefaultGap = 20.0;
 const lgErgoLayoutDefaultBorderWidth = 1.2;
+const lgErgoTableGroupGap = 12.0;
 const lgErgoLayoutDefaults = LayoutDefaults(
   padding: lgErgoLayoutDefaultPadding,
   gap: lgErgoLayoutDefaultGap,
@@ -1063,6 +1087,12 @@ const lgErgoActionButtonBorderStyle = GuideStyle(
 const lgErgoNodeInfoTableStyle = GuideStyle(
   color: Color(0x665F7CFF),
   strokeWidth: 1,
+  pattern: GuideLinePattern.solid,
+);
+
+const lgErgoNodeInfoGroupStyle = GuideStyle(
+  color: Color(0xAA5F7CFF),
+  strokeWidth: 1.4,
   pattern: GuideLinePattern.solid,
 );
 

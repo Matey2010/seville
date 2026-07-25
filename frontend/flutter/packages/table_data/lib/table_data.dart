@@ -30,13 +30,17 @@ class TableFieldBuilder<TSize> {
 class TableGroup {
   const TableGroup({
     required this.id,
-    this.label,
+    this.title,
     this.ordering = TableFieldOrdering.asConfigured,
-  });
+    this.foldable = false,
+    this.initiallyFolded = false,
+  }) : assert(!initiallyFolded || foldable);
 
   final String? id;
-  final String? label;
+  final String? title;
   final TableFieldOrdering ordering;
+  final bool foldable;
+  final bool initiallyFolded;
 }
 
 class TableField<TSize> {
@@ -56,17 +60,21 @@ class TableField<TSize> {
 class TableRow<TSize> {
   const TableRow({
     this.key,
+    this.groupId,
     required this.label,
     required this.value,
     required this.size,
     this.section = false,
+    this.spacer = false,
   });
 
   final String? key;
+  final String? groupId;
   final String label;
   final Object? value;
   final TSize size;
   final bool section;
+  final bool spacer;
 }
 
 /// Resolves configured fields into deterministic rows without painting them.
@@ -75,6 +83,7 @@ List<TableRow<TSize>> buildTableRows<TSize>(
   TableData data, {
   required TSize Function(TSize fieldSize) sectionSize,
   required String Function(Object? value) formatValue,
+  bool Function(Object? value)? includeValue,
 }) {
   final builder = definition.fieldBuilder;
   if (builder == null) return const [];
@@ -87,16 +96,18 @@ List<TableRow<TSize>> buildTableRows<TSize>(
     final groupFields = [
       for (final field in fields)
         if ((groupIds.contains(field.groupId) ? field.groupId : null) ==
-            group.id)
+                group.id &&
+            (includeValue?.call(data[field.key]) ?? true))
           field,
     ];
     _sortFields(groupFields, group.ordering, data, formatValue);
     if (groupFields.isEmpty) return;
 
-    final groupLabel = group.label?.trim();
-    if (groupLabel != null && groupLabel.isNotEmpty) {
+    final groupTitle = group.title?.trim();
+    if (groupTitle != null && groupTitle.isNotEmpty) {
       yield TableRow(
-        label: groupLabel,
+        groupId: group.id,
+        label: groupTitle,
         value: null,
         size: sectionSize(groupFields.first.size),
         section: true,
@@ -105,6 +116,7 @@ List<TableRow<TSize>> buildTableRows<TSize>(
     for (final field in groupFields) {
       yield TableRow(
         key: field.key,
+        groupId: group.id,
         label: field.label ?? field.key,
         value: data[field.key],
         size: field.size,

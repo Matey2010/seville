@@ -1,11 +1,14 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flame/components.dart';
+import 'package:flame/effects.dart';
 import 'package:flame/events.dart' show HasKeyboardHandlerComponents;
 import 'package:flame/events.dart' as flame_events;
 import 'package:flame/game.dart';
+import 'package:flame_audio/flame_audio.dart';
 import 'package:flutter/material.dart' hide TableRow;
 import 'package:seville_proto/seville_proto.dart';
 import 'package:table_data/table_data.dart';
@@ -13,6 +16,7 @@ import 'package:table_data/table_data.dart';
 import '../components/layout_component_registry.dart';
 import '../components/classification_label_component.dart';
 import '../components/search_hud_component.dart';
+import '../constants/typography.dart';
 import '../domain/node.dart';
 import '../models/landscape_xl_layout.dart';
 import '../models/layout.dart';
@@ -196,6 +200,7 @@ class LandscapeXlLayoutGame extends FlameGame
   VoidCallback onSubmit;
   EdgeInsets safePadding = EdgeInsets.zero;
   final SearchHudComponent _searchHud;
+  AudioPool? _nodeSelectionAudioPool;
 
   LayoutContext get layoutContext =>
       _layoutContext(highlightedNodes, selectedNodes);
@@ -205,6 +210,10 @@ class LandscapeXlLayoutGame extends FlameGame
 
   @override
   Future<void> onLoad() async {
+    _nodeSelectionAudioPool = await FlameAudio.createPool(
+      'technology-select.wav',
+      maxPlayers: 4,
+    );
     images.prefix = '';
     for (final assetPath in _layoutImageAssetPaths(layout).toSet()) {
       await images.load(assetPath);
@@ -238,6 +247,26 @@ class LandscapeXlLayoutGame extends FlameGame
       );
     }
     add(_searchHud..priority = 1000);
+  }
+
+  void dispatchLayoutTap(LayoutTapTarget target) {
+    final slug = target.resolvedNode?.node?.slug.trim() ?? '';
+    final isSelectingNode =
+        slug.isNotEmpty &&
+        !selectedNodes.any((node) => node.node?.slug.trim() == slug);
+    final audioPool = _nodeSelectionAudioPool;
+    if (isSelectingNode && audioPool != null) {
+      unawaited(audioPool.start(volume: 0.5));
+    }
+    onLayoutTap?.call(target);
+  }
+
+  @override
+  void onRemove() {
+    final audioPool = _nodeSelectionAudioPool;
+    _nodeSelectionAudioPool = null;
+    if (audioPool != null) unawaited(audioPool.dispose());
+    super.onRemove();
   }
 
   void openSearchHud() {
@@ -843,7 +872,20 @@ class _LandscapeXlSceneComponent extends PositionComponent
         flame_events.HoverCallbacks {
   final ClassificationLabelComponent _classificationLabelComponent =
       ClassificationLabelComponent();
+  final Map<TableLayout, Map<String, _TableGroupFoldAnimation>>
+  _tableGroupAnimations = {};
+  final List<_TableGroupHeaderHit> _tableGroupHeaderHits = [];
   Offset? hoverPosition;
+
+  @override
+  void update(double dt) {
+    for (final animations in _tableGroupAnimations.values) {
+      for (final animation in animations.values) {
+        animation.update(dt);
+      }
+    }
+    super.update(dt);
+  }
 
   @override
   void onGameResize(Vector2 gameSize) {
@@ -853,6 +895,7 @@ class _LandscapeXlSceneComponent extends PositionComponent
 
   @override
   void render(Canvas canvas) {
+    _tableGroupHeaderHits.clear();
     final layout = game.layout;
     final viewport = Size(size.x, size.y);
     final safePadding = game.safePadding;
@@ -892,7 +935,7 @@ class _LandscapeXlSceneComponent extends PositionComponent
           resolvedLayouts,
           vaultNodeResolver,
           systemInfo,
-          selectedNode,
+          selectedNodes,
           nodeListSources,
           _classificationLabelComponent,
           hoverPosition,
@@ -903,6 +946,12 @@ class _LandscapeXlSceneComponent extends PositionComponent
           imageFor: (assetPath) => game.images.containsKey(assetPath)
               ? game.images.fromCache(assetPath)
               : null,
+          tableGroupExpansion: _tableGroupExpansion,
+          onTableGroupHeader: (table, groupId, path) {
+            _tableGroupHeaderHits.add(
+              _TableGroupHeaderHit(table: table, groupId: groupId, path: path),
+            );
+          },
         );
       }
       for (final ray in resolved.layout.layouts.values.whereType<RayLayout>()) {
@@ -995,8 +1044,13 @@ class _LandscapeXlSceneComponent extends PositionComponent
 
   @override
   void onTapUp(flame_events.TapUpEvent event) {
-    final tapHandler = game.onLayoutTap;
     final localPosition = Offset(event.localPosition.x, event.localPosition.y);
+    for (final header in _tableGroupHeaderHits.reversed) {
+      if (header.path.contains(localPosition)) {
+        _toggleTableGroup(header.table, header.groupId);
+        return;
+      }
+    }
     final target = _hitTestLayoutTapTarget(
       game.layout,
       Size(size.x, size.y),
@@ -1016,8 +1070,67 @@ class _LandscapeXlSceneComponent extends PositionComponent
         target.layout.aliases.contains('clear-selection-action')) {
       game.closeSearchHud();
     }
-    tapHandler?.call(target);
+    game.dispatchLayoutTap(target);
   }
+
+  double _tableGroupExpansion(TableLayout table, String groupId) {
+    final group = _tableGroup(table, groupId);
+    if (group == null || !group.foldable) return 1;
+    return (_tableGroupAnimations[table] ??= {})
+        .putIfAbsent(
+          groupId,
+          () => _TableGroupFoldAnimation(
+            duration: table.groupFoldDuration,
+            initiallyFolded: group.initiallyFolded,
+          ),
+        )
+        .progress;
+  }
+
+  void _toggleTableGroup(TableLayout table, String groupId) {
+    _tableGroupExpansion(table, groupId);
+    _tableGroupAnimations[table]?[groupId]?.toggle();
+  }
+}
+
+class _TableGroupFoldAnimation {
+  _TableGroupFoldAnimation({
+    required double duration,
+    required bool initiallyFolded,
+  }) : _expanded = !initiallyFolded,
+       _controller = EffectController(
+         duration: duration,
+         curve: Curves.easeInOutCubic,
+       ) {
+    if (_expanded) _controller.setToEnd();
+  }
+
+  final EffectController _controller;
+  bool _expanded;
+
+  double get progress => _controller.progress.clamp(0, 1);
+
+  void toggle() => _expanded = !_expanded;
+
+  void update(double dt) {
+    if (_expanded) {
+      _controller.advance(dt);
+    } else {
+      _controller.recede(dt);
+    }
+  }
+}
+
+class _TableGroupHeaderHit {
+  const _TableGroupHeaderHit({
+    required this.table,
+    required this.groupId,
+    required this.path,
+  });
+
+  final TableLayout table;
+  final String groupId;
+  final Path path;
 }
 
 class _FanComponent extends PositionComponent
@@ -1102,7 +1215,7 @@ class _FanComponent extends PositionComponent
     );
     if (occurrence == null) return;
     final resolvedNode = _resolvedFanNode(occurrence, fan.layoutDefaults);
-    tapHandler(
+    game.dispatchLayoutTap(
       LayoutTapTarget(
         key: '${placement.key}/${occurrence.occurrenceId}',
         layout: fan,
@@ -1164,7 +1277,7 @@ class _GraphComponent extends PositionComponent
       planePoints: planePoints,
     );
     if (graphNode == null) return;
-    tapHandler(
+    game.dispatchLayoutTap(
       LayoutTapTarget(
         key: '${placement.key}/${graphNode.node.slug}',
         layout: placement.layout,
@@ -1224,13 +1337,17 @@ void _drawLayoutPath(
   Map<String, _ResolvedLayout> layouts,
   VaultNodeResolver? vaultNodeResolver,
   SystemInfo? systemInfo,
-  ResolvedVaultNode? selectedNode,
+  List<ResolvedVaultNode> selectedNodes,
   _NodeListSources nodeListSources,
   ClassificationLabelComponent classificationLabelComponent,
   Offset? hoverPosition,
   LayoutContext layoutContext, {
   required List<LayoutBackground> backgrounds,
   required ui.Image? Function(String assetPath) imageFor,
+  required double Function(TableLayout table, String groupId)
+  tableGroupExpansion,
+  required void Function(TableLayout table, String groupId, Path path)
+  onTableGroupHeader,
 }) {
   final resolvedPoints = _resolvedLayoutPathPoints(
     layoutPath,
@@ -1328,9 +1445,12 @@ void _drawLayoutPath(
       canvas,
       resolvedPoints,
       table,
-      _tableData(table, selectedNode, systemInfo),
+      _tableData(table, selectedNodes, systemInfo),
       hoverPosition,
       classificationLabelComponent,
+      groupExpansion: (groupId) => tableGroupExpansion(table, groupId),
+      onGroupHeader: (groupId, path) =>
+          onTableGroupHeader(table, groupId, path),
     );
   }
   canvas.restore();
@@ -1436,16 +1556,52 @@ void _drawLayoutPathBackground(
 
 TableData _tableData(
   TableLayout table,
-  ResolvedVaultNode? selectedNode,
+  List<ResolvedVaultNode> selectedNodes,
   SystemInfo? systemInfo,
-) => TableData({
-  if (selectedNode != null) ..._nodeInfoValues(selectedNode),
-  'node_count': systemInfo?.nodeCount,
-  'node_property_count': systemInfo?.nodePropertyCount,
-  'neo4j_labels': systemInfo?.neo4jLabels,
-  'go_version': systemInfo?.goVersion,
-  'neo4j_version': systemInfo?.neo4jVersion,
-});
+) {
+  final selectedNode = selectedNodes.lastOrNull;
+  return TableData({
+    if (selectedNode != null) ..._nodeInfoValues(selectedNode),
+    'selected_node_slugs': _selectedNodeSlugs(selectedNodes, table),
+    'selected_node_labels': _selectedNodeLabels(selectedNodes),
+    'node_count': systemInfo?.nodeCount,
+    'node_property_count': systemInfo?.nodePropertyCount,
+    'neo4j_labels': systemInfo?.neo4jLabels,
+    'go_version': systemInfo?.goVersion,
+    'neo4j_version': systemInfo?.neo4jVersion,
+  });
+}
+
+List<String> _selectedNodeSlugs(
+  List<ResolvedVaultNode> selectedNodes,
+  TableLayout table,
+) {
+  final defaults = table.layoutDefaults ?? const LayoutDefaults();
+  final slugs = <String>{};
+  for (final selectedNode in selectedNodes) {
+    final slug = selectedNode.node?.slug.trim() ?? '';
+    if (slug.isNotEmpty) slugs.add(defaults.formatNodeSlug(slug));
+  }
+  return slugs.toList(growable: false);
+}
+
+List<String> _selectedNodeLabels(List<ResolvedVaultNode> selectedNodes) {
+  final labels = <String>{};
+  for (final selectedNode in selectedNodes) {
+    for (final label in selectedNode.node?.labels ?? const <String>[]) {
+      final normalizedLabel = label.trim();
+      if (normalizedLabel.isNotEmpty) labels.add(normalizedLabel);
+    }
+  }
+  return labels.toList(growable: false)..sort((left, right) {
+    final normalizedComparison = left.toLowerCase().compareTo(
+      right.toLowerCase(),
+    );
+    return normalizedComparison != 0
+        ? normalizedComparison
+        : left.compareTo(right);
+  });
+}
 
 void _drawPathTicks(
   Canvas canvas,
@@ -1630,6 +1786,7 @@ void _drawGraphLayout(
       graphNode.node.slug,
       layoutContext,
       graph.layoutDefaults,
+      isVirtual: graphNode.resolvedNode.isVirtual,
     );
     canvas.drawOval(
       graphNode.circleBounds,
@@ -1761,6 +1918,7 @@ void _drawNodeListLayout(
           entry.node.slug,
           layoutContext,
           layout.layoutDefaults,
+          isVirtual: entry.resolvedNode.isVirtual,
         )
         ..style = PaintingStyle.fill,
     );
@@ -1987,6 +2145,7 @@ void _paintNodeLabel(
     text: TextSpan(
       text: label,
       style: TextStyle(
+        fontFamily: SevilleTypography.fontFamily,
         color: color,
         fontSize: fontSize,
         fontWeight: FontWeight.w600,
@@ -2751,6 +2910,7 @@ void _drawPanelLayout(Canvas canvas, List<Offset> points, PanelLayout panel) {
     text: TextSpan(
       text: label,
       style: TextStyle(
+        fontFamily: SevilleTypography.fontFamily,
         color: panel.labelColor,
         fontSize: panel.labelSize,
         fontWeight: FontWeight.w600,
@@ -2842,6 +3002,7 @@ void _drawPerspectiveGridArea(
           resolvedNode!.node!.slug,
           layoutContext,
           area.layoutDefaults ?? grid.layoutDefaults,
+          isVirtual: resolvedNode.isVirtual,
         );
   final borderStyle = area.node == null
       ? area.borderStyle
@@ -2925,6 +3086,7 @@ void _drawPerspectiveGridArea(
     text: TextSpan(
       text: label,
       style: TextStyle(
+        fontFamily: SevilleTypography.fontFamily,
         color: area.labelColor,
         fontSize: area.labelSize,
         fontWeight: FontWeight.w600,
@@ -2943,14 +3105,17 @@ Color _nodeBackgroundColor(
   Color color,
   String nodeSlug,
   LayoutContext layoutContext,
-  LayoutDefaults? layoutDefaults,
-) {
+  LayoutDefaults? layoutDefaults, {
+  bool isVirtual = false,
+}) {
   final defaults = layoutDefaults ?? const LayoutDefaults();
   final normalizedNodeSlug = nodeSlug.trim();
   final active =
       normalizedNodeSlug.isNotEmpty &&
       layoutContext.activeNodeSlugs.contains(normalizedNodeSlug);
-  final opacity = active
+  final opacity = isVirtual
+      ? defaults.virtualNodeBackgroundOpacity
+      : active
       ? defaults.activeNodeBackgroundOpacity
       : defaults.inactiveNodeBackgroundOpacity;
   return color.withValues(alpha: opacity);
@@ -2962,13 +3127,19 @@ void _drawTableLayout(
   TableLayout table,
   TableData data,
   Offset? hoverPosition,
-  ClassificationLabelComponent classificationLabelComponent,
-) {
+  ClassificationLabelComponent classificationLabelComponent, {
+  required double Function(String groupId) groupExpansion,
+  required void Function(String groupId, Path path) onGroupHeader,
+}) {
   if (parentPoints.length < 4 || table.columns.isEmpty) {
     return;
   }
 
-  final rows = _tableLayoutRows(table, data);
+  final rows = _tableRowsWithFoldProgress(
+    table,
+    _tableLayoutRows(table, data),
+    groupExpansion,
+  );
   if (rows.isEmpty) return;
 
   final panelPath = Path()
@@ -2997,6 +3168,17 @@ void _drawTableLayout(
   final columnStops = _gridTrackStops([
     for (final column in table.tableColumnsConfig.values) column.size,
   ], averageWidth);
+  for (var index = 0; index < rows.length; index += 1) {
+    final row = rows[index];
+    final groupId = row.groupId;
+    if (!row.section || groupId == null) continue;
+    final group = _tableGroup(table, groupId);
+    if (group == null || !group.foldable) continue;
+    onGroupHeader(
+      groupId,
+      _tableCellPath(tablePoints, rowStops[index], rowStops[index + 1], 0, 1),
+    );
+  }
   final tableTransformPoints = [
     _tableLayoutPoint(tablePoints, row: 0, column: 0),
     _tableLayoutPoint(tablePoints, row: 0, column: 1),
@@ -3055,15 +3237,9 @@ void _drawTableLayout(
     }
   }
 
-  final tablePath = Path()
-    ..moveTo(flatTablePoints.first.dx, flatTablePoints.first.dy);
-  for (final corner in flatTablePoints.skip(1)) {
-    tablePath.lineTo(corner.dx, corner.dy);
-  }
-  tablePath.close();
-  tableCanvas.drawPath(tablePath, tableLinePaint);
-
-  for (final stop in rowStops.skip(1).take(rowStops.length - 2)) {
+  for (var index = 1; index < rowStops.length - 1; index += 1) {
+    if (rows[index - 1].spacer || rows[index].spacer) continue;
+    final stop = rowStops[index];
     tableCanvas.drawLine(
       _tableLayoutPoint(flatTablePoints, row: stop, column: 0),
       _tableLayoutPoint(flatTablePoints, row: stop, column: 1),
@@ -3072,7 +3248,7 @@ void _drawTableLayout(
   }
   for (final columnStop in columnStops.skip(1).take(columnStops.length - 2)) {
     for (var rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
-      if (rows[rowIndex].section) continue;
+      if (rows[rowIndex].section || rows[rowIndex].spacer) continue;
       tableCanvas.drawLine(
         _tableLayoutPoint(
           flatTablePoints,
@@ -3088,11 +3264,12 @@ void _drawTableLayout(
       );
     }
   }
-
   for (var index = 0; index < rows.length; index += 1) {
     final row = rows[index];
+    if (row.spacer) continue;
     final rowStart = rowStops[index];
     final rowEnd = rowStops[index + 1];
+    if (rowEnd - rowStart <= 0.000001) continue;
     if (row.section) {
       _drawTableCellFill(
         tableCanvas,
@@ -3113,10 +3290,11 @@ void _drawTableLayout(
           rowEnd: rowEnd,
           columnStart: 0,
           columnEnd: 1,
-          text: row.label,
+          text: _tableGroupTitle(table, row, groupExpansion),
           maxLines: 1,
           textAlign: TextAlign.center,
           style: TextStyle(
+            fontFamily: SevilleTypography.fontFamily,
             color: table.labelColor,
             fontSize: table.labelSize,
             fontWeight: FontWeight.w900,
@@ -3161,6 +3339,7 @@ void _drawTableLayout(
         text: isKeyColumn ? row.label : _formatTableValue(row.value),
         maxLines: isKeyColumn ? 2 : 3,
         style: TextStyle(
+          fontFamily: SevilleTypography.fontFamily,
           color: isKeyColumn ? table.labelColor : table.valueColor,
           fontSize: isKeyColumn ? table.labelSize : table.valueSize,
           fontWeight: isKeyColumn ? FontWeight.w800 : FontWeight.w600,
@@ -3169,6 +3348,13 @@ void _drawTableLayout(
       );
     }
   }
+  _drawTableGroupBorders(
+    tableCanvas,
+    flatTablePoints,
+    rows,
+    rowStops,
+    table.groupBorderStyle ?? table.guideStyle,
+  );
 
   final tablePicture = recorder.endRecording();
   canvas.save();
@@ -3181,6 +3367,104 @@ void _drawTableLayout(
   tablePicture.dispose();
 }
 
+void _drawTableGroupBorders(
+  Canvas canvas,
+  List<Offset> points,
+  List<TableRow<GridAxisVariable>> rows,
+  List<double> rowStops,
+  GuideStyle style,
+) {
+  var startIndex = 0;
+  while (startIndex < rows.length) {
+    if (rows[startIndex].spacer) {
+      startIndex += 1;
+      continue;
+    }
+    final groupId = rows[startIndex].groupId;
+    var endIndex = startIndex + 1;
+    while (endIndex < rows.length &&
+        !rows[endIndex].spacer &&
+        rows[endIndex].groupId == groupId) {
+      endIndex += 1;
+    }
+    final corners = [
+      _tableLayoutPoint(points, row: rowStops[startIndex], column: 0),
+      _tableLayoutPoint(points, row: rowStops[startIndex], column: 1),
+      _tableLayoutPoint(points, row: rowStops[endIndex], column: 1),
+      _tableLayoutPoint(points, row: rowStops[endIndex], column: 0),
+    ];
+    for (var index = 0; index < corners.length; index += 1) {
+      drawGuideLine(
+        canvas,
+        corners[index],
+        corners[(index + 1) % corners.length],
+        style,
+      );
+    }
+    startIndex = endIndex;
+  }
+}
+
+TableGroup? _tableGroup(TableLayout table, String groupId) {
+  for (final group in table.fieldBuilder?.groups ?? const <TableGroup>[]) {
+    if (group.id == groupId) return group;
+  }
+  return null;
+}
+
+List<TableRow<GridAxisVariable>> _tableRowsWithFoldProgress(
+  TableLayout table,
+  List<TableRow<GridAxisVariable>> rows,
+  double Function(String groupId) groupExpansion,
+) => [
+  for (final row in rows)
+    if (row.section || row.spacer || row.groupId == null)
+      row
+    else
+      TableRow(
+        key: row.key,
+        groupId: row.groupId,
+        label: row.label,
+        value: row.value,
+        size: _scaledTableTrack(
+          row.size,
+          _tableGroup(table, row.groupId!)?.foldable ?? false
+              ? groupExpansion(row.groupId!)
+              : 1,
+        ),
+        section: row.section,
+        spacer: row.spacer,
+      ),
+];
+
+GridAxisVariable _scaledTableTrack(GridAxisVariable track, double factor) {
+  final size = track.size;
+  final value = size.value * factor.clamp(0, 1);
+  return GridAxisVariable(
+    size: switch (size.unit) {
+      LayoutSizeUnit.fraction => LayoutSize.fr(value),
+      LayoutSizeUnit.pixels => LayoutSize.px(value),
+      LayoutSizeUnit.calculatedFraction => LayoutSize.calculatedFr(
+        value,
+        derivative: size.derivative ?? '',
+      ),
+    },
+  );
+}
+
+String _tableGroupTitle(
+  TableLayout table,
+  TableRow<GridAxisVariable> row,
+  double Function(String groupId) groupExpansion,
+) {
+  final groupId = row.groupId;
+  if (groupId == null) return row.label;
+  final group = _tableGroup(table, groupId);
+  if (group == null || !group.foldable) return row.label;
+  final marker = groupExpansion(groupId) > 0.5 ? '▾' : '▸';
+  return '$marker ${row.label}';
+}
+
 List<TableRow<GridAxisVariable>> _tableLayoutRows(
   TableLayout table,
   TableData data,
@@ -3188,14 +3472,15 @@ List<TableRow<GridAxisVariable>> _tableLayoutRows(
   final configuredRows = table.fieldBuilder == null
       ? const <TableRow<GridAxisVariable>>[]
       : buildTableRows(
-              table,
-              data,
-              sectionSize: _tableSeparatorSize,
-              formatValue: _formatTableValue,
-            )
-            .where((row) => row.section || _tableValueIsPopulated(row.value))
-            .toList();
-  if (!table.includeUnconfiguredFields) return configuredRows;
+          table,
+          data,
+          sectionSize: _tableSeparatorSize,
+          formatValue: _formatTableValue,
+          includeValue: _tableValueIsPopulated,
+        );
+  if (!table.includeUnconfiguredFields) {
+    return _rowsWithGroupSpacing(configuredRows, table.groupGap);
+  }
 
   final configuredKeys = {
     for (final field
@@ -3215,15 +3500,19 @@ List<TableRow<GridAxisVariable>> _tableLayoutRows(
     for (final entry in unconfiguredEntries)
       TableRow(
         key: entry.key,
+        groupId: table.unconfiguredFieldGroupId,
         label: entry.key,
         value: entry.value,
         size: table.unconfiguredFieldSize,
       ),
   ];
-  if (unconfiguredRows.isEmpty) return configuredRows;
-
   final groupId = table.unconfiguredFieldGroupId;
-  if (groupId == null) return [...configuredRows, ...unconfiguredRows];
+  if (groupId == null) {
+    return _rowsWithGroupSpacing([
+      ...configuredRows,
+      ...unconfiguredRows,
+    ], table.groupGap);
+  }
   final groupKeys = {
     for (final field
         in table.fieldBuilder?.fields ?? const <TableField<GridAxisVariable>>[])
@@ -3233,15 +3522,43 @@ List<TableRow<GridAxisVariable>> _tableLayoutRows(
     (row) => row.key != null && groupKeys.contains(row.key),
   );
   final insertionIndex = lastGroupRow < 0 ? 0 : lastGroupRow + 1;
-  return [
+  return _rowsWithGroupSpacing([
     ...configuredRows.take(insertionIndex),
     ...unconfiguredRows,
     ...configuredRows.skip(insertionIndex),
-  ];
+  ], table.groupGap);
+}
+
+List<TableRow<GridAxisVariable>> _rowsWithGroupSpacing(
+  List<TableRow<GridAxisVariable>> rows,
+  double groupGap,
+) {
+  if (rows.isEmpty || groupGap <= 0) return rows;
+  final spacedRows = <TableRow<GridAxisVariable>>[];
+  String? previousGroupId;
+  for (final row in rows) {
+    if (spacedRows.isNotEmpty && row.groupId != previousGroupId) {
+      spacedRows.add(
+        TableRow(
+          label: '',
+          value: null,
+          size: GridAxisVariable(size: LayoutSize.px(groupGap)),
+          spacer: true,
+        ),
+      );
+    }
+    spacedRows.add(row);
+    previousGroupId = row.groupId;
+  }
+  return spacedRows;
 }
 
 List<String> _classificationLabels(String? key, Object? value) {
-  if (key != 'labels' && key != 'neo4j_labels') return const [];
+  if (key != 'labels' &&
+      key != 'selected_node_labels' &&
+      key != 'neo4j_labels') {
+    return const [];
+  }
   if (value is! Iterable) return const [];
   return [
     for (final item in value)

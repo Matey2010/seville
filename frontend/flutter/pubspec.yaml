@@ -36,6 +36,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   dio: ^5.9.0
   flame: ^1.37.0
+  flame_audio: ^2.12.2
   fixnum: ^1.1.1
   flutter_riverpod: ^3.0.0
   overlay_layers: ^3.0.0
@@ -64,7 +65,20 @@ flutter:
   uses-material-design: true
 
   assets:
+    - assets/audio/
     - assets/wallpapers/
+
+  fonts:
+    - family: Alegreya Sans SC
+      fonts:
+        - asset: assets/fonts/alegreya_sans_sc/AlegreyaSansSC-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/alegreya_sans_sc/AlegreyaSansSC-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/alegreya_sans_sc/AlegreyaSansSC-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/alegreya_sans_sc/AlegreyaSansSC-Black.ttf
+          weight: 900
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

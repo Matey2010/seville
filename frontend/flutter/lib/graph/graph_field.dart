@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 
 import '../constants/interface_colors.dart';
 import '../constants/layout_defaults.dart';
+import '../constants/typography.dart';
 import '../models/node_graph.dart';
 import '../models/layout.dart';
 import '../models/open_box_spatial_layout.dart';
@@ -238,6 +239,7 @@ class _GraphField extends PositionComponent {
           text: TextSpan(
             text: node.displayLabel,
             style: TextStyle(
+              fontFamily: SevilleTypography.fontFamily,
               color: isOnWall ? wallLabelColor : graphLabelColor,
               fontSize: 11,
               fontWeight: FontWeight.w500,
@@ -546,6 +548,7 @@ class _GraphField extends PositionComponent {
               resolved.element.defaultLabel ??
               _timelineLabelFromPath(resolved.element.defaultPath!),
           style: TextStyle(
+            fontFamily: SevilleTypography.fontFamily,
             color: emptySlotStyle?.borderColor ?? wallLabelColor,
             fontSize: 11,
             fontWeight: FontWeight.w700,
@@ -770,6 +773,7 @@ class _GraphField extends PositionComponent {
       text: TextSpan(
         text: label,
         style: const TextStyle(
+          fontFamily: SevilleTypography.fontFamily,
           color: graphLabelColor,
           fontSize: 10,
           fontWeight: FontWeight.w700,

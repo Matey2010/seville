@@ -328,7 +328,7 @@ info panel retain their explicit background compositions.
 
 `LayoutPath` paints image backgrounds behind its fill, guides, and content,
 clips them to the resolved polygon, and projects quadrilateral images through
-the same rectangle-to-quad transform used by `NodePropertyTable`. This means
+the same rectangle-to-quad transform used by `TableLayout`. This means
 the image content itself obeys trapezoidal perspective instead of remaining a
 screen-facing rectangle inside a trapezoidal clip. Conditional backgrounds use
 the same `LayoutContext` as layout visibility.
@@ -570,20 +570,45 @@ fallback, while search rows always expose the wrapped slug.
 
 The former right-plane Gamepad placeholder is a second `NodeListLayout` sourced
 from selected Nodes whose `ResolvedVaultNode.isVirtual` flag is true. These rows
-use the shared Node paint and hit-test cycle, including active opacity, dashed
-draft borders, and slug-based selection toggling.
+use the shared Node paint and hit-test cycle, including 50% virtual background
+opacity, dashed draft borders, and slug-based selection toggling. The opacity is
+owned by `LayoutDefaults.virtualNodeBackgroundOpacity`.
 
-The left selected-Node `NodePropertyTable` enables
-`includeUnconfiguredFields`. Its configured Slug and Labels rows remain first;
-all other populated Node values are appended alphabetically and share the same
-perspective projection, highlighting, and key/value columns.
+The left info panel contains one `TableLayout`, never separate Node and System
+tables. It orders three groups: Last Selected Node, Selected Nodes, and System.
+The first contains the complete latest Node value, the second lists every
+selected slug above the deduplicated alphabetical set of labels across every
+selected Node, and the third retains system information. Each populated group
+has its own optional title, border, and spacing from its neighbor. Empty groups
+have no title, geometry, or gap, so the same table naturally begins with System
+when nothing is selected. All three LG Ergo groups are foldable through their
+title rows. The Flame scene keeps their transient fold state and drives
+row-track expansion with `EffectController`; presentation-only folding does not
+enter Riverpod.
 
-The left `NodePropertyTable` renders `Node.labels` and system `neo4j_labels`
-through `ClassificationLabelComponent`. Every classification string is a
-separate shopping-tag shape rather than comma-separated text. The table's
-`LayoutDefaults` owns its deterministic color palette, border, hole, and text
-colors; Neo4j does not own paint. Fan, Graph, and Node-list Node captions remain
-their existing emoji/slug text.
+The `TableLayout` renders `Node.labels`, the selected-Node label set, and system
+`neo4j_labels` through `ClassificationLabelComponent`. Every classification
+string is a separate shopping-tag shape rather than comma-separated text. The
+table's `LayoutDefaults` owns its deterministic color palette, border, hole,
+and text colors; Neo4j does not own paint. Fan, Graph, and Node-list Node
+captions remain their existing emoji/slug text.
+
+## Typography
+
+Alegreya Sans SC is bundled as Seville's interface font in Regular, Medium,
+Bold, and Black weights under the SIL Open Font License 1.1. The Material theme
+sets the family for widgets. `SevilleTypography.ensureLoaded()` completes before
+`runApp`, and Flame `TextPainter` styles specify
+`SevilleTypography.fontFamily` directly so first-frame canvas text never falls
+back to the macOS system font. Font files are local assets; the interface makes
+no runtime font request.
+
+## Interface audio
+
+Short interaction sounds belong to the Flame game lifecycle. Seville loads
+`technology-select.wav` from `assets/audio/` into a `flame_audio` `AudioPool`,
+plays it when a Node becomes selected, and disposes the pool with the game.
+Riverpod continues to own selection data but does not own audio playback.
 
 The green right-plane Add button creates a frontend-only selected Node through
 `SelectedNodesNotifier.addVirtualNode()`. `ResolvedVaultNode.isVirtual` is the

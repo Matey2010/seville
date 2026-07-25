@@ -14,18 +14,6 @@ export 'package:table_data/table_data.dart'
         TableGroup,
         TableRow;
 
-class TableCellHighlightConfig {
-  const TableCellHighlightConfig({
-    this.rows = false,
-    this.columns = false,
-    this.color = const Color(0x33FFF7D6),
-  });
-
-  final bool rows;
-  final bool columns;
-  final Color color;
-}
-
 class TableLayout extends Layout
     with TableLayoutMixin
     implements TableDefinition<GridAxisVariable> {
@@ -36,6 +24,9 @@ class TableLayout extends Layout
     this.includeUnconfiguredFields = false,
     this.unconfiguredFieldGroupId,
     this.unconfiguredFieldSize = const GridAxisVariable(size: LayoutSize.fr(1)),
+    this.groupGap = 12,
+    this.groupBorderStyle,
+    this.groupFoldDuration = 0.22,
     this.padding = 12,
     this.cellHighlight,
     this.labelColor = const Color(0xFFE5E7EB),
@@ -48,7 +39,9 @@ class TableLayout extends Layout
     super.layoutDefaults,
     super.visibility,
     super.inputSources,
-  }) : super.fromAxes();
+  }) : assert(groupGap >= 0),
+       assert(groupFoldDuration > 0),
+       super.fromAxes();
 
   @override
   final List<MapEntry<String, GridAxisVariable>> columns;
@@ -58,6 +51,9 @@ class TableLayout extends Layout
   final bool includeUnconfiguredFields;
   final String? unconfiguredFieldGroupId;
   final GridAxisVariable unconfiguredFieldSize;
+  final double groupGap;
+  final GuideStyle? groupBorderStyle;
+  final double groupFoldDuration;
   final double padding;
   final TableCellHighlightConfig? cellHighlight;
   final Color labelColor;
@@ -78,4 +74,16 @@ class TableLayout extends Layout
 
   @override
   GuideStyle get tableGuideStyle => guideStyle;
+}
+
+class TableCellHighlightConfig {
+  const TableCellHighlightConfig({
+    this.rows = false,
+    this.columns = false,
+    this.color = const Color(0x33FFF7D6),
+  });
+
+  final bool rows;
+  final bool columns;
+  final Color color;
 }

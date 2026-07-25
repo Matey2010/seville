@@ -156,8 +156,10 @@
   remain future extensions; do not request a `NodeTree` for this layout.
   A frontend-only draft is a normal selected `ResolvedVaultNode` with
   `isVirtual: true`; it is not yet canonical Neo4j data. Shared Node border
-  rendering must use a dashed path for virtual Nodes and the configured solid
-  border for persisted Nodes. The right-plane submit action creates the first
+  rendering must use a dashed path and
+  `LayoutDefaults.virtualNodeBackgroundOpacity` (0.5 by default) for virtual
+  Nodes, while persisted Nodes retain the configured solid border and normal
+  active/inactive opacity. The right-plane submit action creates the first
   virtual Node through `POST /api/v1/node/` with Neo4j labels `New` and
   `Virtual`, then atomically replaces that draft at the same selected-node
   index with the canonical Node returned by the backend.
@@ -210,12 +212,23 @@
   background only when the configured node resolves through its focused Node
   query; render only a border when it does not. Keep `fillColor` for
   manual/background fills that are not graph-node assignments.
-- `NodePropertyTable.includeUnconfiguredFields` appends every populated data
-  value not already represented by its configured fields. Keep configured rows
-  first, append remaining keys alphabetically, and use
-  `unconfiguredFieldSize` for their tracks. LG Ergo uses this for the selected
-  Node table so Slug and Labels lead while the complete Node value remains
-  visible without hard-coding every backend property into the preset.
+- `TableLayout.includeUnconfiguredFields` includes every populated data value
+  not already represented by its configured fields. Use
+  `unconfiguredFieldGroupId` to insert those alphabetical rows into their
+  owning configured group, and `unconfiguredFieldSize` for their tracks.
+  `TableGroup.title` is optional; render its title only when non-empty and when
+  the group contains populated rows. Flame wraps every visible group with
+  `TableLayout.groupBorderStyle` and separates adjacent visible groups using
+  `TableLayout.groupGap`. `TableGroup.foldable` makes its title the fold toggle;
+  the Flame scene owns transient expansion state and animates content tracks
+  with an `EffectController` using `TableLayout.groupFoldDuration`. Keep this
+  presentation state out of Riverpod and layout configuration. LG Ergo's single
+  info table orders
+  `last_selected_node`, `selected_nodes`, then `system`. The first owns complete
+  last-selected Node properties, the second owns the selected slug list followed
+  by the deduplicated alphabetical set of labels across all selected Nodes, and
+  the third owns system data. Empty groups emit no title, border, gap, or rows.
+  Do not restore parallel or visibility-switched table instances.
 - For compact Node labels, render the first assigned non-empty
   `Emoji.character` before textual metadata. Fall back to `Node.slug`; legacy
   title and ID values are only last-resort compatibility labels. When a slug is
@@ -227,7 +240,7 @@
   Riverpod-selected
   Node identity and active renderer state use the unique slug, never `Node.id`.
 - `Node.labels` are Neo4j classification metadata, not Nodes and not compact
-  Node captions. `NodePropertyTable` renders `labels` and `neo4j_labels` values
+  Node captions. `TableLayout` renders `labels` and `neo4j_labels` values
   through `ClassificationLabelComponent` as separate shopping-tag shapes
   instead of comma-separated text. Their deterministic fill palette, border,
   hole, and text colors belong to `LayoutDefaults`; Neo4j supplies only label
@@ -237,7 +250,7 @@
   stacking metadata: lower values paint first, while guides and content stay
   above backgrounds. `LayoutPath` backgrounds are clipped to the path's
   resolved polygon; quadrilateral image backgrounds use the same projective
-  transform as `NodePropertyTable`, so both image and content follow one
+  transform as `TableLayout`, so both image and content follow one
   perspective without separate renderer coordinates.
   `LayoutDefaults.backgrounds` is the fallback for layouts whose own list is
   empty. Resolve it through the nearest ancestor defaults that defines a
@@ -256,6 +269,18 @@
   the `GameWidget` host and transient overlays. `LandscapeXlLayoutView` is the
   direct `Scaffold.body`; do not wrap it in a parallel HUD `Stack`. Do not build
   Flutter widget renderers, interaction layers, or hit boxes for layout content.
+- Short repeated interface sounds use `flame_audio` `AudioPool` instances owned
+  and disposed by `LandscapeXlLayoutGame`; do not put audio players in Riverpod
+  notifiers or Node data. Node activation plays
+  `assets/audio/technology-select.wav` only when the tapped Node changes from
+  inactive to selected, not when it is deselected.
+- Alegreya Sans SC is the shared interface font. Keep its OFL-licensed files in
+  `frontend/flutter/assets/fonts/alegreya_sans_sc/`, register weights in
+  `pubspec.yaml`, and preload them through `SevilleTypography.ensureLoaded()`
+  before `runApp`. Material widgets inherit the family from the application
+  theme; every raw Flame/canvas `TextStyle` must set
+  `SevilleTypography.fontFamily` explicitly because `TextPainter` does not
+  inherit the widget theme. Do not fetch fonts at runtime.
 - `SearchHudComponent` is a Flame HUD owned by `LandscapeXlLayoutGame`. It owns
   its visible state, text draft, drawing, and Flame keyboard subscription. The
   action-plane Search button and Command-F open it. Enter hides it before

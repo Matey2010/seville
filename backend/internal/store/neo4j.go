@@ -26,6 +26,8 @@ import (
 
 var neo4jNodeLabelPattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
+const systemInfoLabelLimit = 12
+
 type Neo4jStore struct {
 	driver        neo4j.Driver
 	database      string
@@ -201,8 +203,11 @@ func (s *Neo4jStore) SystemInfo(ctx context.Context) (*systemv1.SystemInfo, erro
 	session := s.session(ctx, neo4j.AccessModeRead)
 	defer session.Close(ctx)
 	result, err := session.Run(ctx, `CALL {
-  CALL db.labels() YIELD label
-  WITH label ORDER BY label
+  MATCH (labelled_node)
+  UNWIND labels(labelled_node) AS label
+  WITH label, count(*) AS frequency
+  ORDER BY frequency DESC, label
+  LIMIT $label_limit
   RETURN collect(label) AS neo4j_labels
 }
 CALL {
@@ -220,7 +225,9 @@ WHERE node.slug IS NOT NULL AND trim(toString(node.slug)) <> ''
 RETURN count(node) AS node_count,
        sum(size(keys(node))) AS node_property_count
 }
-RETURN node_count, node_property_count, neo4j_labels, neo4j_version`, nil)
+RETURN node_count, node_property_count, neo4j_labels, neo4j_version`, map[string]any{
+		"label_limit": systemInfoLabelLimit,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("query neo4j system info: %w", err)
 	}

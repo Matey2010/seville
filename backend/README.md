@@ -104,8 +104,10 @@ and search values and the output is intentionally verbose.
 - `GET /healthz`: process health.
 - `GET /v2/status`: latest import metadata.
 - `GET /v2/snapshot`: live Neo4j graph as a binary `NodeSnapshot`.
-- `GET /system/v1/info`: stable Node and Node-property counts, Neo4j labels,
-  Go version, and Neo4j version as binary `SystemInfo`.
+- `GET /system/v1/info`: stable Node and Node-property counts, the 12 most
+  frequently assigned Neo4j labels, Go version, and Neo4j version as binary
+  `SystemInfo`. Label frequency is descending, with label name as the stable
+  tie-breaker.
 - `QUERY /api/v1/node/tree`: depth-limited incoming relationship tree as binary
   `NodeTree`; either `root_node_id` or a structured `root_node_filter` selects
   the root set, while the allowlisted `traverse_by` selects `PART_OF` or

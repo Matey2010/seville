@@ -4,7 +4,8 @@ Canonical API contracts are grouped and independently versioned under
 `seville/`. `seville/node/v2/node.proto` defines Nodes, assigned Emoji metadata,
 snapshots, and connections;
 `seville/system/v1/system.proto` defines database-wide system information,
-including Neo4j labels and the running Go and Neo4j versions.
+including the backend-limited most frequently assigned Neo4j labels and the
+running Go and Neo4j versions.
 `seville/nodes/v1/tree.proto` defines occurrence-preserving Fan tree data,
 structured Node filters, and the flat `NodeSearchQuery`/`NodeSearchResult`
 contract used by `QUERY /api/v1/node/search`. It also owns the typed

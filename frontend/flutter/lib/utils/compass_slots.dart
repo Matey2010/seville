@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../constants/typography.dart';
 import '../models/compass_layout.dart';
 import 'canvas_guides.dart';
 
@@ -123,6 +124,7 @@ void _drawSlotLabel(
     text: TextSpan(
       text: label,
       style: TextStyle(
+        fontFamily: SevilleTypography.fontFamily,
         color: style.guideStyle.color,
         fontSize: style.fontSize,
         fontWeight: FontWeight.w700,

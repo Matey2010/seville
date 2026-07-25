@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../constants/typography.dart';
 import '../models/layout.dart';
 import 'canvas_guides.dart';
 
@@ -150,6 +151,7 @@ void _drawAnchorLabel(
     text: TextSpan(
       text: label,
       style: TextStyle(
+        fontFamily: SevilleTypography.fontFamily,
         color: guide.style.color,
         fontSize: guide.labelFontSize,
         fontWeight: FontWeight.w600,

@@ -139,7 +139,7 @@ Registry lookup uses the layout's exact runtime type. Every new concrete layout
 type needs one registration. Registered layouts work both as hierarchy nodes
 and as Compass main-slot sublayouts.
 
-Neo4j `Node.labels` values in a `NodePropertyTable` are rendered independently
+Neo4j `Node.labels` values in a `TableLayout` are rendered independently
 through `ClassificationLabelComponent`. Each string becomes a colored
 shopping tag instead of part of a comma-separated value. Configure that
 presentation through the table's layout defaults:
@@ -156,6 +156,10 @@ const nodeDefaults = LayoutDefaults(
 These colors are frontend layout policy. Neo4j supplies classification strings,
 not tag paint. Fan, Graph, and Node-list components keep their existing compact
 emoji/slug rendering and do not use classification tags.
+
+Raw Flame text does not inherit Flutter's `ThemeData`. Use
+`SevilleTypography.fontFamily` in every component-owned `TextStyle`; the family
+is bundled, registered, and preloaded before the game is constructed.
 
 ## 5. Put it inside the Compass main slot
 
@@ -285,7 +289,7 @@ LayoutPath(
 
 The renderer clips a `LayoutPath` image background to its resolved polygon. For
 a quadrilateral it also uses the same projective transform as
-`NodePropertyTable`, so the image and table obey one perspective rather than
+`TableLayout`, so the image and table obey one perspective rather than
 placing a screen-facing image behind distorted content.
 
 Put a shared fallback in `LayoutDefaults.backgrounds`, beside padding, gap, and
@@ -397,14 +401,22 @@ row/column composition. The LG Ergo right plane configures one with
 `NodeListDataSource.searchResults` beneath its Node actions and a second with
 `NodeListDataSource.virtualNodes` in the former Gamepad area. The virtual source
 is the `isVirtual` subset of Riverpod-selected Nodes; it retains dashed borders,
-active opacity, and the normal Node tap/toggle target.
+uses `LayoutDefaults.virtualNodeBackgroundOpacity` (50% by default), and keeps
+the normal Node tap/toggle target.
 
-`NodePropertyTable.includeUnconfiguredFields` combines declarative ordering
-with data-dependent rows. Configured fields render first; populated data keys
-not represented there are appended alphabetically with
-`unconfiguredFieldSize`. The LG Ergo selected-Node table keeps Slug and Labels
-first, then spans the remaining complete Node value without requiring a preset
-edit whenever the Node contract gains a property.
+`TableLayout.includeUnconfiguredFields` combines declarative ordering with
+data-dependent rows. `unconfiguredFieldGroupId` places populated unconfigured
+keys alphabetically inside their owning group. LG Ergo has one info-panel
+table with three ordered groups: `last_selected_node`, `selected_nodes`, and
+`system`. The first keeps Slug and Labels before the remaining complete Node
+value; the second lists selected slugs followed by the deduplicated labels
+across all selected Nodes in alphabetical order; the third contains system
+data. An optional `TableGroup.title` creates a header only for a populated group.
+`TableLayout.groupGap` separates visible groups, and `groupBorderStyle` wraps
+each group independently. Empty groups produce no rows or decoration. A group
+with `foldable: true` uses its title as a Flame hit target and animates its
+content tracks open or closed over `TableLayout.groupFoldDuration`; the title
+and its group border remain visible while folded.
 
 The Flame Search HUD only submits text to Riverpod; it does not render those rows.
 Riverpod performs `QUERY /api/v1/node/search`, and the Flame layout paints the

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart'
 import 'package:flutter/services.dart';
 
 import '../constants/keymap.dart';
+import '../constants/typography.dart';
 
 class SearchHudComponent extends PositionComponent with KeyboardHandler {
   SearchHudComponent({
@@ -124,6 +125,7 @@ class SearchHudComponent extends PositionComponent with KeyboardHandler {
       text: TextSpan(
         text: '$visibleText|',
         style: TextStyle(
+          fontFamily: SevilleTypography.fontFamily,
           color: _draft.isEmpty ? Colors.black45 : Colors.black87,
           fontSize: 18,
         ),
