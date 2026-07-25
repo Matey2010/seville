@@ -3,7 +3,7 @@ import 'dart:ui';
 import '../../../../models/layout.dart';
 import '../../../../models/graph_traverse_type.dart';
 import '../../../../models/landscape_xl_layout.dart';
-import '../../../../models/node_property_table.dart';
+import '../../../../models/table_layout.dart';
 import '../../../../models/node_search.dart';
 import '../../../interface_colors.dart';
 import '../../../paths/default_vault_paths.dart';
@@ -431,9 +431,8 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
         strokeStyle: lgErgoSpacePlaneLineStyle,
       ),
       layouts: {
-        'system-info': NodePropertyTable(
-          aliases: ['system-info', 'system-info-table'],
-          dataSource: NodePropertyTableDataSource.systemInfo,
+        'info-table': TableLayout(
+          aliases: ['info-table', 'table-layout', 'node-info', 'system-info'],
           layoutDefaults: lgErgoNodeLayoutDefaults,
           guideStyle: lgErgoNodeInfoTableStyle,
           cellHighlight: TableCellHighlightConfig(
@@ -441,12 +440,36 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
             columns: true,
             color: lgErgoNodeInfoCellHighlightColor,
           ),
-          visibility: [LayoutCondition.noSelectedNode()],
+          includeUnconfiguredFields: true,
+          unconfiguredFieldGroupId: 'node',
           fieldBuilder: TableFieldBuilder(
             groups: [
-              TableGroup(id: 'system' /*, label: 'System information')*/),
+              TableGroup(id: 'node'),
+              TableGroup(id: 'system'),
             ],
             fields: [
+              TableField(
+                key: 'slug',
+                label: 'Slug',
+                groupId: 'node',
+                size: GridAxisVariable(size: LayoutSize.fr(1)),
+              ),
+              TableField(
+                key: 'labels',
+                label: 'Labels',
+                groupId: 'node',
+                size: GridAxisVariable(size: LayoutSize.fr(1)),
+              ),
+              TableField(
+                key: 'classification',
+                groupId: 'node',
+                size: GridAxisVariable(size: LayoutSize.fr(1)),
+              ),
+              TableField(
+                key: 'version',
+                groupId: 'node',
+                size: GridAxisVariable(size: LayoutSize.fr(0.5)),
+              ),
               TableField(
                 key: 'node_count',
                 label: 'Nodes',
@@ -476,46 +499,6 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                 label: 'Neo4j version',
                 groupId: 'system',
                 size: GridAxisVariable(size: LayoutSize.fr(1)),
-              ),
-            ],
-          ),
-          columns: [
-            MapEntry('key', GridAxisVariable(size: LayoutSize.fr(1))),
-            MapEntry('value', GridAxisVariable(size: LayoutSize.fr(3))),
-          ],
-        ),
-        'node-info': NodePropertyTable(
-          aliases: ['node-info', 'node-info-table', 'base-node-info'],
-          dataSource: NodePropertyTableDataSource.nodeInfo,
-          layoutDefaults: lgErgoNodeLayoutDefaults,
-          guideStyle: lgErgoNodeInfoTableStyle,
-          cellHighlight: TableCellHighlightConfig(
-            rows: true,
-            columns: true,
-            color: lgErgoNodeInfoCellHighlightColor,
-          ),
-          visibility: [LayoutCondition.hasActiveNodes()],
-          includeUnconfiguredFields: true,
-          fieldBuilder: TableFieldBuilder(
-            groups: [TableGroup(id: null)],
-            fields: [
-              TableField(
-                key: 'slug',
-                label: 'Slug',
-                size: GridAxisVariable(size: LayoutSize.fr(1)),
-              ),
-              TableField(
-                key: 'labels',
-                label: 'Labels',
-                size: GridAxisVariable(size: LayoutSize.fr(1)),
-              ),
-              TableField(
-                key: 'classification',
-                size: GridAxisVariable(size: LayoutSize.fr(1)),
-              ),
-              TableField(
-                key: 'version',
-                size: GridAxisVariable(size: LayoutSize.fr(0.5)),
               ),
             ],
           ),

@@ -14,8 +14,6 @@ export 'package:table_data/table_data.dart'
         TableGroup,
         TableRow;
 
-enum NodePropertyTableDataSource { nodeInfo, systemInfo }
-
 class TableCellHighlightConfig {
   const TableCellHighlightConfig({
     this.rows = false,
@@ -28,15 +26,15 @@ class TableCellHighlightConfig {
   final Color color;
 }
 
-class NodePropertyTable extends Layout
+class TableLayout extends Layout
     with TableLayoutMixin
     implements TableDefinition<GridAxisVariable> {
-  const NodePropertyTable({
+  const TableLayout({
     required this.columns,
-    required this.dataSource,
     required this.guideStyle,
     this.fieldBuilder,
     this.includeUnconfiguredFields = false,
+    this.unconfiguredFieldGroupId,
     this.unconfiguredFieldSize = const GridAxisVariable(size: LayoutSize.fr(1)),
     this.padding = 12,
     this.cellHighlight,
@@ -54,11 +52,11 @@ class NodePropertyTable extends Layout
 
   @override
   final List<MapEntry<String, GridAxisVariable>> columns;
-  final NodePropertyTableDataSource dataSource;
   final GuideStyle guideStyle;
   @override
   final TableFieldBuilder<GridAxisVariable>? fieldBuilder;
   final bool includeUnconfiguredFields;
+  final String? unconfiguredFieldGroupId;
   final GridAxisVariable unconfiguredFieldSize;
   final double padding;
   final TableCellHighlightConfig? cellHighlight;

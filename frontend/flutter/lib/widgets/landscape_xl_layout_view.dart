@@ -16,7 +16,7 @@ import '../components/search_hud_component.dart';
 import '../domain/node.dart';
 import '../models/landscape_xl_layout.dart';
 import '../models/layout.dart';
-import '../models/node_property_table.dart';
+import '../models/table_layout.dart';
 import '../utils/canvas_guides.dart';
 import '../utils/layout_guidelines.dart';
 import '../utils/vault_node_resolver.dart';
@@ -1322,8 +1322,7 @@ void _drawLayoutPath(
       nodeListSources,
     );
   }
-  for (final table
-      in layoutPath.layouts.values.whereType<NodePropertyTable>()) {
+  for (final table in layoutPath.layouts.values.whereType<TableLayout>()) {
     if (!table.isVisible(layoutContext)) continue;
     _drawTableLayout(
       canvas,
@@ -1436,23 +1435,17 @@ void _drawLayoutPathBackground(
 }
 
 TableData _tableData(
-  NodePropertyTable table,
+  TableLayout table,
   ResolvedVaultNode? selectedNode,
   SystemInfo? systemInfo,
-) {
-  return switch (table.dataSource) {
-    NodePropertyTableDataSource.nodeInfo => TableData(
-      selectedNode == null ? const {} : _nodeInfoValues(selectedNode),
-    ),
-    NodePropertyTableDataSource.systemInfo => TableData({
-      'node_count': systemInfo?.nodeCount,
-      'node_property_count': systemInfo?.nodePropertyCount,
-      'neo4j_labels': systemInfo?.neo4jLabels,
-      'go_version': systemInfo?.goVersion,
-      'neo4j_version': systemInfo?.neo4jVersion,
-    }),
-  };
-}
+) => TableData({
+  if (selectedNode != null) ..._nodeInfoValues(selectedNode),
+  'node_count': systemInfo?.nodeCount,
+  'node_property_count': systemInfo?.nodePropertyCount,
+  'neo4j_labels': systemInfo?.neo4jLabels,
+  'go_version': systemInfo?.goVersion,
+  'neo4j_version': systemInfo?.neo4jVersion,
+});
 
 void _drawPathTicks(
   Canvas canvas,
@@ -2966,7 +2959,7 @@ Color _nodeBackgroundColor(
 void _drawTableLayout(
   Canvas canvas,
   List<Offset> parentPoints,
-  NodePropertyTable table,
+  TableLayout table,
   TableData data,
   Offset? hoverPosition,
   ClassificationLabelComponent classificationLabelComponent,
@@ -2975,7 +2968,7 @@ void _drawTableLayout(
     return;
   }
 
-  final rows = _nodePropertyTableRows(table, data);
+  final rows = _tableLayoutRows(table, data);
   if (rows.isEmpty) return;
 
   final panelPath = Path()
@@ -3188,18 +3181,20 @@ void _drawTableLayout(
   tablePicture.dispose();
 }
 
-List<TableRow<GridAxisVariable>> _nodePropertyTableRows(
-  NodePropertyTable table,
+List<TableRow<GridAxisVariable>> _tableLayoutRows(
+  TableLayout table,
   TableData data,
 ) {
   final configuredRows = table.fieldBuilder == null
       ? const <TableRow<GridAxisVariable>>[]
       : buildTableRows(
-          table,
-          data,
-          sectionSize: _tableSeparatorSize,
-          formatValue: _formatTableValue,
-        );
+              table,
+              data,
+              sectionSize: _tableSeparatorSize,
+              formatValue: _formatTableValue,
+            )
+            .where((row) => row.section || _tableValueIsPopulated(row.value))
+            .toList();
   if (!table.includeUnconfiguredFields) return configuredRows;
 
   final configuredKeys = {
@@ -3216,8 +3211,7 @@ List<TableRow<GridAxisVariable>> _nodePropertyTableRows(
           )
           .toList()
         ..sort((left, right) => left.key.compareTo(right.key));
-  return [
-    ...configuredRows,
+  final unconfiguredRows = [
     for (final entry in unconfiguredEntries)
       TableRow(
         key: entry.key,
@@ -3225,6 +3219,24 @@ List<TableRow<GridAxisVariable>> _nodePropertyTableRows(
         value: entry.value,
         size: table.unconfiguredFieldSize,
       ),
+  ];
+  if (unconfiguredRows.isEmpty) return configuredRows;
+
+  final groupId = table.unconfiguredFieldGroupId;
+  if (groupId == null) return [...configuredRows, ...unconfiguredRows];
+  final groupKeys = {
+    for (final field
+        in table.fieldBuilder?.fields ?? const <TableField<GridAxisVariable>>[])
+      if (field.groupId == groupId) field.key,
+  };
+  final lastGroupRow = configuredRows.lastIndexWhere(
+    (row) => row.key != null && groupKeys.contains(row.key),
+  );
+  final insertionIndex = lastGroupRow < 0 ? 0 : lastGroupRow + 1;
+  return [
+    ...configuredRows.take(insertionIndex),
+    ...unconfiguredRows,
+    ...configuredRows.skip(insertionIndex),
   ];
 }
 
