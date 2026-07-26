@@ -592,8 +592,9 @@ The `TableLayout` renders `Node.labels`, the selected-Node label set, and system
 `neo4j_labels` through `ClassificationLabelComponent`. Every classification
 string is a separate shopping-tag shape rather than comma-separated text. The
 table's `LayoutDefaults` owns its deterministic color palette, border, hole,
-and text colors; Neo4j does not own paint. Fan, Graph, and Node-list Node
-captions remain their existing emoji/slug text.
+and text colors; Neo4j does not own paint. `ClassificationLabelComponent` also
+owns the matching hover border, whose configured LG Ergo color is yellow. Fan,
+Graph, and Node-list Node captions remain their existing emoji/slug text.
 
 ## Typography
 
@@ -603,7 +604,14 @@ sets the family for widgets. `SevilleTypography.ensureLoaded()` completes before
 `runApp`, and Flame `TextPainter` styles specify
 `SevilleTypography.fontFamily` directly so first-frame canvas text never falls
 back to the macOS system font. Font files are local assets; the interface makes
-no runtime font request.
+no runtime font request. Node slug references are the deliberate exception:
+they preserve their stored case in a bold normal-case face because Alegreya
+Sans SC would visually convert lowercase wikilink-like syntax into small caps.
+The same rule applies to the left info table's `slug` and
+`selected_node_slugs` fields, including configured slug wrappers. Every slug
+uses the owning `LayoutDefaults.slugColor`; the default LG Ergo syntax color is
+gold `#FFD54F`. Ordinary layout text uses ivory `#FFF8E7` instead of hard white,
+keeping wrapped Node references visually distinct.
 
 ## Interface audio
 
@@ -614,11 +622,11 @@ The separate pooled `stone-scrap.wav` plays when the cursor enters a different
 rendered Node, not on every pointer-move frame. Riverpod continues to own
 selection data but does not own audio playback.
 
-The cursor-hovered Node receives a second border from
-`_NodeHoverBorderComponent`. It reuses the renderer's exact Fan segment, Graph
-circle, or Node-list polygon and reads its style from
-`LayoutDefaults.nodeHoverBorderStyle`, keeping paint, sound, and hit identity on
-one hover path.
+The cursor-hovered Node receives a second border from `NodeComponent`. It
+reuses the renderer's exact Fan segment, Graph circle, or Node-list polygon and
+reads its style from `LayoutDefaults.nodeHoverBorderStyle`. Node background,
+solid/dashed border, and hover paint therefore remain owned by the Node Flame
+component; the game host only routes the hovered identity to pooled audio.
 
 ## Game cursor
 

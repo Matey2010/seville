@@ -239,6 +239,15 @@
   rendered, wrap it with `LayoutDefaults.nodeSlugPrefix` and
   `LayoutDefaults.nodeSlugSuffix`; LG Ergo uses `[[` and `]]`. Search result
   rows deliberately render the wrapped slug even when the Node has an Emoji.
+  Render slug references with their stored casing and bold weight; do not use
+  the Alegreya Sans SC face for them because its small-cap glyphs visually
+  uppercase lowercase syntax. Emoji and ordinary interface captions continue
+  to use the shared interface font. Paint every slug with the owning
+  `LayoutDefaults.slugColor`; the default and LG Ergo value are readable gold
+  `#FFD54F`, while ordinary layout text uses ivory `#FFF8E7`. This applies to
+  Node components and plain
+  `TableLayout` values whose field keys are `slug` or `selected_node_slugs`;
+  wrap every item through the owning `LayoutDefaults` exactly once.
   Keep this priority and formatting in the shared Node presentation helper
   rather than implementing different rules in individual Flame components.
   Riverpod-selected
@@ -248,7 +257,9 @@
   through `ClassificationLabelComponent` as separate shopping-tag shapes
   instead of comma-separated text. Their deterministic fill palette, border,
   hole, and text colors belong to `LayoutDefaults`; Neo4j supplies only label
-  strings. Keep them on the table canvas so they obey its perspective.
+  strings. Keep them on the table canvas so they obey its perspective. The
+  component also owns the additional cursor-hover border, configured by
+  `LayoutDefaults.classificationLabelHoverBorderStyle`; LG Ergo uses yellow.
 - Every `Layout` exposes its own ordered `backgrounds` list. Concrete layout
   constructors must forward that base property. `orderPosition` is frontend
   stacking metadata: lower values paint first, while guides and content stay
@@ -280,9 +291,11 @@
   inactive to selected, not when it is deselected. Cursor entry into a rendered
   Node plays pooled `assets/audio/stone-scrap.wav`; deduplicate by rendered Node
   hit identity so pointer movement within the same geometry remains silent.
-  The same exact hit geometry feeds `_NodeHoverBorderComponent`, which paints
-  the additional border configured by `LayoutDefaults.nodeHoverBorderStyle`
-  above ordinary layout content and below explicit HUDs.
+  The same exact hit geometry feeds `NodeComponent`, which owns ordinary Node
+  background/border paint and the additional hover border configured by
+  `LayoutDefaults.nodeHoverBorderStyle`. Keep hover paint in the Node Flame
+  component above ordinary layout content and below explicit HUDs; the game
+  host may route pointer identity for sound but must not implement the visual.
 - The macOS game cursor hides the native pointer through Flame's
   `Game.mouseCursor` hook and paints `_GameCursorComponent` at the Flame pointer
   position. Keep its position, animation, and lifecycle inside the game; do not

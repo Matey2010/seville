@@ -218,10 +218,6 @@ CALL {
 CALL {
 MATCH (node)
 WHERE node.slug IS NOT NULL AND trim(toString(node.slug)) <> ''
-  AND NOT node:Tag
-  AND NOT node:Emoji
-  AND NOT EXISTS { MATCH ()-[:TAGGED_WITH]->(node) }
-  AND NOT EXISTS { MATCH ()-[:HAS_EMOJI]->(node) }
 RETURN count(node) AS node_count,
        sum(size(keys(node))) AS node_property_count
 }

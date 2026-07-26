@@ -15,6 +15,7 @@ import 'package:table_data/table_data.dart';
 
 import '../components/layout_component_registry.dart';
 import '../components/classification_label_component.dart';
+import '../components/node_component.dart';
 import '../components/search_hud_component.dart';
 import '../constants/typography.dart';
 import '../domain/node.dart';
@@ -204,8 +205,9 @@ class LandscapeXlLayoutGame extends FlameGame
   AudioPool? _nodeHoverAudioPool;
   String? _hoveredNodeKey;
   final _GameCursorComponent _gameCursor = _GameCursorComponent();
-  final _NodeHoverBorderComponent _nodeHoverBorder =
-      _NodeHoverBorderComponent();
+  final NodeComponent _nodeComponent = NodeComponent();
+  final ClassificationLabelComponent _classificationLabelComponent =
+      ClassificationLabelComponent();
 
   LayoutContext get layoutContext =>
       _layoutContext(highlightedNodes, selectedNodes);
@@ -257,7 +259,8 @@ class LandscapeXlLayoutGame extends FlameGame
       );
     }
     add(_searchHud..priority = 1000);
-    add(_nodeHoverBorder..priority = 900);
+    add(_nodeComponent..priority = 900);
+    add(_classificationLabelComponent..priority = 910);
     add(_gameCursor..priority = 2000);
   }
 
@@ -274,7 +277,7 @@ class LandscapeXlLayoutGame extends FlameGame
   }
 
   void updateHoveredNode(String? nodeKey, {Path? path, GuideStyle? style}) {
-    _nodeHoverBorder.updateTarget(path, style);
+    _nodeComponent.updateHoverTarget(path, style);
     if (nodeKey == _hoveredNodeKey) return;
     _hoveredNodeKey = nodeKey;
     final audioPool = _nodeHoverAudioPool;
@@ -282,6 +285,9 @@ class LandscapeXlLayoutGame extends FlameGame
       unawaited(audioPool.start(volume: 0.3));
     }
   }
+
+  void updateHoveredClassificationLabel({Path? path, GuideStyle? style}) =>
+      _classificationLabelComponent.updateHoverTarget(path, style);
 
   void updateCursorPosition(Offset? position) =>
       _gameCursor.updatePointer(position);
@@ -411,33 +417,6 @@ class _GameCursorComponent extends PositionComponent {
       );
     }
     canvas.drawCircle(center, 1.8, Paint()..color = gold);
-  }
-}
-
-class _NodeHoverBorderComponent extends PositionComponent {
-  Path? _path;
-  GuideStyle? _style;
-
-  void updateTarget(Path? path, GuideStyle? style) {
-    _path = path;
-    _style = style;
-  }
-
-  @override
-  void render(Canvas canvas) {
-    final path = _path;
-    final style = _style;
-    if (path == null || style == null) return;
-    canvas.drawPath(
-      path,
-      Paint()
-        ..color = style.color.withValues(alpha: 0.44)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = style.strokeWidth + 5
-        ..strokeCap = style.strokeCap
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
-    );
-    _drawNodeBorder(canvas, path, style, style.strokeWidth, isVirtual: false);
   }
 }
 
@@ -987,18 +966,18 @@ LayoutColor _nodeColor(Node node) {
 
 typedef _ResolvedLayout = ({Layout layout, Rect bounds});
 typedef _HoveredNodeTarget = ({String key, Path path, GuideStyle style});
+typedef _HoveredClassificationLabelTarget = ({Path path, GuideStyle style});
 
 class _LandscapeXlSceneComponent extends PositionComponent
     with
         HasGameReference<LandscapeXlLayoutGame>,
         flame_events.TapCallbacks,
         flame_events.HoverCallbacks {
-  final ClassificationLabelComponent _classificationLabelComponent =
-      ClassificationLabelComponent();
   final Map<TableLayout, Map<String, _TableGroupFoldAnimation>>
   _tableGroupAnimations = {};
   final List<_TableGroupHeaderHit> _tableGroupHeaderHits = [];
   final List<_TableNodeHit> _tableNodeHits = [];
+  final List<_TableClassificationLabelHit> _tableClassificationLabelHits = [];
   Offset? hoverPosition;
 
   @override
@@ -1021,6 +1000,7 @@ class _LandscapeXlSceneComponent extends PositionComponent
   void render(Canvas canvas) {
     _tableGroupHeaderHits.clear();
     _tableNodeHits.clear();
+    _tableClassificationLabelHits.clear();
     final layout = game.layout;
     final viewport = Size(size.x, size.y);
     final safePadding = game.safePadding;
@@ -1062,7 +1042,7 @@ class _LandscapeXlSceneComponent extends PositionComponent
           systemInfo,
           selectedNodes,
           nodeListSources,
-          _classificationLabelComponent,
+          game._classificationLabelComponent,
           hoverPosition,
           layoutContext,
           backgrounds: path.resolveBackgrounds(
@@ -1079,6 +1059,11 @@ class _LandscapeXlSceneComponent extends PositionComponent
           },
           onTableNode: (target, path) {
             _tableNodeHits.add(_TableNodeHit(target: target, path: path));
+          },
+          onTableClassificationLabel: (path, style) {
+            _tableClassificationLabelHits.add(
+              _TableClassificationLabelHit(path: path, style: style),
+            );
           },
         );
       }
@@ -1168,6 +1153,11 @@ class _LandscapeXlSceneComponent extends PositionComponent
       path: hoveredNode?.path,
       style: hoveredNode?.style,
     );
+    final hoveredLabel = _hoveredClassificationLabelAt(hoverPosition!);
+    game.updateHoveredClassificationLabel(
+      path: hoveredLabel?.path,
+      style: hoveredLabel?.style,
+    );
     super.onPointerMove(event);
   }
 
@@ -1176,6 +1166,7 @@ class _LandscapeXlSceneComponent extends PositionComponent
     hoverPosition = null;
     game.updateCursorPosition(null);
     game.updateHoveredNode(null);
+    game.updateHoveredClassificationLabel();
     super.onPointerMoveStop(event);
   }
 
@@ -1285,6 +1276,17 @@ class _LandscapeXlSceneComponent extends PositionComponent
     );
   }
 
+  _HoveredClassificationLabelTarget? _hoveredClassificationLabelAt(
+    Offset position,
+  ) {
+    for (final labelHit in _tableClassificationLabelHits.reversed) {
+      if (labelHit.path.contains(position)) {
+        return (path: labelHit.path, style: labelHit.style);
+      }
+    }
+    return null;
+  }
+
   @override
   void onTapUp(flame_events.TapUpEvent event) {
     final localPosition = Offset(event.localPosition.x, event.localPosition.y);
@@ -1387,6 +1389,13 @@ class _TableNodeHit {
 
   final LayoutTapTarget target;
   final Path path;
+}
+
+class _TableClassificationLabelHit {
+  const _TableClassificationLabelHit({required this.path, required this.style});
+
+  final Path path;
+  final GuideStyle style;
 }
 
 class _FanComponent extends PositionComponent
@@ -1605,6 +1614,8 @@ void _drawLayoutPath(
   required void Function(TableLayout table, String groupId, Path path)
   onTableGroupHeader,
   required void Function(LayoutTapTarget target, Path path) onTableNode,
+  required void Function(Path path, GuideStyle style)
+  onTableClassificationLabel,
 }) {
   final resolvedPoints = _resolvedLayoutPathPoints(
     layoutPath,
@@ -1702,7 +1713,7 @@ void _drawLayoutPath(
       canvas,
       resolvedPoints,
       table,
-      _tableData(table, selectedNodes, systemInfo),
+      _tableData(selectedNodes, systemInfo),
       hoverPosition,
       classificationLabelComponent,
       nodeListSources: nodeListSources,
@@ -1711,6 +1722,7 @@ void _drawLayoutPath(
       onGroupHeader: (groupId, path) =>
           onTableGroupHeader(table, groupId, path),
       onNode: onTableNode,
+      onClassificationLabel: onTableClassificationLabel,
     );
   }
   canvas.restore();
@@ -1815,14 +1827,13 @@ void _drawLayoutPathBackground(
 }
 
 TableData _tableData(
-  TableLayout table,
   List<ResolvedVaultNode> selectedNodes,
   SystemInfo? systemInfo,
 ) {
   final selectedNode = selectedNodes.lastOrNull;
   return TableData({
     if (selectedNode != null) ..._nodeInfoValues(selectedNode),
-    'selected_node_slugs': _selectedNodeSlugs(selectedNodes, table),
+    'selected_node_slugs': _selectedNodeSlugs(selectedNodes),
     'selected_node_labels': _selectedNodeLabels(selectedNodes),
     'added': [
       for (final node in selectedNodes)
@@ -1838,15 +1849,11 @@ TableData _tableData(
   });
 }
 
-List<String> _selectedNodeSlugs(
-  List<ResolvedVaultNode> selectedNodes,
-  TableLayout table,
-) {
-  final defaults = table.layoutDefaults ?? const LayoutDefaults();
+List<String> _selectedNodeSlugs(List<ResolvedVaultNode> selectedNodes) {
   final slugs = <String>{};
   for (final selectedNode in selectedNodes) {
     final slug = selectedNode.node?.slug.trim() ?? '';
-    if (slug.isNotEmpty) slugs.add(defaults.formatNodeSlug(slug));
+    if (slug.isNotEmpty) slugs.add(slug);
   }
   return slugs.toList(growable: false);
 }
@@ -2047,7 +2054,7 @@ void _drawGraphLayout(
   canvas.save();
   canvas.clipPath(clipPath);
   for (final graphNode in nodes) {
-    final fillColor = _nodeBackgroundColor(
+    final fillColor = NodeComponent.backgroundColor(
       _nodeColor(graphNode.node).resolve(),
       graphNode.node.slug,
       layoutContext,
@@ -2060,7 +2067,7 @@ void _drawGraphLayout(
         ..color = fillColor
         ..style = PaintingStyle.fill,
     );
-    _drawNodeBorder(
+    NodeComponent.renderBorder(
       canvas,
       Path()..addOval(graphNode.circleBounds),
       borderStyle,
@@ -2069,7 +2076,7 @@ void _drawGraphLayout(
     );
     _paintNodeLabel(
       canvas,
-      _nodePresentationLabel(graphNode.node, graph.layoutDefaults),
+      _nodePresentation(graphNode.node, graph.layoutDefaults),
       graphNode.circleBounds.center,
       graphNode.circleBounds.width * 0.8,
       graph.labelColor,
@@ -2179,7 +2186,7 @@ void _drawNodeListLayout(
     canvas.drawPath(
       path,
       Paint()
-        ..color = _nodeBackgroundColor(
+        ..color = NodeComponent.backgroundColor(
           _nodeColor(entry.node).resolve(),
           entry.node.slug,
           layoutContext,
@@ -2188,7 +2195,7 @@ void _drawNodeListLayout(
         )
         ..style = PaintingStyle.fill,
     );
-    _drawNodeBorder(
+    NodeComponent.renderBorder(
       canvas,
       path,
       layout.style,
@@ -2202,7 +2209,7 @@ void _drawNodeListLayout(
     final bottomWidth = (entry.points[2] - entry.points[3]).distance;
     _paintNodeLabel(
       canvas,
-      _nodePresentationLabel(
+      _nodePresentation(
         entry.node,
         layout.layoutDefaults,
         forceSlug: layout.dataSource == NodeListDataSource.searchResults,
@@ -2265,49 +2272,35 @@ Path _polygonPath(List<Offset> points) {
   return path..close();
 }
 
-void _drawNodeBorder(
-  Canvas canvas,
-  Path path,
-  GuideStyle style,
-  double strokeWidth, {
-  required bool isVirtual,
-}) {
-  final paint = Paint()
-    ..color = style.color
-    ..strokeWidth = strokeWidth
-    ..strokeCap = style.strokeCap
-    ..style = PaintingStyle.stroke;
-  if (!isVirtual) {
-    canvas.drawPath(path, paint);
-    return;
-  }
-
-  final dashLength = style.dashLength <= 0 ? 7.0 : style.dashLength;
-  final dashInterval = style.dashInterval <= 0 ? 5.0 : style.dashInterval;
-  for (final metric in path.computeMetrics()) {
-    var offset = 0.0;
-    while (offset < metric.length) {
-      final end = math.min(offset + dashLength, metric.length);
-      canvas.drawPath(metric.extractPath(offset, end), paint);
-      offset = end + dashInterval;
-    }
-  }
-}
-
 String _nodePresentationLabel(
   Node node,
   LayoutDefaults? layoutDefaults, {
   bool forceSlug = false,
+}) => _nodePresentation(node, layoutDefaults, forceSlug: forceSlug).text;
+
+typedef _NodePresentation = ({String text, bool isSlug, Color? colorOverride});
+
+_NodePresentation _nodePresentation(
+  Node node,
+  LayoutDefaults? layoutDefaults, {
+  bool forceSlug = false,
 }) {
+  final defaults = layoutDefaults ?? const LayoutDefaults();
   final slug = node.slug.trim();
   if (!forceSlug) {
     final emoji = node.primaryEmojiCharacter;
-    if (emoji != null) return emoji;
+    if (emoji != null) {
+      return (text: emoji, isSlug: false, colorOverride: null);
+    }
   }
   if (slug.isNotEmpty) {
-    return (layoutDefaults ?? const LayoutDefaults()).formatNodeSlug(slug);
+    return (
+      text: defaults.formatNodeSlug(slug),
+      isSlug: true,
+      colorOverride: defaults.slugColor,
+    );
   }
-  return node.displayLabel;
+  return (text: node.displayLabel, isSlug: false, colorOverride: null);
 }
 
 typedef _FanSegment = ({
@@ -2362,7 +2355,7 @@ void _drawFanLayout(
       fan.layoutDefaults?.borderWidth ?? borderStyle.strokeWidth;
   for (final segment in segments) {
     final node = segment.occurrence.node;
-    final fillColor = _nodeBackgroundColor(
+    final fillColor = NodeComponent.backgroundColor(
       _nodeColor(node).resolve(),
       node.slug,
       layoutContext,
@@ -2377,7 +2370,7 @@ void _drawFanLayout(
   }
   _drawFanGrid(canvas, fan, frame);
   for (final segment in segments) {
-    _drawNodeBorder(
+    NodeComponent.renderBorder(
       canvas,
       segment.path,
       borderStyle,
@@ -2389,7 +2382,7 @@ void _drawFanLayout(
     final node = segment.occurrence.node;
     _paintNodeLabel(
       canvas,
-      _nodePresentationLabel(node, fan.layoutDefaults),
+      _nodePresentation(node, fan.layoutDefaults),
       segment.labelPoint,
       segment.labelWidth,
       fan.labelColor,
@@ -2400,21 +2393,24 @@ void _drawFanLayout(
 
 void _paintNodeLabel(
   Canvas canvas,
-  String label,
+  _NodePresentation presentation,
   Offset center,
   double maxWidth,
   Color color,
   double fontSize,
 ) {
+  final label = presentation.text;
   if (label.isEmpty || maxWidth < fontSize * 2) return;
   final textPainter = TextPainter(
     text: TextSpan(
       text: label,
       style: TextStyle(
-        fontFamily: SevilleTypography.fontFamily,
-        color: color,
+        // Alegreya Sans SC deliberately displays lowercase as small caps.
+        // Node slugs are syntax, so keep their stored casing legible.
+        fontFamily: presentation.isSlug ? null : SevilleTypography.fontFamily,
+        color: presentation.colorOverride ?? color,
         fontSize: fontSize,
-        fontWeight: FontWeight.w600,
+        fontWeight: presentation.isSlug ? FontWeight.w700 : FontWeight.w600,
       ),
     ),
     maxLines: 1,
@@ -3291,7 +3287,7 @@ void _drawPerspectiveGridArea(
   final resolvedFillColor = resolvedNode?.fillColor;
   final fillColor = resolvedFillColor == null || resolvedNode?.node == null
       ? resolvedFillColor ?? area.fillColor
-      : _nodeBackgroundColor(
+      : NodeComponent.backgroundColor(
           resolvedFillColor,
           resolvedNode!.node!.slug,
           layoutContext,
@@ -3395,26 +3391,6 @@ void _drawPerspectiveGridArea(
   );
 }
 
-Color _nodeBackgroundColor(
-  Color color,
-  String nodeSlug,
-  LayoutContext layoutContext,
-  LayoutDefaults? layoutDefaults, {
-  bool isVirtual = false,
-}) {
-  final defaults = layoutDefaults ?? const LayoutDefaults();
-  final normalizedNodeSlug = nodeSlug.trim();
-  final active =
-      normalizedNodeSlug.isNotEmpty &&
-      layoutContext.activeNodeSlugs.contains(normalizedNodeSlug);
-  final opacity = isVirtual
-      ? defaults.virtualNodeBackgroundOpacity
-      : active
-      ? defaults.activeNodeBackgroundOpacity
-      : defaults.inactiveNodeBackgroundOpacity;
-  return color.withValues(alpha: opacity);
-}
-
 void _drawTableLayout(
   Canvas canvas,
   List<Offset> parentPoints,
@@ -3427,6 +3403,7 @@ void _drawTableLayout(
   required double Function(String groupId) groupExpansion,
   required void Function(String groupId, Path path) onGroupHeader,
   required void Function(LayoutTapTarget target, Path path) onNode,
+  required void Function(Path path, GuideStyle style) onClassificationLabel,
 }) {
   if (parentPoints.length < 4 || table.columns.isEmpty) {
     return;
@@ -3668,7 +3645,7 @@ void _drawTableLayout(
           ? const <String>[]
           : _classificationLabels(row.key, row.value);
       if (classificationLabels.isNotEmpty) {
-        classificationLabelComponent.renderLabels(
+        final labelFrames = classificationLabelComponent.renderLabels(
           tableCanvas,
           labels: classificationLabels,
           bounds: _tableCellPath(
@@ -3681,8 +3658,18 @@ void _drawTableLayout(
           fontSize: table.valueSize,
           layoutDefaults: table.layoutDefaults,
         );
+        final hoverStyle =
+            table.layoutDefaults?.classificationLabelHoverBorderStyle ??
+            const LayoutDefaults().classificationLabelHoverBorderStyle;
+        for (final frame in labelFrames) {
+          onClassificationLabel(
+            frame.path.transform(tableTransform),
+            hoverStyle,
+          );
+        }
         continue;
       }
+      final isNodeSlugValue = !isKeyColumn && _isNodeSlugField(row.key);
       _paintTextInTableCell(
         tableCanvas,
         flatTablePoints,
@@ -3690,13 +3677,23 @@ void _drawTableLayout(
         rowEnd: rowEnd,
         columnStart: columnStops[columnIndex],
         columnEnd: columnStops[columnIndex + 1],
-        text: isKeyColumn ? row.label : _formatTableValue(row.value),
+        text: isKeyColumn
+            ? row.label
+            : _formatTableFieldValue(row.key, row.value, table.layoutDefaults),
         maxLines: isKeyColumn ? 2 : 3,
         style: TextStyle(
-          fontFamily: SevilleTypography.fontFamily,
-          color: isKeyColumn ? table.labelColor : table.valueColor,
+          fontFamily: isNodeSlugValue ? null : SevilleTypography.fontFamily,
+          color: isKeyColumn
+              ? table.labelColor
+              : isNodeSlugValue
+              ? (table.layoutDefaults ?? const LayoutDefaults()).slugColor
+              : table.valueColor,
           fontSize: isKeyColumn ? table.labelSize : table.valueSize,
-          fontWeight: isKeyColumn ? FontWeight.w800 : FontWeight.w600,
+          fontWeight: isKeyColumn
+              ? FontWeight.w800
+              : isNodeSlugValue
+              ? FontWeight.w700
+              : FontWeight.w600,
           height: isKeyColumn ? null : 1.25,
         ),
       );
@@ -4203,6 +4200,27 @@ String _formatTableValue(Object? value) {
 
   final string = value.toString().trim();
   return string.isEmpty ? '—' : string;
+}
+
+bool _isNodeSlugField(String? key) =>
+    key == 'slug' || key == 'selected_node_slugs';
+
+String _formatTableFieldValue(
+  String? key,
+  Object? value,
+  LayoutDefaults? layoutDefaults,
+) {
+  if (!_isNodeSlugField(key)) return _formatTableValue(value);
+  final defaults = layoutDefaults ?? const LayoutDefaults();
+  if (value is Iterable) {
+    return value
+        .map((item) => item.toString().trim())
+        .where((slug) => slug.isNotEmpty)
+        .map(defaults.formatNodeSlug)
+        .join(', ');
+  }
+  final slug = value?.toString().trim() ?? '';
+  return slug.isEmpty ? '—' : defaults.formatNodeSlug(slug);
 }
 
 void _drawStickmanLayout(

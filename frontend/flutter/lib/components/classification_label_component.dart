@@ -13,7 +13,15 @@ import '../models/layout.dart';
 class ClassificationLabelComponent extends PositionComponent {
   ClassificationLabelComponent();
 
-  void renderLabels(
+  Path? _hoverPath;
+  GuideStyle? _hoverStyle;
+
+  void updateHoverTarget(Path? path, GuideStyle? style) {
+    _hoverPath = path;
+    _hoverStyle = style;
+  }
+
+  List<ClassificationLabelFrame> renderLabels(
     Canvas canvas, {
     required Iterable<String> labels,
     required Rect bounds,
@@ -24,13 +32,15 @@ class ClassificationLabelComponent extends PositionComponent {
         .map((label) => label.trim())
         .where((label) => label.isNotEmpty)
         .toList(growable: false);
-    if (values.isEmpty || bounds.width <= 8 || bounds.height <= 8) return;
+    if (values.isEmpty || bounds.width <= 8 || bounds.height <= 8) {
+      return const [];
+    }
 
     final defaults = layoutDefaults ?? const LayoutDefaults();
     final tagHeight = math
         .min(math.max(fontSize * 1.8, 16), bounds.height - 4)
         .toDouble();
-    if (tagHeight < 8) return;
+    if (tagHeight < 8) return const [];
     final pointWidth = tagHeight * 0.42;
     final horizontalPadding = math.max(fontSize * 0.55, 4);
     const gap = 5.0;
@@ -38,6 +48,7 @@ class ClassificationLabelComponent extends PositionComponent {
     var y = bounds.top + 4;
     final maxRight = bounds.right - 6;
     final maxBottom = bounds.bottom - 4;
+    final frames = <ClassificationLabelFrame>[];
 
     for (final label in values) {
       final availableTextWidth = math
@@ -65,15 +76,28 @@ class ClassificationLabelComponent extends PositionComponent {
         x = bounds.left + 6;
         y += tagHeight + gap;
       }
-      if (y + tagHeight > maxBottom) return;
+      if (y + tagHeight > maxBottom) return frames;
 
       final tagBounds = Rect.fromLTWH(x, y, tagWidth, tagHeight);
-      _paintTag(canvas, label, tagBounds, pointWidth, textPainter, defaults);
+      frames.add(
+        ClassificationLabelFrame(
+          label: label,
+          path: _paintTag(
+            canvas,
+            label,
+            tagBounds,
+            pointWidth,
+            textPainter,
+            defaults,
+          ),
+        ),
+      );
       x += tagWidth + gap;
     }
+    return frames;
   }
 
-  void _paintTag(
+  Path _paintTag(
     Canvas canvas,
     String label,
     Rect bounds,
@@ -122,7 +146,39 @@ class ClassificationLabelComponent extends PositionComponent {
       canvas,
       textCenter - Offset(textPainter.width / 2, textPainter.height / 2),
     );
+    return path;
   }
+
+  @override
+  void render(Canvas canvas) {
+    final path = _hoverPath;
+    final style = _hoverStyle;
+    if (path == null || style == null) return;
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = style.color.withValues(alpha: 0.44)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = style.strokeWidth + 5
+        ..strokeCap = style.strokeCap
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+    );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = style.color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = style.strokeWidth
+        ..strokeCap = style.strokeCap,
+    );
+  }
+}
+
+class ClassificationLabelFrame {
+  const ClassificationLabelFrame({required this.label, required this.path});
+
+  final String label;
+  final Path path;
 }
 
 int _stableColorIndex(String value, int colorCount) {

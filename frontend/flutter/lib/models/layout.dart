@@ -531,6 +531,7 @@ class LayoutDefaults {
     ),
     this.nodeSlugPrefix = '',
     this.nodeSlugSuffix = '',
+    this.slugColor = const Color(0xFFFFD54F),
     this.classificationLabelColors = const [
       Color(0xFF4E79A7),
       Color(0xFF59A14F),
@@ -541,8 +542,12 @@ class LayoutDefaults {
     ],
     this.classificationLabelBorderColor = const Color(0xFFE8D59F),
     this.classificationLabelHoleColor = const Color(0xFF27251F),
-    this.classificationLabelTextColor = const Color(0xFFFFFFFF),
+    this.classificationLabelTextColor = const Color(0xFFFFF8E7),
     this.classificationLabelBorderWidth = 1,
+    this.classificationLabelHoverBorderStyle = const GuideStyle(
+      color: Color(0xFFFFD54F),
+      strokeWidth: 4,
+    ),
   }) : assert(
          inactiveNodeBackgroundOpacity >= 0 &&
              inactiveNodeBackgroundOpacity <= 1,
@@ -565,11 +570,13 @@ class LayoutDefaults {
   final GuideStyle nodeHoverBorderStyle;
   final String nodeSlugPrefix;
   final String nodeSlugSuffix;
+  final Color slugColor;
   final List<Color> classificationLabelColors;
   final Color classificationLabelBorderColor;
   final Color classificationLabelHoleColor;
   final Color classificationLabelTextColor;
   final double classificationLabelBorderWidth;
+  final GuideStyle classificationLabelHoverBorderStyle;
 
   String formatNodeSlug(String slug) => '$nodeSlugPrefix$slug$nodeSlugSuffix';
 }
@@ -1272,7 +1279,7 @@ class PerspectiveGridArea extends Layout {
     this.fillColor,
     this.borderStyle,
     this.label,
-    this.labelColor = const Color(0xFFFFFFFF),
+    this.labelColor = const Color(0xFFFFF8E7),
     this.labelSize = 12,
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
@@ -1362,7 +1369,7 @@ class PanelLayout extends Layout {
     this.fillColor,
     this.borderStyle,
     this.label,
-    this.labelColor = const Color(0xFFFFFFFF),
+    this.labelColor = const Color(0xFFFFF8E7),
     this.labelSize = 12,
     super.aliases,
     super.backgrounds,
@@ -1418,7 +1425,7 @@ class FanLayout extends Layout with TableLayoutMixin {
     this.maxSectionCount = 6,
     this.sectionSizing = FanSectionSizing.equal,
     this.label,
-    this.labelColor = const Color(0xFFFFFFFF),
+    this.labelColor = const Color(0xFFFFF8E7),
     this.labelSize = 12,
     this.position = LayoutRelativePosition.top,
     this.growthDirection,
@@ -1511,7 +1518,7 @@ class GraphLayout extends Layout {
   const GraphLayout({
     required this.style,
     this.nodeExtentFactor = 0.5,
-    this.labelColor = const Color(0xFFFFFFFF),
+    this.labelColor = const Color(0xFFFFF8E7),
     this.labelSize = 12,
     super.aliases,
     super.attributes = const [LayoutAttribute.circular],
@@ -1533,7 +1540,7 @@ class NodeListLayout extends Layout {
   const NodeListLayout({
     required this.dataSource,
     required this.style,
-    this.labelColor = const Color(0xFFFFFFFF),
+    this.labelColor = const Color(0xFFFFF8E7),
     this.labelSize = 12,
     super.size,
     super.aliases,

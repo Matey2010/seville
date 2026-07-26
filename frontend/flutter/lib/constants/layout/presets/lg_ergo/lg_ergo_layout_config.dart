@@ -426,6 +426,8 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
         'info-table': TableLayout(
           aliases: ['info-table', 'table-layout', 'node-info', 'system-info'],
           layoutDefaults: lgErgoNodeLayoutDefaults,
+          labelColor: lgErgoMainTextColor,
+          valueColor: lgErgoMainTextColor,
           guideStyle: lgErgoNodeInfoTableStyle,
           cellHighlight: TableCellHighlightConfig(
             rows: true,
@@ -515,7 +517,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               ),
               TableField(
                 key: 'neo4j_labels',
-                label: 'Most Popular Labels',
+                label: 'Trending Labels',
                 groupId: 'system',
                 size: GridAxisVariable(size: LayoutSize.fr(1)),
               ),
@@ -1031,16 +1033,20 @@ const lgErgoClassificationLabelColors = [
 ];
 const lgErgoClassificationLabelBorderColor = Color(0xFFE8D59F);
 const lgErgoClassificationLabelHoleColor = Color(0xFF27251F);
-const lgErgoClassificationLabelTextColor = Color(0xFFF5F7FF);
+const lgErgoMainTextColor = Color(0xFFFFF8E7);
+const lgErgoClassificationLabelTextColor = lgErgoMainTextColor;
+const lgErgoNodeSlugColor = Color(0xFFFFD54F);
 const lgErgoNodeLayoutDefaults = LayoutDefaults(
   borderWidth: lgErgoNodeBorderWidth,
   nodeHoverBorderStyle: lgErgoHoveredNodeBorderStyle,
   nodeSlugPrefix: '[[',
   nodeSlugSuffix: ']]',
+  slugColor: lgErgoNodeSlugColor,
   classificationLabelColors: lgErgoClassificationLabelColors,
   classificationLabelBorderColor: lgErgoClassificationLabelBorderColor,
   classificationLabelHoleColor: lgErgoClassificationLabelHoleColor,
   classificationLabelTextColor: lgErgoClassificationLabelTextColor,
+  classificationLabelHoverBorderStyle: lgErgoHoveredLabelBorderStyle,
 );
 
 const lgErgoPastColor = Color(0x553F51B5);
@@ -1052,8 +1058,8 @@ const lgErgoActionPlaneBandColor = Color(0x223F51B5);
 const lgErgoActionButtonColor = Color(0x553F51B5);
 const lgErgoSubmitButtonColor = Color(0x6652A66B);
 const lgErgoRejectButtonColor = Color(0x668F3E4B);
-const lgErgoActionButtonLabelColor = Color(0xFFF5F7FF);
-const lgErgoCortexNodeLabelColor = Color(0xFF101820);
+const lgErgoActionButtonLabelColor = lgErgoMainTextColor;
+const lgErgoCortexNodeLabelColor = lgErgoMainTextColor;
 const lgErgoCurrentTimeBackgroundColor = Color(0x18DC143C);
 const lgErgoHourPassedColor = Color(0x33DC143C);
 const lgErgoHourLeftColor = Color(0x22DC143C);
@@ -1131,6 +1137,12 @@ const lgErgoCortexNodeBorderStyle = GuideStyle(
 const lgErgoHoveredNodeBorderStyle = GuideStyle(
   color: Color(0xFF2196F3),
   strokeWidth: 4,
+  pattern: GuideLinePattern.solid,
+);
+
+const lgErgoHoveredLabelBorderStyle = GuideStyle(
+  color: Color(0xFFFFD54F),
+  strokeWidth: 2,
   pattern: GuideLinePattern.solid,
 );
 
