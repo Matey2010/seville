@@ -221,9 +221,27 @@
   query; render only a border when it does not. Keep `fillColor` for
   manual/background fills that are not graph-node assignments.
 - `TableLayout.includeUnconfiguredFields` includes every populated data value
-  not already represented by its configured fields. Use
+  not already represented by its configured rows. Use
   `unconfiguredFieldGroupId` to insert those alphabetical rows into their
   owning configured group, and `unconfiguredFieldSize` for their tracks.
+  Table structure belongs to `TableLayout.tableConfig: TableConfig`. Its
+  `groups` and `rows` are ordered maps: each map key is stable identity, while
+  `TableGroup.orderPosition` and `TableRow.orderPosition` control visual
+  order. Do not restore list entries with duplicated `id` or `key` properties,
+  and do not restore the ambiguous `TableFieldBuilder` name.
+  `TableGroup.size` uses the same consumer-owned size type as `TableRow.size`.
+  Flame packs consecutive fractional-width groups into horizontal bands; use
+  `LayoutSize.fr(1)` for full width, `LayoutSize.fr(0.5)` for halves, and
+  one-third fractions for three-column bands.
+  The renderer-independent package that owns these contracts is `dart_tables`
+  under `frontend/flutter/packages/dart_tables`; do not restore the old
+  `table_data` package identity.
+  Keep that package limited to renderer-independent data configuration. Flame
+  owns row resolution, geometry, hit testing, rendering, and action execution.
+  `TableAction.copyToClipboard()` copies the text value of a row's first
+  non-key cell. Derive its hit path during the same Flame paint pass and route
+  clipboard, toast, and listener side effects through the screen callback also
+  used by Command-C.
   `TableGroup.title` is optional; render its title only when non-empty and when
   the group contains populated rows. Flame wraps every visible group with
   `TableLayout.groupBorderStyle` and separates adjacent visible groups using
@@ -316,18 +334,26 @@
   `SevilleTypography.fontFamily` explicitly because `TextPainter` does not
   inherit the widget theme. Do not fetch fonts at runtime.
 - `SearchHudComponent` is a Flame HUD owned by `LandscapeXlLayoutGame`. It owns
-  its visible state, text draft, drawing, and Flame keyboard subscription. The
-  action-plane Search button and Command-F open it. Enter hides it before
-  submitting its normalized value to `interfaceOverlayStateProvider`; Escape
-  hides it before dispatching the global cancel callback. Search must not use a
-  Flutter popup, `OverlayScaffold`, or focus-based text field.
+  its visible state, text draft, drawing, Flame keyboard subscription, and
+  Flame-native Node option components. The action-plane Search button and
+  Command-F open it. Enter submits a draft without hiding the HUD; after results
+  arrive, arrows move through options and Enter or a tap selects a Node and
+  closes the HUD. Escape hides it before dispatching the global cancel callback.
+  Search must not use a Flutter popup, `OverlayScaffold`, or focus-based text
+  field.
+- `SearchLayout` is the Search HUD's layout configuration and Flame render
+  frame. LG Ergo owns it at `safe-area/search-layout`, where it resolves to the
+  complete safe-area bounds and stacks above ordinary scene/action-panel
+  content. Its configuration owns Search padding, input and option dimensions,
+  maximum width, visible option count, and input-to-options gap. Do not restore
+  screen-coordinate or MediaQuery padding calculations inside
+  `SearchHudComponent`.
 - Search submission from the Flame HUD writes one normalized value to
   `interfaceOverlayStateProvider`. `nodeSearchProvider` sends that value
-  through `QUERY /api/v1/node/search`. Results are ordinary Flame content rendered
-  by the configured right-plane `NodeListLayout`, never popup children.
-  Node-list rows use the shared selected-node slug set for active opacity and
-  return normal `LayoutTapTarget` values so tapping toggles
-  `selectedNodesProvider` for Fan and Graph consumers too.
+  through `QUERY /api/v1/node/search`. Results are Node-backed Flame option
+  components rendered directly beneath the Search input. They use the shared
+  selected-node slug set and toggle `selectedNodesProvider` through a callback
+  supplied by the screen, including the normal Node-selection sound.
   The info-table Updates/Added field uses
   `NodeListDataSource.virtualNodes` and reads the `isVirtual` subset of selected
   Nodes; keep its dashed border and tap behavior on the same shared Node cycle.
@@ -351,8 +377,8 @@
   Command-C copies the last Riverpod-selected Node slug through the same screen
   action used by the Flame-rendered copy button.
   Plain Enter dispatches the right-plane submit action unless the Search HUD is
-  visible. While visible, the component consumes Enter, hides itself, and
-  submits its local draft instead.
+  visible. While visible, the component consumes Enter to submit its local
+  draft or select its highlighted Node option.
   `SevilleKeymapAction.cancel` is the global nuclear cancel action. Both Escape
   and the right-plane cross dispatch it through the screen; it clears selected
   and virtual Nodes, clears cached/search-visible results, closes the Search HUD,

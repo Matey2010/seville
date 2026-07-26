@@ -11,7 +11,6 @@ import 'package:flame/game.dart';
 import 'package:flame_audio/flame_audio.dart';
 import 'package:flutter/material.dart' hide TableRow;
 import 'package:seville_proto/seville_proto.dart';
-import 'package:table_data/table_data.dart';
 
 import '../components/layout_component_registry.dart';
 import '../components/classification_label_component.dart';
@@ -21,6 +20,7 @@ import '../constants/typography.dart';
 import '../domain/node.dart';
 import '../models/landscape_xl_layout.dart';
 import '../models/layout.dart';
+import '../models/search_layout.dart';
 import '../models/table_layout.dart';
 import '../utils/canvas_guides.dart';
 import '../utils/layout_guidelines.dart';
@@ -35,6 +35,8 @@ class LayoutTapTarget {
     this.node,
     this.resolvedNode,
     this.label,
+    this.tableAction,
+    this.textValue,
   });
 
   final String key;
@@ -42,6 +44,8 @@ class LayoutTapTarget {
   final VaultNodeUiComponent? node;
   final ResolvedVaultNode? resolvedNode;
   final String? label;
+  final TableAction? tableAction;
+  final String? textValue;
 }
 
 class LandscapeXlLayoutView extends StatefulWidget {
@@ -57,6 +61,7 @@ class LandscapeXlLayoutView extends StatefulWidget {
     this.onLayoutTap,
     required this.searchValue,
     required this.onSearchSubmitted,
+    required this.onSearchNodeSelected,
     required this.onCancel,
     required this.onRefreshFanData,
     required this.onCopySelectedNodeSlug,
@@ -75,6 +80,7 @@ class LandscapeXlLayoutView extends StatefulWidget {
   final LandscapeXlLayoutTapCallback? onLayoutTap;
   final String searchValue;
   final ValueChanged<String> onSearchSubmitted;
+  final ValueChanged<ResolvedVaultNode> onSearchNodeSelected;
   final VoidCallback onCancel;
   final VoidCallback onRefreshFanData;
   final VoidCallback onCopySelectedNodeSlug;
@@ -97,6 +103,7 @@ class _LandscapeXlLayoutViewState extends State<LandscapeXlLayoutView> {
     onLayoutTap: widget.onLayoutTap,
     searchValue: widget.searchValue,
     onSearchSubmitted: widget.onSearchSubmitted,
+    onSearchNodeSelected: widget.onSearchNodeSelected,
     onCancel: widget.onCancel,
     onRefreshFanData: widget.onRefreshFanData,
     onCopySelectedNodeSlug: widget.onCopySelectedNodeSlug,
@@ -126,6 +133,7 @@ class _LandscapeXlLayoutViewState extends State<LandscapeXlLayoutView> {
         onLayoutTap: widget.onLayoutTap,
         searchValue: widget.searchValue,
         onSearchSubmitted: widget.onSearchSubmitted,
+        onSearchNodeSelected: widget.onSearchNodeSelected,
         onCancel: widget.onCancel,
         onRefreshFanData: widget.onRefreshFanData,
         onCopySelectedNodeSlug: widget.onCopySelectedNodeSlug,
@@ -145,6 +153,7 @@ class _LandscapeXlLayoutViewState extends State<LandscapeXlLayoutView> {
       onLayoutTap: widget.onLayoutTap,
       searchValue: widget.searchValue,
       onSearchSubmitted: widget.onSearchSubmitted,
+      onSearchNodeSelected: widget.onSearchNodeSelected,
       onCancel: widget.onCancel,
       onRefreshFanData: widget.onRefreshFanData,
       onCopySelectedNodeSlug: widget.onCopySelectedNodeSlug,
@@ -171,18 +180,30 @@ class LandscapeXlLayoutGame extends FlameGame
     required this.onLayoutTap,
     required this.searchValue,
     required this.onSearchSubmitted,
+    required this.onSearchNodeSelected,
     required this.onCancel,
     required this.onRefreshFanData,
     required this.onCopySelectedNodeSlug,
     required this.onSubmit,
-  }) : _searchHud = SearchHudComponent(
-         searchValue: searchValue,
-         onSearchSubmitted: onSearchSubmitted,
-         onCancel: onCancel,
-         onRefreshFanData: onRefreshFanData,
-         onCopySelectedNodeSlug: onCopySelectedNodeSlug,
-         onSubmit: onSubmit,
-       );
+  }) {
+    final searchLayout = _searchLayoutConfig(layout);
+    _searchHud = SearchHudComponent(
+      layout: searchLayout,
+      searchValue: searchValue,
+      results: queryNodes,
+      selectedNodeSlugs: _selectedNodeSlugSet(selectedNodes),
+      layoutDefaults:
+          searchLayout.layoutDefaults ??
+          layout.layoutDefaults ??
+          const LayoutDefaults(),
+      onSearchSubmitted: onSearchSubmitted,
+      onCancel: onCancel,
+      onRefreshFanData: onRefreshFanData,
+      onCopySelectedNodeSlug: onCopySelectedNodeSlug,
+      onSubmit: onSubmit,
+      onNodeSelected: _selectSearchNode,
+    );
+  }
 
   LandscapeXlLayout layout;
   LayoutComponentRegistry componentRegistry;
@@ -195,12 +216,14 @@ class LandscapeXlLayoutGame extends FlameGame
   LandscapeXlLayoutTapCallback? onLayoutTap;
   String searchValue;
   ValueChanged<String> onSearchSubmitted;
+  ValueChanged<ResolvedVaultNode> onSearchNodeSelected;
   VoidCallback onCancel;
   VoidCallback onRefreshFanData;
   VoidCallback onCopySelectedNodeSlug;
   VoidCallback onSubmit;
-  EdgeInsets safePadding = EdgeInsets.zero;
-  final SearchHudComponent _searchHud;
+  EdgeInsets _safePadding = EdgeInsets.zero;
+  Vector2? _viewportSize;
+  late final SearchHudComponent _searchHud;
   AudioPool? _nodeSelectionAudioPool;
   AudioPool? _nodeHoverAudioPool;
   String? _hoveredNodeKey;
@@ -212,8 +235,22 @@ class LandscapeXlLayoutGame extends FlameGame
   LayoutContext get layoutContext =>
       _layoutContext(highlightedNodes, selectedNodes);
 
+  EdgeInsets get safePadding => _safePadding;
+
+  set safePadding(EdgeInsets value) {
+    _safePadding = value;
+    _syncSearchHudLayout();
+  }
+
   @override
   Color backgroundColor() => const Color(0x00000000);
+
+  @override
+  void onGameResize(Vector2 size) {
+    super.onGameResize(size);
+    _viewportSize = size.clone();
+    _syncSearchHudLayout();
+  }
 
   @override
   Future<void> onLoad() async {
@@ -276,6 +313,18 @@ class LandscapeXlLayoutGame extends FlameGame
     onLayoutTap?.call(target);
   }
 
+  void _selectSearchNode(ResolvedVaultNode resolvedNode) {
+    final slug = resolvedNode.node?.slug.trim() ?? '';
+    final isSelectingNode =
+        slug.isNotEmpty &&
+        !selectedNodes.any((node) => node.node?.slug.trim() == slug);
+    final audioPool = _nodeSelectionAudioPool;
+    if (isSelectingNode && audioPool != null) {
+      unawaited(audioPool.start(volume: 0.5));
+    }
+    onSearchNodeSelected(resolvedNode);
+  }
+
   void updateHoveredNode(String? nodeKey, {Path? path, GuideStyle? style}) {
     _nodeComponent.updateHoverTarget(path, style);
     if (nodeKey == _hoveredNodeKey) return;
@@ -306,9 +355,8 @@ class LandscapeXlLayoutGame extends FlameGame
   }
 
   void openSearchHud() {
-    _searchHud
-      ..safeTop = safePadding.top
-      ..open(searchValue);
+    _syncSearchHudLayout();
+    _searchHud.open(searchValue);
   }
 
   void closeSearchHud() => _searchHud.close();
@@ -325,6 +373,7 @@ class LandscapeXlLayoutGame extends FlameGame
     required LandscapeXlLayoutTapCallback? onLayoutTap,
     required String searchValue,
     required ValueChanged<String> onSearchSubmitted,
+    required ValueChanged<ResolvedVaultNode> onSearchNodeSelected,
     required VoidCallback onCancel,
     required VoidCallback onRefreshFanData,
     required VoidCallback onCopySelectedNodeSlug,
@@ -341,17 +390,49 @@ class LandscapeXlLayoutGame extends FlameGame
     this.onLayoutTap = onLayoutTap;
     this.searchValue = searchValue;
     this.onSearchSubmitted = onSearchSubmitted;
+    this.onSearchNodeSelected = onSearchNodeSelected;
     this.onCancel = onCancel;
     this.onRefreshFanData = onRefreshFanData;
     this.onCopySelectedNodeSlug = onCopySelectedNodeSlug;
     this.onSubmit = onSubmit;
+    final searchLayout = _searchLayoutConfig(layout);
     _searchHud
+      ..layout = searchLayout
       ..searchValue = searchValue
       ..onSearchSubmitted = onSearchSubmitted
       ..onCancel = onCancel
       ..onRefreshFanData = onRefreshFanData
       ..onCopySelectedNodeSlug = onCopySelectedNodeSlug
-      ..onSubmit = onSubmit;
+      ..onSubmit = onSubmit
+      ..onNodeSelected = _selectSearchNode
+      ..updateNodeOptions(
+        results: queryNodes,
+        selectedNodeSlugs: _selectedNodeSlugSet(selectedNodes),
+        layoutDefaults:
+            searchLayout.layoutDefaults ??
+            layout.layoutDefaults ??
+            const LayoutDefaults(),
+      );
+    _syncSearchHudLayout();
+  }
+
+  void _syncSearchHudLayout() {
+    final viewportSize = _viewportSize;
+    if (viewportSize == null || viewportSize.x <= 0 || viewportSize.y <= 0) {
+      return;
+    }
+    final resolvedLayouts = _resolveLayouts(
+      layout,
+      Size(viewportSize.x, viewportSize.y),
+      safePadding,
+      layoutContext,
+    );
+    for (final resolved in resolvedLayouts.values) {
+      if (resolved.layout case final SearchLayout searchLayout) {
+        _searchHud.updateLayout(searchLayout, resolved.bounds);
+        return;
+      }
+    }
   }
 }
 
@@ -967,6 +1048,18 @@ LayoutColor _nodeColor(Node node) {
 typedef _ResolvedLayout = ({Layout layout, Rect bounds});
 typedef _HoveredNodeTarget = ({String key, Path path, GuideStyle style});
 typedef _HoveredClassificationLabelTarget = ({Path path, GuideStyle style});
+typedef _TableRowPlacement = ({
+  _ResolvedTableRow<GridAxisVariable> row,
+  double rowStart,
+  double rowEnd,
+  double columnStart,
+  double columnEnd,
+});
+typedef _TableGroupRun = ({
+  String? groupId,
+  List<_ResolvedTableRow<GridAxisVariable>> rows,
+  double width,
+});
 
 class _LandscapeXlSceneComponent extends PositionComponent
     with
@@ -977,6 +1070,7 @@ class _LandscapeXlSceneComponent extends PositionComponent
   _tableGroupAnimations = {};
   final List<_TableGroupHeaderHit> _tableGroupHeaderHits = [];
   final List<_TableNodeHit> _tableNodeHits = [];
+  final List<_TableActionHit> _tableActionHits = [];
   final List<_TableClassificationLabelHit> _tableClassificationLabelHits = [];
   Offset? hoverPosition;
 
@@ -1000,6 +1094,7 @@ class _LandscapeXlSceneComponent extends PositionComponent
   void render(Canvas canvas) {
     _tableGroupHeaderHits.clear();
     _tableNodeHits.clear();
+    _tableActionHits.clear();
     _tableClassificationLabelHits.clear();
     final layout = game.layout;
     final viewport = Size(size.x, size.y);
@@ -1008,7 +1103,7 @@ class _LandscapeXlSceneComponent extends PositionComponent
     final systemInfo = game.systemInfo;
     final highlightedNodes = game.highlightedNodes;
     final selectedNodes = game.selectedNodes;
-    final nodeListSources = _nodeListSources(game.queryNodes, selectedNodes);
+    final nodeListSources = _nodeListSources(selectedNodes);
     final selectedNode = selectedNodes.lastOrNull;
     final layoutContext = _layoutContext(highlightedNodes, selectedNodes);
     final backgroundDefaults = _layoutBackgroundDefaults(layout);
@@ -1059,6 +1154,9 @@ class _LandscapeXlSceneComponent extends PositionComponent
           },
           onTableNode: (target, path) {
             _tableNodeHits.add(_TableNodeHit(target: target, path: path));
+          },
+          onTableAction: (target, path) {
+            _tableActionHits.add(_TableActionHit(target: target, path: path));
           },
           onTableClassificationLabel: (path, style) {
             _tableClassificationLabelHits.add(
@@ -1261,7 +1359,6 @@ class _LandscapeXlSceneComponent extends PositionComponent
       game.safePadding,
       position,
       game.vaultNodeResolver,
-      game.queryNodes,
       game.highlightedNodes,
       game.selectedNodes,
     );
@@ -1290,6 +1387,12 @@ class _LandscapeXlSceneComponent extends PositionComponent
   @override
   void onTapUp(flame_events.TapUpEvent event) {
     final localPosition = Offset(event.localPosition.x, event.localPosition.y);
+    for (final actionHit in _tableActionHits.reversed) {
+      if (actionHit.path.contains(localPosition)) {
+        game.dispatchLayoutTap(actionHit.target);
+        return;
+      }
+    }
     for (final nodeHit in _tableNodeHits.reversed) {
       if (nodeHit.path.contains(localPosition)) {
         game.dispatchLayoutTap(nodeHit.target);
@@ -1308,7 +1411,6 @@ class _LandscapeXlSceneComponent extends PositionComponent
       game.safePadding,
       localPosition,
       game.vaultNodeResolver,
-      game.queryNodes,
       game.highlightedNodes,
       game.selectedNodes,
     );
@@ -1386,6 +1488,13 @@ class _TableGroupHeaderHit {
 
 class _TableNodeHit {
   const _TableNodeHit({required this.target, required this.path});
+
+  final LayoutTapTarget target;
+  final Path path;
+}
+
+class _TableActionHit {
+  const _TableActionHit({required this.target, required this.path});
 
   final LayoutTapTarget target;
   final Path path;
@@ -1595,6 +1704,24 @@ LayoutContext _layoutContext(
   return nodeContext;
 }
 
+Set<String> _selectedNodeSlugSet(List<ResolvedVaultNode> selectedNodes) => {
+  for (final resolvedNode in selectedNodes)
+    if (resolvedNode.node?.slug.trim() case final slug? when slug.isNotEmpty)
+      slug,
+};
+
+SearchLayout _searchLayoutConfig(Layout root) =>
+    _searchLayoutConfigOrNull(root) ?? const SearchLayout();
+
+SearchLayout? _searchLayoutConfigOrNull(Layout root) {
+  if (root is SearchLayout) return root;
+  for (final child in root.layouts.values) {
+    final searchLayout = _searchLayoutConfigOrNull(child);
+    if (searchLayout != null) return searchLayout;
+  }
+  return null;
+}
+
 void _drawLayoutPath(
   Canvas canvas,
   Size size,
@@ -1614,6 +1741,7 @@ void _drawLayoutPath(
   required void Function(TableLayout table, String groupId, Path path)
   onTableGroupHeader,
   required void Function(LayoutTapTarget target, Path path) onTableNode,
+  required void Function(LayoutTapTarget target, Path path) onTableAction,
   required void Function(Path path, GuideStyle style)
   onTableClassificationLabel,
 }) {
@@ -1722,6 +1850,17 @@ void _drawLayoutPath(
       onGroupHeader: (groupId, path) =>
           onTableGroupHeader(table, groupId, path),
       onNode: onTableNode,
+      onAction: (action, rowKey, value, path) => onTableAction(
+        LayoutTapTarget(
+          key:
+              'table/${table.aliases.firstOrNull ?? 'table'}/$rowKey/${action.name}',
+          layout: table,
+          label: value,
+          tableAction: action,
+          textValue: value,
+        ),
+        path,
+      ),
       onClassificationLabel: onTableClassificationLabel,
     );
   }
@@ -2153,16 +2292,9 @@ typedef _NodeListEntryFrame = ({
   List<Offset> points,
 });
 
-typedef _NodeListSources = ({
-  List<ResolvedVaultNode> searchResults,
-  List<ResolvedVaultNode> virtualNodes,
-});
+typedef _NodeListSources = ({List<ResolvedVaultNode> virtualNodes});
 
-_NodeListSources _nodeListSources(
-  List<ResolvedVaultNode> queryNodes,
-  List<ResolvedVaultNode> selectedNodes,
-) => (
-  searchResults: queryNodes,
+_NodeListSources _nodeListSources(List<ResolvedVaultNode> selectedNodes) => (
   virtualNodes: [
     for (final node in selectedNodes)
       if (node.isVirtual) node,
@@ -2207,11 +2339,7 @@ void _drawNodeListLayout(
     final bottomWidth = (entry.points[2] - entry.points[3]).distance;
     _paintNodeLabel(
       canvas,
-      _nodePresentation(
-        entry.node,
-        layout.layoutDefaults,
-        forceSlug: layout.dataSource == NodeListDataSource.searchResults,
-      ),
+      _nodePresentation(entry.node, layout.layoutDefaults),
       center,
       math.min(topWidth, bottomWidth) * 0.88,
       layout.labelColor,
@@ -2227,7 +2355,6 @@ List<_NodeListEntryFrame> _nodeListEntries(
 ) {
   if (points.length != 4) return const [];
   final nodes = switch (layout.dataSource) {
-    NodeListDataSource.searchResults => sources.searchResults,
     NodeListDataSource.virtualNodes => sources.virtualNodes,
   };
   final resolvedNodes = [
@@ -2915,7 +3042,6 @@ LayoutTapTarget? _hitTestLayoutTapTarget(
   EdgeInsets safePadding,
   Offset position,
   VaultNodeResolver? vaultNodeResolver,
-  List<ResolvedVaultNode> queryNodes,
   List<ResolvedVaultNode> highlightedNodes,
   List<ResolvedVaultNode> selectedNodes,
 ) => _hitTestLayoutTap(
@@ -2924,7 +3050,6 @@ LayoutTapTarget? _hitTestLayoutTapTarget(
   safePadding,
   position,
   vaultNodeResolver,
-  queryNodes,
   highlightedNodes,
   selectedNodes,
 )?.target;
@@ -2935,12 +3060,11 @@ _LayoutTapHit? _hitTestLayoutTap(
   EdgeInsets safePadding,
   Offset position,
   VaultNodeResolver? vaultNodeResolver,
-  List<ResolvedVaultNode> queryNodes,
   List<ResolvedVaultNode> highlightedNodes,
   List<ResolvedVaultNode> selectedNodes,
 ) {
   final layoutContext = _layoutContext(highlightedNodes, selectedNodes);
-  final nodeListSources = _nodeListSources(queryNodes, selectedNodes);
+  final nodeListSources = _nodeListSources(selectedNodes);
   final resolvedLayouts = _resolveLayouts(
     root,
     size,
@@ -3121,11 +3245,7 @@ _LayoutTapHit? _hitTestFlexComposition(
             layout: layout,
             node: entry.resolvedNode,
             resolvedNode: entry.resolvedNode,
-            label: _nodePresentationLabel(
-              entry.node,
-              layout.layoutDefaults,
-              forceSlug: layout.dataSource == NodeListDataSource.searchResults,
-            ),
+            label: _nodePresentationLabel(entry.node, layout.layoutDefaults),
           ),
           nodePath: _polygonPath(entry.points),
         );
@@ -3458,6 +3578,13 @@ void _drawTableLayout(
   required double Function(String groupId) groupExpansion,
   required void Function(String groupId, Path path) onGroupHeader,
   required void Function(LayoutTapTarget target, Path path) onNode,
+  required void Function(
+    TableAction action,
+    String rowKey,
+    String value,
+    Path path,
+  )
+  onAction,
   required void Function(Path path, GuideStyle style) onClassificationLabel,
 }) {
   if (parentPoints.length < 4 || table.columns.isEmpty) {
@@ -3491,11 +3618,15 @@ void _drawTableLayout(
   final topWidth = (tablePoints[1] - tablePoints[0]).distance;
   final bottomWidth = (tablePoints[2] - tablePoints[3]).distance;
   final averageWidth = (topWidth + bottomWidth) / 2;
-  final rowStops = _gridTrackStops([
-    for (final row in rows) row.size.size,
-  ], averageHeight);
+  final placements = _tableRowPlacements(
+    table,
+    rows,
+    averageWidth,
+    averageHeight,
+  );
+  final columns = table.tableColumnsConfig.entries.toList(growable: false);
   final columnStops = _gridTrackStops([
-    for (final column in table.tableColumnsConfig.values) column.size,
+    for (final column in columns) column.value.size,
   ], averageWidth);
   final tableTransformPoints = [
     _tableLayoutPoint(tablePoints, row: 0, column: 0),
@@ -3514,8 +3645,8 @@ void _drawTableLayout(
     averageHeight,
     tableTransformPoints,
   );
-  for (var index = 0; index < rows.length; index += 1) {
-    final row = rows[index];
+  for (final placement in placements) {
+    final row = placement.row;
     final groupId = row.groupId;
     if (!row.section || groupId == null) continue;
     final group = _tableGroup(table, groupId);
@@ -3525,10 +3656,10 @@ void _drawTableLayout(
       _polygonPath([
         for (final point in _tableCellPoints(
           flatTablePoints,
-          rowStops[index],
-          rowStops[index + 1],
-          0,
-          1,
+          placement.rowStart,
+          placement.rowEnd,
+          placement.columnStart,
+          placement.columnEnd,
         ))
           _transformCanvasPoint(tableTransform, point),
       ]),
@@ -3545,73 +3676,102 @@ void _drawTableLayout(
     ..strokeWidth = table.guideStyle.strokeWidth
     ..style = PaintingStyle.stroke;
 
-  final highlightedCell = _tableHighlightedCell(
-    tablePoints,
-    rowStops,
-    columnStops,
-    hoverPosition,
-  );
   final highlight = table.cellHighlight;
-  if (highlight != null && highlightedCell != null) {
+  if (highlight != null && hoverPosition != null) {
     final highlightPaint = Paint()
       ..color = highlight.color
       ..style = PaintingStyle.fill;
-    if (highlight.rows) {
-      _drawTableCellFill(
-        tableCanvas,
-        flatTablePoints,
-        rowStops[highlightedCell.row],
-        rowStops[highlightedCell.row + 1],
-        0,
-        1,
-        highlightPaint,
-      );
-    }
-    if (highlight.columns) {
-      _drawTableCellFill(
-        tableCanvas,
-        flatTablePoints,
-        0,
-        1,
-        columnStops[highlightedCell.column],
-        columnStops[highlightedCell.column + 1],
-        highlightPaint,
-      );
+    for (final placement in placements) {
+      for (var column = 0; column < columnStops.length - 1; column += 1) {
+        final columnStart = _tablePlacementColumn(
+          placement,
+          columnStops[column],
+        );
+        final columnEnd = _tablePlacementColumn(
+          placement,
+          columnStops[column + 1],
+        );
+        if (!_tableCellPath(
+          tablePoints,
+          placement.rowStart,
+          placement.rowEnd,
+          columnStart,
+          columnEnd,
+        ).contains(hoverPosition)) {
+          continue;
+        }
+        if (highlight.rows) {
+          _drawTableCellFill(
+            tableCanvas,
+            flatTablePoints,
+            placement.rowStart,
+            placement.rowEnd,
+            placement.columnStart,
+            placement.columnEnd,
+            highlightPaint,
+          );
+        }
+        if (highlight.columns) {
+          _drawTableCellFill(
+            tableCanvas,
+            flatTablePoints,
+            placement.rowStart,
+            placement.rowEnd,
+            columnStart,
+            columnEnd,
+            highlightPaint,
+          );
+        }
+        break;
+      }
     }
   }
 
-  for (var index = 1; index < rowStops.length - 1; index += 1) {
-    if (rows[index - 1].spacer || rows[index].spacer) continue;
-    final stop = rowStops[index];
+  _TableRowPlacement? previousPlacement;
+  for (final placement in placements) {
+    final previous = previousPlacement;
+    previousPlacement = placement;
+    if (previous == null || previous.row.groupId != placement.row.groupId) {
+      continue;
+    }
     tableCanvas.drawLine(
-      _tableLayoutPoint(flatTablePoints, row: stop, column: 0),
-      _tableLayoutPoint(flatTablePoints, row: stop, column: 1),
+      _tableLayoutPoint(
+        flatTablePoints,
+        row: placement.rowStart,
+        column: placement.columnStart,
+      ),
+      _tableLayoutPoint(
+        flatTablePoints,
+        row: placement.rowStart,
+        column: placement.columnEnd,
+      ),
       tableLinePaint,
     );
   }
   for (final columnStop in columnStops.skip(1).take(columnStops.length - 2)) {
-    for (var rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
-      if (rows[rowIndex].section || rows[rowIndex].spacer) continue;
+    for (final placement in placements) {
+      if (placement.row.section) continue;
+      final resolvedColumn = _tablePlacementColumn(placement, columnStop);
       tableCanvas.drawLine(
         _tableLayoutPoint(
           flatTablePoints,
-          row: rowStops[rowIndex],
-          column: columnStop,
+          row: placement.rowStart,
+          column: resolvedColumn,
         ),
         _tableLayoutPoint(
           flatTablePoints,
-          row: rowStops[rowIndex + 1],
-          column: columnStop,
+          row: placement.rowEnd,
+          column: resolvedColumn,
         ),
         tableLinePaint,
       );
     }
   }
-  for (var index = 0; index < rows.length; index += 1) {
-    final row = rows[index];
+  for (final placement in placements) {
+    final row = placement.row;
     if (row.spacer) continue;
-    final rowStart = rowStops[index];
-    final rowEnd = rowStops[index + 1];
+    final rowStart = placement.rowStart;
+    final rowEnd = placement.rowEnd;
     if (rowEnd - rowStart <= 0.000001) continue;
     if (row.section) {
       _drawTableCellFill(
@@ -3619,8 +3779,8 @@ void _drawTableLayout(
         flatTablePoints,
         rowStart,
         rowEnd,
-        0,
-        1,
+        placement.columnStart,
+        placement.columnEnd,
         Paint()
           ..color = table.guideStyle.color.withValues(alpha: 0.10)
           ..style = PaintingStyle.fill,
@@ -3631,8 +3791,8 @@ void _drawTableLayout(
           flatTablePoints,
           rowStart: rowStart,
           rowEnd: rowEnd,
-          columnStart: 0,
-          columnEnd: 1,
+          columnStart: placement.columnStart,
+          columnEnd: placement.columnEnd,
           text: _tableGroupTitle(table, row, groupExpansion),
           maxLines: 1,
           textAlign: TextAlign.center,
@@ -3646,46 +3806,70 @@ void _drawTableLayout(
       }
       continue;
     }
-    for (
-      var columnIndex = 0;
-      columnIndex < table.tableColumnsConfig.length;
-      columnIndex += 1
-    ) {
-      final column = table.tableColumnsConfig.entries.elementAt(columnIndex);
+    final firstValueColumnIndex = columns.indexWhere(
+      (column) => column.key != 'key',
+    );
+    if (row.key != null && firstValueColumnIndex >= 0) {
+      final value = _formatTableValue(row.value);
+      final valueCellPath = _tableCellPath(
+        flatTablePoints,
+        rowStart,
+        rowEnd,
+        _tablePlacementColumn(placement, columnStops[firstValueColumnIndex]),
+        _tablePlacementColumn(
+          placement,
+          columnStops[firstValueColumnIndex + 1],
+        ),
+      ).transform(tableTransform);
+      for (final action in row.actions) {
+        if (action.copiesToClipboard) {
+          onAction(action, row.key!, value, valueCellPath);
+        }
+      }
+    }
+    for (var columnIndex = 0; columnIndex < columns.length; columnIndex += 1) {
+      final column = columns[columnIndex];
+      final columnStart = _tablePlacementColumn(
+        placement,
+        columnStops[columnIndex],
+      );
+      final columnEnd = _tablePlacementColumn(
+        placement,
+        columnStops[columnIndex + 1],
+      );
       final isKeyColumn = column.key == 'key';
-      final fieldLayout = isKeyColumn || row.key == null
+      final rowLayout = isKeyColumn || row.key == null
           ? null
           : table.layouts[row.key];
-      if (fieldLayout is NodeListLayout &&
-          fieldLayout.isVisible(layoutContext)) {
+      if (rowLayout is NodeListLayout && rowLayout.isVisible(layoutContext)) {
         final flatCellPoints = _tableCellPoints(
           flatTablePoints,
           rowStart,
           rowEnd,
-          columnStops[columnIndex],
-          columnStops[columnIndex + 1],
+          columnStart,
+          columnEnd,
         );
         _drawNodeListLayout(
           tableCanvas,
           flatCellPoints,
-          fieldLayout,
+          rowLayout,
           nodeListSources,
           layoutContext,
         );
         for (final entry in _nodeListEntries(
-          fieldLayout,
+          rowLayout,
           nodeListSources,
           flatCellPoints,
         )) {
           onNode(
             LayoutTapTarget(
               key: 'table/${row.groupId}/${row.key}/${entry.node.slug}',
-              layout: fieldLayout,
+              layout: rowLayout,
               node: entry.resolvedNode,
               resolvedNode: entry.resolvedNode,
               label: _nodePresentationLabel(
                 entry.node,
-                fieldLayout.layoutDefaults,
+                rowLayout.layoutDefaults,
               ),
             ),
             _polygonPath([
@@ -3707,8 +3891,8 @@ void _drawTableLayout(
             flatTablePoints,
             rowStart,
             rowEnd,
-            columnStops[columnIndex],
-            columnStops[columnIndex + 1],
+            columnStart,
+            columnEnd,
           ).getBounds(),
           fontSize: table.valueSize,
           layoutDefaults: table.layoutDefaults,
@@ -3730,11 +3914,11 @@ void _drawTableLayout(
         flatTablePoints,
         rowStart: rowStart,
         rowEnd: rowEnd,
-        columnStart: columnStops[columnIndex],
-        columnEnd: columnStops[columnIndex + 1],
+        columnStart: columnStart,
+        columnEnd: columnEnd,
         text: isKeyColumn
             ? row.label
-            : _formatTableFieldValue(row.key, row.value, table.layoutDefaults),
+            : _formatTableRowValue(row.key, row.value, table.layoutDefaults),
         maxLines: isKeyColumn ? 2 : 3,
         style: TextStyle(
           fontFamily: isNodeSlugValue ? null : SevilleTypography.fontFamily,
@@ -3757,8 +3941,7 @@ void _drawTableLayout(
   _drawTableGroupBorders(
     tableCanvas,
     flatTablePoints,
-    rows,
-    rowStops,
+    placements,
     table.groupBorderStyle ?? table.guideStyle,
   );
 
@@ -3774,28 +3957,24 @@ void _drawTableLayout(
 void _drawTableGroupBorders(
   Canvas canvas,
   List<Offset> points,
-  List<TableRow<GridAxisVariable>> rows,
-  List<double> rowStops,
+  List<_TableRowPlacement> placements,
   GuideStyle style,
 ) {
   var startIndex = 0;
-  while (startIndex < rows.length) {
-    if (rows[startIndex].spacer) {
-      startIndex += 1;
-      continue;
-    }
-    final groupId = rows[startIndex].groupId;
+  while (startIndex < placements.length) {
+    final groupId = placements[startIndex].row.groupId;
     var endIndex = startIndex + 1;
-    while (endIndex < rows.length &&
-        !rows[endIndex].spacer &&
-        rows[endIndex].groupId == groupId) {
+    while (endIndex < placements.length &&
+        placements[endIndex].row.groupId == groupId) {
       endIndex += 1;
     }
+    final first = placements[startIndex];
+    final last = placements[endIndex - 1];
     final corners = [
-      _tableLayoutPoint(points, row: rowStops[startIndex], column: 0),
-      _tableLayoutPoint(points, row: rowStops[startIndex], column: 1),
-      _tableLayoutPoint(points, row: rowStops[endIndex], column: 1),
-      _tableLayoutPoint(points, row: rowStops[endIndex], column: 0),
+      _tableLayoutPoint(points, row: first.rowStart, column: first.columnStart),
+      _tableLayoutPoint(points, row: first.rowStart, column: first.columnEnd),
+      _tableLayoutPoint(points, row: last.rowEnd, column: last.columnEnd),
+      _tableLayoutPoint(points, row: last.rowEnd, column: last.columnStart),
     ];
     for (var index = 0; index < corners.length; index += 1) {
       drawGuideLine(
@@ -3809,23 +3988,141 @@ void _drawTableGroupBorders(
   }
 }
 
-TableGroup? _tableGroup(TableLayout table, String groupId) {
-  for (final group in table.fieldBuilder?.groups ?? const <TableGroup>[]) {
-    if (group.id == groupId) return group;
-  }
-  return null;
+class _ResolvedTableRow<TSize> {
+  const _ResolvedTableRow({
+    this.key,
+    this.groupId,
+    required this.label,
+    required this.value,
+    required this.size,
+    this.section = false,
+    this.spacer = false,
+    this.actions = const [],
+  });
+
+  final String? key;
+  final String? groupId;
+  final String label;
+  final Object? value;
+  final TSize size;
+  final bool section;
+  final bool spacer;
+  final List<TableAction> actions;
 }
 
-List<TableRow<GridAxisVariable>> _tableRowsWithFoldProgress(
+List<_ResolvedTableRow<TSize>> _buildTableRows<TSize>(
+  TableDefinition<TSize> definition,
+  TableData data, {
+  required TSize Function(TSize rowSize) sectionSize,
+  required String Function(Object? value) formatValue,
+  bool Function(Object? value)? includeValue,
+}) {
+  final config = definition.tableConfig;
+  if (config == null) return const [];
+
+  final rows = _orderedTableEntries(config.rows, (row) => row.orderPosition);
+  final groups = _orderedTableEntries(
+    config.groups,
+    (group) => group.orderPosition,
+  );
+  final groupIds = groups.map((entry) => entry.key).toSet();
+
+  Iterable<_ResolvedTableRow<TSize>> rowsForGroup(
+    String groupId,
+    TableGroup<TSize> group,
+  ) sync* {
+    final owningRows = [
+      for (final row in rows)
+        if (groupIds.contains(row.value.groupId) &&
+            row.value.groupId == groupId)
+          row,
+    ];
+    final hasPopulatedRow = owningRows.any(
+      (row) => includeValue?.call(data[row.key]) ?? true,
+    );
+    if (!hasPopulatedRow) return;
+    final groupRows = [
+      for (final row in owningRows)
+        if (row.value.includeWhenEmpty ||
+            (includeValue?.call(data[row.key]) ?? true))
+          row,
+    ];
+    _sortTableRows(groupRows, group.ordering, data, formatValue);
+
+    final groupTitle = group.title?.trim();
+    if (groupTitle != null && groupTitle.isNotEmpty) {
+      yield _ResolvedTableRow(
+        groupId: groupId,
+        label: groupTitle,
+        value: null,
+        size: sectionSize(groupRows.first.value.size),
+        section: true,
+      );
+    }
+    for (final row in groupRows) {
+      yield _ResolvedTableRow(
+        key: row.key,
+        groupId: groupId,
+        label: row.value.label ?? row.key,
+        value: data[row.key],
+        size: row.value.size,
+        actions: row.value.actions,
+      );
+    }
+  }
+
+  return [for (final group in groups) ...rowsForGroup(group.key, group.value)];
+}
+
+void _sortTableRows<TSize>(
+  List<MapEntry<String, TableRow<TSize>>> rows,
+  TableRowOrdering ordering,
+  TableData data,
+  String Function(Object? value) formatValue,
+) {
+  switch (ordering) {
+    case TableRowOrdering.asConfigured:
+      return;
+    case TableRowOrdering.keyAlphabetical:
+      rows.sort((left, right) => left.key.compareTo(right.key));
+    case TableRowOrdering.valueAlphabetical:
+      rows.sort(
+        (left, right) =>
+            formatValue(data[left.key]).compareTo(formatValue(data[right.key])),
+      );
+  }
+}
+
+List<MapEntry<String, TValue>> _orderedTableEntries<TValue>(
+  Map<String, TValue> values,
+  int Function(TValue value) orderPosition,
+) {
+  final indexed = values.entries.indexed
+      .map((entry) => (index: entry.$1, entry: entry.$2))
+      .toList();
+  indexed.sort((left, right) {
+    final order = orderPosition(
+      left.entry.value,
+    ).compareTo(orderPosition(right.entry.value));
+    return order != 0 ? order : left.index.compareTo(right.index);
+  });
+  return [for (final item in indexed) item.entry];
+}
+
+TableGroup<GridAxisVariable>? _tableGroup(TableLayout table, String groupId) {
+  return table.tableConfig?.groups[groupId];
+}
+
+List<_ResolvedTableRow<GridAxisVariable>> _tableRowsWithFoldProgress(
   TableLayout table,
-  List<TableRow<GridAxisVariable>> rows,
+  List<_ResolvedTableRow<GridAxisVariable>> rows,
   double Function(String groupId) groupExpansion,
 ) => [
   for (final row in rows)
     if (row.section || row.spacer || row.groupId == null)
       row
     else
-      TableRow(
+      _ResolvedTableRow(
         key: row.key,
         groupId: row.groupId,
         label: row.label,
@@ -3838,6 +4135,7 @@ List<TableRow<GridAxisVariable>> _tableRowsWithFoldProgress(
         ),
         section: row.section,
         spacer: row.spacer,
+        actions: row.actions,
       ),
 ];
 
@@ -3858,7 +4156,7 @@ GridAxisVariable _scaledTableTrack(GridAxisVariable track, double factor) {
 
 String _tableGroupTitle(
   TableLayout table,
-  TableRow<GridAxisVariable> row,
+  _ResolvedTableRow<GridAxisVariable> row,
   double Function(String groupId) groupExpansion,
 ) {
   final groupId = row.groupId;
@@ -3869,13 +4167,13 @@ String _tableGroupTitle(
   return '$marker ${row.label}';
 }
 
-List<TableRow<GridAxisVariable>> _tableLayoutRows(
+List<_ResolvedTableRow<GridAxisVariable>> _tableLayoutRows(
   TableLayout table,
   TableData data,
 ) {
-  final configuredRows = table.fieldBuilder == null
-      ? const <TableRow<GridAxisVariable>>[]
-      : buildTableRows(
+  final configuredRows = table.tableConfig == null
+      ? const <_ResolvedTableRow<GridAxisVariable>>[]
+      : _buildTableRows(
           table,
           data,
           sectionSize: _tableSeparatorSize,
@@ -3883,13 +4181,14 @@ List<TableRow<GridAxisVariable>> _tableLayoutRows(
           includeValue: _tableValueIsPopulated,
         );
   if (!table.includeUnconfiguredFields) {
-    return _rowsWithGroupSpacing(configuredRows, table.groupGap);
+    return configuredRows;
   }
 
   final configuredKeys = {
-    for (final field
-        in table.fieldBuilder?.fields ?? const <TableField<GridAxisVariable>>[])
-      field.key,
+    for (final row
+        in table.tableConfig?.rows.entries ??
+            const <MapEntry<String, TableRow<GridAxisVariable>>>[])
+      row.key,
   };
   final unconfiguredEntries =
       data.values.entries
@@ -3902,7 +4201,7 @@ List<TableRow<GridAxisVariable>> _tableLayoutRows(
         ..sort((left, right) => left.key.compareTo(right.key));
   final unconfiguredRows = [
     for (final entry in unconfiguredEntries)
-      TableRow(
+      _ResolvedTableRow(
         key: entry.key,
         groupId: table.unconfiguredFieldGroupId,
         label: entry.key,
@@ -3912,50 +4211,124 @@ List<TableRow<GridAxisVariable>> _tableLayoutRows(
   ];
   final groupId = table.unconfiguredFieldGroupId;
   if (groupId == null) {
-    return _rowsWithGroupSpacing([
-      ...configuredRows,
-      ...unconfiguredRows,
-    ], table.groupGap);
+    return [...configuredRows, ...unconfiguredRows];
   }
   final groupKeys = {
-    for (final field
-        in table.fieldBuilder?.fields ?? const <TableField<GridAxisVariable>>[])
-      if (field.groupId == groupId) field.key,
+    for (final row
+        in table.tableConfig?.rows.entries ??
+            const <MapEntry<String, TableRow<GridAxisVariable>>>[])
+      if (row.value.groupId == groupId) row.key,
   };
   final lastGroupRow = configuredRows.lastIndexWhere(
     (row) => row.key != null && groupKeys.contains(row.key),
   );
   final insertionIndex = lastGroupRow < 0 ? 0 : lastGroupRow + 1;
-  return _rowsWithGroupSpacing([
+  return [
     ...configuredRows.take(insertionIndex),
     ...unconfiguredRows,
     ...configuredRows.skip(insertionIndex),
-  ], table.groupGap);
+  ];
 }
 
-List<TableRow<GridAxisVariable>> _rowsWithGroupSpacing(
-  List<TableRow<GridAxisVariable>> rows,
-  double groupGap,
+List<_TableRowPlacement> _tableRowPlacements(
+  TableLayout table,
+  List<_ResolvedTableRow<GridAxisVariable>> rows,
+  double availableWidth,
+  double availableHeight,
 ) {
-  if (rows.isEmpty || groupGap <= 0) return rows;
-  final spacedRows = <TableRow<GridAxisVariable>>[];
-  String? previousGroupId;
+  final groupRuns = <_TableGroupRun>[];
   for (final row in rows) {
-    if (spacedRows.isNotEmpty && row.groupId != previousGroupId) {
-      spacedRows.add(
-        TableRow(
-          label: '',
-          value: null,
-          size: GridAxisVariable(size: LayoutSize.px(groupGap)),
-          spacer: true,
-        ),
-      );
+    if (groupRuns.isEmpty || groupRuns.last.groupId != row.groupId) {
+      final group = row.groupId == null
+          ? null
+          : _tableGroup(table, row.groupId!);
+      groupRuns.add((
+        groupId: row.groupId,
+        rows: <_ResolvedTableRow<GridAxisVariable>>[row],
+        width: _tableGroupWidth(group, availableWidth),
+      ));
+    } else {
+      groupRuns.last.rows.add(row);
     }
-    spacedRows.add(row);
-    previousGroupId = row.groupId;
   }
-  return spacedRows;
+
+  final bands = <List<_TableGroupRun>>[];
+  var usedWidth = 0.0;
+  for (final group in groupRuns) {
+    if (bands.isEmpty ||
+        (bands.last.isNotEmpty && usedWidth + group.width > 1.000001)) {
+      bands.add([]);
+      usedWidth = 0;
+    }
+    bands.last.add(group);
+    usedWidth += group.width;
+  }
+
+  final bandTracks = <LayoutSize>[];
+  for (var index = 0; index < bands.length; index += 1) {
+    if (index > 0) bandTracks.add(LayoutSize.px(table.groupGap));
+    final demand = bands[index]
+        .map(
+          (group) => group.rows.fold<double>(
+            0,
+            (sum, row) => sum + math.max(row.size.size.value, 0),
+          ),
+        )
+        .fold<double>(0, math.max);
+    bandTracks.add(LayoutSize.fr(math.max(demand, 0.000001)));
+  }
+  final bandStops = _gridTrackStops(bandTracks, availableHeight);
+  final horizontalGap = availableWidth <= 0
+      ? 0.0
+      : (table.groupGap / availableWidth).clamp(0.0, 1.0);
+  final placements = <_TableRowPlacement>[];
+  var trackIndex = 0;
+  for (final band in bands) {
+    final bandStart = bandStops[trackIndex];
+    final bandEnd = bandStops[trackIndex + 1];
+    trackIndex += 2;
+    final usableWidth = math.max(
+      1 - horizontalGap * math.max(band.length - 1, 0),
+      0,
+    );
+    var columnStart = 0.0;
+    for (final group in band) {
+      final columnEnd = math
+          .min(columnStart + group.width * usableWidth, 1.0)
+          .toDouble();
+      final rowStops = _gridTrackStops([
+        for (final row in group.rows) row.size.size,
+      ], availableHeight * (bandEnd - bandStart));
+      for (var index = 0; index < group.rows.length; index += 1) {
+        placements.add((
+          row: group.rows[index],
+          rowStart: bandStart + rowStops[index] * (bandEnd - bandStart),
+          rowEnd: bandStart + rowStops[index + 1] * (bandEnd - bandStart),
+          columnStart: columnStart,
+          columnEnd: columnEnd,
+        ));
+      }
+      columnStart = columnEnd + horizontalGap;
+    }
+  }
+  return placements;
 }
+
+double _tableGroupWidth(
+  TableGroup<GridAxisVariable>? group,
+  double availableWidth,
+) {
+  final size = group?.size.size;
+  if (size == null) return 1;
+  final width = size.unit == LayoutSizeUnit.pixels
+      ? size.value / math.max(availableWidth, 1)
+      : _gridTrackFractionValue(size);
+  return width.clamp(0.000001, 1.0);
+}
+
+double _tablePlacementColumn(_TableRowPlacement placement, double column) =>
+    placement.columnStart +
+    (placement.columnEnd - placement.columnStart) * column;
 
 List<String> _classificationLabels(String? key, Object? value) {
   if (key != 'labels' &&
@@ -3988,31 +4361,6 @@ Offset _tableLayoutPoint(
   final visualLeft = firstSide.dx <= secondSide.dx ? firstSide : secondSide;
   final visualRight = firstSide.dx <= secondSide.dx ? secondSide : firstSide;
   return Offset.lerp(visualLeft, visualRight, column)!;
-}
-
-({int row, int column})? _tableHighlightedCell(
-  List<Offset> points,
-  List<double> rowStops,
-  List<double> columnStops,
-  Offset? hoverPosition,
-) {
-  if (hoverPosition == null) return null;
-
-  for (var row = 0; row < rowStops.length - 1; row += 1) {
-    for (var column = 0; column < columnStops.length - 1; column += 1) {
-      final path = _tableCellPath(
-        points,
-        rowStops[row],
-        rowStops[row + 1],
-        columnStops[column],
-        columnStops[column + 1],
-      );
-      if (path.contains(hoverPosition)) {
-        return (row: row, column: column);
-      }
-    }
-  }
-  return null;
 }
 
 void _drawTableCellFill(
@@ -4260,7 +4608,7 @@ String _formatTableValue(Object? value) {
 bool _isNodeSlugField(String? key) =>
     key == 'slug' || key == 'selected_node_slugs';
 
-String _formatTableFieldValue(
+String _formatTableRowValue(
   String? key,
   Object? value,
   LayoutDefaults? layoutDefaults,

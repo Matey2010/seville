@@ -1,0 +1,6 @@
+name: dart_tables
+description: Customizable renderer-independent table structure, grouping, ordering, and row resolution.
+version: 0.2.0
+
+environment:
+  sdk: ^3.12.0

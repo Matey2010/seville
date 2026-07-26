@@ -42,8 +42,8 @@ dependencies:
   overlay_layers: ^3.0.0
   seville_proto:
     path: ../../proto/gen/dart
-  table_data:
-    path: packages/table_data
+  dart_tables:
+    path: packages/dart_tables
 
 dev_dependencies:
   # The "flutter_lints" package below contains a set of recommended lints to

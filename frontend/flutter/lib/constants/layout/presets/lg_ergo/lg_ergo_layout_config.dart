@@ -5,6 +5,7 @@ import '../../../../models/graph_traverse_type.dart';
 import '../../../../models/landscape_xl_layout.dart';
 import '../../../../models/table_layout.dart';
 import '../../../../models/node_search.dart';
+import '../../../../models/search_layout.dart';
 import '../../../interface_colors.dart';
 import '../../../paths/default_vault_paths.dart';
 
@@ -237,14 +238,6 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                 ),
               },
             ),
-            'search-results': NodeListLayout(
-              dataSource: NodeListDataSource.searchResults,
-              style: lgErgoCortexNodeBorderStyle,
-              layoutDefaults: lgErgoNodeLayoutDefaults,
-              aliases: ['search-results', 'query-results', 'node-options'],
-              labelColor: lgErgoActionButtonLabelColor,
-              size: GridAxisVariable(size: LayoutSize.fr(1)),
-            ),
             'direction-pad': ColumnLayout(
               size: GridAxisVariable(size: LayoutSize.px(144)),
               aliases: [
@@ -444,115 +437,129 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
           guideStyle: lgErgoNodeInfoTableStyle,
           cellHighlight: TableCellHighlightConfig(
             rows: true,
-            columns: true,
+            // columns: true,
             color: lgErgoNodeInfoCellHighlightColor,
           ),
           includeUnconfiguredFields: true,
           unconfiguredFieldGroupId: 'last_selected_node',
           groupGap: lgErgoTableGroupGap,
           groupBorderStyle: lgErgoNodeInfoGroupStyle,
-          fieldBuilder: TableFieldBuilder(
-            groups: [
-              TableGroup(
-                id: 'last_selected_node',
+          tableConfig: TableConfig(
+            groups: {
+              'last_selected_node': TableGroup(
+                size: GridAxisVariable(size: LayoutSize.fr(1)),
+                orderPosition: 0,
                 title: 'Last Selected Node',
                 foldable: true,
               ),
-              TableGroup(
-                id: 'selected_nodes',
+              'updates': TableGroup(
+                size: GridAxisVariable(size: LayoutSize.fr(1)),
+                orderPosition: 2,
+                title: 'Updates',
+                foldable: true,
+              ),
+              'selected_nodes': TableGroup(
+                size: GridAxisVariable(size: LayoutSize.fr(0.5)),
+                orderPosition: 3,
                 title: 'Selected Nodes',
                 foldable: true,
               ),
-              TableGroup(id: 'updates', title: 'Updates', foldable: true),
-              TableGroup(id: 'system', title: 'System', foldable: true),
-            ],
-            fields: [
-              TableField(
-                key: 'slug',
+              'system': TableGroup(
+                size: GridAxisVariable(size: LayoutSize.fr(0.5)),
+                orderPosition: 4,
+                title: 'System',
+                foldable: true,
+                initiallyFolded: true,
+              ),
+            },
+            rows: {
+              'slug': TableRow(
+                orderPosition: 0,
                 label: 'Slug',
                 groupId: 'last_selected_node',
                 size: GridAxisVariable(size: LayoutSize.fr(1)),
+                actions: [TableAction.copyToClipboard()],
               ),
-              TableField(
-                key: 'labels',
+              'labels': TableRow(
+                orderPosition: 1,
                 label: 'Labels',
                 groupId: 'last_selected_node',
                 size: GridAxisVariable(size: LayoutSize.fr(1)),
               ),
-              TableField(
-                key: 'classification',
+              'classification': TableRow(
+                orderPosition: 2,
                 groupId: 'last_selected_node',
                 size: GridAxisVariable(size: LayoutSize.fr(1)),
               ),
-              TableField(
-                key: 'version',
+              'version': TableRow(
+                orderPosition: 3,
                 groupId: 'last_selected_node',
                 size: GridAxisVariable(size: LayoutSize.fr(0.5)),
               ),
-              TableField(
-                key: 'selected_node_slugs',
+              'selected_node_slugs': TableRow(
+                orderPosition: 0,
                 label: 'Slugs',
                 groupId: 'selected_nodes',
                 size: GridAxisVariable(size: LayoutSize.fr(1)),
               ),
-              TableField(
-                key: 'selected_node_labels',
+              'selected_node_labels': TableRow(
+                orderPosition: 1,
                 label: 'Labels',
                 groupId: 'selected_nodes',
                 size: GridAxisVariable(size: LayoutSize.fr(1)),
               ),
-              TableField(
-                key: 'added',
+              'added': TableRow(
+                orderPosition: 0,
                 label: 'Added',
                 groupId: 'updates',
                 includeWhenEmpty: true,
                 size: GridAxisVariable(size: LayoutSize.fr(1)),
               ),
-              TableField(
-                key: 'updated',
+              'updated': TableRow(
+                orderPosition: 1,
                 label: 'Updated',
                 groupId: 'updates',
                 includeWhenEmpty: true,
                 size: GridAxisVariable(size: LayoutSize.fr(1)),
               ),
-              TableField(
-                key: 'deleted',
+              'deleted': TableRow(
+                orderPosition: 2,
                 label: 'Deleted',
                 groupId: 'updates',
                 includeWhenEmpty: true,
                 size: GridAxisVariable(size: LayoutSize.fr(1)),
               ),
-              TableField(
-                key: 'node_count',
+              'node_count': TableRow(
+                orderPosition: 0,
                 label: 'Nodes',
                 groupId: 'system',
                 size: GridAxisVariable(size: LayoutSize.fr(1)),
               ),
-              TableField(
-                key: 'neo4j_labels',
+              'neo4j_labels': TableRow(
+                orderPosition: 1,
                 label: 'Trending Labels',
                 groupId: 'system',
                 size: GridAxisVariable(size: LayoutSize.fr(1)),
               ),
-              TableField(
-                key: 'node_property_count',
+              'node_property_count': TableRow(
+                orderPosition: 2,
                 label: 'Node properties',
                 groupId: 'system',
                 size: GridAxisVariable(size: LayoutSize.fr(1)),
               ),
-              TableField(
-                key: 'go_version',
+              'go_version': TableRow(
+                orderPosition: 3,
                 label: 'Go version',
                 groupId: 'system',
                 size: GridAxisVariable(size: LayoutSize.fr(1)),
               ),
-              TableField(
-                key: 'neo4j_version',
+              'neo4j_version': TableRow(
+                orderPosition: 4,
                 label: 'Neo4j version',
                 groupId: 'system',
                 size: GridAxisVariable(size: LayoutSize.fr(1)),
               ),
-            ],
+            },
           ),
           columns: [
             MapEntry('key', GridAxisVariable(size: LayoutSize.fr(1))),
@@ -733,6 +740,10 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
         'square-anchors': LayoutObservable(derivatives: {'A', 'B', 'C', 'D'}),
       },
       layouts: {
+        'search-layout': SearchLayout(
+          aliases: ['search-layout', 'search-overlay', 'search-hud'],
+          layoutDefaults: lgErgoNodeLayoutDefaults,
+        ),
         'top-plane': LayoutPath(
           aliases: ['top-plane', 'control-plane', 'north-plane'],
           points: [

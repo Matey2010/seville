@@ -170,6 +170,7 @@ class _LandscapeXlLayoutScreenState
         onLayoutTap: _handleLayoutTap,
         searchValue: searchValue,
         onSearchSubmitted: _submitSearch,
+        onSearchNodeSelected: _selectSearchNode,
         onCancel: _cancelInterface,
         onRefreshFanData: _refreshFanData,
         onCopySelectedNodeSlug: _copySelectedNodeSlug,
@@ -197,6 +198,10 @@ class _LandscapeXlLayoutScreenState
   }
 
   void _handleLayoutTap(LayoutTapTarget target) {
+    if (target.tableAction?.copiesToClipboard ?? false) {
+      _copyTextToClipboard(target.textValue ?? '');
+      return;
+    }
     if (target.layout.aliases.contains('selected-node-action') &&
         ref.read(selectedNodesProvider).isEmpty) {
       _showNoNodeSelected();
@@ -290,6 +295,13 @@ class _LandscapeXlLayoutScreenState
     CommonUtilities.log('[interface] submitted Search HUD query');
   }
 
+  void _selectSearchNode(ResolvedVaultNode node) {
+    final slug = node.node?.slug.trim() ?? '';
+    if (slug.isEmpty) return;
+    ref.read(selectedNodesProvider.notifier).toggle(node);
+    CommonUtilities.log('[search] selected Node: $slug');
+  }
+
   void _refreshFanData() {
     ref.invalidate(nodeTreeProvider);
     CommonUtilities.log('[interface] refreshed Fan data');
@@ -302,15 +314,24 @@ class _LandscapeXlLayoutScreenState
       _showNoNodeSelected();
       return;
     }
+    _copyTextToClipboard(slug);
+  }
+
+  void _copyTextToClipboard(String text) {
+    final normalizedText = text.trim();
+    if (normalizedText.isEmpty) {
+      CommonUtilities.log('[interface] no text to copy');
+      return;
+    }
     unawaited(
-      Clipboard.setData(ClipboardData(text: slug)).then(
+      Clipboard.setData(ClipboardData(text: normalizedText)).then(
         (_) {
-          CommonUtilities.log('[interface] copied Node slug: $slug');
+          CommonUtilities.log('[interface] copied text: $normalizedText');
           if (!mounted) return;
-          ref.read(toastProvider.notifier).showCopiedText(slug);
+          ref.read(toastProvider.notifier).showCopiedText(normalizedText);
         },
         onError: (Object error, StackTrace stackTrace) {
-          CommonUtilities.log('[interface] copy Node slug failed: $error');
+          CommonUtilities.log('[interface] copy text failed: $error');
         },
       ),
     );

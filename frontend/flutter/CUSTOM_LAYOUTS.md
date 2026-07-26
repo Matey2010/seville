@@ -397,9 +397,8 @@ fallback with `LayoutDefaults.nodeSlugPrefix` and `nodeSlugSuffix`. LG Ergo's
 Node defaults use `[[` and `]]`, producing `[[slug]]` without changing stored
 Node identity.
 `NodeListLayout` renders a dynamic Node collection as equal rows inside a
-row/column composition or a TableLayout value cell. The LG Ergo right plane
-configures one with `NodeListDataSource.searchResults` beneath its Node actions.
-The info table's Updates/Added field owns the virtual source, which reads the
+row/column composition or a TableLayout value cell. The info table's
+Updates/Added field owns the virtual source, which reads the
 `isVirtual` subset of Riverpod-selected Nodes, retains dashed borders, uses
 `LayoutDefaults.virtualNodeBackgroundOpacity` (50% by default), and keeps the
 normal Node tap/toggle target.
@@ -413,21 +412,33 @@ complete Node value; the second lists selected slugs followed by deduplicated
 labels; Updates owns Added, Updated, and Deleted rows; and the fourth contains
 system data. Added renders virtual Nodes through a nested `NodeListLayout`.
 Updated and Deleted remain empty placeholders whenever the Updates group is
-visible. An optional `TableGroup.title` creates a header only for a populated
-group.
+visible. Configure this structure through `TableLayout.tableConfig`. Its
+`TableConfig.groups` and `TableConfig.rows` maps use their keys as identity;
+each `TableGroup` and `TableRow` supplies `orderPosition` instead of repeating
+an ID or key inside the value. An optional `TableGroup.title` creates a header
+only for a populated group.
+`TableGroup.size` controls its share of the table width. Flame packs consecutive
+fractional groups into one horizontal band, so two `LayoutSize.fr(0.5)` groups
+form equal columns while `LayoutSize.fr(1)` keeps a full-width band.
+These renderer-independent configuration contracts are exported by the local
+`dart_tables` package. Flame owns Seville's row resolution, geometry, hit
+testing, rendering, and action execution.
 `TableLayout.groupGap` separates visible groups, and `groupBorderStyle` wraps
 each group independently. Empty groups produce no rows or decoration. A group
 with `foldable: true` uses its title as a Flame hit target and animates its
 content tracks open or closed over `TableLayout.groupFoldDuration`; the title
 and its group border remain visible while folded.
 
-The Flame Search HUD only submits text to Riverpod; it does not render those rows.
-Riverpod performs `QUERY /api/v1/node/search`, and the Flame layout paints the
-returned Nodes using the shared random/frontmatter color, selected-slug active
-opacity, and layout tap path. Search rows always show the wrapped slug, even
-when an Emoji exists, so each proposal exposes its Node identity. Tapping a row
-therefore toggles the same
-selected-node set used by Fan and Graph layouts.
+The Flame Search HUD submits text to Riverpod, which performs
+`QUERY /api/v1/node/search`, then renders the returned Nodes as Flame-native
+option components immediately beneath the input. Search options always show
+the wrapped slug, even when an Emoji exists, so each proposal exposes its Node
+identity. Arrow keys move the highlighted option; Enter or tapping an option
+toggles the same selected-node set used by Fan and Graph layouts.
+LG Ergo configures the HUD through `safe-area/search-layout`. `SearchLayout`
+fills that resolved safe-area frame and owns padding, input/result dimensions,
+maximum width, and the visible option limit; its high-priority Flame renderer
+stacks above normal scene and action-panel content.
 The LG Ergo right-plane green Add action appends a uniquely slugged virtual
 Node (`new-node`, `new-node-2`, and so on) to `selectedNodesProvider`. Virtual
 status is carried by `ResolvedVaultNode.isVirtual`; it is not written into the
@@ -438,7 +449,7 @@ Node with `New` and `Virtual` labels through `POST /api/v1/node/`. On success,
 `SelectedNodesNotifier.replaceVirtualNode` preserves the selected-list position
 but swaps in the canonical response, making the shared border solid. Plain
 Enter invokes this action outside the Search HUD; while the HUD is visible it
-consumes Enter to submit the query instead.
+consumes Enter to submit the query or select the highlighted Node instead.
 
 The right plane keeps Me, Copy, and Share in its second action row. Me resolves
 the exact Node slug configured by `SEVILLE_PLAYER_SLUG` and selects the returned

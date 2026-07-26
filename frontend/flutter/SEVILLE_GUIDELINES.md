@@ -543,6 +543,9 @@ components. `SearchHudComponent` is a high-priority Flame component owned by the
 game. It owns Search visibility, text input, and keyboard handling; its
 submitted query is stored in `interfaceOverlayStateProvider`. The corresponding
 action-plane button remains a Flame-rendered layout element.
+Its frame and sizing come from LG Ergo's `safe-area/search-layout`
+`SearchLayout`, which fills the resolved safe area and paints above ordinary
+scene/action-panel content.
 
 Toast producers write `ToastEvent` values to the durable queue in
 `toastProvider`; they never call an overlay API. `ToastOverlayPresenter` adapts
@@ -562,12 +565,12 @@ Command-C copies the last selected Node slug, and Escape clears selected Nodes
 and hides Search.
 
 Search HUD submission is shared by its action-plane button and keyboard Enter.
-The normalized value is stored in `interfaceOverlayStateProvider`, and `nodeSearchProvider`
-performs `QUERY /api/v1/node/search`. Results are rendered beneath the right-plane
-action buttons by the configured Flame `NodeListLayout`; they are not HUD
-children. Each result row paints active/inactive state from the same
-slug-based selected-node set and toggles that set through the ordinary layout
-tap path. LG Ergo configures `LayoutDefaults.nodeSlugPrefix` and
+The normalized value is stored in `interfaceOverlayStateProvider`, and
+`nodeSearchProvider` performs `QUERY /api/v1/node/search`. Results are
+Flame-native Node option components rendered directly beneath the HUD input.
+Arrow keys move the highlighted option; Enter or a tap selects it through the
+same slug-based selected-node state and selection-sound path. LG Ergo configures
+`LayoutDefaults.nodeSlugPrefix` and
 `nodeSlugSuffix` as `[[` and `]]`; Fan and Graph apply them only to their slug
 fallback, while search rows always expose the wrapped slug.
 
@@ -578,8 +581,10 @@ dashed draft borders, slug-based selection toggling, and selection audio. The
 opacity is owned by `LayoutDefaults.virtualNodeBackgroundOpacity`.
 
 The left info panel contains one `TableLayout`, never separate Node and System
-tables. It orders four groups: Last Selected Node, Selected Nodes, Updates, and
-System. The first contains the complete latest Node value, the second lists
+tables. Its `TableConfig` stores groups and fields in identity-keyed maps and
+uses each value's `orderPosition` for rendering order. It orders four groups:
+Last Selected Node, Selected Nodes, Updates, and System. The first contains the
+complete latest Node value, the second lists
 every selected slug above the deduplicated alphabetical label set, the third
 contains Added, Updated, and Deleted mutation rows, and the fourth retains
 system information. Added renders current virtual Nodes; Updated and Deleted
@@ -590,6 +595,11 @@ when nothing is selected. All four LG Ergo groups are foldable through their
 title rows. The Flame scene keeps their transient fold state and drives
 row-track expansion with `EffectController`; presentation-only folding does not
 enter Riverpod.
+
+The renderer-independent contracts come from the local `dart_tables` package.
+It owns table data, configuration, grouping, ordering, and row resolution while
+Seville retains Flame geometry and presentation. This customizable separation
+is intentional; do not restore the former `table_data` package identity.
 
 The `TableLayout` renders `Node.labels`, the selected-Node label set, and system
 `neo4j_labels` through `ClassificationLabelComponent`. Every classification
@@ -647,8 +657,8 @@ hides search, invalidates Node-search results, and closes the Graph scene.
 The top-row ✅ action beside the nuclear close action and plain Enter create the
 first virtual Node through the backend with Neo4j labels `New` and `Virtual`,
 then replace that exact Riverpod entry with the canonical response. If the
-Search HUD is visible, its Flame keyboard handler consumes Enter, hides the HUD,
-and submits Search instead of creating a Node.
+Search HUD is visible, its Flame keyboard handler consumes Enter to submit
+Search or select the highlighted result instead of creating a Node.
 
 Me, Copy, and Share occupy the second right-plane action row. Me reads the
 launcher-provided `SEVILLE_PLAYER_SLUG`, performs an exact-slug

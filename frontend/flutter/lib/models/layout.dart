@@ -1564,7 +1564,7 @@ class NodeListLayout extends Layout {
   final GuideStyle style;
 }
 
-enum NodeListDataSource { searchResults, virtualNodes }
+enum NodeListDataSource { virtualNodes }
 
 abstract class LayoutNodePointer {
   const LayoutNodePointer._();

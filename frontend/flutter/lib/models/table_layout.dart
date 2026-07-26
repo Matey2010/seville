@@ -1,18 +1,18 @@
 import 'dart:ui';
 
-import 'package:table_data/table_data.dart';
+import 'package:dart_tables/dart_tables.dart';
 
 import 'layout.dart';
 
-export 'package:table_data/table_data.dart'
+export 'package:dart_tables/dart_tables.dart'
     show
         TableData,
+        TableConfig,
         TableDefinition,
-        TableField,
-        TableFieldBuilder,
-        TableFieldOrdering,
+        TableAction,
         TableGroup,
-        TableRow;
+        TableRow,
+        TableRowOrdering;
 
 class TableLayout extends Layout
     with TableLayoutMixin
@@ -20,7 +20,7 @@ class TableLayout extends Layout
   const TableLayout({
     required this.columns,
     required this.guideStyle,
-    this.fieldBuilder,
+    this.tableConfig,
     this.includeUnconfiguredFields = false,
     this.unconfiguredFieldGroupId,
     this.unconfiguredFieldSize = const GridAxisVariable(size: LayoutSize.fr(1)),
@@ -48,7 +48,7 @@ class TableLayout extends Layout
   final List<MapEntry<String, GridAxisVariable>> columns;
   final GuideStyle guideStyle;
   @override
-  final TableFieldBuilder<GridAxisVariable>? fieldBuilder;
+  final TableConfig<GridAxisVariable>? tableConfig;
   final bool includeUnconfiguredFields;
   final String? unconfiguredFieldGroupId;
   final GridAxisVariable unconfiguredFieldSize;
@@ -64,9 +64,10 @@ class TableLayout extends Layout
 
   @override
   Map<String, GridAxisVariable> get tableRowsConfig => {
-    for (final field
-        in fieldBuilder?.fields ?? const <TableField<GridAxisVariable>>[])
-      field.key: field.size,
+    for (final row
+        in tableConfig?.rows.entries ??
+            const <MapEntry<String, TableRow<GridAxisVariable>>>[])
+      row.key: row.value.size,
   };
 
   @override

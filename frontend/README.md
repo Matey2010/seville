@@ -10,9 +10,9 @@ With the backend running, launch the client from the repository root:
 ./scripts/seville-interface
 ```
 
-The launcher targets the supported macOS application, reads `SEVILLE_BASE_URL`
-and `SEVILLE_TOKEN` from `.env`, and passes them to Flutter. Other Flutter
-targets are not currently implemented.
+The launcher targets the supported macOS application, reads `SEVILLE_BASE_URL`,
+`SEVILLE_TOKEN`, and `SEVILLE_PLAYER_SLUG` from `.env`, and passes them to
+Flutter. Other Flutter targets are not currently implemented.
 
 All current interface rendering and interaction belongs to Flame components.
 Flutter widgets are limited to application composition and the `GameWidget`
@@ -21,7 +21,9 @@ today; ordinary panels, controls, layouts, and graphs must not be implemented
 as Flutter widgets.
 
 Component-independent table structure and row-building logic lives in
-[`flutter/packages/table_data`](flutter/packages/table_data). Seville keeps
+[`flutter/packages/dart_tables`](flutter/packages/dart_tables). `dart_tables`
+provides a renderer-independent, more customizable alternative in the same
+problem space as `dart_tabulate`. Seville keeps
 layout sizing, Node/system adapters, canvas geometry, and component rendering
 in the application layer.
 
