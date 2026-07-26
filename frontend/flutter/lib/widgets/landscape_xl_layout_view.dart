@@ -2074,13 +2074,11 @@ void _drawGraphLayout(
       borderWidth,
       isVirtual: graphNode.resolvedNode.isVirtual,
     );
-    _paintNodeLabel(
+    _paintGraphNodeLabels(
       canvas,
-      _nodePresentation(graphNode.node, graph.layoutDefaults),
-      graphNode.circleBounds.center,
-      graphNode.circleBounds.width * 0.8,
-      graph.labelColor,
-      graph.labelSize,
+      graphNode.node,
+      graphNode.circleBounds,
+      graph,
     );
   }
   canvas.restore();
@@ -2401,28 +2399,85 @@ void _paintNodeLabel(
 ) {
   final label = presentation.text;
   if (label.isEmpty || maxWidth < fontSize * 2) return;
-  final textPainter = TextPainter(
-    text: TextSpan(
-      text: label,
-      style: TextStyle(
-        // Alegreya Sans SC deliberately displays lowercase as small caps.
-        // Node slugs are syntax, so keep their stored casing legible.
-        fontFamily: presentation.isSlug ? null : SevilleTypography.fontFamily,
-        color: presentation.colorOverride ?? color,
-        fontSize: fontSize,
-        fontWeight: presentation.isSlug ? FontWeight.w700 : FontWeight.w600,
-      ),
-    ),
-    maxLines: 1,
-    ellipsis: '…',
-    textDirection: TextDirection.ltr,
-    textAlign: TextAlign.center,
-  )..layout(maxWidth: maxWidth);
+  final textPainter = _nodeLabelTextPainter(
+    presentation,
+    maxWidth: maxWidth,
+    color: color,
+    fontSize: fontSize,
+  );
   textPainter.paint(
     canvas,
     center - Offset(textPainter.width / 2, textPainter.height / 2),
   );
 }
+
+void _paintGraphNodeLabels(
+  Canvas canvas,
+  Node node,
+  Rect nodeBounds,
+  GraphLayout graph,
+) {
+  final maxWidth = nodeBounds.width * 0.8;
+  if (maxWidth < graph.labelSize * 2) return;
+  final slugPainter = _nodeLabelTextPainter(
+    _nodePresentation(node, graph.layoutDefaults, forceSlug: true),
+    maxWidth: maxWidth,
+    color: graph.labelColor,
+    fontSize: graph.labelSize,
+  );
+  final emoji = node.primaryEmojiCharacter;
+  if (emoji == null) {
+    slugPainter.paint(
+      canvas,
+      nodeBounds.center - Offset(slugPainter.width / 2, slugPainter.height / 2),
+    );
+    return;
+  }
+
+  final emojiPainter = _nodeLabelTextPainter(
+    (text: emoji, isSlug: false, colorOverride: null),
+    maxWidth: maxWidth,
+    color: graph.labelColor,
+    fontSize: graph.labelSize * graph.emojiFontSizeFactor,
+  );
+  final gap = graph.labelSize * graph.emojiSlugGapFactor;
+  final contentHeight = emojiPainter.height + gap + slugPainter.height;
+  final top = nodeBounds.center.dy - contentHeight / 2;
+  emojiPainter.paint(
+    canvas,
+    Offset(nodeBounds.center.dx - emojiPainter.width / 2, top),
+  );
+  slugPainter.paint(
+    canvas,
+    Offset(
+      nodeBounds.center.dx - slugPainter.width / 2,
+      top + emojiPainter.height + gap,
+    ),
+  );
+}
+
+TextPainter _nodeLabelTextPainter(
+  _NodePresentation presentation, {
+  required double maxWidth,
+  required Color color,
+  required double fontSize,
+}) => TextPainter(
+  text: TextSpan(
+    text: presentation.text,
+    style: TextStyle(
+      // Alegreya Sans SC deliberately displays lowercase as small caps.
+      // Node slugs are syntax, so keep their stored casing legible.
+      fontFamily: presentation.isSlug ? null : SevilleTypography.fontFamily,
+      color: presentation.colorOverride ?? color,
+      fontSize: fontSize,
+      fontWeight: presentation.isSlug ? FontWeight.w700 : FontWeight.w600,
+    ),
+  ),
+  maxLines: 1,
+  ellipsis: '…',
+  textDirection: TextDirection.ltr,
+  textAlign: TextAlign.center,
+)..layout(maxWidth: maxWidth);
 
 List<_FanSegment> _fanSegments(
   FanLayout fan,

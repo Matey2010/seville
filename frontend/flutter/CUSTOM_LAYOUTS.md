@@ -440,8 +440,10 @@ but swaps in the canonical response, making the shared border solid. Plain
 Enter invokes this action outside the Search HUD; while the HUD is visible it
 consumes Enter to submit the query instead.
 
-The right plane keeps Copy and Share in its second action row. Its bottom is a
-three-by-three `direction-pad` whose equal cells represent top-left, top-center,
+The right plane keeps Me, Copy, and Share in its second action row. Me resolves
+the exact Node slug configured by `SEVILLE_PLAYER_SLUG` and selects the returned
+canonical Node; it does not create missing data. Its bottom is a three-by-three
+`direction-pad` whose equal cells represent top-left, top-center,
 top-right, center-left, center, center-right, bottom-left, bottom-center, and
 bottom-right. These controls expose stable `direction-*` aliases but remain
 declarative interaction placeholders for now.

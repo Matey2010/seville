@@ -393,7 +393,10 @@ Selected Nodes have an explicit center configuration at
 Its transparent `LayoutPath` follows the wrapped scene square. Its `GraphLayout`
 renders the complete Riverpod-selected Node pool in equal centered cells, with
 each circular Node occupying half of its cell by default. More selected Nodes
-therefore produce smaller circles. It is visible only when
+therefore produce smaller circles. Every circle shows its wrapped slug; an
+assigned Emoji appears above it at twice the configured base Node font size,
+with a half-font-size vertical gap. LG Ergo's Fan and Graph renderers share
+`lgErgoNodeFontSize` as that typography source. It is visible only when
 `LayoutCondition.not(LayoutCondition.noSelectedNode())` is active and does not
 request a `NodeTree`; connections and graph-distance placement remain future
 extensions.
@@ -647,8 +650,11 @@ then replace that exact Riverpod entry with the canonical response. If the
 Search HUD is visible, its Flame keyboard handler consumes Enter, hides the HUD,
 and submits Search instead of creating a Node.
 
-Copy and Share occupy the second right-plane action row. Direction controls
-occupy the bottom as a three-by-three grid of equal cells, ordered from
+Me, Copy, and Share occupy the second right-plane action row. Me reads the
+launcher-provided `SEVILLE_PLAYER_SLUG`, performs an exact-slug
+`QUERY /api/v1/node/search`, and selects the canonical result through the shared
+Riverpod selected-Node set. An empty result does not create a virtual player.
+Direction controls occupy the bottom as a three-by-three grid of equal cells, ordered from
 top-left through bottom-right with center included. Their `direction-*` aliases
 are configuration-level interaction vocabulary; concrete movement behavior is
 not implied by their rendering.
@@ -658,3 +664,8 @@ The right-plane Today action performs an exact-slug Node query for the local
 `selectedNodesProvider`. Only a successful empty result creates a dashed
 virtual Node with `Calendar`, `Date`, and `Day` labels; a failed query must not
 create a draft that could duplicate unavailable canonical data.
+
+`SEVILLE_PLAYER_SLUG` is the local player Node identity used before
+authentication provides one. Configure it in the ignored `.env`; the macOS
+`scripts/seville-interface` launcher exports it and supplies the corresponding
+Dart define to Flutter. It is identity configuration, not an API secret.

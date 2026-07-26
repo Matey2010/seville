@@ -7,6 +7,7 @@ import 'package:seville_proto/seville_proto.dart';
 
 import '../components/layout_component_registry.dart';
 import '../constants/layout/presets/lg_ergo/lg_ergo_layout_config.dart';
+import '../data/runtime_config.dart';
 import '../models/landscape_xl_layout.dart';
 import '../models/layout.dart';
 import '../state/node_store.dart';
@@ -36,6 +37,7 @@ class _LandscapeXlLayoutScreenState
   bool _isAddingVirtualNode = false;
   bool _isCreatingVirtualNode = false;
   bool _isResolvingTodayNode = false;
+  bool _isResolvingPlayerNode = false;
   final ToastOverlayPresenter _toastPresenter = ToastOverlayPresenter();
   late final ProviderSubscription<List<ToastEvent>> _toastSubscription;
 
@@ -214,6 +216,10 @@ class _LandscapeXlLayoutScreenState
     }
     if (target.layout.aliases.contains('resolve-today-node')) {
       unawaited(_resolveTodayNode());
+      return;
+    }
+    if (target.layout.aliases.contains('resolve-player-node')) {
+      unawaited(_resolvePlayerNode());
       return;
     }
     if (target.layout.aliases.contains('create-first-virtual-node')) {
@@ -461,6 +467,66 @@ class _LandscapeXlLayoutScreenState
           );
     } finally {
       _isResolvingTodayNode = false;
+    }
+  }
+
+  Future<void> _resolvePlayerNode() async {
+    if (_isResolvingPlayerNode) return;
+    final slug = sevillePlayerSlug().trim();
+    if (slug.isEmpty) {
+      CommonUtilities.log('[interface] SEVILLE_PLAYER_SLUG is not configured');
+      ref
+          .read(toastProvider.notifier)
+          .show(
+            'Player Node is not configured',
+            type: NotificationType.NOTIFICATION_TYPE_ERROR,
+          );
+      return;
+    }
+
+    _isResolvingPlayerNode = true;
+    try {
+      ref.invalidate(nodeBySlugProvider(slug));
+      final node = await ref.read(nodeBySlugProvider(slug).future);
+      if (!mounted) return;
+      if (node == null) {
+        CommonUtilities.log('[interface] player Node not found: $slug');
+        ref
+            .read(toastProvider.notifier)
+            .show(
+              'Player Node not found: [[$slug]]',
+              type: NotificationType.NOTIFICATION_TYPE_WARNING,
+            );
+        return;
+      }
+
+      ref
+          .read(selectedNodesProvider.notifier)
+          .select(
+            ResolvedVaultNode(
+              path: node.path.trim().isEmpty ? node.slug : node.path,
+              node: node,
+              resolvedStatus: LayoutHttpStatus.ok,
+            ),
+          );
+      ref
+          .read(toastProvider.notifier)
+          .show(
+            'Selected: [[$slug]]',
+            type: NotificationType.NOTIFICATION_TYPE_INFO,
+          );
+      CommonUtilities.log('[interface] selected player Node: $slug');
+    } catch (error) {
+      CommonUtilities.log('[interface] player Node query failed: $error');
+      if (!mounted) return;
+      ref
+          .read(toastProvider.notifier)
+          .show(
+            'Player Node lookup failed',
+            type: NotificationType.NOTIFICATION_TYPE_ERROR,
+          );
+    } finally {
+      _isResolvingPlayerNode = false;
     }
   }
 

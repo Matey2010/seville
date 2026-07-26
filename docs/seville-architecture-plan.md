@@ -229,6 +229,10 @@ Two current secrets have separate jobs:
   encrypt or decrypt passwords.
 - `SEVILLE_NEO4J_PASSWORD` authenticates Go to Neo4j.
 
+`SEVILLE_PLAYER_SLUG` is not a secret. It identifies the default local player
+Node until authentication supplies user identity. The Flutter Me action queries
+that exact slug through the Go API and selects the returned canonical Node.
+
 Real values live only in the ignored `.env` for local development. Compose
 contains variable wiring, not secrets. Local Neo4j ports bind to loopback.
 

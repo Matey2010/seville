@@ -1520,6 +1520,8 @@ class GraphLayout extends Layout {
     this.nodeExtentFactor = 0.5,
     this.labelColor = const Color(0xFFFFF8E7),
     this.labelSize = 12,
+    this.emojiFontSizeFactor = 2,
+    this.emojiSlugGapFactor = 0.5,
     super.aliases,
     super.attributes = const [LayoutAttribute.circular],
     super.backgrounds,
@@ -1527,12 +1529,17 @@ class GraphLayout extends Layout {
     super.visibility,
     super.inputSources,
   }) : assert(nodeExtentFactor > 0 && nodeExtentFactor <= 1),
+       assert(labelSize > 0),
+       assert(emojiFontSizeFactor > 0),
+       assert(emojiSlugGapFactor >= 0),
        super.fromAxes();
 
   /// Diameter of a rendered Node relative to its equal-sized pool cell.
   final double nodeExtentFactor;
   final Color labelColor;
   final double labelSize;
+  final double emojiFontSizeFactor;
+  final double emojiSlugGapFactor;
   final GuideStyle style;
 }
 

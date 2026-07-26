@@ -195,6 +195,19 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               size: GridAxisVariable(size: LayoutSize.px(48)),
               aliases: ['node-actions', 'node-actions-row'],
               layouts: {
+                'me': PanelLayout(
+                  size: GridAxisVariable(size: LayoutSize.fr(1)),
+                  aliases: [
+                    'action-button',
+                    'player-action',
+                    'resolve-player-node',
+                  ],
+                  fillColor: lgErgoActionButtonColor,
+                  borderStyle: lgErgoActionButtonBorderStyle,
+                  label: 'Me',
+                  labelColor: lgErgoActionButtonLabelColor,
+                  labelSize: 12,
+                ),
                 'copy': PanelLayout(
                   size: GridAxisVariable(size: LayoutSize.fr(1)),
                   aliases: [
@@ -757,7 +770,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               sectionSizing: FanSectionSizing.directPartsWeighted,
               label: 'cortex',
               labelColor: lgErgoCortexNodeLabelColor,
-              labelSize: 10,
+              labelSize: lgErgoNodeFontSize,
               gridStyle: lgErgoFanGridStyle,
               position: LayoutRelativePosition.top,
             ),
@@ -805,7 +818,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               sectionSizing: FanSectionSizing.equal,
               label: 'space-time',
               labelColor: lgErgoCortexNodeLabelColor,
-              labelSize: 10,
+              labelSize: lgErgoNodeFontSize,
               gridStyle: lgErgoFanGridStyle,
               position: LayoutRelativePosition.bottom,
             ),
@@ -888,7 +901,9 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                       layoutDefaults: lgErgoNodeLayoutDefaults,
                       nodeExtentFactor: 0.5,
                       labelColor: lgErgoCortexNodeLabelColor,
-                      labelSize: 10,
+                      labelSize: lgErgoNodeFontSize,
+                      emojiFontSizeFactor: lgErgoSceneNodeEmojiFontSizeFactor,
+                      emojiSlugGapFactor: lgErgoSceneNodeEmojiSlugGapFactor,
                       visibility: [
                         LayoutCondition.not(LayoutCondition.noSelectedNode()),
                       ],
@@ -1010,6 +1025,9 @@ const lgErgoCortexBushNodeFilter = NodeSearchFilter.anyOf([
 const lgErgoLayoutDefaultPadding = 20.0;
 const lgErgoLayoutDefaultGap = 20.0;
 const lgErgoLayoutDefaultBorderWidth = 1.2;
+const lgErgoNodeFontSize = 10.0;
+const lgErgoSceneNodeEmojiFontSizeFactor = 2.0;
+const lgErgoSceneNodeEmojiSlugGapFactor = 0.5;
 const lgErgoTableGroupGap = 12.0;
 const lgErgoLayoutDefaults = LayoutDefaults(
   padding: lgErgoLayoutDefaultPadding,

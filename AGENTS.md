@@ -151,7 +151,12 @@
   It renders every Riverpod-selected Node through one Flame component. Arrange
   Nodes in equal centered cells, render each Node as a circle whose diameter is
   `nodeExtentFactor` of its cell, and shrink the cells as the selected set
-  grows. Paint and hit-test from the same resolved circle geometry. Graph
+  grows. Scene Nodes always render their wrapped slug. When an Emoji exists,
+  render it above the slug at `emojiFontSizeFactor` times `labelSize`, separated
+  by `emojiSlugGapFactor` times `labelSize`; without an Emoji, center the slug.
+  LG Ergo uses one `lgErgoNodeFontSize` for Fan and Graph Node typography, a
+  `2.0` Emoji factor, and a `0.5` gap factor. Paint and hit-test from the same
+  resolved circle geometry. Graph
   connections, distance, labels between Nodes, and alternate interaction modes
   remain future extensions; do not request a `NodeTree` for this layout.
   A frontend-only draft is a normal selected `ResolvedVaultNode` with
@@ -164,7 +169,10 @@
   `Virtual`, then atomically replaces that draft at the same selected-node
   index with the canonical Node returned by the backend.
   The right-plane top action row places the confirm action immediately beside
-  the nuclear close action. Copy and share remain in the second action row.
+  the nuclear close action. Me, Copy, and Share remain in the second action
+  row. Me reads `SEVILLE_PLAYER_SLUG`, performs the existing exact-slug Node
+  query, and selects a returned canonical Node through
+  `selectedNodesProvider`; it never creates a virtual fallback.
   Direction controls belong to the bottom `direction-pad`: three equal rows
   and three equal columns represent top-left through bottom-right, including
   center. Keep their stable `direction-*` aliases in layout configuration;
