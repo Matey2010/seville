@@ -277,7 +277,16 @@
   and disposed by `LandscapeXlLayoutGame`; do not put audio players in Riverpod
   notifiers or Node data. Node activation plays
   `assets/audio/technology-select.wav` only when the tapped Node changes from
-  inactive to selected, not when it is deselected.
+  inactive to selected, not when it is deselected. Cursor entry into a rendered
+  Node plays pooled `assets/audio/stone-scrap.wav`; deduplicate by rendered Node
+  hit identity so pointer movement within the same geometry remains silent.
+  The same exact hit geometry feeds `_NodeHoverBorderComponent`, which paints
+  the additional border configured by `LayoutDefaults.nodeHoverBorderStyle`
+  above ordinary layout content and below explicit HUDs.
+- The macOS game cursor hides the native pointer through Flame's
+  `Game.mouseCursor` hook and paints `_GameCursorComponent` at the Flame pointer
+  position. Keep its position, animation, and lifecycle inside the game; do not
+  add a cursor plugin or cursor-following Flutter overlay.
 - Alegreya Sans SC is the shared interface font. Keep its OFL-licensed files in
   `frontend/flutter/assets/fonts/alegreya_sans_sc/`, register weights in
   `pubspec.yaml`, and preload them through `SevilleTypography.ensureLoaded()`

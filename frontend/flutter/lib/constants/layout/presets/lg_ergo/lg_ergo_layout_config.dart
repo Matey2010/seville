@@ -1034,6 +1034,7 @@ const lgErgoClassificationLabelHoleColor = Color(0xFF27251F);
 const lgErgoClassificationLabelTextColor = Color(0xFFF5F7FF);
 const lgErgoNodeLayoutDefaults = LayoutDefaults(
   borderWidth: lgErgoNodeBorderWidth,
+  nodeHoverBorderStyle: lgErgoHoveredNodeBorderStyle,
   nodeSlugPrefix: '[[',
   nodeSlugSuffix: ']]',
   classificationLabelColors: lgErgoClassificationLabelColors,
@@ -1127,7 +1128,7 @@ const lgErgoCortexNodeBorderStyle = GuideStyle(
   pattern: GuideLinePattern.solid,
 );
 
-const lgErgoHighlightedNodeBorderStyle = GuideStyle(
+const lgErgoHoveredNodeBorderStyle = GuideStyle(
   color: Color(0xFF2196F3),
   strokeWidth: 4,
   pattern: GuideLinePattern.solid,

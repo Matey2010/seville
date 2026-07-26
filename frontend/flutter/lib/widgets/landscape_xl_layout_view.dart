@@ -201,6 +201,11 @@ class LandscapeXlLayoutGame extends FlameGame
   EdgeInsets safePadding = EdgeInsets.zero;
   final SearchHudComponent _searchHud;
   AudioPool? _nodeSelectionAudioPool;
+  AudioPool? _nodeHoverAudioPool;
+  String? _hoveredNodeKey;
+  final _GameCursorComponent _gameCursor = _GameCursorComponent();
+  final _NodeHoverBorderComponent _nodeHoverBorder =
+      _NodeHoverBorderComponent();
 
   LayoutContext get layoutContext =>
       _layoutContext(highlightedNodes, selectedNodes);
@@ -210,8 +215,13 @@ class LandscapeXlLayoutGame extends FlameGame
 
   @override
   Future<void> onLoad() async {
+    mouseCursor = SystemMouseCursors.none;
     _nodeSelectionAudioPool = await FlameAudio.createPool(
       'technology-select.wav',
+      maxPlayers: 4,
+    );
+    _nodeHoverAudioPool = await FlameAudio.createPool(
+      'stone-scrap.wav',
       maxPlayers: 4,
     );
     images.prefix = '';
@@ -247,6 +257,8 @@ class LandscapeXlLayoutGame extends FlameGame
       );
     }
     add(_searchHud..priority = 1000);
+    add(_nodeHoverBorder..priority = 900);
+    add(_gameCursor..priority = 2000);
   }
 
   void dispatchLayoutTap(LayoutTapTarget target) {
@@ -261,11 +273,29 @@ class LandscapeXlLayoutGame extends FlameGame
     onLayoutTap?.call(target);
   }
 
+  void updateHoveredNode(String? nodeKey, {Path? path, GuideStyle? style}) {
+    _nodeHoverBorder.updateTarget(path, style);
+    if (nodeKey == _hoveredNodeKey) return;
+    _hoveredNodeKey = nodeKey;
+    final audioPool = _nodeHoverAudioPool;
+    if (nodeKey != null && audioPool != null) {
+      unawaited(audioPool.start(volume: 0.3));
+    }
+  }
+
+  void updateCursorPosition(Offset? position) =>
+      _gameCursor.updatePointer(position);
+
   @override
   void onRemove() {
     final audioPool = _nodeSelectionAudioPool;
+    final hoverAudioPool = _nodeHoverAudioPool;
     _nodeSelectionAudioPool = null;
+    _nodeHoverAudioPool = null;
+    _hoveredNodeKey = null;
+    mouseCursor = MouseCursor.defer;
     if (audioPool != null) unawaited(audioPool.dispose());
+    if (hoverAudioPool != null) unawaited(hoverAudioPool.dispose());
     super.onRemove();
   }
 
@@ -316,6 +346,98 @@ class LandscapeXlLayoutGame extends FlameGame
       ..onRefreshFanData = onRefreshFanData
       ..onCopySelectedNodeSlug = onCopySelectedNodeSlug
       ..onSubmit = onSubmit;
+  }
+}
+
+class _GameCursorComponent extends PositionComponent {
+  _GameCursorComponent() : super(size: Vector2.all(34), anchor: Anchor.center);
+
+  bool _pointerVisible = false;
+
+  void updatePointer(Offset? pointer) {
+    _pointerVisible = pointer != null;
+    if (pointer != null) position.setValues(pointer.dx, pointer.dy);
+  }
+
+  @override
+  void update(double dt) {
+    if (_pointerVisible) angle += dt * 0.42;
+    super.update(dt);
+  }
+
+  @override
+  void render(Canvas canvas) {
+    if (!_pointerVisible) return;
+    final center = Offset(size.x / 2, size.y / 2);
+    const gold = Color(0xFFF2C94C);
+    const cyan = Color(0xFF2FA8FF);
+    final glowPaint = Paint()
+      ..color = cyan.withValues(alpha: 0.72)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.4
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+    final goldPaint = Paint()
+      ..color = gold
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6
+      ..strokeCap = StrokeCap.round;
+    final cyanPaint = Paint()
+      ..color = cyan
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.1;
+
+    canvas.drawCircle(center, 11, glowPaint);
+    canvas.drawCircle(center, 6.5, cyanPaint);
+    final outerBounds = Rect.fromCircle(center: center, radius: 12);
+    for (var quadrant = 0; quadrant < 4; quadrant += 1) {
+      canvas.drawArc(
+        outerBounds,
+        quadrant * math.pi / 2 + 0.16,
+        math.pi / 2 - 0.32,
+        false,
+        goldPaint,
+      );
+    }
+    for (final direction in const [
+      Offset(0, -1),
+      Offset(1, 0),
+      Offset(0, 1),
+      Offset(-1, 0),
+    ]) {
+      canvas.drawLine(
+        center + direction * 8.5,
+        center + direction * 15,
+        goldPaint,
+      );
+    }
+    canvas.drawCircle(center, 1.8, Paint()..color = gold);
+  }
+}
+
+class _NodeHoverBorderComponent extends PositionComponent {
+  Path? _path;
+  GuideStyle? _style;
+
+  void updateTarget(Path? path, GuideStyle? style) {
+    _path = path;
+    _style = style;
+  }
+
+  @override
+  void render(Canvas canvas) {
+    final path = _path;
+    final style = _style;
+    if (path == null || style == null) return;
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = style.color.withValues(alpha: 0.44)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = style.strokeWidth + 5
+        ..strokeCap = style.strokeCap
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+    );
+    _drawNodeBorder(canvas, path, style, style.strokeWidth, isVirtual: false);
   }
 }
 
@@ -864,6 +986,7 @@ LayoutColor _nodeColor(Node node) {
 }
 
 typedef _ResolvedLayout = ({Layout layout, Rect bounds});
+typedef _HoveredNodeTarget = ({String key, Path path, GuideStyle style});
 
 class _LandscapeXlSceneComponent extends PositionComponent
     with
@@ -1038,13 +1161,128 @@ class _LandscapeXlSceneComponent extends PositionComponent
   @override
   void onPointerMove(flame_events.PointerMoveEvent event) {
     hoverPosition = Offset(event.localPosition.x, event.localPosition.y);
+    game.updateCursorPosition(hoverPosition);
+    final hoveredNode = _hoveredNodeAt(hoverPosition!);
+    game.updateHoveredNode(
+      hoveredNode?.key,
+      path: hoveredNode?.path,
+      style: hoveredNode?.style,
+    );
     super.onPointerMove(event);
   }
 
   @override
   void onPointerMoveStop(flame_events.PointerMoveEvent event) {
     hoverPosition = null;
+    game.updateCursorPosition(null);
+    game.updateHoveredNode(null);
     super.onPointerMoveStop(event);
+  }
+
+  _HoveredNodeTarget? _hoveredNodeAt(Offset position) {
+    for (final nodeHit in _tableNodeHits.reversed) {
+      if (!nodeHit.path.contains(position)) continue;
+      return (
+        key: nodeHit.target.key,
+        path: nodeHit.path,
+        style:
+            nodeHit.target.layout.layoutDefaults?.nodeHoverBorderStyle ??
+            const LayoutDefaults().nodeHoverBorderStyle,
+      );
+    }
+
+    final layoutContext = game.layoutContext;
+    final resolvedLayouts = _resolveLayouts(
+      game.layout,
+      Size(size.x, size.y),
+      game.safePadding,
+      layoutContext,
+    );
+    for (final placement in _pathLayoutPlacements<FanLayout>(
+      game.layout,
+    ).toList().reversed) {
+      if (!placement.hierarchy.every(
+        (layout) => layout.isVisible(layoutContext),
+      )) {
+        continue;
+      }
+      final tree = game.nodeTrees[placement.layout];
+      if (tree == null) continue;
+      final planePoints = _resolvedLayoutPathPoints(
+        placement.plane,
+        resolvedLayouts,
+        layoutContext,
+      );
+      if (planePoints == null) continue;
+      final segments = _fanSegments(
+        placement.layout,
+        tree,
+        _boundsForPoints(planePoints),
+        resolvedLayouts,
+        layoutContext,
+        planePoints: planePoints,
+      );
+      for (final segment in segments.reversed) {
+        if (!segment.path.contains(position)) continue;
+        return (
+          key: '${placement.key}/${segment.occurrence.occurrenceId}',
+          path: segment.path,
+          style:
+              placement.layout.layoutDefaults?.nodeHoverBorderStyle ??
+              const LayoutDefaults().nodeHoverBorderStyle,
+        );
+      }
+    }
+    for (final placement in _pathLayoutPlacements<GraphLayout>(
+      game.layout,
+    ).toList().reversed) {
+      if (!placement.hierarchy.every(
+        (layout) => layout.isVisible(layoutContext),
+      )) {
+        continue;
+      }
+      final planePoints = _resolvedLayoutPathPoints(
+        placement.plane,
+        resolvedLayouts,
+        layoutContext,
+      );
+      if (planePoints == null) continue;
+      final graphNode = _hitTestGraph(
+        placement.layout,
+        game.selectedNodes,
+        position,
+        planePoints: planePoints,
+      );
+      if (graphNode != null) {
+        return (
+          key: '${placement.key}/${graphNode.node.slug}',
+          path: Path()..addOval(graphNode.circleBounds),
+          style:
+              placement.layout.layoutDefaults?.nodeHoverBorderStyle ??
+              const LayoutDefaults().nodeHoverBorderStyle,
+        );
+      }
+    }
+
+    final hit = _hitTestLayoutTap(
+      game.layout,
+      Size(size.x, size.y),
+      game.safePadding,
+      position,
+      game.vaultNodeResolver,
+      game.queryNodes,
+      game.highlightedNodes,
+      game.selectedNodes,
+    );
+    final nodePath = hit?.nodePath;
+    if (hit?.target.resolvedNode?.node == null || nodePath == null) return null;
+    return (
+      key: hit!.target.key,
+      path: nodePath,
+      style:
+          hit.target.layout.layoutDefaults?.nodeHoverBorderStyle ??
+          const LayoutDefaults().nodeHoverBorderStyle,
+    );
   }
 
   @override
@@ -2618,7 +2856,29 @@ double? _rayPolygonBoundaryDistance(
 double _cross2d(Offset left, Offset right) =>
     left.dx * right.dy - left.dy * right.dx;
 
+typedef _LayoutTapHit = ({LayoutTapTarget target, Path? nodePath});
+
 LayoutTapTarget? _hitTestLayoutTapTarget(
+  LandscapeXlLayout root,
+  Size size,
+  EdgeInsets safePadding,
+  Offset position,
+  VaultNodeResolver? vaultNodeResolver,
+  List<ResolvedVaultNode> queryNodes,
+  List<ResolvedVaultNode> highlightedNodes,
+  List<ResolvedVaultNode> selectedNodes,
+) => _hitTestLayoutTap(
+  root,
+  size,
+  safePadding,
+  position,
+  vaultNodeResolver,
+  queryNodes,
+  highlightedNodes,
+  selectedNodes,
+)?.target;
+
+_LayoutTapHit? _hitTestLayoutTap(
   LandscapeXlLayout root,
   Size size,
   EdgeInsets safePadding,
@@ -2657,7 +2917,7 @@ LayoutTapTarget? _hitTestLayoutTapTarget(
             if (composition is! ColumnLayout && composition is! RowLayout) {
               continue;
             }
-            final target = _hitTestFlexComposition(
+            final hit = _hitTestFlexComposition(
               composition,
               compositionPoints,
               position,
@@ -2665,7 +2925,7 @@ LayoutTapTarget? _hitTestLayoutTapTarget(
               layoutContext,
               nodeListSources,
             );
-            if (target != null) return target;
+            if (hit != null) return hit;
           }
         }
       }
@@ -2769,7 +3029,7 @@ void _drawFlatFlexComposition(
   }
 }
 
-LayoutTapTarget? _hitTestFlexComposition(
+_LayoutTapHit? _hitTestFlexComposition(
   Layout composition,
   List<Offset> points,
   Offset position,
@@ -2804,26 +3064,32 @@ LayoutTapTarget? _hitTestFlexComposition(
         position,
       );
       if (entry != null) {
-        return LayoutTapTarget(
-          key: '$childPath/${entry.node.slug}',
-          layout: layout,
-          node: entry.resolvedNode,
-          resolvedNode: entry.resolvedNode,
-          label: _nodePresentationLabel(
-            entry.node,
-            layout.layoutDefaults,
-            forceSlug: layout.dataSource == NodeListDataSource.searchResults,
+        return (
+          target: LayoutTapTarget(
+            key: '$childPath/${entry.node.slug}',
+            layout: layout,
+            node: entry.resolvedNode,
+            resolvedNode: entry.resolvedNode,
+            label: _nodePresentationLabel(
+              entry.node,
+              layout.layoutDefaults,
+              forceSlug: layout.dataSource == NodeListDataSource.searchResults,
+            ),
           ),
+          nodePath: _polygonPath(entry.points),
         );
       }
     }
     if (layout is PanelLayout &&
         layout.aliases.contains('action-button') &&
         _polygonContains(child.points, position)) {
-      return LayoutTapTarget(
-        key: childPath,
-        layout: layout,
-        label: layout.label,
+      return (
+        target: LayoutTapTarget(
+          key: childPath,
+          layout: layout,
+          label: layout.label,
+        ),
+        nodePath: null,
       );
     }
   }

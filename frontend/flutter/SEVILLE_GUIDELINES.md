@@ -610,7 +610,22 @@ no runtime font request.
 Short interaction sounds belong to the Flame game lifecycle. Seville loads
 `technology-select.wav` from `assets/audio/` into a `flame_audio` `AudioPool`,
 plays it when a Node becomes selected, and disposes the pool with the game.
-Riverpod continues to own selection data but does not own audio playback.
+The separate pooled `stone-scrap.wav` plays when the cursor enters a different
+rendered Node, not on every pointer-move frame. Riverpod continues to own
+selection data but does not own audio playback.
+
+The cursor-hovered Node receives a second border from
+`_NodeHoverBorderComponent`. It reuses the renderer's exact Fan segment, Graph
+circle, or Node-list polygon and reads its style from
+`LayoutDefaults.nodeHoverBorderStyle`, keeping paint, sound, and hit identity on
+one hover path.
+
+## Game cursor
+
+The GameWidget region hides the native pointer through Flame's
+`Game.mouseCursor` hook and renders a centered gold targeting reticle with cyan
+glow through `_GameCursorComponent`. Position and animation remain inside the
+Flame game. No platform cursor plugin or Flutter overlay follows the pointer.
 
 The green right-plane Add button creates a frontend-only selected Node through
 `SelectedNodesNotifier.addVirtualNode()`. `ResolvedVaultNode.isVirtual` is the

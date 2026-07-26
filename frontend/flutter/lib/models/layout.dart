@@ -525,6 +525,10 @@ class LayoutDefaults {
     this.inactiveNodeBackgroundOpacity = 0.1,
     this.activeNodeBackgroundOpacity = 1,
     this.virtualNodeBackgroundOpacity = 0.5,
+    this.nodeHoverBorderStyle = const GuideStyle(
+      color: Color(0xFF2196F3),
+      strokeWidth: 4,
+    ),
     this.nodeSlugPrefix = '',
     this.nodeSlugSuffix = '',
     this.classificationLabelColors = const [
@@ -558,6 +562,7 @@ class LayoutDefaults {
   final double inactiveNodeBackgroundOpacity;
   final double activeNodeBackgroundOpacity;
   final double virtualNodeBackgroundOpacity;
+  final GuideStyle nodeHoverBorderStyle;
   final String nodeSlugPrefix;
   final String nodeSlugSuffix;
   final List<Color> classificationLabelColors;
