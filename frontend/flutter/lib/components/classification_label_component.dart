@@ -26,7 +26,7 @@ class ClassificationLabelComponent extends PositionComponent {
     required Iterable<String> labels,
     required Rect bounds,
     required double fontSize,
-    LayoutDefaults? layoutDefaults,
+    required Layout layout,
   }) {
     final values = labels
         .map((label) => label.trim())
@@ -36,7 +36,6 @@ class ClassificationLabelComponent extends PositionComponent {
       return const [];
     }
 
-    final defaults = layoutDefaults ?? const LayoutDefaults();
     final tagHeight = math
         .min(math.max(fontSize * 1.8, 16), bounds.height - 4)
         .toDouble();
@@ -59,7 +58,7 @@ class ClassificationLabelComponent extends PositionComponent {
           text: label,
           style: TextStyle(
             fontFamily: SevilleTypography.fontFamily,
-            color: defaults.classificationLabelTextColor,
+            color: layout.classificationLabelTextColor,
             fontSize: fontSize,
             fontWeight: FontWeight.w700,
           ),
@@ -88,7 +87,7 @@ class ClassificationLabelComponent extends PositionComponent {
             tagBounds,
             pointWidth,
             textPainter,
-            defaults,
+            layout,
           ),
         ),
       );
@@ -103,7 +102,7 @@ class ClassificationLabelComponent extends PositionComponent {
     Rect bounds,
     double pointWidth,
     TextPainter textPainter,
-    LayoutDefaults defaults,
+    Layout layout,
   ) {
     final path = Path()
       ..moveTo(bounds.left, bounds.center.dy)
@@ -112,9 +111,9 @@ class ClassificationLabelComponent extends PositionComponent {
       ..lineTo(bounds.right, bounds.bottom)
       ..lineTo(bounds.left + pointWidth, bounds.bottom)
       ..close();
-    final palette = defaults.classificationLabelColors.isEmpty
+    final palette = layout.classificationLabelColors.isEmpty
         ? const [Color(0xFF4E79A7)]
-        : defaults.classificationLabelColors;
+        : layout.classificationLabelColors;
     final color = palette[_stableColorIndex(label, palette.length)];
     canvas.drawPath(
       path,
@@ -122,12 +121,12 @@ class ClassificationLabelComponent extends PositionComponent {
         ..color = color
         ..style = PaintingStyle.fill,
     );
-    if (defaults.classificationLabelBorderWidth > 0) {
+    if (layout.classificationLabelBorderWidth > 0) {
       canvas.drawPath(
         path,
         Paint()
-          ..color = defaults.classificationLabelBorderColor
-          ..strokeWidth = defaults.classificationLabelBorderWidth
+          ..color = layout.classificationLabelBorderColor
+          ..strokeWidth = layout.classificationLabelBorderWidth
           ..style = PaintingStyle.stroke,
       );
     }
@@ -135,7 +134,7 @@ class ClassificationLabelComponent extends PositionComponent {
       Offset(bounds.left + pointWidth * 0.58, bounds.center.dy),
       math.max(bounds.height * 0.075, 1.2),
       Paint()
-        ..color = defaults.classificationLabelHoleColor
+        ..color = layout.classificationLabelHoleColor
         ..style = PaintingStyle.fill,
     );
     final textCenter = Offset(

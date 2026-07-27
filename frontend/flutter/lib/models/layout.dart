@@ -20,14 +20,57 @@ abstract class Layout {
     this.observables = const {},
     this.visibility = const [],
     this.inputSources = LayoutInputSource.values,
-    this.layoutDefaults,
+    this.layoutPadding = 0,
+    this.layoutGap = 0,
+    this.layoutBorderWidth,
+    this.backgroundDefaults = const [],
+    this.inactiveNodeBackgroundOpacity = 0.1,
+    this.activeNodeBackgroundOpacity = 1,
+    this.virtualNodeBackgroundOpacity = 0.5,
+    this.nodeHoverBorderStyle = const GuideStyle(
+      color: Color(0xFF2196F3),
+      strokeWidth: 4,
+    ),
+    this.nodeSlugPrefix = '',
+    this.nodeSlugTransform = const TextTransform.none(),
+    this.nodeSlugSuffix = '',
+    this.slugColor = const Color(0xFFFFD54F),
+    this.classificationLabelColors = const [
+      Color(0xFF4E79A7),
+      Color(0xFF59A14F),
+      Color(0xFFF28E2B),
+      Color(0xFFE15759),
+      Color(0xFFB07AA1),
+      Color(0xFF76B7B2),
+    ],
+    this.classificationLabelBorderColor = const Color(0xFFE8D59F),
+    this.classificationLabelHoleColor = const Color(0xFF27251F),
+    this.classificationLabelTextColor = const Color(0xFFFFF8E7),
+    this.classificationLabelBorderWidth = 1,
+    this.classificationLabelHoverBorderStyle = const GuideStyle(
+      color: Color(0xFFFFD54F),
+      strokeWidth: 4,
+    ),
     this.columnFractions,
     this.rowFractions,
     this.depthFractions,
     this.fractionSpans,
     this.subLayouts = const {},
     this.elements = const {},
-  });
+  }) : assert(layoutPadding >= 0),
+       assert(layoutGap >= 0),
+       assert(layoutBorderWidth == null || layoutBorderWidth >= 0),
+       assert(
+         inactiveNodeBackgroundOpacity >= 0 &&
+             inactiveNodeBackgroundOpacity <= 1,
+       ),
+       assert(
+         activeNodeBackgroundOpacity >= 0 && activeNodeBackgroundOpacity <= 1,
+       ),
+       assert(
+         virtualNodeBackgroundOpacity >= 0 && virtualNodeBackgroundOpacity <= 1,
+       ),
+       assert(classificationLabelBorderWidth >= 0);
 
   /// Main-axis size when this layout is a child of a row or column.
   final GridAxisVariable size;
@@ -48,7 +91,24 @@ abstract class Layout {
 
   /// Input channels allowed to originate interactions with this layout.
   final List<LayoutInputSource> inputSources;
-  final LayoutDefaults? layoutDefaults;
+  final double layoutPadding;
+  final double layoutGap;
+  final double? layoutBorderWidth;
+  final List<LayoutBackground> backgroundDefaults;
+  final double inactiveNodeBackgroundOpacity;
+  final double activeNodeBackgroundOpacity;
+  final double virtualNodeBackgroundOpacity;
+  final GuideStyle nodeHoverBorderStyle;
+  final String nodeSlugPrefix;
+  final TextTransform nodeSlugTransform;
+  final String nodeSlugSuffix;
+  final Color slugColor;
+  final List<Color> classificationLabelColors;
+  final Color classificationLabelBorderColor;
+  final Color classificationLabelHoleColor;
+  final Color classificationLabelTextColor;
+  final double classificationLabelBorderWidth;
+  final GuideStyle classificationLabelHoverBorderStyle;
   final List<double>? columnFractions;
   final List<double>? rowFractions;
   final List<double>? depthFractions;
@@ -69,13 +129,11 @@ abstract class Layout {
   bool supportsInputSource(LayoutInputSource source) =>
       inputSources.contains(source);
 
-  List<LayoutBackground> resolveBackgrounds([
-    LayoutDefaults? inheritedDefaults,
-  ]) {
+  List<LayoutBackground> resolveBackgrounds([Layout? inheritedDefaults]) {
     if (backgrounds.isNotEmpty) return backgrounds;
-    final localDefaults = layoutDefaults?.backgrounds ?? const [];
+    final localDefaults = backgroundDefaults;
     if (localDefaults.isNotEmpty) return localDefaults;
-    return inheritedDefaults?.backgrounds ?? const [];
+    return inheritedDefaults?.backgroundDefaults ?? const [];
   }
 
   Offset get center => const Offset(0.5, 0.5);
@@ -86,9 +144,9 @@ abstract class Layout {
   Offset resolveCircleCenter(
     Size size,
     LayoutCircleBoundary boundary, {
-    bool useLayoutDefaults = false,
+    bool useLayoutStyle = false,
   }) {
-    final inset = boundary == LayoutCircleBoundary.inner || useLayoutDefaults
+    final inset = boundary == LayoutCircleBoundary.inner || useLayoutStyle
         ? _circleInset(size)
         : 0.0;
     return Offset(
@@ -100,9 +158,9 @@ abstract class Layout {
   double resolveCircleRadius(
     Size size,
     LayoutCircleBoundary boundary, {
-    bool useLayoutDefaults = false,
+    bool useLayoutStyle = false,
   }) {
-    final inset = boundary == LayoutCircleBoundary.inner || useLayoutDefaults
+    final inset = boundary == LayoutCircleBoundary.inner || useLayoutStyle
         ? _circleInset(size)
         : 0.0;
     final width = math.max(size.width - inset * 2, 0);
@@ -122,13 +180,15 @@ abstract class Layout {
   }
 
   double _circleInset(Size size) {
-    final requestedInset =
-        (layoutDefaults?.padding ?? 0) + (layoutDefaults?.borderWidth ?? 0);
+    final requestedInset = layoutPadding + (layoutBorderWidth ?? 0);
     return requestedInset.clamp(0, size.shortestSide / 2).toDouble();
   }
 
   bool isVisible(LayoutContext context) =>
       visibility.every((condition) => condition.isActive(context));
+
+  String formatNodeSlug(String slug) =>
+      '$nodeSlugPrefix${nodeSlugTransform.apply(slug)}$nodeSlugSuffix';
 
   LayoutDerivativeSnapshot getDerivatives([
     String? snapshot,
@@ -516,70 +576,35 @@ enum GuideLinePattern { solid, dashed, dotted }
 
 enum GuideGridRenderMode { lines, intersections }
 
-class LayoutDefaults {
-  const LayoutDefaults({
-    this.padding = 0,
-    this.gap = 0,
-    this.borderWidth = 1,
-    this.backgrounds = const [],
-    this.inactiveNodeBackgroundOpacity = 0.1,
-    this.activeNodeBackgroundOpacity = 1,
-    this.virtualNodeBackgroundOpacity = 0.5,
-    this.nodeHoverBorderStyle = const GuideStyle(
-      color: Color(0xFF2196F3),
-      strokeWidth: 4,
-    ),
-    this.nodeSlugPrefix = '',
-    this.nodeSlugSuffix = '',
-    this.slugColor = const Color(0xFFFFD54F),
-    this.classificationLabelColors = const [
-      Color(0xFF4E79A7),
-      Color(0xFF59A14F),
-      Color(0xFFF28E2B),
-      Color(0xFFE15759),
-      Color(0xFFB07AA1),
-      Color(0xFF76B7B2),
+class TextTransform {
+  const TextTransform.none() : _kind = _TextTransformKind.none;
+
+  const TextTransform.uppercase() : _kind = _TextTransformKind.uppercase;
+
+  const TextTransform.lowercase() : _kind = _TextTransformKind.lowercase;
+
+  /// Presents both uppercase and lowercase characters as small capitals,
+  /// equivalent to CSS `font-variant-caps: all-small-caps`.
+  const TextTransform.capitalCap() : _kind = _TextTransformKind.capitalCap;
+
+  final _TextTransformKind _kind;
+
+  String apply(String value) => switch (_kind) {
+    _TextTransformKind.none || _TextTransformKind.capitalCap => value,
+    _TextTransformKind.uppercase => value.toUpperCase(),
+    _TextTransformKind.lowercase => value.toLowerCase(),
+  };
+
+  List<FontFeature>? get fontFeatures => switch (_kind) {
+    _TextTransformKind.capitalCap => const [
+      FontFeature.enable('smcp'),
+      FontFeature.enable('c2sc'),
     ],
-    this.classificationLabelBorderColor = const Color(0xFFE8D59F),
-    this.classificationLabelHoleColor = const Color(0xFF27251F),
-    this.classificationLabelTextColor = const Color(0xFFFFF8E7),
-    this.classificationLabelBorderWidth = 1,
-    this.classificationLabelHoverBorderStyle = const GuideStyle(
-      color: Color(0xFFFFD54F),
-      strokeWidth: 4,
-    ),
-  }) : assert(
-         inactiveNodeBackgroundOpacity >= 0 &&
-             inactiveNodeBackgroundOpacity <= 1,
-       ),
-       assert(
-         activeNodeBackgroundOpacity >= 0 && activeNodeBackgroundOpacity <= 1,
-       ),
-       assert(
-         virtualNodeBackgroundOpacity >= 0 && virtualNodeBackgroundOpacity <= 1,
-       ),
-       assert(classificationLabelBorderWidth >= 0);
-
-  final double padding;
-  final double gap;
-  final double borderWidth;
-  final List<LayoutBackground> backgrounds;
-  final double inactiveNodeBackgroundOpacity;
-  final double activeNodeBackgroundOpacity;
-  final double virtualNodeBackgroundOpacity;
-  final GuideStyle nodeHoverBorderStyle;
-  final String nodeSlugPrefix;
-  final String nodeSlugSuffix;
-  final Color slugColor;
-  final List<Color> classificationLabelColors;
-  final Color classificationLabelBorderColor;
-  final Color classificationLabelHoleColor;
-  final Color classificationLabelTextColor;
-  final double classificationLabelBorderWidth;
-  final GuideStyle classificationLabelHoverBorderStyle;
-
-  String formatNodeSlug(String slug) => '$nodeSlugPrefix$slug$nodeSlugSuffix';
+    _ => null,
+  };
 }
+
+enum _TextTransformKind { none, uppercase, lowercase, capitalCap }
 
 class LayoutColor {
   const LayoutColor.fromHex(this.hex, {this.opacity = 1});
@@ -724,7 +749,24 @@ abstract class LayoutGuide extends Layout {
     super.aliases,
     super.attributes,
     super.backgrounds,
-    super.layoutDefaults,
+    super.layoutPadding,
+    super.layoutGap,
+    super.layoutBorderWidth,
+    super.backgroundDefaults,
+    super.inactiveNodeBackgroundOpacity,
+    super.activeNodeBackgroundOpacity,
+    super.virtualNodeBackgroundOpacity,
+    super.nodeHoverBorderStyle,
+    super.nodeSlugPrefix,
+    super.nodeSlugTransform,
+    super.nodeSlugSuffix,
+    super.slugColor,
+    super.classificationLabelColors,
+    super.classificationLabelBorderColor,
+    super.classificationLabelHoleColor,
+    super.classificationLabelTextColor,
+    super.classificationLabelBorderWidth,
+    super.classificationLabelHoverBorderStyle,
     super.visibility,
     super.inputSources,
   }) : super.fromAxes();
@@ -744,7 +786,24 @@ class GuideGrid extends LayoutGuide {
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
     super.backgrounds,
-    super.layoutDefaults,
+    super.layoutPadding,
+    super.layoutGap,
+    super.layoutBorderWidth,
+    super.backgroundDefaults,
+    super.inactiveNodeBackgroundOpacity,
+    super.activeNodeBackgroundOpacity,
+    super.virtualNodeBackgroundOpacity,
+    super.nodeHoverBorderStyle,
+    super.nodeSlugPrefix,
+    super.nodeSlugTransform,
+    super.nodeSlugSuffix,
+    super.slugColor,
+    super.classificationLabelColors,
+    super.classificationLabelBorderColor,
+    super.classificationLabelHoleColor,
+    super.classificationLabelTextColor,
+    super.classificationLabelBorderWidth,
+    super.classificationLabelHoverBorderStyle,
     super.visibility,
     super.inputSources,
   });
@@ -765,7 +824,24 @@ class CirleLayout extends LayoutGuide {
     super.aliases,
     super.attributes = const [LayoutAttribute.circular],
     super.backgrounds,
-    super.layoutDefaults,
+    super.layoutPadding,
+    super.layoutGap,
+    super.layoutBorderWidth,
+    super.backgroundDefaults,
+    super.inactiveNodeBackgroundOpacity,
+    super.activeNodeBackgroundOpacity,
+    super.virtualNodeBackgroundOpacity,
+    super.nodeHoverBorderStyle,
+    super.nodeSlugPrefix,
+    super.nodeSlugTransform,
+    super.nodeSlugSuffix,
+    super.slugColor,
+    super.classificationLabelColors,
+    super.classificationLabelBorderColor,
+    super.classificationLabelHoleColor,
+    super.classificationLabelTextColor,
+    super.classificationLabelBorderWidth,
+    super.classificationLabelHoverBorderStyle,
     super.visibility,
     super.inputSources,
   });
@@ -1284,7 +1360,24 @@ class PerspectiveGridArea extends Layout {
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
     super.backgrounds,
-    super.layoutDefaults,
+    super.layoutPadding,
+    super.layoutGap,
+    super.layoutBorderWidth,
+    super.backgroundDefaults,
+    super.inactiveNodeBackgroundOpacity,
+    super.activeNodeBackgroundOpacity,
+    super.virtualNodeBackgroundOpacity,
+    super.nodeHoverBorderStyle,
+    super.nodeSlugPrefix,
+    super.nodeSlugTransform,
+    super.nodeSlugSuffix,
+    super.slugColor,
+    super.classificationLabelColors,
+    super.classificationLabelBorderColor,
+    super.classificationLabelHoleColor,
+    super.classificationLabelTextColor,
+    super.classificationLabelBorderWidth,
+    super.classificationLabelHoverBorderStyle,
     super.visibility,
     super.inputSources,
   }) : super.fromAxes();
@@ -1317,7 +1410,24 @@ class PerspectiveGridLayout extends Layout {
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
     super.backgrounds,
-    super.layoutDefaults,
+    super.layoutPadding,
+    super.layoutGap,
+    super.layoutBorderWidth,
+    super.backgroundDefaults,
+    super.inactiveNodeBackgroundOpacity,
+    super.activeNodeBackgroundOpacity,
+    super.virtualNodeBackgroundOpacity,
+    super.nodeHoverBorderStyle,
+    super.nodeSlugPrefix,
+    super.nodeSlugTransform,
+    super.nodeSlugSuffix,
+    super.slugColor,
+    super.classificationLabelColors,
+    super.classificationLabelBorderColor,
+    super.classificationLabelHoleColor,
+    super.classificationLabelTextColor,
+    super.classificationLabelBorderWidth,
+    super.classificationLabelHoverBorderStyle,
     super.visibility,
     super.inputSources,
   }) : super.fromAxes();
@@ -1343,7 +1453,24 @@ class ColumnLayout extends Layout {
     super.size,
     super.aliases,
     super.backgrounds,
-    super.layoutDefaults,
+    super.layoutPadding,
+    super.layoutGap,
+    super.layoutBorderWidth,
+    super.backgroundDefaults,
+    super.inactiveNodeBackgroundOpacity,
+    super.activeNodeBackgroundOpacity,
+    super.virtualNodeBackgroundOpacity,
+    super.nodeHoverBorderStyle,
+    super.nodeSlugPrefix,
+    super.nodeSlugTransform,
+    super.nodeSlugSuffix,
+    super.slugColor,
+    super.classificationLabelColors,
+    super.classificationLabelBorderColor,
+    super.classificationLabelHoleColor,
+    super.classificationLabelTextColor,
+    super.classificationLabelBorderWidth,
+    super.classificationLabelHoverBorderStyle,
     super.visibility,
     super.inputSources,
   }) : super.fromAxes(attributes: const [LayoutAttribute.rectangular]);
@@ -1356,7 +1483,24 @@ class RowLayout extends Layout {
     super.size,
     super.aliases,
     super.backgrounds,
-    super.layoutDefaults,
+    super.layoutPadding,
+    super.layoutGap,
+    super.layoutBorderWidth,
+    super.backgroundDefaults,
+    super.inactiveNodeBackgroundOpacity,
+    super.activeNodeBackgroundOpacity,
+    super.virtualNodeBackgroundOpacity,
+    super.nodeHoverBorderStyle,
+    super.nodeSlugPrefix,
+    super.nodeSlugTransform,
+    super.nodeSlugSuffix,
+    super.slugColor,
+    super.classificationLabelColors,
+    super.classificationLabelBorderColor,
+    super.classificationLabelHoleColor,
+    super.classificationLabelTextColor,
+    super.classificationLabelBorderWidth,
+    super.classificationLabelHoverBorderStyle,
     super.visibility,
     super.inputSources,
   }) : super.fromAxes(attributes: const [LayoutAttribute.rectangular]);
@@ -1373,7 +1517,24 @@ class PanelLayout extends Layout {
     this.labelSize = 12,
     super.aliases,
     super.backgrounds,
-    super.layoutDefaults,
+    super.layoutPadding,
+    super.layoutGap,
+    super.layoutBorderWidth,
+    super.backgroundDefaults,
+    super.inactiveNodeBackgroundOpacity,
+    super.activeNodeBackgroundOpacity,
+    super.virtualNodeBackgroundOpacity,
+    super.nodeHoverBorderStyle,
+    super.nodeSlugPrefix,
+    super.nodeSlugTransform,
+    super.nodeSlugSuffix,
+    super.slugColor,
+    super.classificationLabelColors,
+    super.classificationLabelBorderColor,
+    super.classificationLabelHoleColor,
+    super.classificationLabelTextColor,
+    super.classificationLabelBorderWidth,
+    super.classificationLabelHoverBorderStyle,
     super.visibility,
     super.inputSources,
   }) : super.fromAxes(attributes: const [LayoutAttribute.rectangular]);
@@ -1401,7 +1562,24 @@ class LayoutPath extends Layout {
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
     super.backgrounds,
-    super.layoutDefaults,
+    super.layoutPadding,
+    super.layoutGap,
+    super.layoutBorderWidth,
+    super.backgroundDefaults,
+    super.inactiveNodeBackgroundOpacity,
+    super.activeNodeBackgroundOpacity,
+    super.virtualNodeBackgroundOpacity,
+    super.nodeHoverBorderStyle,
+    super.nodeSlugPrefix,
+    super.nodeSlugTransform,
+    super.nodeSlugSuffix,
+    super.slugColor,
+    super.classificationLabelColors,
+    super.classificationLabelBorderColor,
+    super.classificationLabelHoleColor,
+    super.classificationLabelTextColor,
+    super.classificationLabelBorderWidth,
+    super.classificationLabelHoverBorderStyle,
   }) : super.fromAxes();
 
   final List<LayoutDerivativeReference> points;
@@ -1433,7 +1611,24 @@ class FanLayout extends Layout with TableLayoutMixin {
     super.aliases,
     super.attributes = const [LayoutAttribute.circular],
     super.backgrounds,
-    super.layoutDefaults,
+    super.layoutPadding,
+    super.layoutGap,
+    super.layoutBorderWidth,
+    super.backgroundDefaults,
+    super.inactiveNodeBackgroundOpacity,
+    super.activeNodeBackgroundOpacity,
+    super.virtualNodeBackgroundOpacity,
+    super.nodeHoverBorderStyle,
+    super.nodeSlugPrefix,
+    super.nodeSlugTransform,
+    super.nodeSlugSuffix,
+    super.slugColor,
+    super.classificationLabelColors,
+    super.classificationLabelBorderColor,
+    super.classificationLabelHoleColor,
+    super.classificationLabelTextColor,
+    super.classificationLabelBorderWidth,
+    super.classificationLabelHoverBorderStyle,
     super.visibility,
     super.inputSources,
   }) : assert(
@@ -1525,7 +1720,24 @@ class GraphLayout extends Layout {
     super.aliases,
     super.attributes = const [LayoutAttribute.circular],
     super.backgrounds,
-    super.layoutDefaults,
+    super.layoutPadding,
+    super.layoutGap,
+    super.layoutBorderWidth,
+    super.backgroundDefaults,
+    super.inactiveNodeBackgroundOpacity,
+    super.activeNodeBackgroundOpacity,
+    super.virtualNodeBackgroundOpacity,
+    super.nodeHoverBorderStyle,
+    super.nodeSlugPrefix,
+    super.nodeSlugTransform,
+    super.nodeSlugSuffix,
+    super.slugColor,
+    super.classificationLabelColors,
+    super.classificationLabelBorderColor,
+    super.classificationLabelHoleColor,
+    super.classificationLabelTextColor,
+    super.classificationLabelBorderWidth,
+    super.classificationLabelHoverBorderStyle,
     super.visibility,
     super.inputSources,
   }) : assert(nodeExtentFactor > 0 && nodeExtentFactor <= 1),
@@ -1553,7 +1765,24 @@ class NodeListLayout extends Layout {
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
     super.backgrounds,
-    super.layoutDefaults,
+    super.layoutPadding,
+    super.layoutGap,
+    super.layoutBorderWidth,
+    super.backgroundDefaults,
+    super.inactiveNodeBackgroundOpacity,
+    super.activeNodeBackgroundOpacity,
+    super.virtualNodeBackgroundOpacity,
+    super.nodeHoverBorderStyle,
+    super.nodeSlugPrefix,
+    super.nodeSlugTransform,
+    super.nodeSlugSuffix,
+    super.slugColor,
+    super.classificationLabelColors,
+    super.classificationLabelBorderColor,
+    super.classificationLabelHoleColor,
+    super.classificationLabelTextColor,
+    super.classificationLabelBorderWidth,
+    super.classificationLabelHoverBorderStyle,
     super.visibility,
     super.inputSources,
   }) : super.fromAxes();
@@ -1564,7 +1793,7 @@ class NodeListLayout extends Layout {
   final GuideStyle style;
 }
 
-enum NodeListDataSource { virtualNodes }
+enum NodeListDataSource { virtualNodes, searchResults }
 
 abstract class LayoutNodePointer {
   const LayoutNodePointer._();
@@ -1596,7 +1825,24 @@ class RayLayout extends LayoutGuide {
     super.aliases,
     super.attributes = const [LayoutAttribute.linear],
     super.backgrounds,
-    super.layoutDefaults,
+    super.layoutPadding,
+    super.layoutGap,
+    super.layoutBorderWidth,
+    super.backgroundDefaults,
+    super.inactiveNodeBackgroundOpacity,
+    super.activeNodeBackgroundOpacity,
+    super.virtualNodeBackgroundOpacity,
+    super.nodeHoverBorderStyle,
+    super.nodeSlugPrefix,
+    super.nodeSlugTransform,
+    super.nodeSlugSuffix,
+    super.slugColor,
+    super.classificationLabelColors,
+    super.classificationLabelBorderColor,
+    super.classificationLabelHoleColor,
+    super.classificationLabelTextColor,
+    super.classificationLabelBorderWidth,
+    super.classificationLabelHoverBorderStyle,
     super.visibility,
     super.inputSources,
   });
@@ -1634,7 +1880,24 @@ class LayoutAreaRayLayout extends LayoutGuide {
     super.aliases,
     super.attributes = const [LayoutAttribute.linear],
     super.backgrounds,
-    super.layoutDefaults,
+    super.layoutPadding,
+    super.layoutGap,
+    super.layoutBorderWidth,
+    super.backgroundDefaults,
+    super.inactiveNodeBackgroundOpacity,
+    super.activeNodeBackgroundOpacity,
+    super.virtualNodeBackgroundOpacity,
+    super.nodeHoverBorderStyle,
+    super.nodeSlugPrefix,
+    super.nodeSlugTransform,
+    super.nodeSlugSuffix,
+    super.slugColor,
+    super.classificationLabelColors,
+    super.classificationLabelBorderColor,
+    super.classificationLabelHoleColor,
+    super.classificationLabelTextColor,
+    super.classificationLabelBorderWidth,
+    super.classificationLabelHoverBorderStyle,
     super.visibility,
     super.inputSources,
   });
@@ -1656,7 +1919,24 @@ class LayoutAreaToDerivativeRayLayout extends LayoutGuide {
     super.aliases,
     super.attributes = const [LayoutAttribute.linear],
     super.backgrounds,
-    super.layoutDefaults,
+    super.layoutPadding,
+    super.layoutGap,
+    super.layoutBorderWidth,
+    super.backgroundDefaults,
+    super.inactiveNodeBackgroundOpacity,
+    super.activeNodeBackgroundOpacity,
+    super.virtualNodeBackgroundOpacity,
+    super.nodeHoverBorderStyle,
+    super.nodeSlugPrefix,
+    super.nodeSlugTransform,
+    super.nodeSlugSuffix,
+    super.slugColor,
+    super.classificationLabelColors,
+    super.classificationLabelBorderColor,
+    super.classificationLabelHoleColor,
+    super.classificationLabelTextColor,
+    super.classificationLabelBorderWidth,
+    super.classificationLabelHoverBorderStyle,
     super.visibility,
     super.inputSources,
   });
@@ -1685,7 +1965,24 @@ class StickmanLayout extends Layout {
     super.aliases,
     super.attributes = const [LayoutAttribute.linear],
     super.backgrounds,
-    super.layoutDefaults,
+    super.layoutPadding,
+    super.layoutGap,
+    super.layoutBorderWidth,
+    super.backgroundDefaults,
+    super.inactiveNodeBackgroundOpacity,
+    super.activeNodeBackgroundOpacity,
+    super.virtualNodeBackgroundOpacity,
+    super.nodeHoverBorderStyle,
+    super.nodeSlugPrefix,
+    super.nodeSlugTransform,
+    super.nodeSlugSuffix,
+    super.slugColor,
+    super.classificationLabelColors,
+    super.classificationLabelBorderColor,
+    super.classificationLabelHoleColor,
+    super.classificationLabelTextColor,
+    super.classificationLabelBorderWidth,
+    super.classificationLabelHoverBorderStyle,
     super.visibility,
     super.inputSources,
   }) : super.fromAxes();
@@ -1739,7 +2036,24 @@ class PlaneLayout extends Layout {
     super.observables,
     super.visibility,
     super.inputSources,
-    super.layoutDefaults,
+    super.layoutPadding,
+    super.layoutGap,
+    super.layoutBorderWidth,
+    super.backgroundDefaults,
+    super.inactiveNodeBackgroundOpacity,
+    super.activeNodeBackgroundOpacity,
+    super.virtualNodeBackgroundOpacity,
+    super.nodeHoverBorderStyle,
+    super.nodeSlugPrefix,
+    super.nodeSlugTransform,
+    super.nodeSlugSuffix,
+    super.slugColor,
+    super.classificationLabelColors,
+    super.classificationLabelBorderColor,
+    super.classificationLabelHoleColor,
+    super.classificationLabelTextColor,
+    super.classificationLabelBorderWidth,
+    super.classificationLabelHoverBorderStyle,
   }) : super.fromAxes();
 
   final VaultNodeUiComponent? node;
@@ -1786,7 +2100,24 @@ class SubjectNodeLayout extends PlaneLayout {
     super.aliases,
     super.attributes,
     super.backgrounds,
-    super.layoutDefaults,
+    super.layoutPadding,
+    super.layoutGap,
+    super.layoutBorderWidth,
+    super.backgroundDefaults,
+    super.inactiveNodeBackgroundOpacity,
+    super.activeNodeBackgroundOpacity,
+    super.virtualNodeBackgroundOpacity,
+    super.nodeHoverBorderStyle,
+    super.nodeSlugPrefix,
+    super.nodeSlugTransform,
+    super.nodeSlugSuffix,
+    super.slugColor,
+    super.classificationLabelColors,
+    super.classificationLabelBorderColor,
+    super.classificationLabelHoleColor,
+    super.classificationLabelTextColor,
+    super.classificationLabelBorderWidth,
+    super.classificationLabelHoverBorderStyle,
     super.shape,
     super.visibility,
     super.inputSources,
@@ -1808,12 +2139,29 @@ class LayoutBorderGuide extends LayoutGuide {
     this.labelFontSize = 11,
     this.showAnchorDirections = false,
     this.anchorDirectionLength = 14,
-    this.useLayoutDefaults = false,
+    this.useLayoutStyle = false,
     super.visible,
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
     super.backgrounds,
-    super.layoutDefaults,
+    super.layoutPadding,
+    super.layoutGap,
+    super.layoutBorderWidth,
+    super.backgroundDefaults,
+    super.inactiveNodeBackgroundOpacity,
+    super.activeNodeBackgroundOpacity,
+    super.virtualNodeBackgroundOpacity,
+    super.nodeHoverBorderStyle,
+    super.nodeSlugPrefix,
+    super.nodeSlugTransform,
+    super.nodeSlugSuffix,
+    super.slugColor,
+    super.classificationLabelColors,
+    super.classificationLabelBorderColor,
+    super.classificationLabelHoleColor,
+    super.classificationLabelTextColor,
+    super.classificationLabelBorderWidth,
+    super.classificationLabelHoverBorderStyle,
     super.visibility,
     super.inputSources,
   });
@@ -1826,7 +2174,7 @@ class LayoutBorderGuide extends LayoutGuide {
   final double labelFontSize;
   final bool showAnchorDirections;
   final double anchorDirectionLength;
-  final bool useLayoutDefaults;
+  final bool useLayoutStyle;
 }
 
 class LayoutSlotStyle {
@@ -1891,7 +2239,24 @@ class SceneLayout extends Layout {
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
     super.backgrounds,
-    super.layoutDefaults,
+    super.layoutPadding,
+    super.layoutGap,
+    super.layoutBorderWidth,
+    super.backgroundDefaults,
+    super.inactiveNodeBackgroundOpacity,
+    super.activeNodeBackgroundOpacity,
+    super.virtualNodeBackgroundOpacity,
+    super.nodeHoverBorderStyle,
+    super.nodeSlugPrefix,
+    super.nodeSlugTransform,
+    super.nodeSlugSuffix,
+    super.slugColor,
+    super.classificationLabelColors,
+    super.classificationLabelBorderColor,
+    super.classificationLabelHoleColor,
+    super.classificationLabelTextColor,
+    super.classificationLabelBorderWidth,
+    super.classificationLabelHoverBorderStyle,
     super.layouts,
     super.derivatives,
     super.derivativeSnapshot,
@@ -1913,7 +2278,24 @@ class GridLayout extends Layout {
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
     super.backgrounds,
-    super.layoutDefaults,
+    super.layoutPadding,
+    super.layoutGap,
+    super.layoutBorderWidth,
+    super.backgroundDefaults,
+    super.inactiveNodeBackgroundOpacity,
+    super.activeNodeBackgroundOpacity,
+    super.virtualNodeBackgroundOpacity,
+    super.nodeHoverBorderStyle,
+    super.nodeSlugPrefix,
+    super.nodeSlugTransform,
+    super.nodeSlugSuffix,
+    super.slugColor,
+    super.classificationLabelColors,
+    super.classificationLabelBorderColor,
+    super.classificationLabelHoleColor,
+    super.classificationLabelTextColor,
+    super.classificationLabelBorderWidth,
+    super.classificationLabelHoverBorderStyle,
     super.layouts,
     super.derivatives,
     super.derivativeSnapshot,
@@ -1934,7 +2316,24 @@ class TrackLayout extends Layout {
     super.aliases,
     super.attributes = const [LayoutAttribute.linear],
     super.backgrounds,
-    super.layoutDefaults,
+    super.layoutPadding,
+    super.layoutGap,
+    super.layoutBorderWidth,
+    super.backgroundDefaults,
+    super.inactiveNodeBackgroundOpacity,
+    super.activeNodeBackgroundOpacity,
+    super.virtualNodeBackgroundOpacity,
+    super.nodeHoverBorderStyle,
+    super.nodeSlugPrefix,
+    super.nodeSlugTransform,
+    super.nodeSlugSuffix,
+    super.slugColor,
+    super.classificationLabelColors,
+    super.classificationLabelBorderColor,
+    super.classificationLabelHoleColor,
+    super.classificationLabelTextColor,
+    super.classificationLabelBorderWidth,
+    super.classificationLabelHoverBorderStyle,
     super.layouts,
     super.derivatives,
     super.derivativeSnapshot,

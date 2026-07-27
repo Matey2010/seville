@@ -120,12 +120,12 @@ Rect _resolveBorderBounds(Size size, Layout layout, LayoutBorderGuide guide) {
   final center = layout.resolveCircleCenter(
     size,
     boundary,
-    useLayoutDefaults: guide.useLayoutDefaults,
+    useLayoutStyle: guide.useLayoutStyle,
   );
   final radius = layout.resolveCircleRadius(
     size,
     boundary,
-    useLayoutDefaults: guide.useLayoutDefaults,
+    useLayoutStyle: guide.useLayoutStyle,
   );
   final halfExtent = guide.shape == LayoutBorderShape.square
       ? radius / math.sqrt2

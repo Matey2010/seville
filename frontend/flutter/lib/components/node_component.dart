@@ -19,19 +19,18 @@ class NodeComponent extends PositionComponent {
     Color color,
     String nodeSlug,
     LayoutContext layoutContext,
-    LayoutDefaults? layoutDefaults, {
+    Layout layout, {
     bool isVirtual = false,
   }) {
-    final defaults = layoutDefaults ?? const LayoutDefaults();
     final normalizedNodeSlug = nodeSlug.trim();
     final active =
         normalizedNodeSlug.isNotEmpty &&
         layoutContext.activeNodeSlugs.contains(normalizedNodeSlug);
     final opacity = isVirtual
-        ? defaults.virtualNodeBackgroundOpacity
+        ? layout.virtualNodeBackgroundOpacity
         : active
-        ? defaults.activeNodeBackgroundOpacity
-        : defaults.inactiveNodeBackgroundOpacity;
+        ? layout.activeNodeBackgroundOpacity
+        : layout.inactiveNodeBackgroundOpacity;
     return color.withValues(alpha: opacity);
   }
 

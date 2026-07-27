@@ -191,11 +191,6 @@ class LandscapeXlLayoutGame extends FlameGame
       layout: searchLayout,
       searchValue: searchValue,
       results: queryNodes,
-      selectedNodeSlugs: _selectedNodeSlugSet(selectedNodes),
-      layoutDefaults:
-          searchLayout.layoutDefaults ??
-          layout.layoutDefaults ??
-          const LayoutDefaults(),
       onSearchSubmitted: onSearchSubmitted,
       onCancel: onCancel,
       onRefreshFanData: onRefreshFanData,
@@ -296,7 +291,8 @@ class LandscapeXlLayoutGame extends FlameGame
       );
     }
     add(_searchHud..priority = 1000);
-    add(_nodeComponent..priority = 900);
+    add(_SearchSuggestionsComponent()..priority = 990);
+    add(_nodeComponent..priority = 1100);
     add(_classificationLabelComponent..priority = 910);
     add(_gameCursor..priority = 2000);
   }
@@ -405,14 +401,7 @@ class LandscapeXlLayoutGame extends FlameGame
       ..onCopySelectedNodeSlug = onCopySelectedNodeSlug
       ..onSubmit = onSubmit
       ..onNodeSelected = _selectSearchNode
-      ..updateNodeOptions(
-        results: queryNodes,
-        selectedNodeSlugs: _selectedNodeSlugSet(selectedNodes),
-        layoutDefaults:
-            searchLayout.layoutDefaults ??
-            layout.layoutDefaults ??
-            const LayoutDefaults(),
-      );
+      ..updateNodeOptions(results: queryNodes);
     _syncSearchHudLayout();
   }
 
@@ -437,25 +426,42 @@ class LandscapeXlLayoutGame extends FlameGame
 }
 
 class _GameCursorComponent extends PositionComponent {
-  _GameCursorComponent() : super(size: Vector2.all(34), anchor: Anchor.center);
-
-  bool _pointerVisible = false;
+  Offset? _pointer;
+  double _cursorAngle = 0;
 
   void updatePointer(Offset? pointer) {
-    _pointerVisible = pointer != null;
-    if (pointer != null) position.setValues(pointer.dx, pointer.dy);
+    _pointer = pointer;
+  }
+
+  @override
+  void onGameResize(Vector2 gameSize) {
+    super.onGameResize(gameSize);
+    size = gameSize;
   }
 
   @override
   void update(double dt) {
-    if (_pointerVisible) angle += dt * 0.42;
+    if (_pointer != null) _cursorAngle += dt * 0.42;
     super.update(dt);
   }
 
   @override
   void render(Canvas canvas) {
-    if (!_pointerVisible) return;
-    final center = Offset(size.x / 2, size.y / 2);
+    final pointer = _pointer;
+    if (pointer == null || size.x <= 0 || size.y <= 0) return;
+    final target = Offset(size.x - pointer.dx, size.y - pointer.dy);
+    _paintTargetConnection(canvas, pointer, target);
+    _paintTargetRhomboid(canvas, target);
+
+    canvas.save();
+    canvas.translate(pointer.dx, pointer.dy);
+    canvas.rotate(_cursorAngle);
+    _paintCurrentCursor(canvas);
+    canvas.restore();
+  }
+
+  void _paintCurrentCursor(Canvas canvas) {
+    const center = Offset.zero;
     const gold = Color(0xFFF2C94C);
     const cyan = Color(0xFF2FA8FF);
     final glowPaint = Paint()
@@ -499,17 +505,62 @@ class _GameCursorComponent extends PositionComponent {
     }
     canvas.drawCircle(center, 1.8, Paint()..color = gold);
   }
+
+  void _paintTargetConnection(Canvas canvas, Offset pointer, Offset target) {
+    final distance = (target - pointer).distance;
+    if (distance < 2) return;
+    canvas.drawLine(
+      pointer,
+      target,
+      Paint()
+        ..shader = ui.Gradient.linear(pointer, target, const [
+          Color(0x662FA8FF),
+          Color(0xCC45D483),
+        ])
+        ..strokeWidth = 1.2
+        ..strokeCap = StrokeCap.round,
+    );
+  }
+
+  void _paintTargetRhomboid(Canvas canvas, Offset target) {
+    const green = Color(0xFF45D483);
+    final path = Path()
+      ..moveTo(target.dx, target.dy - 13)
+      ..lineTo(target.dx + 9, target.dy)
+      ..lineTo(target.dx, target.dy + 13)
+      ..lineTo(target.dx - 9, target.dy)
+      ..close();
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = green.withValues(alpha: 0.28)
+        ..style = PaintingStyle.fill
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
+    );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = green.withValues(alpha: 0.18)
+        ..style = PaintingStyle.fill,
+    );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = green
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.8
+        ..strokeJoin = StrokeJoin.round,
+    );
+    canvas.drawCircle(target, 1.8, Paint()..color = green);
+  }
 }
 
 Iterable<String> _layoutImageAssetPaths(
   Layout layout, [
-  LayoutDefaults? inheritedBackgroundDefaults,
+  Layout? inheritedBackgroundDefaults,
 ]) sync* {
-  final localBackgroundDefaults = layout.layoutDefaults;
-  final effectiveBackgroundDefaults =
-      localBackgroundDefaults != null &&
-          localBackgroundDefaults.backgrounds.isNotEmpty
-      ? localBackgroundDefaults
+  final effectiveBackgroundDefaults = layout.backgroundDefaults.isNotEmpty
+      ? layout
       : inheritedBackgroundDefaults;
   for (final background in layout.resolveBackgrounds(
     inheritedBackgroundDefaults,
@@ -529,14 +580,12 @@ Iterable<String> _backgroundImageAssetPaths(LayoutBackground background) sync* {
   }
 }
 
-Map<Layout, LayoutDefaults?> _layoutBackgroundDefaults(Layout root) {
-  final resolved = <Layout, LayoutDefaults?>{};
+Map<Layout, Layout?> _layoutBackgroundDefaults(Layout root) {
+  final resolved = <Layout, Layout?>{};
 
-  void visit(Layout layout, LayoutDefaults? inheritedDefaults) {
-    final localDefaults = layout.layoutDefaults;
-    final effectiveDefaults =
-        localDefaults != null && localDefaults.backgrounds.isNotEmpty
-        ? localDefaults
+  void visit(Layout layout, Layout? inheritedDefaults) {
+    final effectiveDefaults = layout.backgroundDefaults.isNotEmpty
+        ? layout
         : inheritedDefaults;
     resolved[layout] = effectiveDefaults;
     for (final child in layout.layouts.values) {
@@ -1274,9 +1323,7 @@ class _LandscapeXlSceneComponent extends PositionComponent
       return (
         key: nodeHit.target.key,
         path: nodeHit.path,
-        style:
-            nodeHit.target.layout.layoutDefaults?.nodeHoverBorderStyle ??
-            const LayoutDefaults().nodeHoverBorderStyle,
+        style: nodeHit.target.layout.nodeHoverBorderStyle,
       );
     }
 
@@ -1316,9 +1363,7 @@ class _LandscapeXlSceneComponent extends PositionComponent
         return (
           key: '${placement.key}/${segment.occurrence.occurrenceId}',
           path: segment.path,
-          style:
-              placement.layout.layoutDefaults?.nodeHoverBorderStyle ??
-              const LayoutDefaults().nodeHoverBorderStyle,
+          style: placement.layout.nodeHoverBorderStyle,
         );
       }
     }
@@ -1346,9 +1391,7 @@ class _LandscapeXlSceneComponent extends PositionComponent
         return (
           key: '${placement.key}/${graphNode.node.slug}',
           path: Path()..addOval(graphNode.circleBounds),
-          style:
-              placement.layout.layoutDefaults?.nodeHoverBorderStyle ??
-              const LayoutDefaults().nodeHoverBorderStyle,
+          style: placement.layout.nodeHoverBorderStyle,
         );
       }
     }
@@ -1367,9 +1410,7 @@ class _LandscapeXlSceneComponent extends PositionComponent
     return (
       key: hit!.target.key,
       path: nodePath,
-      style:
-          hit.target.layout.layoutDefaults?.nodeHoverBorderStyle ??
-          const LayoutDefaults().nodeHoverBorderStyle,
+      style: hit.target.layout.nodeHoverBorderStyle,
     );
   }
 
@@ -1588,19 +1629,159 @@ class _FanComponent extends PositionComponent
       planePoints: planePoints,
     );
     if (occurrence == null) return;
-    final resolvedNode = _resolvedFanNode(occurrence, fan.layoutDefaults);
+    final resolvedNode = _resolvedFanNode(occurrence, fan);
     game.dispatchLayoutTap(
       LayoutTapTarget(
         key: '${placement.key}/${occurrence.occurrenceId}',
         layout: fan,
         node: resolvedNode,
         resolvedNode: resolvedNode,
-        label: _nodePresentationLabel(occurrence.node, fan.layoutDefaults),
+        label: _nodePresentationLabel(occurrence.node, fan),
       ),
     );
     event.continuePropagation = false;
   }
 }
+
+class _SearchSuggestionsComponent extends PositionComponent
+    with
+        HasGameReference<LandscapeXlLayoutGame>,
+        flame_events.TapCallbacks,
+        flame_events.HoverCallbacks {
+  final List<_SearchTableNodeHit> _nodeHits = [];
+  Offset? _hoverPosition;
+
+  SearchHudComponent get _hud => game._searchHud;
+  TableLayout? get _table => _hud.layout.searchResultsLayout;
+
+  bool get _isVisible =>
+      _hud.showsResults &&
+      _table != null &&
+      _hud.suggestionsBounds.width > 0 &&
+      _hud.suggestionsBounds.height > 0;
+
+  @override
+  void update(double dt) {
+    position = _hud.position;
+    size = _hud.size;
+    super.update(dt);
+  }
+
+  @override
+  bool containsLocalPoint(Vector2 point) =>
+      _isVisible && _hud.suggestionsBounds.contains(point.toOffset());
+
+  @override
+  void render(Canvas canvas) {
+    _nodeHits.clear();
+    final table = _table;
+    if (!_isVisible || table == null) return;
+    final bounds = _hud.suggestionsBounds;
+    _drawTableLayout(
+      canvas,
+      _rectPoints(bounds),
+      table,
+      TableData({'search_results': _hud.visibleResults}),
+      _hoverPosition,
+      game._classificationLabelComponent,
+      nodeListSources: _nodeListSources(
+        game.selectedNodes,
+        searchResults: _hud.visibleResults,
+      ),
+      layoutContext: game.layoutContext,
+      groupExpansion: (_) => 1,
+      onGroupHeader: (_, _) {},
+      onNode: (target, path) {
+        _nodeHits.add((target: target, path: path));
+      },
+      onAction: (_, _, _, _) {},
+      onClassificationLabel: (_, _) {},
+    );
+
+    final highlightedIndex = _hud.highlightedIndex;
+    if (highlightedIndex < 0 || highlightedIndex >= _nodeHits.length) return;
+    final hit = _nodeHits[highlightedIndex];
+    final style = table.nodeHoverBorderStyle;
+    NodeComponent.renderBorder(
+      canvas,
+      hit.path,
+      style,
+      style.strokeWidth,
+      isVirtual: false,
+    );
+  }
+
+  @override
+  void onTapUp(flame_events.TapUpEvent event) {
+    final hit = _hitAt(event.localPosition.toOffset());
+    if (hit == null) return;
+    final resultIndex = _resultIndex(hit.target.resolvedNode);
+    if (resultIndex == null) return;
+    _hud.selectResult(resultIndex);
+    game.updateHoveredNode(null);
+    event.continuePropagation = false;
+  }
+
+  @override
+  void onPointerMove(flame_events.PointerMoveEvent event) {
+    final localPosition = event.localPosition.toOffset();
+    final globalPosition = localPosition + position.toOffset();
+    _hoverPosition = localPosition;
+    game.updateCursorPosition(globalPosition);
+    final hit = _hitAt(localPosition);
+    final resultIndex = _resultIndex(hit?.target.resolvedNode);
+    if (hit == null || resultIndex == null) {
+      game.updateHoveredNode(null);
+    } else {
+      _hud.highlightResult(resultIndex);
+      final table = _table!;
+      final style = table.nodeHoverBorderStyle;
+      game.updateHoveredNode(
+        'search/${hit.target.resolvedNode?.node?.slug ?? resultIndex}',
+        path: hit.path.shift(position.toOffset()),
+        style: style,
+      );
+    }
+    super.onPointerMove(event);
+  }
+
+  @override
+  void onPointerMoveStop(flame_events.PointerMoveEvent event) {
+    _hoverPosition = null;
+    game.updateHoveredNode(null);
+    super.onPointerMoveStop(event);
+  }
+
+  _SearchTableNodeHit? _hitAt(Offset localPosition) {
+    for (final hit in _nodeHits.reversed) {
+      if (hit.path.contains(localPosition)) return hit;
+    }
+    return null;
+  }
+
+  int? _resultIndex(ResolvedVaultNode? node) {
+    if (node == null) return null;
+    final results = _hud.visibleResults;
+    for (var index = 0; index < results.length; index += 1) {
+      if (identical(results[index], node)) return index;
+    }
+    final slug = node.node?.slug.trim();
+    if (slug == null || slug.isEmpty) return null;
+    for (var index = 0; index < results.length; index += 1) {
+      if (results[index].node?.slug.trim() == slug) return index;
+    }
+    return null;
+  }
+}
+
+typedef _SearchTableNodeHit = ({LayoutTapTarget target, Path path});
+
+List<Offset> _rectPoints(Rect rect) => [
+  rect.topLeft,
+  rect.topRight,
+  rect.bottomRight,
+  rect.bottomLeft,
+];
 
 class _GraphComponent extends PositionComponent
     with HasGameReference<LandscapeXlLayoutGame>, flame_events.TapCallbacks {
@@ -1657,10 +1838,7 @@ class _GraphComponent extends PositionComponent
         layout: placement.layout,
         node: graphNode.resolvedNode,
         resolvedNode: graphNode.resolvedNode,
-        label: _nodePresentationLabel(
-          graphNode.node,
-          placement.layout.layoutDefaults,
-        ),
+        label: _nodePresentationLabel(graphNode.node, placement.layout),
       ),
     );
     event.continuePropagation = false;
@@ -1703,12 +1881,6 @@ LayoutContext _layoutContext(
   );
   return nodeContext;
 }
-
-Set<String> _selectedNodeSlugSet(List<ResolvedVaultNode> selectedNodes) => {
-  for (final resolvedNode in selectedNodes)
-    if (resolvedNode.node?.slug.trim() case final slug? when slug.isNotEmpty)
-      slug,
-};
 
 SearchLayout _searchLayoutConfig(Layout root) =>
     _searchLayoutConfigOrNull(root) ?? const SearchLayout();
@@ -2188,8 +2360,7 @@ void _drawGraphLayout(
   clipPath.close();
 
   final borderStyle = graph.style;
-  final borderWidth =
-      graph.layoutDefaults?.borderWidth ?? borderStyle.strokeWidth;
+  final borderWidth = graph.layoutBorderWidth ?? borderStyle.strokeWidth;
   canvas.save();
   canvas.clipPath(clipPath);
   for (final graphNode in nodes) {
@@ -2197,7 +2368,7 @@ void _drawGraphLayout(
       _nodeColor(graphNode.node).resolve(),
       graphNode.node.slug,
       layoutContext,
-      graph.layoutDefaults,
+      graph,
       isVirtual: graphNode.resolvedNode.isVirtual,
     );
     canvas.drawOval(
@@ -2292,13 +2463,20 @@ typedef _NodeListEntryFrame = ({
   List<Offset> points,
 });
 
-typedef _NodeListSources = ({List<ResolvedVaultNode> virtualNodes});
+typedef _NodeListSources = ({
+  List<ResolvedVaultNode> virtualNodes,
+  List<ResolvedVaultNode> searchResults,
+});
 
-_NodeListSources _nodeListSources(List<ResolvedVaultNode> selectedNodes) => (
+_NodeListSources _nodeListSources(
+  List<ResolvedVaultNode> selectedNodes, {
+  List<ResolvedVaultNode> searchResults = const [],
+}) => (
   virtualNodes: [
     for (final node in selectedNodes)
       if (node.isVirtual) node,
   ],
+  searchResults: searchResults,
 );
 
 void _drawNodeListLayout(
@@ -2309,8 +2487,7 @@ void _drawNodeListLayout(
   LayoutContext layoutContext,
 ) {
   final entries = _nodeListEntries(layout, sources, points);
-  final borderWidth =
-      layout.layoutDefaults?.borderWidth ?? layout.style.strokeWidth;
+  final borderWidth = layout.layoutBorderWidth ?? layout.style.strokeWidth;
   for (final entry in entries) {
     final path = _polygonPath(entry.points);
     canvas.drawPath(
@@ -2320,7 +2497,7 @@ void _drawNodeListLayout(
           _nodeColor(entry.node).resolve(),
           entry.node.slug,
           layoutContext,
-          layout.layoutDefaults,
+          layout,
           isVirtual: entry.resolvedNode.isVirtual,
         )
         ..style = PaintingStyle.fill,
@@ -2339,7 +2516,7 @@ void _drawNodeListLayout(
     final bottomWidth = (entry.points[2] - entry.points[3]).distance;
     _paintNodeLabel(
       canvas,
-      _nodePresentation(entry.node, layout.layoutDefaults),
+      _nodePresentation(entry.node, layout),
       center,
       math.min(topWidth, bottomWidth) * 0.88,
       layout.labelColor,
@@ -2356,6 +2533,7 @@ List<_NodeListEntryFrame> _nodeListEntries(
   if (points.length != 4) return const [];
   final nodes = switch (layout.dataSource) {
     NodeListDataSource.virtualNodes => sources.virtualNodes,
+    NodeListDataSource.searchResults => sources.searchResults,
   };
   final resolvedNodes = [
     for (final resolvedNode in nodes)
@@ -2399,33 +2577,48 @@ Path _polygonPath(List<Offset> points) {
 
 String _nodePresentationLabel(
   Node node,
-  LayoutDefaults? layoutDefaults, {
+  Layout layout, {
   bool forceSlug = false,
-}) => _nodePresentation(node, layoutDefaults, forceSlug: forceSlug).text;
+}) => _nodePresentation(node, layout, forceSlug: forceSlug).text;
 
-typedef _NodePresentation = ({String text, bool isSlug, Color? colorOverride});
+typedef _NodePresentation = ({
+  String text,
+  bool isSlug,
+  Color? colorOverride,
+  List<FontFeature>? fontFeatures,
+});
 
 _NodePresentation _nodePresentation(
   Node node,
-  LayoutDefaults? layoutDefaults, {
+  Layout layout, {
   bool forceSlug = false,
 }) {
-  final defaults = layoutDefaults ?? const LayoutDefaults();
   final slug = node.slug.trim();
   if (!forceSlug) {
     final emoji = node.primaryEmojiCharacter;
     if (emoji != null) {
-      return (text: emoji, isSlug: false, colorOverride: null);
+      return (
+        text: emoji,
+        isSlug: false,
+        colorOverride: null,
+        fontFeatures: null,
+      );
     }
   }
   if (slug.isNotEmpty) {
     return (
-      text: defaults.formatNodeSlug(slug),
+      text: layout.formatNodeSlug(slug),
       isSlug: true,
-      colorOverride: defaults.slugColor,
+      colorOverride: layout.slugColor,
+      fontFeatures: layout.nodeSlugTransform.fontFeatures,
     );
   }
-  return (text: node.displayLabel, isSlug: false, colorOverride: null);
+  return (
+    text: node.displayLabel,
+    isSlug: false,
+    colorOverride: null,
+    fontFeatures: null,
+  );
 }
 
 typedef _FanSegment = ({
@@ -2476,15 +2669,14 @@ void _drawFanLayout(
   if (frame == null) return;
   final segments = _fanSegmentsInFrame(fan, hierarchy, frame);
   final borderStyle = fan.style;
-  final borderWidth =
-      fan.layoutDefaults?.borderWidth ?? borderStyle.strokeWidth;
+  final borderWidth = fan.layoutBorderWidth ?? borderStyle.strokeWidth;
   for (final segment in segments) {
     final node = segment.occurrence.node;
     final fillColor = NodeComponent.backgroundColor(
       _nodeColor(node).resolve(),
       node.slug,
       layoutContext,
-      fan.layoutDefaults,
+      fan,
     );
     canvas.drawPath(
       segment.path,
@@ -2507,7 +2699,7 @@ void _drawFanLayout(
     final node = segment.occurrence.node;
     _paintNodeLabel(
       canvas,
-      _nodePresentation(node, fan.layoutDefaults),
+      _nodePresentation(node, fan),
       segment.labelPoint,
       segment.labelWidth,
       fan.labelColor,
@@ -2547,7 +2739,7 @@ void _paintGraphNodeLabels(
   final maxWidth = nodeBounds.width * 0.8;
   if (maxWidth < graph.labelSize * 2) return;
   final slugPainter = _nodeLabelTextPainter(
-    _nodePresentation(node, graph.layoutDefaults, forceSlug: true),
+    _nodePresentation(node, graph, forceSlug: true),
     maxWidth: maxWidth,
     color: graph.labelColor,
     fontSize: graph.labelSize,
@@ -2562,7 +2754,7 @@ void _paintGraphNodeLabels(
   }
 
   final emojiPainter = _nodeLabelTextPainter(
-    (text: emoji, isSlug: false, colorOverride: null),
+    (text: emoji, isSlug: false, colorOverride: null, fontFeatures: null),
     maxWidth: maxWidth,
     color: graph.labelColor,
     fontSize: graph.labelSize * graph.emojiFontSizeFactor,
@@ -2598,6 +2790,7 @@ TextPainter _nodeLabelTextPainter(
       color: presentation.colorOverride ?? color,
       fontSize: fontSize,
       fontWeight: presentation.isSlug ? FontWeight.w700 : FontWeight.w600,
+      fontFeatures: presentation.fontFeatures,
     ),
   ),
   maxLines: 1,
@@ -3245,7 +3438,7 @@ _LayoutTapHit? _hitTestFlexComposition(
             layout: layout,
             node: entry.resolvedNode,
             resolvedNode: entry.resolvedNode,
-            label: _nodePresentationLabel(entry.node, layout.layoutDefaults),
+            label: _nodePresentationLabel(entry.node, layout),
           ),
           nodePath: _polygonPath(entry.points),
         );
@@ -3415,13 +3608,13 @@ NodeTreeOccurrence? _hitTestFan(
 
 ResolvedVaultNode _resolvedFanNode(
   NodeTreeOccurrence occurrence,
-  LayoutDefaults? layoutDefaults,
+  Layout layout,
 ) {
   final node = occurrence.node;
   return ResolvedVaultNode(
     path: node.path,
     color: _nodeColor(node),
-    label: _nodePresentationLabel(node, layoutDefaults),
+    label: _nodePresentationLabel(node, layout),
     node: node,
     resolvedStatus: LayoutHttpStatus.ok,
   );
@@ -3466,7 +3659,7 @@ void _drawPerspectiveGridArea(
           resolvedFillColor,
           resolvedNode!.node!.slug,
           layoutContext,
-          area.layoutDefaults ?? grid.layoutDefaults,
+          area,
           isVirtual: resolvedNode.isVirtual,
         );
   final borderStyle = area.node == null
@@ -3867,10 +4060,7 @@ void _drawTableLayout(
               layout: rowLayout,
               node: entry.resolvedNode,
               resolvedNode: entry.resolvedNode,
-              label: _nodePresentationLabel(
-                entry.node,
-                rowLayout.layoutDefaults,
-              ),
+              label: _nodePresentationLabel(entry.node, rowLayout),
             ),
             _polygonPath([
               for (final point in entry.points)
@@ -3895,11 +4085,9 @@ void _drawTableLayout(
             columnEnd,
           ).getBounds(),
           fontSize: table.valueSize,
-          layoutDefaults: table.layoutDefaults,
+          layout: table,
         );
-        final hoverStyle =
-            table.layoutDefaults?.classificationLabelHoverBorderStyle ??
-            const LayoutDefaults().classificationLabelHoverBorderStyle;
+        final hoverStyle = table.classificationLabelHoverBorderStyle;
         for (final frame in labelFrames) {
           onClassificationLabel(
             frame.path.transform(tableTransform),
@@ -3918,14 +4106,14 @@ void _drawTableLayout(
         columnEnd: columnEnd,
         text: isKeyColumn
             ? row.label
-            : _formatTableRowValue(row.key, row.value, table.layoutDefaults),
+            : _formatTableRowValue(row.key, row.value, table),
         maxLines: isKeyColumn ? 2 : 3,
         style: TextStyle(
           fontFamily: isNodeSlugValue ? null : SevilleTypography.fontFamily,
           color: isKeyColumn
               ? table.labelColor
               : isNodeSlugValue
-              ? (table.layoutDefaults ?? const LayoutDefaults()).slugColor
+              ? table.slugColor
               : table.valueColor,
           fontSize: isKeyColumn ? table.labelSize : table.valueSize,
           fontWeight: isKeyColumn
@@ -3933,6 +4121,9 @@ void _drawTableLayout(
               : isNodeSlugValue
               ? FontWeight.w700
               : FontWeight.w600,
+          fontFeatures: isNodeSlugValue
+              ? table.nodeSlugTransform.fontFeatures
+              : null,
           height: isKeyColumn ? null : 1.25,
         ),
       );
@@ -4608,22 +4799,17 @@ String _formatTableValue(Object? value) {
 bool _isNodeSlugField(String? key) =>
     key == 'slug' || key == 'selected_node_slugs';
 
-String _formatTableRowValue(
-  String? key,
-  Object? value,
-  LayoutDefaults? layoutDefaults,
-) {
+String _formatTableRowValue(String? key, Object? value, Layout layout) {
   if (!_isNodeSlugField(key)) return _formatTableValue(value);
-  final defaults = layoutDefaults ?? const LayoutDefaults();
   if (value is Iterable) {
     return value
         .map((item) => item.toString().trim())
         .where((slug) => slug.isNotEmpty)
-        .map(defaults.formatNodeSlug)
+        .map(layout.formatNodeSlug)
         .join(', ');
   }
   final slug = value?.toString().trim() ?? '';
-  return slug.isEmpty ? '—' : defaults.formatNodeSlug(slug);
+  return slug.isEmpty ? '—' : layout.formatNodeSlug(slug);
 }
 
 void _drawStickmanLayout(

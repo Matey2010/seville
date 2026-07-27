@@ -38,6 +38,31 @@ if [ "${SEVILLE_NEO4J_QUERY_LOG:-false}" = "true" ]; then
 fi
 
 cd "$ROOT/frontend/flutter"
+
+EXPECTED_BUNDLE_ID="io.github.matey2010.seville"
+STALE_MACOS_BUNDLE=false
+for BUILT_INFO_PLIST in \
+  "build/macos/Build/Products/Debug/seville.app/Contents/Info.plist" \
+  "build/macos/Build/Products/Release/seville.app/Contents/Info.plist"; do
+  if [ -f "$BUILT_INFO_PLIST" ] &&
+    [ "$(plutil -extract CFBundleIdentifier raw -o - "$BUILT_INFO_PLIST")" != "$EXPECTED_BUNDLE_ID" ]; then
+    STALE_MACOS_BUNDLE=true
+  fi
+done
+
+if [ "$STALE_MACOS_BUNDLE" = true ]; then
+  flutter clean
+fi
+
+ICON_CONFIG="flutter_launcher_icons.yaml"
+ICON_SOURCE="assets/icons/macos/first-seville-icon.png"
+ICON_OUTPUT="macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_1024.png"
+if [ ! -f "$ICON_OUTPUT" ] ||
+  [ "$ICON_CONFIG" -nt "$ICON_OUTPUT" ] ||
+  [ "$ICON_SOURCE" -nt "$ICON_OUTPUT" ]; then
+  dart run flutter_launcher_icons -f "$ICON_CONFIG"
+fi
+
 flutter run \
   -d "${1:-macos}" \
   --dart-define="SEVILLE_BASE_URL=${SEVILLE_BASE_URL:-http://127.0.0.1:8787}" \

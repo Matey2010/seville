@@ -28,27 +28,59 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
         LayoutBackgroundGuide(
           start: Offset(0, 0.5),
           end: Offset(1, 0.5),
-          style: lgErgoScreenGuidelineStyle,
+          style: (GuideStyle(
+            color: guidelineRedColor,
+            strokeWidth: 1.2,
+            pattern: GuideLinePattern.dashed,
+            dashLength: 8,
+            dashInterval: 6,
+          )),
         ),
         LayoutBackgroundGuide(
           start: Offset(0.5, 0),
           end: Offset(0.5, 1),
-          style: lgErgoScreenGuidelineStyle,
+          style: (GuideStyle(
+            color: guidelineRedColor,
+            strokeWidth: 1.2,
+            pattern: GuideLinePattern.dashed,
+            dashLength: 8,
+            dashInterval: 6,
+          )),
         ),
         LayoutBackgroundGuide(
           start: Offset(0, 0),
           end: Offset(1, 1),
-          style: lgErgoDiagonalGuidelineStyle,
+          style: (GuideStyle(
+            color: perceptualMapDiagonalColor,
+            strokeWidth: 1,
+            pattern: GuideLinePattern.dashed,
+            dashLength: 7,
+            dashInterval: 6,
+          )),
         ),
         LayoutBackgroundGuide(
           start: Offset(0, 1),
           end: Offset(1, 0),
-          style: lgErgoDiagonalGuidelineStyle,
+          style: (GuideStyle(
+            color: perceptualMapDiagonalColor,
+            strokeWidth: 1,
+            pattern: GuideLinePattern.dashed,
+            dashLength: 7,
+            dashInterval: 6,
+          )),
         ),
       ],
     ),
   ],
-  layoutDefaults: lgErgoLayoutDefaults,
+  layoutPadding: 20,
+  layoutGap: 20,
+  layoutBorderWidth: 1.2,
+  backgroundDefaults: const [
+    LayoutImageBackground(
+      assetPath: 'assets/wallpapers/dark-vintage-scheme.jpg',
+      fit: LayoutBackgroundFit.cover,
+    ),
+  ],
   derivativeSnapshot: 'screen-edge-centers',
   derivatives: {
     'screen-edge-centers': LayoutDerivativeSnapshot(
@@ -95,13 +127,13 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
       ],
       style: LayoutPathStyle(
         fillColor: Color(0x333F51B5),
-        strokeStyle: lgErgoSpacePlaneLineStyle,
+        strokeStyle: (GuideStyle(
+          color: Color(0xAA3F51B5),
+          strokeWidth: (1.2),
+          pattern: GuideLinePattern.solid,
+        )),
       ),
-      padding: LayoutPathPadding(
-        top: lgErgoLayoutDefaultPadding,
-        bottom: lgErgoLayoutDefaultPadding,
-        left: lgErgoLayoutDefaultPadding,
-      ),
+      padding: LayoutPathPadding(top: (20.0), bottom: (20.0), left: (20.0)),
       layouts: {
         'action-column': ColumnLayout(
           aliases: ['action-column', 'action-panel-column', 'form-column'],
@@ -117,10 +149,14 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                     'refresh-action',
                     'refresh-fan-data',
                   ],
-                  fillColor: lgErgoActionButtonColor,
-                  borderStyle: lgErgoActionButtonBorderStyle,
+                  fillColor: (Color(0x553F51B5)),
+                  borderStyle: (GuideStyle(
+                    color: Color(0xCCB7C2FF),
+                    strokeWidth: 1,
+                    pattern: GuideLinePattern.solid,
+                  )),
                   label: '🔄',
-                  labelColor: lgErgoActionButtonLabelColor,
+                  labelColor: ((Color(0xFFFFF8E7))),
                   labelSize: 18,
                 ),
                 'search': PanelLayout(
@@ -130,10 +166,14 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                     'search-action',
                     'open-search-hud',
                   ],
-                  fillColor: lgErgoActionButtonColor,
-                  borderStyle: lgErgoActionButtonBorderStyle,
+                  fillColor: (Color(0x553F51B5)),
+                  borderStyle: (GuideStyle(
+                    color: Color(0xCCB7C2FF),
+                    strokeWidth: 1,
+                    pattern: GuideLinePattern.solid,
+                  )),
                   label: '🔍',
-                  labelColor: lgErgoActionButtonLabelColor,
+                  labelColor: ((Color(0xFFFFF8E7))),
                   labelSize: 18,
                 ),
                 'add-node': PanelLayout(
@@ -143,10 +183,14 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                     'add-action',
                     'create-virtual-node',
                   ],
-                  fillColor: lgErgoSubmitButtonColor,
-                  borderStyle: lgErgoActionButtonBorderStyle,
+                  fillColor: (Color(0x6652A66B)),
+                  borderStyle: (GuideStyle(
+                    color: Color(0xCCB7C2FF),
+                    strokeWidth: 1,
+                    pattern: GuideLinePattern.solid,
+                  )),
                   label: 'Add',
-                  labelColor: lgErgoActionButtonLabelColor,
+                  labelColor: ((Color(0xFFFFF8E7))),
                   labelSize: 12,
                 ),
                 'today': PanelLayout(
@@ -156,10 +200,14 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                     'today-action',
                     'resolve-today-node',
                   ],
-                  fillColor: lgErgoActionButtonColor,
-                  borderStyle: lgErgoActionButtonBorderStyle,
+                  fillColor: (Color(0x553F51B5)),
+                  borderStyle: (GuideStyle(
+                    color: Color(0xCCB7C2FF),
+                    strokeWidth: 1,
+                    pattern: GuideLinePattern.solid,
+                  )),
                   label: 'Today',
-                  labelColor: lgErgoActionButtonLabelColor,
+                  labelColor: ((Color(0xFFFFF8E7))),
                   labelSize: 12,
                 ),
                 'confirm': PanelLayout(
@@ -170,10 +218,14 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                     'submit-action',
                     'create-first-virtual-node',
                   ],
-                  fillColor: lgErgoSubmitButtonColor,
-                  borderStyle: lgErgoActionButtonBorderStyle,
+                  fillColor: (Color(0x6652A66B)),
+                  borderStyle: (GuideStyle(
+                    color: Color(0xCCB7C2FF),
+                    strokeWidth: 1,
+                    pattern: GuideLinePattern.solid,
+                  )),
                   label: '✅',
-                  labelColor: lgErgoActionButtonLabelColor,
+                  labelColor: ((Color(0xFFFFF8E7))),
                   labelSize: 18,
                 ),
                 'close-selection': PanelLayout(
@@ -184,10 +236,14 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                     'cancel-interface-action',
                     'clear-selection-action',
                   ],
-                  fillColor: lgErgoRejectButtonColor,
-                  borderStyle: lgErgoActionButtonBorderStyle,
+                  fillColor: (Color(0x668F3E4B)),
+                  borderStyle: (GuideStyle(
+                    color: Color(0xCCB7C2FF),
+                    strokeWidth: 1,
+                    pattern: GuideLinePattern.solid,
+                  )),
                   label: '×',
-                  labelColor: lgErgoActionButtonLabelColor,
+                  labelColor: ((Color(0xFFFFF8E7))),
                   labelSize: 18,
                 ),
               },
@@ -203,10 +259,14 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                     'player-action',
                     'resolve-player-node',
                   ],
-                  fillColor: lgErgoActionButtonColor,
-                  borderStyle: lgErgoActionButtonBorderStyle,
+                  fillColor: (Color(0x553F51B5)),
+                  borderStyle: (GuideStyle(
+                    color: Color(0xCCB7C2FF),
+                    strokeWidth: 1,
+                    pattern: GuideLinePattern.solid,
+                  )),
                   label: 'Me',
-                  labelColor: lgErgoActionButtonLabelColor,
+                  labelColor: ((Color(0xFFFFF8E7))),
                   labelSize: 12,
                 ),
                 'copy': PanelLayout(
@@ -217,10 +277,14 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                     'copy-action',
                     'copy-selected-node-slug',
                   ],
-                  fillColor: lgErgoActionButtonColor,
-                  borderStyle: lgErgoActionButtonBorderStyle,
+                  fillColor: (Color(0x553F51B5)),
+                  borderStyle: (GuideStyle(
+                    color: Color(0xCCB7C2FF),
+                    strokeWidth: 1,
+                    pattern: GuideLinePattern.solid,
+                  )),
                   label: '📋',
-                  labelColor: lgErgoActionButtonLabelColor,
+                  labelColor: ((Color(0xFFFFF8E7))),
                   labelSize: 18,
                 ),
                 'share': PanelLayout(
@@ -230,10 +294,14 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                     'selected-node-action',
                     'share-action',
                   ],
-                  fillColor: lgErgoActionButtonColor,
-                  borderStyle: lgErgoActionButtonBorderStyle,
+                  fillColor: (Color(0x553F51B5)),
+                  borderStyle: (GuideStyle(
+                    color: Color(0xCCB7C2FF),
+                    strokeWidth: 1,
+                    pattern: GuideLinePattern.solid,
+                  )),
                   label: '📤',
-                  labelColor: lgErgoActionButtonLabelColor,
+                  labelColor: ((Color(0xFFFFF8E7))),
                   labelSize: 18,
                 ),
               },
@@ -258,10 +326,14 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                         'direction-action',
                         'direction-top-left',
                       ],
-                      fillColor: lgErgoActionButtonColor,
-                      borderStyle: lgErgoActionButtonBorderStyle,
+                      fillColor: (Color(0x553F51B5)),
+                      borderStyle: (GuideStyle(
+                        color: Color(0xCCB7C2FF),
+                        strokeWidth: 1,
+                        pattern: GuideLinePattern.solid,
+                      )),
                       label: '↖',
-                      labelColor: lgErgoActionButtonLabelColor,
+                      labelColor: ((Color(0xFFFFF8E7))),
                       labelSize: 18,
                     ),
                     'top-center': PanelLayout(
@@ -272,10 +344,14 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                         'direction-action',
                         'direction-top-center',
                       ],
-                      fillColor: lgErgoActionButtonColor,
-                      borderStyle: lgErgoActionButtonBorderStyle,
+                      fillColor: (Color(0x553F51B5)),
+                      borderStyle: (GuideStyle(
+                        color: Color(0xCCB7C2FF),
+                        strokeWidth: 1,
+                        pattern: GuideLinePattern.solid,
+                      )),
                       label: '↑',
-                      labelColor: lgErgoActionButtonLabelColor,
+                      labelColor: ((Color(0xFFFFF8E7))),
                       labelSize: 18,
                     ),
                     'top-right': PanelLayout(
@@ -286,10 +362,14 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                         'direction-action',
                         'direction-top-right',
                       ],
-                      fillColor: lgErgoActionButtonColor,
-                      borderStyle: lgErgoActionButtonBorderStyle,
+                      fillColor: (Color(0x553F51B5)),
+                      borderStyle: (GuideStyle(
+                        color: Color(0xCCB7C2FF),
+                        strokeWidth: 1,
+                        pattern: GuideLinePattern.solid,
+                      )),
                       label: '↗',
-                      labelColor: lgErgoActionButtonLabelColor,
+                      labelColor: ((Color(0xFFFFF8E7))),
                       labelSize: 18,
                     ),
                   },
@@ -306,10 +386,14 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                         'direction-action',
                         'direction-center-left',
                       ],
-                      fillColor: lgErgoActionButtonColor,
-                      borderStyle: lgErgoActionButtonBorderStyle,
+                      fillColor: (Color(0x553F51B5)),
+                      borderStyle: (GuideStyle(
+                        color: Color(0xCCB7C2FF),
+                        strokeWidth: 1,
+                        pattern: GuideLinePattern.solid,
+                      )),
                       label: '←',
-                      labelColor: lgErgoActionButtonLabelColor,
+                      labelColor: ((Color(0xFFFFF8E7))),
                       labelSize: 18,
                     ),
                     'center': PanelLayout(
@@ -320,10 +404,14 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                         'direction-action',
                         'direction-center',
                       ],
-                      fillColor: lgErgoActionButtonColor,
-                      borderStyle: lgErgoActionButtonBorderStyle,
+                      fillColor: (Color(0x553F51B5)),
+                      borderStyle: (GuideStyle(
+                        color: Color(0xCCB7C2FF),
+                        strokeWidth: 1,
+                        pattern: GuideLinePattern.solid,
+                      )),
                       label: '•',
-                      labelColor: lgErgoActionButtonLabelColor,
+                      labelColor: ((Color(0xFFFFF8E7))),
                       labelSize: 18,
                     ),
                     'center-right': PanelLayout(
@@ -334,10 +422,14 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                         'direction-action',
                         'direction-center-right',
                       ],
-                      fillColor: lgErgoActionButtonColor,
-                      borderStyle: lgErgoActionButtonBorderStyle,
+                      fillColor: (Color(0x553F51B5)),
+                      borderStyle: (GuideStyle(
+                        color: Color(0xCCB7C2FF),
+                        strokeWidth: 1,
+                        pattern: GuideLinePattern.solid,
+                      )),
                       label: '→',
-                      labelColor: lgErgoActionButtonLabelColor,
+                      labelColor: ((Color(0xFFFFF8E7))),
                       labelSize: 18,
                     ),
                   },
@@ -354,10 +446,14 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                         'direction-action',
                         'direction-bottom-left',
                       ],
-                      fillColor: lgErgoActionButtonColor,
-                      borderStyle: lgErgoActionButtonBorderStyle,
+                      fillColor: (Color(0x553F51B5)),
+                      borderStyle: (GuideStyle(
+                        color: Color(0xCCB7C2FF),
+                        strokeWidth: 1,
+                        pattern: GuideLinePattern.solid,
+                      )),
                       label: '↙',
-                      labelColor: lgErgoActionButtonLabelColor,
+                      labelColor: ((Color(0xFFFFF8E7))),
                       labelSize: 18,
                     ),
                     'bottom-center': PanelLayout(
@@ -368,10 +464,14 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                         'direction-action',
                         'direction-bottom-center',
                       ],
-                      fillColor: lgErgoActionButtonColor,
-                      borderStyle: lgErgoActionButtonBorderStyle,
+                      fillColor: (Color(0x553F51B5)),
+                      borderStyle: (GuideStyle(
+                        color: Color(0xCCB7C2FF),
+                        strokeWidth: 1,
+                        pattern: GuideLinePattern.solid,
+                      )),
                       label: '↓',
-                      labelColor: lgErgoActionButtonLabelColor,
+                      labelColor: ((Color(0xFFFFF8E7))),
                       labelSize: 18,
                     ),
                     'bottom-right': PanelLayout(
@@ -382,10 +482,14 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                         'direction-action',
                         'direction-bottom-right',
                       ],
-                      fillColor: lgErgoActionButtonColor,
-                      borderStyle: lgErgoActionButtonBorderStyle,
+                      fillColor: (Color(0x553F51B5)),
+                      borderStyle: (GuideStyle(
+                        color: Color(0xCCB7C2FF),
+                        strokeWidth: 1,
+                        pattern: GuideLinePattern.solid,
+                      )),
                       label: '↘',
-                      labelColor: lgErgoActionButtonLabelColor,
+                      labelColor: ((Color(0xFFFFF8E7))),
                       labelSize: 18,
                     ),
                   },
@@ -424,26 +528,55 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
         LayoutDerivativeReference(derivative: 'A'),
       ],
       pointDerivatives: {'A': 0, 'B': 1, 'C': 2, 'D': 3},
-      // style: LayoutPathStyle(
-      //   // fillColor: lgErgoActionPlaneBandColor,
-      //   strokeStyle: lgErgoSpacePlaneLineStyle,
-      // ),
       layouts: {
         'info-table': TableLayout(
           aliases: ['info-table', 'table-layout', 'node-info', 'system-info'],
-          layoutDefaults: lgErgoNodeLayoutDefaults,
-          labelColor: lgErgoMainTextColor,
-          valueColor: lgErgoMainTextColor,
-          guideStyle: lgErgoNodeInfoTableStyle,
+          layoutBorderWidth: 1.8,
+          nodeHoverBorderStyle: (GuideStyle(
+            color: Color(0xFF2196F3),
+            strokeWidth: 4,
+            pattern: GuideLinePattern.solid,
+          )),
+          nodeSlugPrefix: '[[',
+          nodeSlugTransform: const TextTransform.capitalCap(),
+          nodeSlugSuffix: ']]',
+          slugColor: const Color(0xFFFFD54F),
+          classificationLabelColors: const [
+            Color(0xFF3F51B5),
+            Color(0xFF2E7D32),
+            Color(0xFFC59A1A),
+            Color(0xFF8F3E4B),
+            Color(0xFF7B4FA3),
+            Color(0xFF287A78),
+          ],
+          classificationLabelBorderColor: const Color(0xFFE8D59F),
+          classificationLabelHoleColor: const Color(0xFF27251F),
+          classificationLabelTextColor: const Color(0xFFFFF8E7),
+          classificationLabelHoverBorderStyle: (GuideStyle(
+            color: Color(0xFFFFD54F),
+            strokeWidth: 2,
+            pattern: GuideLinePattern.solid,
+          )),
+          labelColor: (Color(0xFFFFF8E7)),
+          valueColor: (Color(0xFFFFF8E7)),
+          guideStyle: (GuideStyle(
+            color: Color(0x665F7CFF),
+            strokeWidth: 1,
+            pattern: GuideLinePattern.solid,
+          )),
           cellHighlight: TableCellHighlightConfig(
             rows: true,
             // columns: true,
-            color: lgErgoNodeInfoCellHighlightColor,
+            color: (Color(0x66374A9B)),
           ),
           includeUnconfiguredFields: true,
           unconfiguredFieldGroupId: 'last_selected_node',
-          groupGap: lgErgoTableGroupGap,
-          groupBorderStyle: lgErgoNodeInfoGroupStyle,
+          groupGap: (12.0),
+          groupBorderStyle: (GuideStyle(
+            color: Color(0xAA5F7CFF),
+            strokeWidth: 1.4,
+            pattern: GuideLinePattern.solid,
+          )),
           tableConfig: TableConfig(
             groups: {
               'last_selected_node': TableGroup(
@@ -568,10 +701,39 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
           layouts: {
             'added': NodeListLayout(
               dataSource: NodeListDataSource.virtualNodes,
-              style: lgErgoCortexNodeBorderStyle,
-              layoutDefaults: lgErgoNodeLayoutDefaults,
+              style: (GuideStyle(
+                color: Color(0xFFFFF7D6),
+                strokeWidth: (1.8),
+                pattern: GuideLinePattern.solid,
+              )),
+              layoutBorderWidth: 1.8,
+              nodeHoverBorderStyle: (GuideStyle(
+                color: Color(0xFF2196F3),
+                strokeWidth: 4,
+                pattern: GuideLinePattern.solid,
+              )),
+              nodeSlugPrefix: '[[',
+              nodeSlugTransform: const TextTransform.capitalCap(),
+              nodeSlugSuffix: ']]',
+              slugColor: const Color(0xFFFFD54F),
+              classificationLabelColors: const [
+                Color(0xFF3F51B5),
+                Color(0xFF2E7D32),
+                Color(0xFFC59A1A),
+                Color(0xFF8F3E4B),
+                Color(0xFF7B4FA3),
+                Color(0xFF287A78),
+              ],
+              classificationLabelBorderColor: const Color(0xFFE8D59F),
+              classificationLabelHoleColor: const Color(0xFF27251F),
+              classificationLabelTextColor: const Color(0xFFFFF8E7),
+              classificationLabelHoverBorderStyle: (GuideStyle(
+                color: Color(0xFFFFD54F),
+                strokeWidth: 2,
+                pattern: GuideLinePattern.solid,
+              )),
               aliases: ['virtual-nodes', 'draft-nodes', 'uncreated-nodes'],
-              labelColor: lgErgoActionButtonLabelColor,
+              labelColor: ((Color(0xFFFFF8E7))),
             ),
           },
         ),
@@ -583,7 +745,11 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
         derivative: 'A',
       ),
       towards: LayoutDerivativeReference(derivative: 'A'),
-      style: lgErgoPlaneConnectionLineStyle,
+      style: (GuideStyle(
+        color: Color(0xCCC59A1A),
+        strokeWidth: 1.2,
+        pattern: GuideLinePattern.solid,
+      )),
     ),
     'ray-b': RayLayout(
       start: LayoutDerivativeReference(
@@ -591,7 +757,13 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
         derivative: 'B',
       ),
       towards: LayoutDerivativeReference(derivative: 'B'),
-      style: lgErgoRayStyle,
+      style: (GuideStyle(
+        color: perceptualMapDiagonalColor,
+        strokeWidth: 1,
+        pattern: GuideLinePattern.dashed,
+        dashLength: 7,
+        dashInterval: 6,
+      )),
     ),
     'ray-c': RayLayout(
       start: LayoutDerivativeReference(
@@ -599,7 +771,13 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
         derivative: 'C',
       ),
       towards: LayoutDerivativeReference(derivative: 'C'),
-      style: lgErgoRayStyle,
+      style: (GuideStyle(
+        color: perceptualMapDiagonalColor,
+        strokeWidth: 1,
+        pattern: GuideLinePattern.dashed,
+        dashLength: 7,
+        dashInterval: 6,
+      )),
     ),
     'ray-d': RayLayout(
       start: LayoutDerivativeReference(
@@ -607,7 +785,11 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
         derivative: 'D',
       ),
       towards: LayoutDerivativeReference(derivative: 'D'),
-      style: lgErgoPlaneConnectionLineStyle,
+      style: (GuideStyle(
+        color: Color(0xCCC59A1A),
+        strokeWidth: 1.2,
+        pattern: GuideLinePattern.solid,
+      )),
     ),
     'scene-ascending-diagonal-guide': RayLayout(
       start: LayoutDerivativeReference(
@@ -619,11 +801,25 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
         derivative: 'C',
       ),
       showArrow: false,
-      style: lgErgoSceneDiagonalStyle,
+      style: (GuideStyle(
+        color: Color(0xCC8E44AD),
+        strokeWidth: 1,
+        pattern: GuideLinePattern.dashed,
+        dashLength: 6,
+        dashInterval: 5,
+      )),
     ),
     'safe-area': SafeAreaLayout(
       aliases: ['safe-area'],
-      layoutDefaults: lgErgoLayoutDefaults,
+      layoutPadding: 20,
+      layoutGap: 20,
+      layoutBorderWidth: 1.2,
+      backgroundDefaults: const [
+        LayoutImageBackground(
+          assetPath: 'assets/wallpapers/dark-vintage-scheme.jpg',
+          fit: LayoutBackgroundFit.cover,
+        ),
+      ],
       derivativeSnapshot: 'safe-area-manifold',
       derivatives: {
         'safe-area-manifold': LayoutDerivativeSnapshot(
@@ -742,7 +938,136 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
       layouts: {
         'search-layout': SearchLayout(
           aliases: ['search-layout', 'search-overlay', 'search-hud'],
-          layoutDefaults: lgErgoNodeLayoutDefaults,
+          layoutBorderWidth: 1.8,
+          nodeHoverBorderStyle: (GuideStyle(
+            color: Color(0xFF2196F3),
+            strokeWidth: 4,
+            pattern: GuideLinePattern.solid,
+          )),
+          nodeSlugPrefix: '[[',
+          nodeSlugTransform: const TextTransform.capitalCap(),
+          nodeSlugSuffix: ']]',
+          slugColor: const Color(0xFFFFD54F),
+          classificationLabelColors: const [
+            Color(0xFF3F51B5),
+            Color(0xFF2E7D32),
+            Color(0xFFC59A1A),
+            Color(0xFF8F3E4B),
+            Color(0xFF7B4FA3),
+            Color(0xFF287A78),
+          ],
+          classificationLabelBorderColor: const Color(0xFFE8D59F),
+          classificationLabelHoleColor: const Color(0xFF27251F),
+          classificationLabelTextColor: const Color(0xFFFFF8E7),
+          classificationLabelHoverBorderStyle: (GuideStyle(
+            color: Color(0xFFFFD54F),
+            strokeWidth: 2,
+            pattern: GuideLinePattern.solid,
+          )),
+          layouts: {
+            SearchLayout.searchResultsLayoutKey: TableLayout(
+              aliases: ['search-results', 'search-results-table'],
+              layoutBorderWidth: 1.8,
+              nodeHoverBorderStyle: (GuideStyle(
+                color: Color(0xFF2196F3),
+                strokeWidth: 4,
+                pattern: GuideLinePattern.solid,
+              )),
+              nodeSlugPrefix: '[[',
+              nodeSlugTransform: const TextTransform.capitalCap(),
+              nodeSlugSuffix: ']]',
+              slugColor: const Color(0xFFFFD54F),
+              classificationLabelColors: const [
+                Color(0xFF3F51B5),
+                Color(0xFF2E7D32),
+                Color(0xFFC59A1A),
+                Color(0xFF8F3E4B),
+                Color(0xFF7B4FA3),
+                Color(0xFF287A78),
+              ],
+              classificationLabelBorderColor: const Color(0xFFE8D59F),
+              classificationLabelHoleColor: const Color(0xFF27251F),
+              classificationLabelTextColor: const Color(0xFFFFF8E7),
+              classificationLabelHoverBorderStyle: (GuideStyle(
+                color: Color(0xFFFFD54F),
+                strokeWidth: 2,
+                pattern: GuideLinePattern.solid,
+              )),
+              labelColor: (Color(0xFFFFF8E7)),
+              valueColor: (Color(0xFFFFF8E7)),
+              guideStyle: (GuideStyle(
+                color: Color(0x665F7CFF),
+                strokeWidth: 1,
+                pattern: GuideLinePattern.solid,
+              )),
+              cellHighlight: TableCellHighlightConfig(
+                rows: true,
+                color: (Color(0x66374A9B)),
+              ),
+              groupGap: (12.0),
+              groupBorderStyle: (GuideStyle(
+                color: Color(0xAA5F7CFF),
+                strokeWidth: 1.4,
+                pattern: GuideLinePattern.solid,
+              )),
+              tableConfig: TableConfig(
+                groups: {
+                  'search_results': TableGroup(
+                    size: GridAxisVariable(size: LayoutSize.fr(1)),
+                    title: 'Search Results',
+                  ),
+                },
+                rows: {
+                  'search_results': TableRow(
+                    label: 'Results',
+                    groupId: 'search_results',
+                    size: GridAxisVariable(size: LayoutSize.fr(1)),
+                  ),
+                },
+              ),
+              columns: [
+                MapEntry('key', GridAxisVariable(size: LayoutSize.fr(1))),
+                MapEntry('value', GridAxisVariable(size: LayoutSize.fr(3))),
+              ],
+              layouts: {
+                'search_results': NodeListLayout(
+                  dataSource: NodeListDataSource.searchResults,
+                  style: (GuideStyle(
+                    color: Color(0xFFFFF7D6),
+                    strokeWidth: (1.8),
+                    pattern: GuideLinePattern.solid,
+                  )),
+                  layoutBorderWidth: 1.8,
+                  nodeHoverBorderStyle: (GuideStyle(
+                    color: Color(0xFF2196F3),
+                    strokeWidth: 4,
+                    pattern: GuideLinePattern.solid,
+                  )),
+                  nodeSlugPrefix: '[[',
+                  nodeSlugTransform: const TextTransform.capitalCap(),
+                  nodeSlugSuffix: ']]',
+                  slugColor: const Color(0xFFFFD54F),
+                  classificationLabelColors: const [
+                    Color(0xFF3F51B5),
+                    Color(0xFF2E7D32),
+                    Color(0xFFC59A1A),
+                    Color(0xFF8F3E4B),
+                    Color(0xFF7B4FA3),
+                    Color(0xFF287A78),
+                  ],
+                  classificationLabelBorderColor: const Color(0xFFE8D59F),
+                  classificationLabelHoleColor: const Color(0xFF27251F),
+                  classificationLabelTextColor: const Color(0xFFFFF8E7),
+                  classificationLabelHoverBorderStyle: (GuideStyle(
+                    color: Color(0xFFFFD54F),
+                    strokeWidth: 2,
+                    pattern: GuideLinePattern.solid,
+                  )),
+                  labelColor: ((Color(0xFFFFF8E7))),
+                ),
+              },
+            ),
+          },
         ),
         'top-plane': LayoutPath(
           aliases: ['top-plane', 'control-plane', 'north-plane'],
@@ -759,8 +1084,12 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
             LayoutDerivativeReference(derivative: 'C'),
           ],
           style: LayoutPathStyle(
-            fillColor: lgErgoControlPlaneBandColor,
-            strokeStyle: lgErgoPlaneLineStyle,
+            fillColor: (Color(0x00000000)),
+            strokeStyle: (GuideStyle(
+              color: Color(0xAAC59A1A),
+              strokeWidth: 1.2,
+              pattern: GuideLinePattern.solid,
+            )),
           ),
           layouts: {
             'cortex-bush': FanLayout(
@@ -771,18 +1100,93 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                 'top-node-tree',
                 'top-fan',
               ],
-              style: lgErgoCortexNodeBorderStyle,
-              layoutDefaults: lgErgoNodeLayoutDefaults,
-              rootNodeFilter: lgErgoCortexRootNodeFilter,
+              style: (GuideStyle(
+                color: Color(0xFFFFF7D6),
+                strokeWidth: (1.8),
+                pattern: GuideLinePattern.solid,
+              )),
+              layoutBorderWidth: 1.8,
+              nodeHoverBorderStyle: (GuideStyle(
+                color: Color(0xFF2196F3),
+                strokeWidth: 4,
+                pattern: GuideLinePattern.solid,
+              )),
+              nodeSlugPrefix: '[[',
+              nodeSlugTransform: const TextTransform.capitalCap(),
+              nodeSlugSuffix: ']]',
+              slugColor: const Color(0xFFFFD54F),
+              classificationLabelColors: const [
+                Color(0xFF3F51B5),
+                Color(0xFF2E7D32),
+                Color(0xFFC59A1A),
+                Color(0xFF8F3E4B),
+                Color(0xFF7B4FA3),
+                Color(0xFF287A78),
+              ],
+              classificationLabelBorderColor: const Color(0xFFE8D59F),
+              classificationLabelHoleColor: const Color(0xFF27251F),
+              classificationLabelTextColor: const Color(0xFFFFF8E7),
+              classificationLabelHoverBorderStyle: (GuideStyle(
+                color: Color(0xFFFFD54F),
+                strokeWidth: 2,
+                pattern: GuideLinePattern.solid,
+              )),
+              rootNodeFilter: (NodeSearchFilter.allOf([
+                NodeSearchParameter(
+                  parameter: NodeParameter.slug,
+                  value: 'cortex-timeline-calendar-2026-06-fr6h',
+                  operator: NodeMatchOperator.exact,
+                ),
+                NodeSearchParameter(
+                  parameter: NodeParameter.label,
+                  value: 'Calendar',
+                  operator: NodeMatchOperator.contains,
+                ),
+              ])),
               traverseBy: GraphTraverseType.partOf,
-              nodeFilter: lgErgoCortexBushNodeFilter,
+              nodeFilter: (NodeSearchFilter.anyOf(
+                [
+                  NodeSearchParameter(
+                    parameter: NodeParameter.label,
+                    value: 'Section',
+                  ),
+                ],
+                excluding: (<NodeSearchParameter>[
+                  NodeSearchParameter(
+                    parameter: NodeParameter.slug,
+                    value: 'space',
+                    operator: NodeMatchOperator.contains,
+                  ),
+                  NodeSearchParameter(
+                    parameter: NodeParameter.slug,
+                    value: 'space-section',
+                    operator: NodeMatchOperator.contains,
+                  ),
+                  NodeSearchParameter(
+                    parameter: NodeParameter.slug,
+                    value: 'time',
+                    operator: NodeMatchOperator.contains,
+                  ),
+                  NodeSearchParameter(
+                    parameter: NodeParameter.slug,
+                    value: 'time-section',
+                    operator: NodeMatchOperator.contains,
+                  ),
+                ]),
+              )),
               maxDepth: 3,
               maxSectionCount: 4,
               sectionSizing: FanSectionSizing.directPartsWeighted,
               label: 'cortex',
-              labelColor: lgErgoCortexNodeLabelColor,
-              labelSize: lgErgoNodeFontSize,
-              gridStyle: lgErgoFanGridStyle,
+              labelColor: ((Color(0xFFFFF8E7))),
+              labelSize: (10.0),
+              gridStyle: (GuideStyle(
+                color: Color(0x88FFD54F),
+                strokeWidth: 0.9,
+                pattern: GuideLinePattern.dashed,
+                dashLength: 5,
+                dashInterval: 5,
+              )),
               position: LayoutRelativePosition.top,
             ),
           },
@@ -803,7 +1207,11 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
           ],
           style: LayoutPathStyle(
             fillColor: Color(0x55C59A1A),
-            strokeStyle: lgErgoPlaneLineStyle,
+            strokeStyle: (GuideStyle(
+              color: Color(0xAAC59A1A),
+              strokeWidth: 1.2,
+              pattern: GuideLinePattern.solid,
+            )),
           ),
           layouts: {
             'time-fan': FanLayout(
@@ -817,20 +1225,95 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                 'bottom-fan',
                 'space-tree',
               ],
-              style: lgErgoCortexNodeBorderStyle,
-              layoutDefaults: lgErgoNodeLayoutDefaults,
-              rootNodeFilter: lgErgoCortexRootNodeFilter,
+              style: (GuideStyle(
+                color: Color(0xFFFFF7D6),
+                strokeWidth: (1.8),
+                pattern: GuideLinePattern.solid,
+              )),
+              layoutBorderWidth: 1.8,
+              nodeHoverBorderStyle: (GuideStyle(
+                color: Color(0xFF2196F3),
+                strokeWidth: 4,
+                pattern: GuideLinePattern.solid,
+              )),
+              nodeSlugPrefix: '[[',
+              nodeSlugTransform: const TextTransform.capitalCap(),
+              nodeSlugSuffix: ']]',
+              slugColor: const Color(0xFFFFD54F),
+              classificationLabelColors: const [
+                Color(0xFF3F51B5),
+                Color(0xFF2E7D32),
+                Color(0xFFC59A1A),
+                Color(0xFF8F3E4B),
+                Color(0xFF7B4FA3),
+                Color(0xFF287A78),
+              ],
+              classificationLabelBorderColor: const Color(0xFFE8D59F),
+              classificationLabelHoleColor: const Color(0xFF27251F),
+              classificationLabelTextColor: const Color(0xFFFFF8E7),
+              classificationLabelHoverBorderStyle: (GuideStyle(
+                color: Color(0xFFFFD54F),
+                strokeWidth: 2,
+                pattern: GuideLinePattern.solid,
+              )),
+              rootNodeFilter: (NodeSearchFilter.allOf([
+                NodeSearchParameter(
+                  parameter: NodeParameter.slug,
+                  value: 'cortex-timeline-calendar-2026-06-fr6h',
+                  operator: NodeMatchOperator.exact,
+                ),
+                NodeSearchParameter(
+                  parameter: NodeParameter.label,
+                  value: 'Calendar',
+                  operator: NodeMatchOperator.contains,
+                ),
+              ])),
               traverseBy: GraphTraverseType.partOf,
               nodeFilter: const NodeSearchFilter.reverseOf(
-                lgErgoCortexBushNodeFilter,
+                (NodeSearchFilter.anyOf(
+                  [
+                    NodeSearchParameter(
+                      parameter: NodeParameter.label,
+                      value: 'Section',
+                    ),
+                  ],
+                  excluding: (<NodeSearchParameter>[
+                    NodeSearchParameter(
+                      parameter: NodeParameter.slug,
+                      value: 'space',
+                      operator: NodeMatchOperator.contains,
+                    ),
+                    NodeSearchParameter(
+                      parameter: NodeParameter.slug,
+                      value: 'space-section',
+                      operator: NodeMatchOperator.contains,
+                    ),
+                    NodeSearchParameter(
+                      parameter: NodeParameter.slug,
+                      value: 'time',
+                      operator: NodeMatchOperator.contains,
+                    ),
+                    NodeSearchParameter(
+                      parameter: NodeParameter.slug,
+                      value: 'time-section',
+                      operator: NodeMatchOperator.contains,
+                    ),
+                  ]),
+                )),
               ),
               maxDepth: 3,
               maxSectionCount: 4,
               sectionSizing: FanSectionSizing.equal,
               label: 'space-time',
-              labelColor: lgErgoCortexNodeLabelColor,
-              labelSize: lgErgoNodeFontSize,
-              gridStyle: lgErgoFanGridStyle,
+              labelColor: ((Color(0xFFFFF8E7))),
+              labelSize: (10.0),
+              gridStyle: (GuideStyle(
+                color: Color(0x88FFD54F),
+                strokeWidth: 0.9,
+                pattern: GuideLinePattern.dashed,
+                dashLength: 5,
+                dashInterval: 5,
+              )),
               position: LayoutRelativePosition.bottom,
             ),
           },
@@ -908,13 +1391,42 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                         'selected-node-pool',
                         'graph-layout',
                       ],
-                      style: lgErgoCortexNodeBorderStyle,
-                      layoutDefaults: lgErgoNodeLayoutDefaults,
+                      style: (GuideStyle(
+                        color: Color(0xFFFFF7D6),
+                        strokeWidth: (1.8),
+                        pattern: GuideLinePattern.solid,
+                      )),
+                      layoutBorderWidth: 1.8,
+                      nodeHoverBorderStyle: (GuideStyle(
+                        color: Color(0xFF2196F3),
+                        strokeWidth: 4,
+                        pattern: GuideLinePattern.solid,
+                      )),
+                      nodeSlugPrefix: '[[',
+                      nodeSlugTransform: const TextTransform.capitalCap(),
+                      nodeSlugSuffix: ']]',
+                      slugColor: const Color(0xFFFFD54F),
+                      classificationLabelColors: const [
+                        Color(0xFF3F51B5),
+                        Color(0xFF2E7D32),
+                        Color(0xFFC59A1A),
+                        Color(0xFF8F3E4B),
+                        Color(0xFF7B4FA3),
+                        Color(0xFF287A78),
+                      ],
+                      classificationLabelBorderColor: const Color(0xFFE8D59F),
+                      classificationLabelHoleColor: const Color(0xFF27251F),
+                      classificationLabelTextColor: const Color(0xFFFFF8E7),
+                      classificationLabelHoverBorderStyle: (GuideStyle(
+                        color: Color(0xFFFFD54F),
+                        strokeWidth: 2,
+                        pattern: GuideLinePattern.solid,
+                      )),
                       nodeExtentFactor: 0.5,
-                      labelColor: lgErgoCortexNodeLabelColor,
-                      labelSize: lgErgoNodeFontSize,
-                      emojiFontSizeFactor: lgErgoSceneNodeEmojiFontSizeFactor,
-                      emojiSlugGapFactor: lgErgoSceneNodeEmojiSlugGapFactor,
+                      labelColor: ((Color(0xFFFFF8E7))),
+                      labelSize: (10.0),
+                      emojiFontSizeFactor: (2.0),
+                      emojiSlugGapFactor: (0.5),
                       visibility: [
                         LayoutCondition.not(LayoutCondition.noSelectedNode()),
                       ],
@@ -973,7 +1485,13 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
           derivativeAnchors: ['innerCircle.center', 'innerCircle.top'],
           labelFontSize: 9,
           anchorRadius: 1.8,
-          style: lgErgoSceneInnerCircleStyle,
+          style: (GuideStyle(
+            color: Color(0xCC8E44AD),
+            strokeWidth: 1.2,
+            pattern: GuideLinePattern.dashed,
+            dashLength: 6,
+            dashInterval: 5,
+          )),
         ),
         LayoutKey.innerBorder: LayoutBorderGuide(
           shape: LayoutBorderShape.square,
@@ -991,253 +1509,4 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
       },
     ),
   },
-);
-
-const lgErgoCortexRootNodeFilter = NodeSearchFilter.allOf([
-  NodeSearchParameter(
-    parameter: NodeParameter.slug,
-    value: 'cortex-timeline-calendar-2026-06-fr6h',
-    operator: NodeMatchOperator.exact,
-  ),
-  NodeSearchParameter(
-    parameter: NodeParameter.label,
-    value: 'Calendar',
-    operator: NodeMatchOperator.contains,
-  ),
-]);
-
-const lgErgoSpaceTimeSectionNodeMatches = <NodeSearchParameter>[
-  NodeSearchParameter(
-    parameter: NodeParameter.slug,
-    value: 'space',
-    operator: NodeMatchOperator.contains,
-  ),
-  NodeSearchParameter(
-    parameter: NodeParameter.slug,
-    value: 'space-section',
-    operator: NodeMatchOperator.contains,
-  ),
-  NodeSearchParameter(
-    parameter: NodeParameter.slug,
-    value: 'time',
-    operator: NodeMatchOperator.contains,
-  ),
-  NodeSearchParameter(
-    parameter: NodeParameter.slug,
-    value: 'time-section',
-    operator: NodeMatchOperator.contains,
-  ),
-];
-
-const lgErgoCortexBushNodeFilter = NodeSearchFilter.anyOf([
-  NodeSearchParameter(parameter: NodeParameter.label, value: 'Section'),
-], excluding: lgErgoSpaceTimeSectionNodeMatches);
-
-const lgErgoLayoutDefaultPadding = 20.0;
-const lgErgoLayoutDefaultGap = 20.0;
-const lgErgoLayoutDefaultBorderWidth = 1.2;
-const lgErgoNodeFontSize = 10.0;
-const lgErgoSceneNodeEmojiFontSizeFactor = 2.0;
-const lgErgoSceneNodeEmojiSlugGapFactor = 0.5;
-const lgErgoTableGroupGap = 12.0;
-const lgErgoLayoutDefaults = LayoutDefaults(
-  padding: lgErgoLayoutDefaultPadding,
-  gap: lgErgoLayoutDefaultGap,
-  borderWidth: lgErgoLayoutDefaultBorderWidth,
-  backgrounds: [
-    LayoutImageBackground(
-      assetPath: 'assets/wallpapers/dark-vintage-scheme.jpg',
-      fit: LayoutBackgroundFit.cover,
-    ),
-  ],
-);
-const lgErgoNodeBorderWidth = 1.8;
-const lgErgoClassificationLabelColors = [
-  Color(0xFF3F51B5),
-  Color(0xFF2E7D32),
-  Color(0xFFC59A1A),
-  Color(0xFF8F3E4B),
-  Color(0xFF7B4FA3),
-  Color(0xFF287A78),
-];
-const lgErgoClassificationLabelBorderColor = Color(0xFFE8D59F);
-const lgErgoClassificationLabelHoleColor = Color(0xFF27251F);
-const lgErgoMainTextColor = Color(0xFFFFF8E7);
-const lgErgoClassificationLabelTextColor = lgErgoMainTextColor;
-const lgErgoNodeSlugColor = Color(0xFFFFD54F);
-const lgErgoNodeLayoutDefaults = LayoutDefaults(
-  borderWidth: lgErgoNodeBorderWidth,
-  nodeHoverBorderStyle: lgErgoHoveredNodeBorderStyle,
-  nodeSlugPrefix: '[[',
-  nodeSlugSuffix: ']]',
-  slugColor: lgErgoNodeSlugColor,
-  classificationLabelColors: lgErgoClassificationLabelColors,
-  classificationLabelBorderColor: lgErgoClassificationLabelBorderColor,
-  classificationLabelHoleColor: lgErgoClassificationLabelHoleColor,
-  classificationLabelTextColor: lgErgoClassificationLabelTextColor,
-  classificationLabelHoverBorderStyle: lgErgoHoveredLabelBorderStyle,
-);
-
-const lgErgoPastColor = Color(0x553F51B5);
-const lgErgoNowColor = Color(0xFFDC143C);
-const lgErgoFutureColor = Color(0x552E7D32);
-const lgErgoSpacePlaneBandColor = Color(0x223F51B5);
-const lgErgoControlPlaneBandColor = Color(0x00000000);
-const lgErgoActionPlaneBandColor = Color(0x223F51B5);
-const lgErgoActionButtonColor = Color(0x553F51B5);
-const lgErgoSubmitButtonColor = Color(0x6652A66B);
-const lgErgoRejectButtonColor = Color(0x668F3E4B);
-const lgErgoActionButtonLabelColor = lgErgoMainTextColor;
-const lgErgoCortexNodeLabelColor = lgErgoMainTextColor;
-const lgErgoCurrentTimeBackgroundColor = Color(0x18DC143C);
-const lgErgoHourPassedColor = Color(0x33DC143C);
-const lgErgoHourLeftColor = Color(0x22DC143C);
-const lgErgoDayPassedColor = Color(0x335C6BC0);
-const lgErgoDayLeftColor = Color(0x2243A047);
-
-const lgErgoPlaneLineStyle = GuideStyle(
-  color: Color(0xAAC59A1A),
-  strokeWidth: 1.2,
-  pattern: GuideLinePattern.solid,
-);
-
-const lgErgoPlaneConnectionLineStyle = GuideStyle(
-  color: Color(0xCCC59A1A),
-  strokeWidth: 1.2,
-  pattern: GuideLinePattern.solid,
-);
-
-const lgErgoPlaneDashStyle = GuideStyle(
-  color: Color(0xCCC59A1A),
-  strokeWidth: 1,
-  pattern: GuideLinePattern.dashed,
-  dashLength: 6,
-  dashInterval: 5,
-);
-
-const lgErgoSpacePlaneLineStyle = GuideStyle(
-  color: Color(0xAA3F51B5),
-  strokeWidth: lgErgoLayoutDefaultBorderWidth,
-  pattern: GuideLinePattern.solid,
-);
-
-const lgErgoSpacePlaneDashStyle = GuideStyle(
-  color: Color(0xAA3F51B5),
-  strokeWidth: 1,
-  pattern: GuideLinePattern.dashed,
-  dashLength: 6,
-  dashInterval: 5,
-);
-
-const lgErgoSpacePlaneRimStyle = GuideStyle(
-  color: Color(0xCC3F51B5),
-  strokeWidth: 1,
-  pattern: GuideLinePattern.dashed,
-  dashLength: 5,
-  dashInterval: 7,
-);
-
-const lgErgoActionButtonBorderStyle = GuideStyle(
-  color: Color(0xCCB7C2FF),
-  strokeWidth: 1,
-  pattern: GuideLinePattern.solid,
-);
-
-const lgErgoNodeInfoTableStyle = GuideStyle(
-  color: Color(0x665F7CFF),
-  strokeWidth: 1,
-  pattern: GuideLinePattern.solid,
-);
-
-const lgErgoNodeInfoGroupStyle = GuideStyle(
-  color: Color(0xAA5F7CFF),
-  strokeWidth: 1.4,
-  pattern: GuideLinePattern.solid,
-);
-
-const lgErgoNodeInfoCellHighlightColor = Color(0x66374A9B);
-
-const lgErgoCortexNodeBorderStyle = GuideStyle(
-  color: Color(0xFFFFF7D6),
-  strokeWidth: lgErgoNodeBorderWidth,
-  pattern: GuideLinePattern.solid,
-);
-
-const lgErgoHoveredNodeBorderStyle = GuideStyle(
-  color: Color(0xFF2196F3),
-  strokeWidth: 4,
-  pattern: GuideLinePattern.solid,
-);
-
-const lgErgoHoveredLabelBorderStyle = GuideStyle(
-  color: Color(0xFFFFD54F),
-  strokeWidth: 2,
-  pattern: GuideLinePattern.solid,
-);
-
-const lgErgoFanGridStyle = GuideStyle(
-  color: Color(0x88FFD54F),
-  strokeWidth: 0.9,
-  pattern: GuideLinePattern.dashed,
-  dashLength: 5,
-  dashInterval: 5,
-);
-
-const lgErgoNowRayStyle = GuideStyle(
-  color: lgErgoNowColor,
-  strokeWidth: 2,
-  pattern: GuideLinePattern.solid,
-);
-
-const lgErgoBcCenterArrowStyle = GuideStyle(
-  color: perceptualMapDiagonalColor,
-  strokeWidth: 2,
-  pattern: GuideLinePattern.solid,
-);
-
-const lgErgoRayStyle = GuideStyle(
-  color: perceptualMapDiagonalColor,
-  strokeWidth: 1,
-  pattern: GuideLinePattern.dashed,
-  dashLength: 7,
-  dashInterval: 6,
-);
-
-const lgErgoSceneInnerCircleStyle = GuideStyle(
-  color: Color(0xCC8E44AD),
-  strokeWidth: 1.2,
-  pattern: GuideLinePattern.dashed,
-  dashLength: 6,
-  dashInterval: 5,
-);
-
-const lgErgoStickmanStyle = GuideStyle(
-  color: Color(0xDD101820),
-  strokeWidth: 3,
-  pattern: GuideLinePattern.solid,
-  strokeCap: StrokeCap.round,
-);
-
-const lgErgoSceneDiagonalStyle = GuideStyle(
-  color: Color(0xCC8E44AD),
-  strokeWidth: 1,
-  pattern: GuideLinePattern.dashed,
-  dashLength: 6,
-  dashInterval: 5,
-);
-
-const lgErgoDiagonalGuidelineStyle = GuideStyle(
-  color: perceptualMapDiagonalColor,
-  strokeWidth: 1,
-  pattern: GuideLinePattern.dashed,
-  dashLength: 7,
-  dashInterval: 6,
-);
-
-const lgErgoScreenGuidelineStyle = GuideStyle(
-  color: guidelineRedColor,
-  strokeWidth: 1.2,
-  pattern: GuideLinePattern.dashed,
-  dashLength: 8,
-  dashInterval: 6,
 );
