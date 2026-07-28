@@ -247,14 +247,14 @@ another. `LayoutDerivativeReference.layoutPath` addresses nested layouts, so a
 ray can connect scene geometry to screen geometry without copying either
 coordinate.
 
-Every concrete `Layout` constructor accepts the base `backgrounds` list. Lower
+Every concrete `Layout` constructor accepts the base `background` list. Lower
 `orderPosition` values paint first; guides and content remain above the owning
-layout's backgrounds. For example, a path can own an image without adding a
-parallel renderer or child layout:
+layout's background elements. For example, a path can own an image without
+adding a parallel renderer or child layout:
 
 ```dart
 LayoutPath(
-  backgrounds: const [
+  background: const [
     LayoutImageBackground(
       assetPath: 'assets/wallpapers/helmet-background.jpg',
       fit: LayoutBackgroundFit.cover,
@@ -270,9 +270,8 @@ a quadrilateral it also uses the same projective transform as
 `TableLayout`, so the image and table obey one perspective rather than
 placing a screen-facing image behind distorted content.
 
-Put a shared fallback in `LayoutDefaults.backgrounds`, beside padding, gap, and
-border width. Layouts with an empty local list inherit the nearest non-empty
-ancestor default; any explicit local background list replaces it.
+An empty `background` list paints no background for that layout. Background
+configuration is always owned directly by the layout whose geometry it fills.
 
 ## 6. Project a grid inside a path
 

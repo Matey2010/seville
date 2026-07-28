@@ -261,10 +261,10 @@ class LandscapeXlLayoutGame extends FlameGame
     for (final assetPath in _layoutImageAssetPaths(layout).toSet()) {
       await images.load(assetPath);
     }
-    final backgrounds = [
-      ...layout.resolveBackgrounds(),
+    final orderedBackground = [
+      ...layout.background,
     ]..sort((left, right) => left.orderPosition.compareTo(right.orderPosition));
-    for (final background in backgrounds) {
+    for (final background in orderedBackground) {
       if (background is LayoutImageBackground) {
         add(_LayoutImageBackgroundComponent(background));
       } else if (background is LayoutGuidingBackground) {
@@ -586,20 +586,12 @@ class _GameCursorComponent extends PositionComponent {
   }
 }
 
-Iterable<String> _layoutImageAssetPaths(
-  Layout layout, [
-  Layout? inheritedBackgroundDefaults,
-]) sync* {
-  final effectiveBackgroundDefaults = layout.backgroundDefaults.isNotEmpty
-      ? layout
-      : inheritedBackgroundDefaults;
-  for (final background in layout.resolveBackgrounds(
-    inheritedBackgroundDefaults,
-  )) {
+Iterable<String> _layoutImageAssetPaths(Layout layout) sync* {
+  for (final background in layout.background) {
     yield* _backgroundImageAssetPaths(background);
   }
   for (final child in layout.children.values) {
-    yield* _layoutImageAssetPaths(child, effectiveBackgroundDefaults);
+    yield* _layoutImageAssetPaths(child);
   }
 }
 
@@ -609,23 +601,6 @@ Iterable<String> _backgroundImageAssetPaths(LayoutBackground background) sync* {
   } else if (background is ConditionalLayoutBackground) {
     yield* _backgroundImageAssetPaths(background.background);
   }
-}
-
-Map<Layout, Layout?> _layoutBackgroundDefaults(Layout root) {
-  final resolved = <Layout, Layout?>{};
-
-  void visit(Layout layout, Layout? inheritedDefaults) {
-    final effectiveDefaults = layout.backgroundDefaults.isNotEmpty
-        ? layout
-        : inheritedDefaults;
-    resolved[layout] = effectiveDefaults;
-    for (final child in layout.children.values) {
-      visit(child, effectiveDefaults);
-    }
-  }
-
-  visit(root, null);
-  return resolved;
 }
 
 typedef _RegisteredLayoutComponent = ({
@@ -1111,7 +1086,18 @@ class _LandscapeXlSceneComponent extends PositionComponent
   final List<_TableNodeHit> _tableNodeHits = [];
   final List<_TableActionHit> _tableActionHits = [];
   final List<_TableClassificationLabelHit> _tableClassificationLabelHits = [];
+  final Map<(LayoutPath, LayoutImageBackground), _CurvedLayoutPathImageMesh>
+  _curvedLayoutPathImageMeshes = {};
   Offset? hoverPosition;
+
+  @override
+  void onRemove() {
+    for (final mesh in _curvedLayoutPathImageMeshes.values) {
+      mesh.dispose();
+    }
+    _curvedLayoutPathImageMeshes.clear();
+    super.onRemove();
+  }
 
   @override
   void update(double dt) {
@@ -1145,7 +1131,6 @@ class _LandscapeXlSceneComponent extends PositionComponent
     final nodeListSources = _nodeListSources(selectedNodes);
     final selectedNode = selectedNodes.lastOrNull;
     final layoutContext = _layoutContext(highlightedNodes, selectedNodes);
-    final backgroundDefaults = _layoutBackgroundDefaults(layout);
     final resolvedLayouts = _resolveLayouts(
       layout,
       viewport,
@@ -1179,9 +1164,8 @@ class _LandscapeXlSceneComponent extends PositionComponent
           game._classificationLabelComponent,
           hoverPosition,
           layoutContext,
-          backgrounds: path.resolveBackgrounds(
-            backgroundDefaults[resolved.layout],
-          ),
+          background: path.background,
+          curvedImageMeshes: _curvedLayoutPathImageMeshes,
           imageFor: (assetPath) => game.images.containsKey(assetPath)
               ? game.images.fromCache(assetPath)
               : null,
@@ -1809,7 +1793,9 @@ void _drawLayoutPath(
   ClassificationLabelComponent classificationLabelComponent,
   Offset? hoverPosition,
   LayoutContext layoutContext, {
-  required List<LayoutBackground> backgrounds,
+  required List<LayoutBackground> background,
+  required Map<(LayoutPath, LayoutImageBackground), _CurvedLayoutPathImageMesh>
+  curvedImageMeshes,
   required ui.Image? Function(String assetPath) imageFor,
   required PanelConfig panelDefaults,
   required LabelConfig label,
@@ -1829,22 +1815,27 @@ void _drawLayoutPath(
     layoutContext,
   );
   if (resolvedPoints == null) return;
-  final path = Path()..moveTo(resolvedPoints.first.dx, resolvedPoints.first.dy);
-  for (final point in resolvedPoints.skip(1)) {
-    path.lineTo(point.dx, point.dy);
-  }
+  final projection = _resolvedLayoutPathProjection(
+    layoutPath,
+    resolvedPoints,
+    layouts,
+    layoutContext,
+  );
   final style = layoutPath.style;
-  if (style?.close ?? true) {
-    path.close();
-  }
+  final path =
+      projection?.path ??
+      _linearLayoutPath(resolvedPoints, close: style?.close ?? true);
 
   _drawLayoutPathBackgrounds(
     canvas,
     path,
     resolvedPoints,
-    backgrounds,
+    background,
     layoutContext,
     imageFor,
+    layoutPath: layoutPath,
+    projection: projection,
+    curvedImageMeshes: curvedImageMeshes,
   );
 
   if (style != null) {
@@ -1856,22 +1847,7 @@ void _drawLayoutPath(
 
   final strokeStyle = style?.strokeStyle;
   if (strokeStyle != null) {
-    for (var index = 0; index < resolvedPoints.length - 1; index += 1) {
-      drawGuideLine(
-        canvas,
-        resolvedPoints[index],
-        resolvedPoints[index + 1],
-        strokeStyle,
-      );
-    }
-    if ((style?.close ?? true) && resolvedPoints.length > 2) {
-      drawGuideLine(
-        canvas,
-        resolvedPoints.last,
-        resolvedPoints.first,
-        strokeStyle,
-      );
-    }
+    _drawGuidePath(canvas, path, strokeStyle);
   }
 
   final ticks = layoutPath.ticks;
@@ -1901,6 +1877,7 @@ void _drawLayoutPath(
       composition,
       layoutContext,
       nodeListSources,
+      projection: projection,
     );
   }
   for (final composition in layoutPath.children.values.whereType<RowLayout>()) {
@@ -1911,6 +1888,7 @@ void _drawLayoutPath(
       composition,
       layoutContext,
       nodeListSources,
+      projection: projection,
     );
   }
   for (final table in layoutPath.children.values.whereType<TableLayout>()) {
@@ -1952,13 +1930,17 @@ void _drawLayoutPathBackgrounds(
   Canvas canvas,
   Path path,
   List<Offset> points,
-  List<LayoutBackground> configuredBackgrounds,
+  List<LayoutBackground> configuredBackground,
   LayoutContext layoutContext,
-  ui.Image? Function(String assetPath) imageFor,
-) {
-  final backgrounds = [...configuredBackgrounds]
+  ui.Image? Function(String assetPath) imageFor, {
+  required LayoutPath layoutPath,
+  required _LayoutPathProjection? projection,
+  required Map<(LayoutPath, LayoutImageBackground), _CurvedLayoutPathImageMesh>
+  curvedImageMeshes,
+}) {
+  final orderedBackground = [...configuredBackground]
     ..sort((left, right) => left.orderPosition.compareTo(right.orderPosition));
-  for (final background in backgrounds) {
+  for (final background in orderedBackground) {
     _drawLayoutPathBackground(
       canvas,
       path,
@@ -1966,6 +1948,9 @@ void _drawLayoutPathBackgrounds(
       background,
       layoutContext,
       imageFor,
+      layoutPath: layoutPath,
+      projection: projection,
+      curvedImageMeshes: curvedImageMeshes,
     );
   }
 }
@@ -1977,6 +1962,10 @@ void _drawLayoutPathBackground(
   LayoutBackground background,
   LayoutContext layoutContext,
   ui.Image? Function(String assetPath) imageFor, {
+  required LayoutPath layoutPath,
+  required _LayoutPathProjection? projection,
+  required Map<(LayoutPath, LayoutImageBackground), _CurvedLayoutPathImageMesh>
+  curvedImageMeshes,
   double inheritedOpacity = 1,
 }) {
   final opacity = (inheritedOpacity * background.opacity)
@@ -1992,6 +1981,9 @@ void _drawLayoutPathBackground(
       background.background,
       layoutContext,
       imageFor,
+      layoutPath: layoutPath,
+      projection: projection,
+      curvedImageMeshes: curvedImageMeshes,
       inheritedOpacity: opacity,
     );
     return;
@@ -2000,6 +1992,27 @@ void _drawLayoutPathBackground(
 
   final image = imageFor(background.assetPath);
   if (image == null || points.length < 3) return;
+
+  if (projection case final projection? when projection.canProjectBackground) {
+    final key = (layoutPath, background);
+    final cachedMesh = curvedImageMeshes[key];
+    final mesh = cachedMesh?.matches(projection, image) ?? false
+        ? cachedMesh!
+        : _CurvedLayoutPathImageMesh(
+            projection: projection,
+            image: image,
+            background: background,
+          );
+    if (!identical(mesh, cachedMesh)) {
+      cachedMesh?.dispose();
+      curvedImageMeshes[key] = mesh;
+    }
+    canvas.save();
+    canvas.clipPath(path);
+    mesh.draw(canvas, opacity);
+    canvas.restore();
+    return;
+  }
 
   final bounds = _boundsForPoints(points);
   if (bounds.isEmpty) return;
@@ -2044,6 +2057,416 @@ void _drawLayoutPathBackground(
     opacity: opacity,
   );
   canvas.restore();
+}
+
+Path _linearLayoutPath(List<Offset> points, {required bool close}) {
+  final path = Path()..moveTo(points.first.dx, points.first.dy);
+  for (final point in points.skip(1)) {
+    path.lineTo(point.dx, point.dy);
+  }
+  if (close) path.close();
+  return path;
+}
+
+void _drawGuidePath(Canvas canvas, Path path, GuideStyle style) {
+  final paint = Paint()
+    ..color = style.color
+    ..strokeWidth = style.strokeWidth
+    ..strokeCap = style.strokeCap
+    ..style = PaintingStyle.stroke;
+  if (style.pattern == GuideLinePattern.solid) {
+    canvas.drawPath(path, paint);
+    return;
+  }
+  for (final metric in path.computeMetrics()) {
+    final step = style.pattern == GuideLinePattern.dotted
+        ? math.max(style.dashInterval, style.strokeWidth * 2)
+        : style.dashLength + style.dashInterval;
+    for (var offset = 0.0; offset < metric.length; offset += step) {
+      if (style.pattern == GuideLinePattern.dotted) {
+        final tangent = metric.getTangentForOffset(offset);
+        if (tangent != null) {
+          canvas.drawCircle(
+            tangent.position,
+            style.strokeWidth / 2,
+            paint..style = PaintingStyle.fill,
+          );
+        }
+      } else {
+        canvas.drawPath(
+          metric.extractPath(
+            offset,
+            math.min(offset + style.dashLength, metric.length),
+          ),
+          paint,
+        );
+      }
+    }
+  }
+}
+
+class _CubicLayoutPathSegment {
+  const _CubicLayoutPathSegment({
+    required this.start,
+    required this.control1,
+    required this.control2,
+    required this.end,
+  });
+
+  final Offset start;
+  final Offset control1;
+  final Offset control2;
+  final Offset end;
+
+  Offset pointAt(double t) {
+    final inverse = 1 - t;
+    return start * (inverse * inverse * inverse) +
+        control1 * (3 * inverse * inverse * t) +
+        control2 * (3 * inverse * t * t) +
+        end * (t * t * t);
+  }
+}
+
+class _ResolvedLayoutPathCurve {
+  _ResolvedLayoutPathCurve._({
+    required this.startIndex,
+    required this.endIndex,
+    required this.points,
+    required this.segments,
+    required this.averageY,
+    required this.length,
+  });
+
+  static _ResolvedLayoutPathCurve? resolve(
+    List<Offset> pathPoints, {
+    required Offset from,
+    required Offset through,
+    required Offset to,
+  }) {
+    final startIndex = _matchingPathPointIndex(pathPoints, from);
+    final endIndex = _matchingPathPointIndex(pathPoints, to);
+    if (startIndex == null || endIndex == null) return null;
+    final curvePoints = [from, through, to];
+    final segments = <_CubicLayoutPathSegment>[];
+    for (var index = 0; index < curvePoints.length - 1; index += 1) {
+      final start = curvePoints[index];
+      final end = curvePoints[index + 1];
+      final before = index == 0
+          ? start - (end - start)
+          : curvePoints[index - 1];
+      final after = index + 2 >= curvePoints.length
+          ? end + (end - start)
+          : curvePoints[index + 2];
+      final isCollapsed = (end - start).distance <= 0.000001;
+      segments.add(
+        _CubicLayoutPathSegment(
+          start: start,
+          control1: isCollapsed ? start : start + (end - before) / 6,
+          control2: isCollapsed ? end : end - (after - start) / 6,
+          end: end,
+        ),
+      );
+    }
+    if (segments.isEmpty) return null;
+    var length = 0.0;
+    var previous = segments.first.start;
+    for (final segment in segments) {
+      for (var sample = 1; sample <= 32; sample += 1) {
+        final point = segment.pointAt(sample / 32);
+        length += (point - previous).distance;
+        previous = point;
+      }
+    }
+    return _ResolvedLayoutPathCurve._(
+      startIndex: startIndex,
+      endIndex: endIndex,
+      points: List<Offset>.unmodifiable(curvePoints),
+      segments: segments,
+      averageY:
+          curvePoints.fold<double>(0, (sum, point) => sum + point.dy) /
+          curvePoints.length,
+      length: length,
+    );
+  }
+
+  final int startIndex;
+  final int endIndex;
+  final List<Offset> points;
+  final List<_CubicLayoutPathSegment> segments;
+  final double averageY;
+  final double length;
+
+  Offset pointAt(double t) {
+    final scaled = t.clamp(0, 1).toDouble() * segments.length;
+    final index = math.min(scaled.floor(), segments.length - 1);
+    return segments[index].pointAt(scaled - index);
+  }
+}
+
+int? _matchingPathPointIndex(List<Offset> points, Offset target) {
+  for (var index = 0; index < points.length; index += 1) {
+    if ((points[index] - target).distance <= 0.000001) return index;
+  }
+  return null;
+}
+
+class _LayoutPathCurveBoundary {
+  const _LayoutPathCurveBoundary(this.curve, {required this.reversed});
+
+  final _ResolvedLayoutPathCurve curve;
+  final bool reversed;
+
+  Offset pointAt(double t) => curve.pointAt(reversed ? 1 - t : t);
+}
+
+class _LayoutPathProjection {
+  _LayoutPathProjection._({
+    required this.sourcePoints,
+    required this.path,
+    required this.top,
+    required this.bottom,
+  });
+
+  static _LayoutPathProjection? resolve(
+    List<Offset> points,
+    List<({Offset? from, Offset? through, Offset? to})> configuredCurves, {
+    required bool close,
+  }) {
+    if (configuredCurves.isEmpty || points.length < 3) return null;
+    final curves = <_ResolvedLayoutPathCurve>[];
+    for (final configuredCurve in configuredCurves) {
+      final from = configuredCurve.from;
+      final through = configuredCurve.through;
+      final to = configuredCurve.to;
+      if (from == null || through == null || to == null) return null;
+      final curve = _ResolvedLayoutPathCurve.resolve(
+        points,
+        from: from,
+        through: through,
+        to: to,
+      );
+      if (curve == null) return null;
+      curves.add(curve);
+    }
+    final curvedEdges =
+        <(int, int), ({_ResolvedLayoutPathCurve curve, bool reversed})>{
+          for (final curve in curves)
+            (curve.startIndex, curve.endIndex): (curve: curve, reversed: false),
+          for (final curve in curves)
+            (curve.endIndex, curve.startIndex): (curve: curve, reversed: true),
+        };
+    final sourcePoints = <Offset>[
+      ...points,
+      for (final curve in curves) ...curve.points,
+    ];
+    final path = Path()..moveTo(points.first.dx, points.first.dy);
+    final segmentCount = close ? points.length : points.length - 1;
+    for (var index = 0; index < segmentCount; index += 1) {
+      final nextIndex = (index + 1) % points.length;
+      final curvedEdge = curvedEdges[(index, nextIndex)];
+      if (curvedEdge == null) {
+        path.lineTo(points[nextIndex].dx, points[nextIndex].dy);
+        continue;
+      }
+      final segments = curvedEdge.reversed
+          ? curvedEdge.curve.segments.reversed
+          : curvedEdge.curve.segments;
+      for (final segment in segments) {
+        final control1 = curvedEdge.reversed
+            ? segment.control2
+            : segment.control1;
+        final control2 = curvedEdge.reversed
+            ? segment.control1
+            : segment.control2;
+        final end = curvedEdge.reversed ? segment.start : segment.end;
+        path.cubicTo(
+          control1.dx,
+          control1.dy,
+          control2.dx,
+          control2.dy,
+          end.dx,
+          end.dy,
+        );
+      }
+    }
+    if (close) path.close();
+
+    final verticallyOrdered = [...curves]
+      ..sort((left, right) => left.averageY.compareTo(right.averageY));
+    final topCurve = verticallyOrdered.first;
+    final bottomCurve = verticallyOrdered.length > 1
+        ? verticallyOrdered.last
+        : null;
+    return _LayoutPathProjection._(
+      sourcePoints: List<Offset>.unmodifiable(sourcePoints),
+      path: path,
+      top: _LayoutPathCurveBoundary(
+        topCurve,
+        reversed: topCurve.pointAt(0).dx > topCurve.pointAt(1).dx,
+      ),
+      bottom: bottomCurve == null
+          ? null
+          : _LayoutPathCurveBoundary(
+              bottomCurve,
+              reversed: bottomCurve.pointAt(0).dx > bottomCurve.pointAt(1).dx,
+            ),
+    );
+  }
+
+  final List<Offset> sourcePoints;
+  final Path path;
+  final _LayoutPathCurveBoundary top;
+  final _LayoutPathCurveBoundary? bottom;
+
+  bool get canProjectBackground => bottom != null;
+
+  Size get flatSize {
+    final bottomBoundary = bottom;
+    if (bottomBoundary == null) return Size.zero;
+    final leftHeight = (bottomBoundary.pointAt(0) - top.pointAt(0)).distance;
+    final rightHeight = (bottomBoundary.pointAt(1) - top.pointAt(1)).distance;
+    return Size(
+      (top.curve.length + bottomBoundary.curve.length) / 2,
+      (leftHeight + rightHeight) / 2,
+    );
+  }
+
+  int get meshSegmentCount =>
+      (flatSize.width / 2).ceil().clamp(128, 1536).toInt();
+
+  Offset project(double u, double v) =>
+      Offset.lerp(top.pointAt(u), bottom!.pointAt(u), v)!;
+}
+
+_LayoutPathProjection? _resolvedLayoutPathProjection(
+  LayoutPath layoutPath,
+  List<Offset> points,
+  Map<String, _ResolvedLayout> layouts,
+  LayoutContext layoutContext,
+) => _LayoutPathProjection.resolve(points, [
+  for (final curve in layoutPath.curves)
+    (
+      from: _resolveReference(curve.from, layouts, layoutContext),
+      through: _resolveReference(curve.through, layouts, layoutContext),
+      to: _resolveReference(curve.to, layouts, layoutContext),
+    ),
+], close: layoutPath.style?.close ?? true);
+
+class _CurvedLayoutPathImageMesh {
+  _CurvedLayoutPathImageMesh({
+    required _LayoutPathProjection projection,
+    required this.image,
+    required LayoutImageBackground background,
+  }) : sourcePoints = projection.sourcePoints,
+       meshSegmentCount = projection.meshSegmentCount,
+       _vertices = _buildVertices(projection, image, background),
+       _shader = ui.ImageShader(
+         image,
+         TileMode.clamp,
+         TileMode.clamp,
+         Float64List.fromList(const [
+           1,
+           0,
+           0,
+           0,
+           0,
+           1,
+           0,
+           0,
+           0,
+           0,
+           1,
+           0,
+           0,
+           0,
+           0,
+           1,
+         ]),
+         filterQuality: FilterQuality.medium,
+       ) {
+    _paint.shader = _shader;
+  }
+
+  final List<Offset> sourcePoints;
+  final int meshSegmentCount;
+  final ui.Image image;
+  final ui.Vertices _vertices;
+  final ui.ImageShader _shader;
+  final Paint _paint = Paint();
+
+  bool matches(_LayoutPathProjection projection, ui.Image candidateImage) {
+    if (!identical(image, candidateImage) ||
+        meshSegmentCount != projection.meshSegmentCount ||
+        sourcePoints.length != projection.sourcePoints.length) {
+      return false;
+    }
+    for (var index = 0; index < sourcePoints.length; index += 1) {
+      if (sourcePoints[index] != projection.sourcePoints[index]) return false;
+    }
+    return true;
+  }
+
+  void draw(Canvas canvas, double opacity) {
+    _paint.colorFilter = ColorFilter.mode(
+      Color.fromARGB((opacity * 255).round(), 255, 255, 255),
+      BlendMode.modulate,
+    );
+    canvas.drawVertices(_vertices, BlendMode.src, _paint);
+  }
+
+  void dispose() {
+    _vertices.dispose();
+    _shader.dispose();
+  }
+
+  static ui.Vertices _buildVertices(
+    _LayoutPathProjection projection,
+    ui.Image image,
+    LayoutImageBackground background,
+  ) {
+    final flatSize = projection.flatSize;
+    final imageSize = Size(image.width.toDouble(), image.height.toDouble());
+    final fit = switch (background.fit) {
+      LayoutBackgroundFit.cover => BoxFit.cover,
+      LayoutBackgroundFit.contain => BoxFit.contain,
+      LayoutBackgroundFit.fill => BoxFit.fill,
+    };
+    final fitted = applyBoxFit(fit, imageSize, flatSize);
+    final alignment = Alignment(
+      background.alignment.dx * 2 - 1,
+      background.alignment.dy * 2 - 1,
+    );
+    final sourceRect = alignment.inscribe(
+      fitted.source,
+      Offset.zero & imageSize,
+    );
+    final destinationRect = alignment.inscribe(
+      fitted.destination,
+      Offset.zero & flatSize,
+    );
+    final left = destinationRect.left / flatSize.width;
+    final right = destinationRect.right / flatSize.width;
+    final top = destinationRect.top / flatSize.height;
+    final bottom = destinationRect.bottom / flatSize.height;
+    final positions = <Offset>[];
+    final textureCoordinates = <Offset>[];
+    for (var index = 0; index <= projection.meshSegmentCount; index += 1) {
+      final stop = index / projection.meshSegmentCount;
+      final u = ui.lerpDouble(left, right, stop)!;
+      final textureX = ui.lerpDouble(sourceRect.left, sourceRect.right, stop)!;
+      positions
+        ..add(projection.project(u, top))
+        ..add(projection.project(u, bottom));
+      textureCoordinates
+        ..add(Offset(textureX, sourceRect.top))
+        ..add(Offset(textureX, sourceRect.bottom));
+    }
+    return ui.Vertices(
+      ui.VertexMode.triangleStrip,
+      positions,
+      textureCoordinates: textureCoordinates,
+    );
+  }
 }
 
 TableData _tableData(
@@ -3024,6 +3447,12 @@ _LayoutTapHit? _hitTestLayoutTap(
             child.padding,
           );
           final compositionPoints = _screenOrderedQuadrilateral(paddedPoints);
+          final projection = _resolvedLayoutPathProjection(
+            child,
+            paddedPoints,
+            resolvedLayouts,
+            layoutContext,
+          );
           for (final compositionEntry
               in child.children.entries.toList().reversed) {
             final composition = compositionEntry.value;
@@ -3037,6 +3466,7 @@ _LayoutTapHit? _hitTestLayoutTap(
               '${entry.key}/${compositionEntry.key}',
               layoutContext,
               nodeListSources,
+              projection: projection,
             );
             if (hit != null) return hit;
           }
@@ -3062,9 +3492,20 @@ void _drawFlexComposition(
   List<Offset> points,
   Layout composition,
   LayoutContext layoutContext,
-  _NodeListSources nodeListSources,
-) {
+  _NodeListSources nodeListSources, {
+  _LayoutPathProjection? projection,
+}) {
   if (points.length != 4) return;
+  if (projection?.canProjectBackground ?? false) {
+    _drawCurvedFlexComposition(
+      canvas,
+      composition,
+      projection!,
+      layoutContext,
+      nodeListSources,
+    );
+    return;
+  }
 
   final leftHeight = (points[3] - points[0]).distance;
   final rightHeight = (points[2] - points[1]).distance;
@@ -3142,14 +3583,261 @@ void _drawFlatFlexComposition(
   }
 }
 
+typedef _FlexSurfaceRect = ({
+  double left,
+  double top,
+  double right,
+  double bottom,
+});
+
+void _drawCurvedFlexComposition(
+  Canvas canvas,
+  Layout composition,
+  _LayoutPathProjection projection,
+  LayoutContext layoutContext,
+  _NodeListSources nodeListSources, {
+  _FlexSurfaceRect frame = const (left: 0, top: 0, right: 1, bottom: 1),
+}) {
+  for (final child in _resolveCurvedFlexChildren(
+    composition,
+    frame,
+    projection,
+    layoutContext,
+  )) {
+    final layout = child.layout;
+    if (layout is PanelLayout) {
+      _drawCurvedPanelLayout(canvas, projection, child.frame, layout);
+    } else if (layout is NodeListLayout) {
+      _drawNodeListLayout(
+        canvas,
+        _curvedSurfaceCorners(projection, child.frame),
+        layout,
+        nodeListSources,
+        layoutContext,
+      );
+    } else if (layout is ColumnLayout || layout is RowLayout) {
+      _drawCurvedFlexComposition(
+        canvas,
+        layout,
+        projection,
+        layoutContext,
+        nodeListSources,
+        frame: child.frame,
+      );
+    }
+  }
+}
+
+Iterable<({String key, Layout layout, _FlexSurfaceRect frame})>
+_resolveCurvedFlexChildren(
+  Layout composition,
+  _FlexSurfaceRect frame,
+  _LayoutPathProjection projection,
+  LayoutContext layoutContext,
+) sync* {
+  final vertical = composition is ColumnLayout;
+  if (!vertical && composition is! RowLayout) return;
+  final children = composition.children.entries
+      .where((entry) => entry.value.isVisible(layoutContext))
+      .toList(growable: false);
+  if (children.isEmpty) return;
+
+  final mainPixels = vertical
+      ? projection.flatSize.height * (frame.bottom - frame.top)
+      : projection.flatSize.width * (frame.right - frame.left);
+  if (mainPixels <= 0) return;
+  final stops = _gridTrackStops([
+    for (final child in children) child.value.size.primary,
+  ], mainPixels);
+  for (var index = 0; index < children.length; index += 1) {
+    final entry = children[index];
+    final start = stops[index];
+    final end = stops[index + 1];
+    yield (
+      key: entry.key,
+      layout: entry.value,
+      frame: vertical
+          ? (
+              left: frame.left,
+              top: ui.lerpDouble(frame.top, frame.bottom, start)!,
+              right: frame.right,
+              bottom: ui.lerpDouble(frame.top, frame.bottom, end)!,
+            )
+          : (
+              left: ui.lerpDouble(frame.left, frame.right, start)!,
+              top: frame.top,
+              right: ui.lerpDouble(frame.left, frame.right, end)!,
+              bottom: frame.bottom,
+            ),
+    );
+  }
+}
+
+List<Offset> _curvedSurfaceCorners(
+  _LayoutPathProjection projection,
+  _FlexSurfaceRect frame,
+) => [
+  projection.project(frame.left, frame.top),
+  projection.project(frame.right, frame.top),
+  projection.project(frame.right, frame.bottom),
+  projection.project(frame.left, frame.bottom),
+];
+
+Path _curvedSurfacePath(
+  _LayoutPathProjection projection,
+  _FlexSurfaceRect frame,
+) {
+  final horizontalFraction = (frame.right - frame.left).abs();
+  final samples = (projection.meshSegmentCount * horizontalFraction / 8)
+      .ceil()
+      .clamp(8, 96);
+  final path = Path();
+  for (var index = 0; index <= samples; index += 1) {
+    final x = ui.lerpDouble(frame.left, frame.right, index / samples)!;
+    final point = projection.project(x, frame.top);
+    if (index == 0) {
+      path.moveTo(point.dx, point.dy);
+    } else {
+      path.lineTo(point.dx, point.dy);
+    }
+  }
+  for (var index = samples; index >= 0; index -= 1) {
+    final x = ui.lerpDouble(frame.left, frame.right, index / samples)!;
+    final point = projection.project(x, frame.bottom);
+    path.lineTo(point.dx, point.dy);
+  }
+  return path..close();
+}
+
+void _drawCurvedPanelLayout(
+  Canvas canvas,
+  _LayoutPathProjection projection,
+  _FlexSurfaceRect frame,
+  PanelLayout panel,
+) {
+  final path = _curvedSurfacePath(projection, frame);
+  if (panel.fillColor case final fillColor?) {
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = fillColor
+        ..style = PaintingStyle.fill,
+    );
+  }
+  if (panel.borderStyle case final borderStyle?) {
+    _drawGuidePath(canvas, path, borderStyle);
+  }
+  final label = panel.caption;
+  if (label == null || label.isEmpty) return;
+  final center = projection.project(
+    (frame.left + frame.right) / 2,
+    (frame.top + frame.bottom) / 2,
+  );
+  final textPainter = TextPainter(
+    text: TextSpan(
+      text: label,
+      style: TextStyle(
+        fontFamily: SevilleTypography.fontFamily,
+        color: panel.labelColor,
+        fontSize: panel.labelSize,
+        fontWeight: FontWeight.w600,
+      ),
+    ),
+    textDirection: TextDirection.ltr,
+    textAlign: TextAlign.center,
+  )..layout();
+  textPainter.paint(
+    canvas,
+    center - Offset(textPainter.width / 2, textPainter.height / 2),
+  );
+}
+
+_LayoutTapHit? _hitTestCurvedFlexComposition(
+  Layout composition,
+  _LayoutPathProjection projection,
+  Offset position,
+  String path,
+  LayoutContext layoutContext,
+  _NodeListSources nodeListSources, {
+  _FlexSurfaceRect frame = const (left: 0, top: 0, right: 1, bottom: 1),
+}) {
+  final children = _resolveCurvedFlexChildren(
+    composition,
+    frame,
+    projection,
+    layoutContext,
+  ).toList().reversed;
+  for (final child in children) {
+    final childPath = '$path/${child.key}';
+    final layout = child.layout;
+    if (layout is ColumnLayout || layout is RowLayout) {
+      final nested = _hitTestCurvedFlexComposition(
+        layout,
+        projection,
+        position,
+        childPath,
+        layoutContext,
+        nodeListSources,
+        frame: child.frame,
+      );
+      if (nested != null) return nested;
+    }
+    final corners = _curvedSurfaceCorners(projection, child.frame);
+    if (layout is NodeListLayout) {
+      final entry = _hitTestNodeList(
+        layout,
+        nodeListSources,
+        corners,
+        position,
+      );
+      if (entry != null) {
+        return (
+          target: LayoutTapTarget(
+            key: '$childPath/${entry.node.slug}',
+            layout: layout,
+            node: entry.resolvedNode,
+            resolvedNode: entry.resolvedNode,
+            label: _nodePresentationLabel(entry.node, layout),
+          ),
+          nodePath: _polygonPath(entry.points),
+        );
+      }
+    }
+    if (layout is PanelLayout &&
+        layout.aliases.contains('action-button') &&
+        _curvedSurfacePath(projection, child.frame).contains(position)) {
+      return (
+        target: LayoutTapTarget(
+          key: childPath,
+          layout: layout,
+          label: layout.caption,
+        ),
+        nodePath: null,
+      );
+    }
+  }
+  return null;
+}
+
 _LayoutTapHit? _hitTestFlexComposition(
   Layout composition,
   List<Offset> points,
   Offset position,
   String path,
   LayoutContext layoutContext,
-  _NodeListSources nodeListSources,
-) {
+  _NodeListSources nodeListSources, {
+  _LayoutPathProjection? projection,
+}) {
+  if (projection?.canProjectBackground ?? false) {
+    return _hitTestCurvedFlexComposition(
+      composition,
+      projection!,
+      position,
+      path,
+      layoutContext,
+      nodeListSources,
+    );
+  }
   final children = _resolveFlexChildren(
     composition,
     points,

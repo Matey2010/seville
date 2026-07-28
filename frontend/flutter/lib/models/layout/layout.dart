@@ -25,7 +25,7 @@ abstract class Layout {
     this.node = NodeDefaults.config,
     this.panel = const PanelConfig(),
     this.attributes = const [],
-    this.backgrounds = const [],
+    this.background = const [],
     this.children = const {},
     this.derivatives = const {},
     this.derivativeSnapshot,
@@ -35,7 +35,6 @@ abstract class Layout {
     this.layoutPadding = 0,
     this.layoutGap = 0,
     this.layoutBorderWidth,
-    this.backgroundDefaults = const [],
     this.inactiveNodeBackgroundOpacity = NodeDefaults.inactiveBackgroundOpacity,
     this.activeNodeBackgroundOpacity = NodeDefaults.activeBackgroundOpacity,
     this.virtualNodeBackgroundOpacity = NodeDefaults.virtualBackgroundOpacity,
@@ -70,7 +69,7 @@ abstract class Layout {
   final NodeConfig node;
   final PanelConfig panel;
   final List<LayoutAttribute> attributes;
-  final List<LayoutBackground> backgrounds;
+  final List<LayoutBackground> background;
 
   /// Recursive layout tree. Map keys are the children's identities.
   final Map<String, Layout> children;
@@ -87,7 +86,6 @@ abstract class Layout {
   final double layoutPadding;
   final double layoutGap;
   final double? layoutBorderWidth;
-  final List<LayoutBackground> backgroundDefaults;
   final double inactiveNodeBackgroundOpacity;
   final double activeNodeBackgroundOpacity;
   final double virtualNodeBackgroundOpacity;
@@ -103,13 +101,6 @@ abstract class Layout {
   NodeConfig resolveNodeConfig(LayoutContext context) => node.resolve(context);
   LabelConfig resolveLabelConfig(LayoutContext context) =>
       label.resolveWithDefaults(context);
-
-  List<LayoutBackground> resolveBackgrounds([Layout? inheritedDefaults]) {
-    if (backgrounds.isNotEmpty) return backgrounds;
-    final localDefaults = backgroundDefaults;
-    if (localDefaults.isNotEmpty) return localDefaults;
-    return inheritedDefaults?.backgroundDefaults ?? const [];
-  }
 
   Offset get center => const Offset(0.5, 0.5);
 
@@ -631,11 +622,10 @@ abstract class LayoutGuide extends Layout {
     this.visible = true,
     super.aliases,
     super.attributes,
-    super.backgrounds,
+    super.background,
     super.layoutPadding,
     super.layoutGap,
     super.layoutBorderWidth,
-    super.backgroundDefaults,
     super.inactiveNodeBackgroundOpacity,
     super.activeNodeBackgroundOpacity,
     super.virtualNodeBackgroundOpacity,
@@ -665,11 +655,10 @@ class CirleLayout extends LayoutGuide {
     super.visible,
     super.aliases,
     super.attributes = const [LayoutAttribute.circular],
-    super.backgrounds,
+    super.background,
     super.layoutPadding,
     super.layoutGap,
     super.layoutBorderWidth,
-    super.backgroundDefaults,
     super.inactiveNodeBackgroundOpacity,
     super.activeNodeBackgroundOpacity,
     super.virtualNodeBackgroundOpacity,
@@ -1233,11 +1222,10 @@ class PerspectiveGridArea extends Layout {
     this.labelSize = 12,
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
-    super.backgrounds,
+    super.background,
     super.layoutPadding,
     super.layoutGap,
     super.layoutBorderWidth,
-    super.backgroundDefaults,
     super.inactiveNodeBackgroundOpacity,
     super.activeNodeBackgroundOpacity,
     super.virtualNodeBackgroundOpacity,
@@ -1281,11 +1269,10 @@ class PerspectiveGridLayout extends Layout {
     this.bottomEndIndex = 3,
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
-    super.backgrounds,
+    super.background,
     super.layoutPadding,
     super.layoutGap,
     super.layoutBorderWidth,
-    super.backgroundDefaults,
     super.inactiveNodeBackgroundOpacity,
     super.activeNodeBackgroundOpacity,
     super.virtualNodeBackgroundOpacity,
@@ -1322,11 +1309,10 @@ class ColumnLayout extends Layout {
     super.children,
     super.size,
     super.aliases,
-    super.backgrounds,
+    super.background,
     super.layoutPadding,
     super.layoutGap,
     super.layoutBorderWidth,
-    super.backgroundDefaults,
     super.inactiveNodeBackgroundOpacity,
     super.activeNodeBackgroundOpacity,
     super.virtualNodeBackgroundOpacity,
@@ -1350,11 +1336,10 @@ class RowLayout extends Layout {
     super.children,
     super.size,
     super.aliases,
-    super.backgrounds,
+    super.background,
     super.layoutPadding,
     super.layoutGap,
     super.layoutBorderWidth,
-    super.backgroundDefaults,
     super.inactiveNodeBackgroundOpacity,
     super.activeNodeBackgroundOpacity,
     super.virtualNodeBackgroundOpacity,
@@ -1382,11 +1367,10 @@ class PanelLayout extends Layout {
     this.labelColor = const Color(0xFFFFF8E7),
     this.labelSize = 12,
     super.aliases,
-    super.backgrounds,
+    super.background,
     super.layoutPadding,
     super.layoutGap,
     super.layoutBorderWidth,
-    super.backgroundDefaults,
     super.inactiveNodeBackgroundOpacity,
     super.activeNodeBackgroundOpacity,
     super.virtualNodeBackgroundOpacity,
@@ -1415,6 +1399,7 @@ class LayoutPath extends Layout {
     this.style,
     this.ticks,
     this.grid,
+    this.curves = const [],
     this.padding = const LayoutPathPadding(),
     this.pointDerivatives = const {'A': 0, 'B': 1, 'C': 2, 'D': 3},
     super.children,
@@ -1425,11 +1410,10 @@ class LayoutPath extends Layout {
     super.inputSources,
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
-    super.backgrounds,
+    super.background,
     super.layoutPadding,
     super.layoutGap,
     super.layoutBorderWidth,
-    super.backgroundDefaults,
     super.inactiveNodeBackgroundOpacity,
     super.activeNodeBackgroundOpacity,
     super.virtualNodeBackgroundOpacity,
@@ -1448,8 +1432,25 @@ class LayoutPath extends Layout {
   final LayoutPathStyle? style;
   final LayoutPathTickStyle? ticks;
   final PerspectiveGridLayout? grid;
+  final List<LayoutPathCurve> curves;
   final LayoutPathPadding padding;
   final Map<String, int> pointDerivatives;
+}
+
+/// A smooth replacement for one edge of a [LayoutPath].
+///
+/// [from] and [to] identify the structural edge, while [through] supplies a
+/// shaping derivative that the rendered curve passes through.
+class LayoutPathCurve {
+  const LayoutPathCurve({
+    required this.from,
+    required this.through,
+    required this.to,
+  });
+
+  final LayoutDerivativeReference from;
+  final LayoutDerivativeReference through;
+  final LayoutDerivativeReference to;
 }
 
 class FanLayout extends Layout with TableLayoutMixin {
@@ -1472,11 +1473,10 @@ class FanLayout extends Layout with TableLayoutMixin {
     this.gridStyle,
     super.aliases,
     super.attributes = const [LayoutAttribute.circular],
-    super.backgrounds,
+    super.background,
     super.layoutPadding,
     super.layoutGap,
     super.layoutBorderWidth,
-    super.backgroundDefaults,
     super.inactiveNodeBackgroundOpacity,
     super.activeNodeBackgroundOpacity,
     super.virtualNodeBackgroundOpacity,
@@ -1577,11 +1577,10 @@ class GraphLayout extends Layout {
     this.emojiSlugGapFactor = 0.5,
     super.aliases,
     super.attributes = const [LayoutAttribute.circular],
-    super.backgrounds,
+    super.background,
     super.layoutPadding,
     super.layoutGap,
     super.layoutBorderWidth,
-    super.backgroundDefaults,
     super.inactiveNodeBackgroundOpacity,
     super.activeNodeBackgroundOpacity,
     super.virtualNodeBackgroundOpacity,
@@ -1620,11 +1619,10 @@ class NodeListLayout extends Layout {
     super.size,
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
-    super.backgrounds,
+    super.background,
     super.layoutPadding,
     super.layoutGap,
     super.layoutBorderWidth,
-    super.backgroundDefaults,
     super.inactiveNodeBackgroundOpacity,
     super.activeNodeBackgroundOpacity,
     super.virtualNodeBackgroundOpacity,
@@ -1678,11 +1676,10 @@ class RayLayout extends LayoutGuide {
     super.visible,
     super.aliases,
     super.attributes = const [LayoutAttribute.linear],
-    super.backgrounds,
+    super.background,
     super.layoutPadding,
     super.layoutGap,
     super.layoutBorderWidth,
-    super.backgroundDefaults,
     super.inactiveNodeBackgroundOpacity,
     super.activeNodeBackgroundOpacity,
     super.virtualNodeBackgroundOpacity,
@@ -1731,11 +1728,10 @@ class LayoutAreaRayLayout extends LayoutGuide {
     super.visible,
     super.aliases,
     super.attributes = const [LayoutAttribute.linear],
-    super.backgrounds,
+    super.background,
     super.layoutPadding,
     super.layoutGap,
     super.layoutBorderWidth,
-    super.backgroundDefaults,
     super.inactiveNodeBackgroundOpacity,
     super.activeNodeBackgroundOpacity,
     super.virtualNodeBackgroundOpacity,
@@ -1768,11 +1764,10 @@ class LayoutAreaToDerivativeRayLayout extends LayoutGuide {
     super.visible,
     super.aliases,
     super.attributes = const [LayoutAttribute.linear],
-    super.backgrounds,
+    super.background,
     super.layoutPadding,
     super.layoutGap,
     super.layoutBorderWidth,
-    super.backgroundDefaults,
     super.inactiveNodeBackgroundOpacity,
     super.activeNodeBackgroundOpacity,
     super.virtualNodeBackgroundOpacity,
@@ -1812,11 +1807,10 @@ class StickmanLayout extends Layout {
     this.footHalfWidth = 0.16,
     super.aliases,
     super.attributes = const [LayoutAttribute.linear],
-    super.backgrounds,
+    super.background,
     super.layoutPadding,
     super.layoutGap,
     super.layoutBorderWidth,
-    super.backgroundDefaults,
     super.inactiveNodeBackgroundOpacity,
     super.activeNodeBackgroundOpacity,
     super.virtualNodeBackgroundOpacity,
@@ -1875,7 +1869,7 @@ class PlaneLayout extends Layout {
     this.ringGuides = const [],
     super.aliases,
     super.attributes = const [LayoutAttribute.circular],
-    super.backgrounds,
+    super.background,
     super.children,
     super.derivatives,
     super.derivativeSnapshot,
@@ -1885,7 +1879,6 @@ class PlaneLayout extends Layout {
     super.layoutPadding,
     super.layoutGap,
     super.layoutBorderWidth,
-    super.backgroundDefaults,
     super.inactiveNodeBackgroundOpacity,
     super.activeNodeBackgroundOpacity,
     super.virtualNodeBackgroundOpacity,
@@ -1943,11 +1936,10 @@ class SubjectNodeLayout extends PlaneLayout {
     super.ringGuides,
     super.aliases,
     super.attributes,
-    super.backgrounds,
+    super.background,
     super.layoutPadding,
     super.layoutGap,
     super.layoutBorderWidth,
-    super.backgroundDefaults,
     super.inactiveNodeBackgroundOpacity,
     super.activeNodeBackgroundOpacity,
     super.virtualNodeBackgroundOpacity,
@@ -1985,11 +1977,10 @@ class LayoutBorderGuide extends LayoutGuide {
     super.visible,
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
-    super.backgrounds,
+    super.background,
     super.layoutPadding,
     super.layoutGap,
     super.layoutBorderWidth,
-    super.backgroundDefaults,
     super.inactiveNodeBackgroundOpacity,
     super.activeNodeBackgroundOpacity,
     super.virtualNodeBackgroundOpacity,

@@ -368,17 +368,13 @@
   a hash palette. Keep them on the table canvas so they obey its perspective.
   The component also owns the additional cursor-hover border resolved through
   `LayoutCondition.labelHighlighted()`; LG Ergo uses yellow.
-- Every `Layout` exposes its own ordered `backgrounds` list. Concrete layout
+- Every `Layout` exposes its own ordered `background` list. Concrete layout
   constructors must forward that base property. `orderPosition` is frontend
   stacking metadata: lower values paint first, while guides and content stay
-  above backgrounds. `LayoutPath` backgrounds are clipped to the path's
-  resolved polygon; quadrilateral image backgrounds use the same projective
-  transform as `TableLayout`, so both image and content follow one
+  above background elements. `LayoutPath` image backgrounds are clipped to the
+  path's resolved polygon; quadrilateral image backgrounds use the same
+  projective transform as `TableLayout`, so both image and content follow one
   perspective without separate renderer coordinates.
-  `LayoutDefaults.backgrounds` is the fallback for layouts whose own list is
-  empty. Resolve it through the nearest ancestor defaults that defines a
-  non-empty background list; explicit layout backgrounds always replace the
-  fallback. LG Ergo uses `dark-vintage-scheme.jpg` as this default.
 - Use `StickmanLayout` for the simple center-scene human scale reference. Its
   logical body lives in vertical `0..1`, where `1.0` equals `heightCm`
   (currently 200cm), and its visible frame can extend beyond that, e.g.

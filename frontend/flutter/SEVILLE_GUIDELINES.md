@@ -121,17 +121,14 @@ painting, so SafeArea padding does not distort the correspondence.
 
 ## Ordered layout backgrounds
 
-Every `Layout` exposes an ordered `backgrounds` list. Concrete layout
+Every `Layout` exposes an ordered `background` list. Concrete layout
 constructors forward this base property so a background remains declarative and
 owned by the layout whose geometry it fills. Each background declares its
 `orderPosition` and opacity; image backgrounds additionally declare the asset,
 fit, and normalized alignment.
 
-`LayoutDefaults.backgrounds` sits beside padding, gap, and border defaults. An
-empty local background list inherits the nearest ancestor defaults containing a
-background; an explicit local list replaces that fallback. LG Ergo uses
-`assets/wallpapers/dark-vintage-scheme.jpg` as its default while the root and
-info panel retain their explicit background compositions.
+An empty `background` list paints no background for that layout. There is no
+ancestor fallback or separate background-default property.
 
 `LayoutPath` paints image backgrounds behind its fill, guides, and content,
 clips them to the resolved polygon, and projects quadrilateral images through

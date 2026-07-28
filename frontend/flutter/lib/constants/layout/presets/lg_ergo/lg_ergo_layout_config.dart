@@ -81,7 +81,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
   ),
   attributes: [LayoutAttribute.screen, LayoutAttribute.rectangular],
 
-  backgrounds: [
+  background: [
     LayoutImageBackground(
       assetPath: 'assets/wallpapers/dark-vintage-scheme.jpg',
       fit: LayoutBackgroundFit.cover,
@@ -143,12 +143,6 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
   layoutPadding: 20,
   layoutGap: 20,
   layoutBorderWidth: 1.2,
-  backgroundDefaults: const [
-    LayoutImageBackground(
-      assetPath: 'assets/wallpapers/dark-vintage-scheme.jpg',
-      fit: LayoutBackgroundFit.cover,
-    ),
-  ],
   derivativeSnapshot: 'screen-edge-centers',
   derivatives: {
     'screen-edge-centers': LayoutDerivativeSnapshot(
@@ -170,7 +164,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
         'right-plane',
         'east-plane',
       ],
-      backgrounds: [
+      background: [
         LayoutImageBackground(
           assetPath: 'assets/wallpapers/dark-vintage-scheme.jpg',
           fit: LayoutBackgroundFit.cover,
@@ -357,202 +351,12 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                 ),
               },
             ),
-            'direction-pad': ColumnLayout(
-              size: LayoutSize.px(144),
-              aliases: [
-                'direction-pad',
-                'node-direction-controls',
-                'spatial-navigation',
-              ],
-              children: {
-                'top-directions': RowLayout(
-                  size: LayoutSize.fr(1),
-                  aliases: ['direction-row', 'top-direction-row'],
-                  children: {
-                    'top-left': PanelLayout(
-                      size: LayoutSize.fr(1),
-                      aliases: [
-                        'action-button',
-                        'selected-node-action',
-                        'direction-action',
-                        'direction-top-left',
-                      ],
-                      fillColor: (Color(0x553F51B5)),
-                      borderStyle: (GuideStyle(
-                        color: Color(0xCCB7C2FF),
-                        strokeWidth: 1,
-                        pattern: GuideLinePattern.solid,
-                      )),
-                      caption: '↖',
-                      labelColor: ((Color(0xFFFFF8E7))),
-                      labelSize: 18,
-                    ),
-                    'top-center': PanelLayout(
-                      size: LayoutSize.fr(1),
-                      aliases: [
-                        'action-button',
-                        'selected-node-action',
-                        'direction-action',
-                        'direction-top-center',
-                      ],
-                      fillColor: (Color(0x553F51B5)),
-                      borderStyle: (GuideStyle(
-                        color: Color(0xCCB7C2FF),
-                        strokeWidth: 1,
-                        pattern: GuideLinePattern.solid,
-                      )),
-                      caption: '↑',
-                      labelColor: ((Color(0xFFFFF8E7))),
-                      labelSize: 18,
-                    ),
-                    'top-right': PanelLayout(
-                      size: LayoutSize.fr(1),
-                      aliases: [
-                        'action-button',
-                        'selected-node-action',
-                        'direction-action',
-                        'direction-top-right',
-                      ],
-                      fillColor: (Color(0x553F51B5)),
-                      borderStyle: (GuideStyle(
-                        color: Color(0xCCB7C2FF),
-                        strokeWidth: 1,
-                        pattern: GuideLinePattern.solid,
-                      )),
-                      caption: '↗',
-                      labelColor: ((Color(0xFFFFF8E7))),
-                      labelSize: 18,
-                    ),
-                  },
-                ),
-                'center-directions': RowLayout(
-                  size: LayoutSize.fr(1),
-                  aliases: ['direction-row', 'center-direction-row'],
-                  children: {
-                    'center-left': PanelLayout(
-                      size: LayoutSize.fr(1),
-                      aliases: [
-                        'action-button',
-                        'selected-node-action',
-                        'direction-action',
-                        'direction-center-left',
-                      ],
-                      fillColor: (Color(0x553F51B5)),
-                      borderStyle: (GuideStyle(
-                        color: Color(0xCCB7C2FF),
-                        strokeWidth: 1,
-                        pattern: GuideLinePattern.solid,
-                      )),
-                      caption: '←',
-                      labelColor: ((Color(0xFFFFF8E7))),
-                      labelSize: 18,
-                    ),
-                    'center': PanelLayout(
-                      size: LayoutSize.fr(1),
-                      aliases: [
-                        'action-button',
-                        'selected-node-action',
-                        'direction-action',
-                        'direction-center',
-                      ],
-                      fillColor: (Color(0x553F51B5)),
-                      borderStyle: (GuideStyle(
-                        color: Color(0xCCB7C2FF),
-                        strokeWidth: 1,
-                        pattern: GuideLinePattern.solid,
-                      )),
-                      caption: '•',
-                      labelColor: ((Color(0xFFFFF8E7))),
-                      labelSize: 18,
-                    ),
-                    'center-right': PanelLayout(
-                      size: LayoutSize.fr(1),
-                      aliases: [
-                        'action-button',
-                        'selected-node-action',
-                        'direction-action',
-                        'direction-center-right',
-                      ],
-                      fillColor: (Color(0x553F51B5)),
-                      borderStyle: (GuideStyle(
-                        color: Color(0xCCB7C2FF),
-                        strokeWidth: 1,
-                        pattern: GuideLinePattern.solid,
-                      )),
-                      caption: '→',
-                      labelColor: ((Color(0xFFFFF8E7))),
-                      labelSize: 18,
-                    ),
-                  },
-                ),
-                'bottom-directions': RowLayout(
-                  size: LayoutSize.fr(1),
-                  aliases: ['direction-row', 'bottom-direction-row'],
-                  children: {
-                    'bottom-left': PanelLayout(
-                      size: LayoutSize.fr(1),
-                      aliases: [
-                        'action-button',
-                        'selected-node-action',
-                        'direction-action',
-                        'direction-bottom-left',
-                      ],
-                      fillColor: (Color(0x553F51B5)),
-                      borderStyle: (GuideStyle(
-                        color: Color(0xCCB7C2FF),
-                        strokeWidth: 1,
-                        pattern: GuideLinePattern.solid,
-                      )),
-                      caption: '↙',
-                      labelColor: ((Color(0xFFFFF8E7))),
-                      labelSize: 18,
-                    ),
-                    'bottom-center': PanelLayout(
-                      size: LayoutSize.fr(1),
-                      aliases: [
-                        'action-button',
-                        'selected-node-action',
-                        'direction-action',
-                        'direction-bottom-center',
-                      ],
-                      fillColor: (Color(0x553F51B5)),
-                      borderStyle: (GuideStyle(
-                        color: Color(0xCCB7C2FF),
-                        strokeWidth: 1,
-                        pattern: GuideLinePattern.solid,
-                      )),
-                      caption: '↓',
-                      labelColor: ((Color(0xFFFFF8E7))),
-                      labelSize: 18,
-                    ),
-                    'bottom-right': PanelLayout(
-                      size: LayoutSize.fr(1),
-                      aliases: [
-                        'action-button',
-                        'selected-node-action',
-                        'direction-action',
-                        'direction-bottom-right',
-                      ],
-                      fillColor: (Color(0x553F51B5)),
-                      borderStyle: (GuideStyle(
-                        color: Color(0xCCB7C2FF),
-                        strokeWidth: 1,
-                        pattern: GuideLinePattern.solid,
-                      )),
-                      caption: '↘',
-                      labelColor: ((Color(0xFFFFF8E7))),
-                      labelSize: 18,
-                    ),
-                  },
-                ),
-              },
-            ),
           },
         ),
       },
     ),
     'info-panel': LayoutPath(
-      backgrounds: [
+      background: [
         LayoutImageBackground(
           assetPath: 'assets/wallpapers/daft-punk-suit.jpg',
           fit: LayoutBackgroundFit.contain,
@@ -859,12 +663,6 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
       layoutPadding: 20,
       layoutGap: 20,
       layoutBorderWidth: 1.2,
-      backgroundDefaults: const [
-        LayoutImageBackground(
-          assetPath: 'assets/wallpapers/dark-vintage-scheme.jpg',
-          fit: LayoutBackgroundFit.cover,
-        ),
-      ],
       derivativeSnapshot: 'safe-area-manifold',
       derivatives: {
         'safe-area-manifold': LayoutDerivativeSnapshot(
@@ -1414,6 +1212,243 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
             dashLength: 5,
             dashInterval: 7,
           ),
+        ),
+        'panoramic-scene-plane': LayoutPath(
+          aliases: [
+            'panoramic-scene-plane',
+            'panorama-plane',
+            'curved-scene-plane',
+          ],
+          background: [
+            LayoutImageBackground(
+              assetPath: 'assets/wallpapers/dark-vintage-scheme.jpg',
+              opacity: 0.78,
+              fit: LayoutBackgroundFit.cover,
+            ),
+          ],
+          points: [
+            LayoutDerivativeReference(derivative: 'A'),
+            LayoutDerivativeReference(derivative: 'B'),
+            LayoutDerivativeReference(derivative: 'C'),
+            LayoutDerivativeReference(derivative: 'D'),
+          ],
+          curves: [
+            LayoutPathCurve(
+              from: LayoutDerivativeReference(derivative: 'B'),
+              through: LayoutDerivativeReference(
+                layoutPath: ['safe-area'],
+                derivative: 'innerSquare.BC-center',
+              ),
+              to: LayoutDerivativeReference(derivative: 'C'),
+            ),
+            LayoutPathCurve(
+              from: LayoutDerivativeReference(derivative: 'D'),
+              through: LayoutDerivativeReference(
+                layoutPath: ['safe-area'],
+                derivative: 'innerSquare.AD-center',
+              ),
+              to: LayoutDerivativeReference(derivative: 'A'),
+            ),
+          ],
+          style: LayoutPathStyle(
+            fillColor: Color(0x00000000),
+            strokeStyle: GuideStyle(
+              color: Color(0xAAC59A1A),
+              strokeWidth: 1.2,
+              pattern: GuideLinePattern.solid,
+            ),
+          ),
+          children: {
+            'direction-pad': RowLayout(
+              aliases: [
+                'direction-pad',
+                'node-direction-controls',
+                'spatial-navigation',
+              ],
+              children: {
+                'left-directions': ColumnLayout(
+                  size: LayoutSize.fr(1),
+                  aliases: ['direction-column', 'left-direction-column'],
+                  children: {
+                    'top-left': PanelLayout(
+                      size: LayoutSize.fr(1),
+                      aliases: [
+                        'action-button',
+                        'selected-node-action',
+                        'direction-action',
+                        'direction-top-left',
+                      ],
+                      fillColor: (Color(0x553F51B5)),
+                      borderStyle: (GuideStyle(
+                        color: Color(0xCCB7C2FF),
+                        strokeWidth: 1,
+                        pattern: GuideLinePattern.solid,
+                      )),
+                      caption: '↖',
+                      labelColor: ((Color(0xFFFFF8E7))),
+                      labelSize: 18,
+                    ),
+                    'center-left': PanelLayout(
+                      size: LayoutSize.fr(1),
+                      aliases: [
+                        'action-button',
+                        'selected-node-action',
+                        'direction-action',
+                        'direction-center-left',
+                      ],
+                      fillColor: (Color(0x553F51B5)),
+                      borderStyle: (GuideStyle(
+                        color: Color(0xCCB7C2FF),
+                        strokeWidth: 1,
+                        pattern: GuideLinePattern.solid,
+                      )),
+                      caption: '←',
+                      labelColor: ((Color(0xFFFFF8E7))),
+                      labelSize: 18,
+                    ),
+                    'bottom-left': PanelLayout(
+                      size: LayoutSize.fr(1),
+                      aliases: [
+                        'action-button',
+                        'selected-node-action',
+                        'direction-action',
+                        'direction-bottom-left',
+                      ],
+                      fillColor: (Color(0x553F51B5)),
+                      borderStyle: (GuideStyle(
+                        color: Color(0xCCB7C2FF),
+                        strokeWidth: 1,
+                        pattern: GuideLinePattern.solid,
+                      )),
+                      caption: '↙',
+                      labelColor: ((Color(0xFFFFF8E7))),
+                      labelSize: 18,
+                    ),
+                  },
+                ),
+                'center-directions': ColumnLayout(
+                  size: LayoutSize.fr(2),
+                  aliases: ['direction-column', 'center-direction-column'],
+                  children: {
+                    'top-center': PanelLayout(
+                      size: LayoutSize.fr(1),
+                      aliases: [
+                        'action-button',
+                        'selected-node-action',
+                        'direction-action',
+                        'direction-top-center',
+                      ],
+                      fillColor: (Color(0x553F51B5)),
+                      borderStyle: (GuideStyle(
+                        color: Color(0xCCB7C2FF),
+                        strokeWidth: 1,
+                        pattern: GuideLinePattern.solid,
+                      )),
+                      caption: '↑',
+                      labelColor: ((Color(0xFFFFF8E7))),
+                      labelSize: 18,
+                    ),
+                    'center': PanelLayout(
+                      size: LayoutSize.fr(1),
+                      aliases: [
+                        'action-button',
+                        'selected-node-action',
+                        'direction-action',
+                        'direction-center',
+                      ],
+                      fillColor: (Color(0x553F51B5)),
+                      borderStyle: (GuideStyle(
+                        color: Color(0xCCB7C2FF),
+                        strokeWidth: 1,
+                        pattern: GuideLinePattern.solid,
+                      )),
+                      caption: '•',
+                      labelColor: ((Color(0xFFFFF8E7))),
+                      labelSize: 18,
+                    ),
+                    'bottom-center': PanelLayout(
+                      size: LayoutSize.fr(1),
+                      aliases: [
+                        'action-button',
+                        'selected-node-action',
+                        'direction-action',
+                        'direction-bottom-center',
+                      ],
+                      fillColor: (Color(0x553F51B5)),
+                      borderStyle: (GuideStyle(
+                        color: Color(0xCCB7C2FF),
+                        strokeWidth: 1,
+                        pattern: GuideLinePattern.solid,
+                      )),
+                      caption: '↓',
+                      labelColor: ((Color(0xFFFFF8E7))),
+                      labelSize: 18,
+                    ),
+                  },
+                ),
+                'right-directions': ColumnLayout(
+                  size: LayoutSize.fr(1),
+                  aliases: ['direction-column', 'right-direction-column'],
+                  children: {
+                    'top-right': PanelLayout(
+                      size: LayoutSize.fr(1),
+                      aliases: [
+                        'action-button',
+                        'selected-node-action',
+                        'direction-action',
+                        'direction-top-right',
+                      ],
+                      fillColor: (Color(0x553F51B5)),
+                      borderStyle: (GuideStyle(
+                        color: Color(0xCCB7C2FF),
+                        strokeWidth: 1,
+                        pattern: GuideLinePattern.solid,
+                      )),
+                      caption: '↗',
+                      labelColor: ((Color(0xFFFFF8E7))),
+                      labelSize: 18,
+                    ),
+                    'center-right': PanelLayout(
+                      size: LayoutSize.fr(1),
+                      aliases: [
+                        'action-button',
+                        'selected-node-action',
+                        'direction-action',
+                        'direction-center-right',
+                      ],
+                      fillColor: (Color(0x553F51B5)),
+                      borderStyle: (GuideStyle(
+                        color: Color(0xCCB7C2FF),
+                        strokeWidth: 1,
+                        pattern: GuideLinePattern.solid,
+                      )),
+                      caption: '→',
+                      labelColor: ((Color(0xFFFFF8E7))),
+                      labelSize: 18,
+                    ),
+                    'bottom-right': PanelLayout(
+                      size: LayoutSize.fr(1),
+                      aliases: [
+                        'action-button',
+                        'selected-node-action',
+                        'direction-action',
+                        'direction-bottom-right',
+                      ],
+                      fillColor: (Color(0x553F51B5)),
+                      borderStyle: (GuideStyle(
+                        color: Color(0xCCB7C2FF),
+                        strokeWidth: 1,
+                        pattern: GuideLinePattern.solid,
+                      )),
+                      caption: '↘',
+                      labelColor: ((Color(0xFFFFF8E7))),
+                      labelSize: 18,
+                    ),
+                  },
+                ),
+              },
+            ),
+          },
         ),
       },
     ),
