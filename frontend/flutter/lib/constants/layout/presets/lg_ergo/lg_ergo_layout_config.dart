@@ -1,18 +1,86 @@
 import 'dart:ui';
 
-import '../../../../models/layout.dart';
-import '../../../../models/graph_traverse_type.dart';
-import '../../../../models/landscape_xl_layout.dart';
-import '../../../../models/table_layout.dart';
-import '../../../../models/node_search.dart';
-import '../../../../models/search_layout.dart';
+import '../../../../models/layout/layout.dart';
 import '../../../interface_colors.dart';
-import '../../../paths/default_vault_paths.dart';
+import '../../../typography.dart';
 
 final lgErgoLayoutConfig = LandscapeXlLayout(
-  initialHighlightedNode: VaultNodeUiComponent(path: DefaultVaultPaths.cortex),
   aliases: ['screen', 'root', 'reality', 'user-space', 'user-reality'],
+  label: const LabelConfig(
+    state: {
+      LayoutCondition.always(): LabelConfig(
+        style: LabelStyle(
+          color: Color(0xFFF5EDD6),
+          borderStyle: GuideStyle(
+            color: Color(0xFFA87A4C),
+            strokeWidth: 1,
+            pattern: GuideLinePattern.solid,
+          ),
+          holeColor: Color(0xFF27251F),
+        ),
+      ),
+      LayoutCondition.isIn(['Science', 'Research', 'Player']): LabelConfig(
+        style: LabelStyle(color: Color(0xFF7B4FA3)),
+      ),
+      LayoutCondition.isIn(['Research', 'Science', 'Player']): LabelConfig(
+        style: LabelStyle(color: Color(0xFF7B4FA3)),
+      ),
+      LayoutCondition.isIn(['Person', 'Human']): LabelConfig(
+        style: LabelStyle(color: Color(0xFFE8BEAC)),
+      ),
+      LayoutCondition.isIn(['Town', 'City']): LabelConfig(
+        style: LabelStyle(color: Color(0xFF9E9E9E)),
+      ),
+      LayoutCondition.equalsTo('Emoji'): LabelConfig(
+        style: LabelStyle(color: Color(0xFFFFD54F)),
+      ),
+      LayoutCondition.equalsTo('Business'): LabelConfig(
+        style: LabelStyle(color: Color(0xFFFFD54F)),
+      ),
+      LayoutCondition.equalsTo('Culture'): LabelConfig(
+        style: LabelStyle(color: Color(0xFFE91E63)),
+      ),
+      LayoutCondition.equalsTo('Security'): LabelConfig(
+        style: LabelStyle(color: Color(0xFF1A237E)),
+      ),
+      LayoutCondition.labelHighlighted(): LabelConfig(
+        style: LabelStyle(
+          borderStyle: GuideStyle(
+            color: Color(0xFFFFD54F),
+            strokeWidth: 2,
+            pattern: GuideLinePattern.solid,
+          ),
+        ),
+      ),
+    },
+  ),
+  text: const LayoutTextConfig(
+    color: Color(0xFFFFF8E7),
+    darkColor: Color(0xFF27251F),
+    lightColor: Color(0xFFFFF8E7),
+    fontFamily: SevilleTypography.fontFamily,
+  ),
+  node: const NodeConfig(
+    state: {
+      LayoutCondition.nodeHighlighted(): NodeConfig(
+        style: NodeStyle(
+          borderStyle: GuideStyle(
+            color: Color(0xFF2196F3),
+            strokeWidth: 4,
+            pattern: GuideLinePattern.solid,
+          ),
+        ),
+      ),
+    },
+  ),
+  panel: const PanelConfig(
+    foldedPanelSize: LayoutSize.twoDimensional(
+      primary: LayoutSize.fr(0.33),
+      secondary: LayoutSize.fr(0.33),
+    ),
+  ),
   attributes: [LayoutAttribute.screen, LayoutAttribute.rectangular],
+
   backgrounds: [
     LayoutImageBackground(
       assetPath: 'assets/wallpapers/dark-vintage-scheme.jpg',
@@ -139,11 +207,11 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
           aliases: ['action-column', 'action-panel-column', 'form-column'],
           layouts: {
             'navigation-row': RowLayout(
-              size: GridAxisVariable(size: LayoutSize.px(48)),
+              size: LayoutSize.px(48),
               aliases: ['navigation-row', 'browser-navigation'],
               layouts: {
                 'refresh-fans': PanelLayout(
-                  size: GridAxisVariable(size: LayoutSize.fr(1)),
+                  size: LayoutSize.fr(1),
                   aliases: [
                     'action-button',
                     'refresh-action',
@@ -155,12 +223,12 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                     strokeWidth: 1,
                     pattern: GuideLinePattern.solid,
                   )),
-                  label: '🔄',
+                  caption: '🔄',
                   labelColor: ((Color(0xFFFFF8E7))),
                   labelSize: 18,
                 ),
                 'search': PanelLayout(
-                  size: GridAxisVariable(size: LayoutSize.fr(1)),
+                  size: LayoutSize.fr(1),
                   aliases: [
                     'action-button',
                     'search-action',
@@ -172,12 +240,12 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                     strokeWidth: 1,
                     pattern: GuideLinePattern.solid,
                   )),
-                  label: '🔍',
+                  caption: '🔍',
                   labelColor: ((Color(0xFFFFF8E7))),
                   labelSize: 18,
                 ),
                 'add-node': PanelLayout(
-                  size: GridAxisVariable(size: LayoutSize.fr(1)),
+                  size: LayoutSize.fr(1),
                   aliases: [
                     'action-button',
                     'add-action',
@@ -189,12 +257,12 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                     strokeWidth: 1,
                     pattern: GuideLinePattern.solid,
                   )),
-                  label: 'Add',
+                  caption: 'Add',
                   labelColor: ((Color(0xFFFFF8E7))),
                   labelSize: 12,
                 ),
                 'today': PanelLayout(
-                  size: GridAxisVariable(size: LayoutSize.fr(1)),
+                  size: LayoutSize.fr(1),
                   aliases: [
                     'action-button',
                     'today-action',
@@ -206,12 +274,12 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                     strokeWidth: 1,
                     pattern: GuideLinePattern.solid,
                   )),
-                  label: 'Today',
+                  caption: 'Today',
                   labelColor: ((Color(0xFFFFF8E7))),
                   labelSize: 12,
                 ),
                 'confirm': PanelLayout(
-                  size: GridAxisVariable(size: LayoutSize.fr(1)),
+                  size: LayoutSize.fr(1),
                   aliases: [
                     'action-button',
                     'confirm-action',
@@ -224,12 +292,12 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                     strokeWidth: 1,
                     pattern: GuideLinePattern.solid,
                   )),
-                  label: '✅',
+                  caption: '✅',
                   labelColor: ((Color(0xFFFFF8E7))),
                   labelSize: 18,
                 ),
                 'close-selection': PanelLayout(
-                  size: GridAxisVariable(size: LayoutSize.fr(1)),
+                  size: LayoutSize.fr(1),
                   aliases: [
                     'action-button',
                     'close-action',
@@ -242,35 +310,18 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                     strokeWidth: 1,
                     pattern: GuideLinePattern.solid,
                   )),
-                  label: '×',
+                  caption: '×',
                   labelColor: ((Color(0xFFFFF8E7))),
                   labelSize: 18,
                 ),
               },
             ),
             'node-actions-row': RowLayout(
-              size: GridAxisVariable(size: LayoutSize.px(48)),
+              size: LayoutSize.px(48),
               aliases: ['node-actions', 'node-actions-row'],
               layouts: {
-                'me': PanelLayout(
-                  size: GridAxisVariable(size: LayoutSize.fr(1)),
-                  aliases: [
-                    'action-button',
-                    'player-action',
-                    'resolve-player-node',
-                  ],
-                  fillColor: (Color(0x553F51B5)),
-                  borderStyle: (GuideStyle(
-                    color: Color(0xCCB7C2FF),
-                    strokeWidth: 1,
-                    pattern: GuideLinePattern.solid,
-                  )),
-                  label: 'Me',
-                  labelColor: ((Color(0xFFFFF8E7))),
-                  labelSize: 12,
-                ),
                 'copy': PanelLayout(
-                  size: GridAxisVariable(size: LayoutSize.fr(1)),
+                  size: LayoutSize.fr(1),
                   aliases: [
                     'action-button',
                     'selected-node-action',
@@ -283,12 +334,12 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                     strokeWidth: 1,
                     pattern: GuideLinePattern.solid,
                   )),
-                  label: '📋',
+                  caption: '📋',
                   labelColor: ((Color(0xFFFFF8E7))),
                   labelSize: 18,
                 ),
                 'share': PanelLayout(
-                  size: GridAxisVariable(size: LayoutSize.fr(1)),
+                  size: LayoutSize.fr(1),
                   aliases: [
                     'action-button',
                     'selected-node-action',
@@ -300,14 +351,14 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                     strokeWidth: 1,
                     pattern: GuideLinePattern.solid,
                   )),
-                  label: '📤',
+                  caption: '📤',
                   labelColor: ((Color(0xFFFFF8E7))),
                   labelSize: 18,
                 ),
               },
             ),
             'direction-pad': ColumnLayout(
-              size: GridAxisVariable(size: LayoutSize.px(144)),
+              size: LayoutSize.px(144),
               aliases: [
                 'direction-pad',
                 'node-direction-controls',
@@ -315,11 +366,11 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               ],
               layouts: {
                 'top-directions': RowLayout(
-                  size: GridAxisVariable(size: LayoutSize.fr(1)),
+                  size: LayoutSize.fr(1),
                   aliases: ['direction-row', 'top-direction-row'],
                   layouts: {
                     'top-left': PanelLayout(
-                      size: GridAxisVariable(size: LayoutSize.fr(1)),
+                      size: LayoutSize.fr(1),
                       aliases: [
                         'action-button',
                         'selected-node-action',
@@ -332,12 +383,12 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                         strokeWidth: 1,
                         pattern: GuideLinePattern.solid,
                       )),
-                      label: '↖',
+                      caption: '↖',
                       labelColor: ((Color(0xFFFFF8E7))),
                       labelSize: 18,
                     ),
                     'top-center': PanelLayout(
-                      size: GridAxisVariable(size: LayoutSize.fr(1)),
+                      size: LayoutSize.fr(1),
                       aliases: [
                         'action-button',
                         'selected-node-action',
@@ -350,12 +401,12 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                         strokeWidth: 1,
                         pattern: GuideLinePattern.solid,
                       )),
-                      label: '↑',
+                      caption: '↑',
                       labelColor: ((Color(0xFFFFF8E7))),
                       labelSize: 18,
                     ),
                     'top-right': PanelLayout(
-                      size: GridAxisVariable(size: LayoutSize.fr(1)),
+                      size: LayoutSize.fr(1),
                       aliases: [
                         'action-button',
                         'selected-node-action',
@@ -368,18 +419,18 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                         strokeWidth: 1,
                         pattern: GuideLinePattern.solid,
                       )),
-                      label: '↗',
+                      caption: '↗',
                       labelColor: ((Color(0xFFFFF8E7))),
                       labelSize: 18,
                     ),
                   },
                 ),
                 'center-directions': RowLayout(
-                  size: GridAxisVariable(size: LayoutSize.fr(1)),
+                  size: LayoutSize.fr(1),
                   aliases: ['direction-row', 'center-direction-row'],
                   layouts: {
                     'center-left': PanelLayout(
-                      size: GridAxisVariable(size: LayoutSize.fr(1)),
+                      size: LayoutSize.fr(1),
                       aliases: [
                         'action-button',
                         'selected-node-action',
@@ -392,12 +443,12 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                         strokeWidth: 1,
                         pattern: GuideLinePattern.solid,
                       )),
-                      label: '←',
+                      caption: '←',
                       labelColor: ((Color(0xFFFFF8E7))),
                       labelSize: 18,
                     ),
                     'center': PanelLayout(
-                      size: GridAxisVariable(size: LayoutSize.fr(1)),
+                      size: LayoutSize.fr(1),
                       aliases: [
                         'action-button',
                         'selected-node-action',
@@ -410,12 +461,12 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                         strokeWidth: 1,
                         pattern: GuideLinePattern.solid,
                       )),
-                      label: '•',
+                      caption: '•',
                       labelColor: ((Color(0xFFFFF8E7))),
                       labelSize: 18,
                     ),
                     'center-right': PanelLayout(
-                      size: GridAxisVariable(size: LayoutSize.fr(1)),
+                      size: LayoutSize.fr(1),
                       aliases: [
                         'action-button',
                         'selected-node-action',
@@ -428,18 +479,18 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                         strokeWidth: 1,
                         pattern: GuideLinePattern.solid,
                       )),
-                      label: '→',
+                      caption: '→',
                       labelColor: ((Color(0xFFFFF8E7))),
                       labelSize: 18,
                     ),
                   },
                 ),
                 'bottom-directions': RowLayout(
-                  size: GridAxisVariable(size: LayoutSize.fr(1)),
+                  size: LayoutSize.fr(1),
                   aliases: ['direction-row', 'bottom-direction-row'],
                   layouts: {
                     'bottom-left': PanelLayout(
-                      size: GridAxisVariable(size: LayoutSize.fr(1)),
+                      size: LayoutSize.fr(1),
                       aliases: [
                         'action-button',
                         'selected-node-action',
@@ -452,12 +503,12 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                         strokeWidth: 1,
                         pattern: GuideLinePattern.solid,
                       )),
-                      label: '↙',
+                      caption: '↙',
                       labelColor: ((Color(0xFFFFF8E7))),
                       labelSize: 18,
                     ),
                     'bottom-center': PanelLayout(
-                      size: GridAxisVariable(size: LayoutSize.fr(1)),
+                      size: LayoutSize.fr(1),
                       aliases: [
                         'action-button',
                         'selected-node-action',
@@ -470,12 +521,12 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                         strokeWidth: 1,
                         pattern: GuideLinePattern.solid,
                       )),
-                      label: '↓',
+                      caption: '↓',
                       labelColor: ((Color(0xFFFFF8E7))),
                       labelSize: 18,
                     ),
                     'bottom-right': PanelLayout(
-                      size: GridAxisVariable(size: LayoutSize.fr(1)),
+                      size: LayoutSize.fr(1),
                       aliases: [
                         'action-button',
                         'selected-node-action',
@@ -488,7 +539,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                         strokeWidth: 1,
                         pattern: GuideLinePattern.solid,
                       )),
-                      label: '↘',
+                      caption: '↘',
                       labelColor: ((Color(0xFFFFF8E7))),
                       labelSize: 18,
                     ),
@@ -541,22 +592,6 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
           nodeSlugTransform: const TextTransform.capitalCap(),
           nodeSlugSuffix: ']]',
           slugColor: const Color(0xFFFFD54F),
-          classificationLabelColors: const [
-            Color(0xFF3F51B5),
-            Color(0xFF2E7D32),
-            Color(0xFFC59A1A),
-            Color(0xFF8F3E4B),
-            Color(0xFF7B4FA3),
-            Color(0xFF287A78),
-          ],
-          classificationLabelBorderColor: const Color(0xFFE8D59F),
-          classificationLabelHoleColor: const Color(0xFF27251F),
-          classificationLabelTextColor: const Color(0xFFFFF8E7),
-          classificationLabelHoverBorderStyle: (GuideStyle(
-            color: Color(0xFFFFD54F),
-            strokeWidth: 2,
-            pattern: GuideLinePattern.solid,
-          )),
           labelColor: (Color(0xFFFFF8E7)),
           valueColor: (Color(0xFFFFF8E7)),
           guideStyle: (GuideStyle(
@@ -570,134 +605,160 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
             color: (Color(0x66374A9B)),
           ),
           includeUnconfiguredFields: true,
-          unconfiguredFieldGroupId: 'last_selected_node',
-          groupGap: (12.0),
-          groupBorderStyle: (GuideStyle(
+          unconfiguredFieldPanelId: 'last_selected_node',
+          panelGap: (12.0),
+          panelBorderStyle: (GuideStyle(
             color: Color(0xAA5F7CFF),
             strokeWidth: 1.4,
             pattern: GuideLinePattern.solid,
           )),
           tableConfig: TableConfig(
-            groups: {
-              'last_selected_node': TableGroup(
-                size: GridAxisVariable(size: LayoutSize.fr(1)),
+            panels: {
+              'last_selected_node': PanelConfig(
                 orderPosition: 0,
                 title: 'Last Selected Node',
                 foldable: true,
               ),
-              'updates': TableGroup(
-                size: GridAxisVariable(size: LayoutSize.fr(1)),
+              'updates': PanelConfig(
                 orderPosition: 2,
                 title: 'Updates',
                 foldable: true,
               ),
-              'selected_nodes': TableGroup(
-                size: GridAxisVariable(size: LayoutSize.fr(0.5)),
+              'selected_nodes': PanelConfig(
                 orderPosition: 3,
                 title: 'Selected Nodes',
                 foldable: true,
               ),
-              'system': TableGroup(
-                size: GridAxisVariable(size: LayoutSize.fr(0.5)),
-                orderPosition: 4,
+              'me': PanelConfig(orderPosition: 4, title: 'Me', showEmpty: true),
+              'settings': PanelConfig(
+                orderPosition: 5,
+                title: 'Settings',
+                showEmpty: true,
+              ),
+              'system': PanelConfig(
+                orderPosition: 6,
                 title: 'System',
                 foldable: true,
                 initiallyFolded: true,
               ),
+              /* Previous right action-plane implementation, retained here for
+                 the next global Panel action migration:
+              'me': PanelLayout(
+                size: LayoutSize.fr(1),
+                aliases: [
+                  'action-button',
+                  'player-action',
+                  'resolve-player-node',
+                ],
+                fillColor: Color(0x553F51B5),
+                borderStyle: GuideStyle(
+                  color: Color(0xCCB7C2FF),
+                  strokeWidth: 1,
+                  pattern: GuideLinePattern.solid,
+                ),
+                caption: 'Me',
+                labelColor: Color(0xFFFFF8E7),
+                labelSize: 12,
+              ),
+              */
             },
-            rows: {
-              'slug': TableRow(
-                orderPosition: 0,
-                label: 'Slug',
-                groupId: 'last_selected_node',
-                size: GridAxisVariable(size: LayoutSize.fr(1)),
-                actions: [TableAction.copyToClipboard()],
-              ),
-              'labels': TableRow(
-                orderPosition: 1,
-                label: 'Labels',
-                groupId: 'last_selected_node',
-                size: GridAxisVariable(size: LayoutSize.fr(1)),
-              ),
-              'classification': TableRow(
-                orderPosition: 2,
-                groupId: 'last_selected_node',
-                size: GridAxisVariable(size: LayoutSize.fr(1)),
-              ),
-              'version': TableRow(
-                orderPosition: 3,
-                groupId: 'last_selected_node',
-                size: GridAxisVariable(size: LayoutSize.fr(0.5)),
-              ),
-              'selected_node_slugs': TableRow(
-                orderPosition: 0,
-                label: 'Slugs',
-                groupId: 'selected_nodes',
-                size: GridAxisVariable(size: LayoutSize.fr(1)),
-              ),
-              'selected_node_labels': TableRow(
-                orderPosition: 1,
-                label: 'Labels',
-                groupId: 'selected_nodes',
-                size: GridAxisVariable(size: LayoutSize.fr(1)),
-              ),
-              'added': TableRow(
-                orderPosition: 0,
-                label: 'Added',
-                groupId: 'updates',
-                includeWhenEmpty: true,
-                size: GridAxisVariable(size: LayoutSize.fr(1)),
-              ),
-              'updated': TableRow(
-                orderPosition: 1,
-                label: 'Updated',
-                groupId: 'updates',
-                includeWhenEmpty: true,
-                size: GridAxisVariable(size: LayoutSize.fr(1)),
-              ),
-              'deleted': TableRow(
-                orderPosition: 2,
-                label: 'Deleted',
-                groupId: 'updates',
-                includeWhenEmpty: true,
-                size: GridAxisVariable(size: LayoutSize.fr(1)),
-              ),
-              'node_count': TableRow(
-                orderPosition: 0,
-                label: 'Nodes',
-                groupId: 'system',
-                size: GridAxisVariable(size: LayoutSize.fr(1)),
-              ),
-              'neo4j_labels': TableRow(
-                orderPosition: 1,
-                label: 'Trending Labels',
-                groupId: 'system',
-                size: GridAxisVariable(size: LayoutSize.fr(1)),
-              ),
-              'node_property_count': TableRow(
-                orderPosition: 2,
-                label: 'Node properties',
-                groupId: 'system',
-                size: GridAxisVariable(size: LayoutSize.fr(1)),
-              ),
-              'go_version': TableRow(
-                orderPosition: 3,
-                label: 'Go version',
-                groupId: 'system',
-                size: GridAxisVariable(size: LayoutSize.fr(1)),
-              ),
-              'neo4j_version': TableRow(
-                orderPosition: 4,
-                label: 'Neo4j version',
-                groupId: 'system',
-                size: GridAxisVariable(size: LayoutSize.fr(1)),
-              ),
-            },
+            rowConfig: TableRowConfig(
+              rows: {
+                'slug': TableRow(
+                  orderPosition: 0,
+                  label: 'Slug',
+                  panelId: 'last_selected_node',
+                  size: LayoutSize.fr(1),
+                  actions: [TableAction.copyToClipboard()],
+                ),
+                'labels': TableRow(
+                  orderPosition: 1,
+                  label: 'Labels',
+                  panelId: 'last_selected_node',
+                  size: LayoutSize.fr(1),
+                ),
+                'classification': TableRow(
+                  orderPosition: 2,
+                  panelId: 'last_selected_node',
+                  size: LayoutSize.fr(1),
+                ),
+                'version': TableRow(
+                  orderPosition: 3,
+                  panelId: 'last_selected_node',
+                  size: LayoutSize.fr(0.5),
+                ),
+                'selected_node_slugs': TableRow(
+                  orderPosition: 0,
+                  label: 'Slugs',
+                  panelId: 'selected_nodes',
+                  size: LayoutSize.fr(1),
+                ),
+                'selected_node_labels': TableRow(
+                  orderPosition: 1,
+                  label: 'Labels',
+                  panelId: 'selected_nodes',
+                  size: LayoutSize.fr(1),
+                ),
+                'added': TableRow(
+                  orderPosition: 0,
+                  label: 'Added',
+                  panelId: 'updates',
+                  includeWhenEmpty: true,
+                  size: LayoutSize.fr(1),
+                ),
+                'updated': TableRow(
+                  orderPosition: 1,
+                  label: 'Updated',
+                  panelId: 'updates',
+                  includeWhenEmpty: true,
+                  size: LayoutSize.fr(1),
+                ),
+                'deleted': TableRow(
+                  orderPosition: 2,
+                  label: 'Deleted',
+                  panelId: 'updates',
+                  includeWhenEmpty: true,
+                  size: LayoutSize.fr(1),
+                ),
+                'node_count': TableRow(
+                  orderPosition: 0,
+                  label: 'Nodes',
+                  panelId: 'system',
+                  size: LayoutSize.fr(1),
+                ),
+                'neo4j_labels': TableRow(
+                  orderPosition: 1,
+                  label: 'Trending Labels',
+                  panelId: 'system',
+                  size: LayoutSize.fr(1),
+                ),
+                'node_property_count': TableRow(
+                  orderPosition: 2,
+                  label: 'Node properties',
+                  panelId: 'system',
+                  size: LayoutSize.fr(1),
+                ),
+                'go_version': TableRow(
+                  orderPosition: 3,
+                  label: 'Go version',
+                  panelId: 'system',
+                  size: LayoutSize.fr(1),
+                ),
+                'neo4j_version': TableRow(
+                  orderPosition: 4,
+                  label: 'Neo4j version',
+                  panelId: 'system',
+                  size: LayoutSize.fr(1),
+                ),
+              },
+            ),
+            columnConfig: TableColumnConfig(
+              columns: {
+                'key': TableColumn(size: LayoutSize.fr(1)),
+                'value': TableColumn(size: LayoutSize.fr(3)),
+              },
+            ),
           ),
-          columns: [
-            MapEntry('key', GridAxisVariable(size: LayoutSize.fr(1))),
-            MapEntry('value', GridAxisVariable(size: LayoutSize.fr(3))),
-          ],
           layouts: {
             'added': NodeListLayout(
               dataSource: NodeListDataSource.virtualNodes,
@@ -716,22 +777,6 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               nodeSlugTransform: const TextTransform.capitalCap(),
               nodeSlugSuffix: ']]',
               slugColor: const Color(0xFFFFD54F),
-              classificationLabelColors: const [
-                Color(0xFF3F51B5),
-                Color(0xFF2E7D32),
-                Color(0xFFC59A1A),
-                Color(0xFF8F3E4B),
-                Color(0xFF7B4FA3),
-                Color(0xFF287A78),
-              ],
-              classificationLabelBorderColor: const Color(0xFFE8D59F),
-              classificationLabelHoleColor: const Color(0xFF27251F),
-              classificationLabelTextColor: const Color(0xFFFFF8E7),
-              classificationLabelHoverBorderStyle: (GuideStyle(
-                color: Color(0xFFFFD54F),
-                strokeWidth: 2,
-                pattern: GuideLinePattern.solid,
-              )),
               aliases: ['virtual-nodes', 'draft-nodes', 'uncreated-nodes'],
               labelColor: ((Color(0xFFFFF8E7))),
             ),
@@ -948,22 +993,6 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
           nodeSlugTransform: const TextTransform.capitalCap(),
           nodeSlugSuffix: ']]',
           slugColor: const Color(0xFFFFD54F),
-          classificationLabelColors: const [
-            Color(0xFF3F51B5),
-            Color(0xFF2E7D32),
-            Color(0xFFC59A1A),
-            Color(0xFF8F3E4B),
-            Color(0xFF7B4FA3),
-            Color(0xFF287A78),
-          ],
-          classificationLabelBorderColor: const Color(0xFFE8D59F),
-          classificationLabelHoleColor: const Color(0xFF27251F),
-          classificationLabelTextColor: const Color(0xFFFFF8E7),
-          classificationLabelHoverBorderStyle: (GuideStyle(
-            color: Color(0xFFFFD54F),
-            strokeWidth: 2,
-            pattern: GuideLinePattern.solid,
-          )),
           layouts: {
             SearchLayout.searchResultsLayoutKey: TableLayout(
               aliases: ['search-results', 'search-results-table'],
@@ -977,22 +1006,6 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               nodeSlugTransform: const TextTransform.capitalCap(),
               nodeSlugSuffix: ']]',
               slugColor: const Color(0xFFFFD54F),
-              classificationLabelColors: const [
-                Color(0xFF3F51B5),
-                Color(0xFF2E7D32),
-                Color(0xFFC59A1A),
-                Color(0xFF8F3E4B),
-                Color(0xFF7B4FA3),
-                Color(0xFF287A78),
-              ],
-              classificationLabelBorderColor: const Color(0xFFE8D59F),
-              classificationLabelHoleColor: const Color(0xFF27251F),
-              classificationLabelTextColor: const Color(0xFFFFF8E7),
-              classificationLabelHoverBorderStyle: (GuideStyle(
-                color: Color(0xFFFFD54F),
-                strokeWidth: 2,
-                pattern: GuideLinePattern.solid,
-              )),
               labelColor: (Color(0xFFFFF8E7)),
               valueColor: (Color(0xFFFFF8E7)),
               guideStyle: (GuideStyle(
@@ -1004,31 +1017,35 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                 rows: true,
                 color: (Color(0x66374A9B)),
               ),
-              groupGap: (12.0),
-              groupBorderStyle: (GuideStyle(
+              panelGap: (12.0),
+              panelBorderStyle: (GuideStyle(
                 color: Color(0xAA5F7CFF),
                 strokeWidth: 1.4,
                 pattern: GuideLinePattern.solid,
               )),
               tableConfig: TableConfig(
-                groups: {
-                  'search_results': TableGroup(
-                    size: GridAxisVariable(size: LayoutSize.fr(1)),
+                panels: {
+                  'search_results': PanelConfig(
+                    size: LayoutSize.fr(1),
                     title: 'Search Results',
                   ),
                 },
-                rows: {
-                  'search_results': TableRow(
-                    label: 'Results',
-                    groupId: 'search_results',
-                    size: GridAxisVariable(size: LayoutSize.fr(1)),
-                  ),
-                },
+                rowConfig: TableRowConfig(
+                  rows: {
+                    'search_results': TableRow(
+                      label: 'Results',
+                      panelId: 'search_results',
+                      size: LayoutSize.fr(1),
+                    ),
+                  },
+                ),
+                columnConfig: TableColumnConfig(
+                  columns: {
+                    'key': TableColumn(size: LayoutSize.fr(1)),
+                    'value': TableColumn(size: LayoutSize.fr(3)),
+                  },
+                ),
               ),
-              columns: [
-                MapEntry('key', GridAxisVariable(size: LayoutSize.fr(1))),
-                MapEntry('value', GridAxisVariable(size: LayoutSize.fr(3))),
-              ],
               layouts: {
                 'search_results': NodeListLayout(
                   dataSource: NodeListDataSource.searchResults,
@@ -1047,22 +1064,6 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                   nodeSlugTransform: const TextTransform.capitalCap(),
                   nodeSlugSuffix: ']]',
                   slugColor: const Color(0xFFFFD54F),
-                  classificationLabelColors: const [
-                    Color(0xFF3F51B5),
-                    Color(0xFF2E7D32),
-                    Color(0xFFC59A1A),
-                    Color(0xFF8F3E4B),
-                    Color(0xFF7B4FA3),
-                    Color(0xFF287A78),
-                  ],
-                  classificationLabelBorderColor: const Color(0xFFE8D59F),
-                  classificationLabelHoleColor: const Color(0xFF27251F),
-                  classificationLabelTextColor: const Color(0xFFFFF8E7),
-                  classificationLabelHoverBorderStyle: (GuideStyle(
-                    color: Color(0xFFFFD54F),
-                    strokeWidth: 2,
-                    pattern: GuideLinePattern.solid,
-                  )),
                   labelColor: ((Color(0xFFFFF8E7))),
                 ),
               },
@@ -1115,22 +1116,6 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               nodeSlugTransform: const TextTransform.capitalCap(),
               nodeSlugSuffix: ']]',
               slugColor: const Color(0xFFFFD54F),
-              classificationLabelColors: const [
-                Color(0xFF3F51B5),
-                Color(0xFF2E7D32),
-                Color(0xFFC59A1A),
-                Color(0xFF8F3E4B),
-                Color(0xFF7B4FA3),
-                Color(0xFF287A78),
-              ],
-              classificationLabelBorderColor: const Color(0xFFE8D59F),
-              classificationLabelHoleColor: const Color(0xFF27251F),
-              classificationLabelTextColor: const Color(0xFFFFF8E7),
-              classificationLabelHoverBorderStyle: (GuideStyle(
-                color: Color(0xFFFFD54F),
-                strokeWidth: 2,
-                pattern: GuideLinePattern.solid,
-              )),
               rootNodeFilter: (NodeSearchFilter.allOf([
                 NodeSearchParameter(
                   parameter: NodeParameter.slug,
@@ -1177,7 +1162,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               maxDepth: 3,
               maxSectionCount: 4,
               sectionSizing: FanSectionSizing.directPartsWeighted,
-              label: 'cortex',
+              caption: 'cortex',
               labelColor: ((Color(0xFFFFF8E7))),
               labelSize: (10.0),
               gridStyle: (GuideStyle(
@@ -1240,22 +1225,6 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               nodeSlugTransform: const TextTransform.capitalCap(),
               nodeSlugSuffix: ']]',
               slugColor: const Color(0xFFFFD54F),
-              classificationLabelColors: const [
-                Color(0xFF3F51B5),
-                Color(0xFF2E7D32),
-                Color(0xFFC59A1A),
-                Color(0xFF8F3E4B),
-                Color(0xFF7B4FA3),
-                Color(0xFF287A78),
-              ],
-              classificationLabelBorderColor: const Color(0xFFE8D59F),
-              classificationLabelHoleColor: const Color(0xFF27251F),
-              classificationLabelTextColor: const Color(0xFFFFF8E7),
-              classificationLabelHoverBorderStyle: (GuideStyle(
-                color: Color(0xFFFFD54F),
-                strokeWidth: 2,
-                pattern: GuideLinePattern.solid,
-              )),
               rootNodeFilter: (NodeSearchFilter.allOf([
                 NodeSearchParameter(
                   parameter: NodeParameter.slug,
@@ -1304,7 +1273,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               maxDepth: 3,
               maxSectionCount: 4,
               sectionSizing: FanSectionSizing.equal,
-              label: 'space-time',
+              caption: 'space-time',
               labelColor: ((Color(0xFFFFF8E7))),
               labelSize: (10.0),
               gridStyle: (GuideStyle(
@@ -1406,74 +1375,14 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                       nodeSlugTransform: const TextTransform.capitalCap(),
                       nodeSlugSuffix: ']]',
                       slugColor: const Color(0xFFFFD54F),
-                      classificationLabelColors: const [
-                        Color(0xFF3F51B5),
-                        Color(0xFF2E7D32),
-                        Color(0xFFC59A1A),
-                        Color(0xFF8F3E4B),
-                        Color(0xFF7B4FA3),
-                        Color(0xFF287A78),
-                      ],
-                      classificationLabelBorderColor: const Color(0xFFE8D59F),
-                      classificationLabelHoleColor: const Color(0xFF27251F),
-                      classificationLabelTextColor: const Color(0xFFFFF8E7),
-                      classificationLabelHoverBorderStyle: (GuideStyle(
-                        color: Color(0xFFFFD54F),
-                        strokeWidth: 2,
-                        pattern: GuideLinePattern.solid,
-                      )),
                       nodeExtentFactor: 0.5,
                       labelColor: ((Color(0xFFFFF8E7))),
                       labelSize: (10.0),
                       emojiFontSizeFactor: (2.0),
                       emojiSlugGapFactor: (0.5),
-                      visibility: [
-                        LayoutCondition.not(LayoutCondition.noSelectedNode()),
-                      ],
                     ),
                   },
                 ),
-                // 'subject-field-circle': PlaneLayout(
-                //   aliases: ['subject-field', 'subject-field-circle'],
-                //   shape: LayoutShape.circle,
-                //   style: randomBlueprintAesthetics.layoutStyle,
-                //   backgroundColor: Color(0x00000000),
-                //   borderColor: Color(0x00000000),
-                //   resolvedBorderColor: Color(0x00000000),
-                //   borderWidth: 0,
-                //   wrapPadding: 0,
-                //   showGeometryGuides: true,
-                //   layouts: {
-                //     'subject-core-square': PlaneLayout(
-                //       aliases: ['subject-core', 'subject-core-square'],
-                //       shape: LayoutShape.square,
-                //       style: randomBlueprintAesthetics.layoutStyle,
-                //       backgroundColor: Color(0x00000000),
-                //       borderColor: Color(0x00000000),
-                //       resolvedBorderColor: Color(0x00000000),
-                //       borderWidth: 0,
-                //       wrapPadding: 0,
-                //       showGeometryGuides: true,
-                //       layouts: {
-                //         'scene-subject': PlaneLayout(
-                //           aliases: [
-                //             'subject',
-                //             'scene-subject',
-                //             'project-subject',
-                //           ],
-                //           shape: LayoutShape.circle,
-                //           style: randomBlueprintAesthetics.layoutStyle,
-                //           backgroundColor: Color(0xFFFFFBEA),
-                //           borderColor: Color(0xAA303030),
-                //           resolvedBorderColor: Color(0xAA303030),
-                //           borderWidth: 2,
-                //           wrapPadding: 0,
-                //           showGeometryGuides: true,
-                //         ),
-                //       },
-                //     ),
-                //   },
-                // ),
               },
             ),
           },

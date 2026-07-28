@@ -1,8 +1,4 @@
 # Seville TODO
 
-1. [x] Show `GET /system/v1/info` data in the left panel while no Node is
-   selected.
-2. Add user-facing data migration functionality based on the legacy vault
-   migration in `scripts/migrations/obsidian/`.
-3. Add Get Make every node in database linked
-4. Migrate Backend to fiber instead of using native go/http
+1. Migrate Backend to fiber instead of using native go/http
+2. Provide an ability to select source of data (local, johnny, throne)

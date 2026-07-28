@@ -54,8 +54,8 @@ slug even when an Emoji is assigned because identity is the proposal's purpose.
 `Node.labels` are classification strings, not Nodes and not compact Node
 captions. The frontend presents them in property tables through the Flame
 `ClassificationLabelComponent`. Each string receives its own shopping-tag
-shape and a deterministic color from the owning `LayoutDefaults`; Neo4j does
-not store frontend paint.
+shape and an explicit semantic color from the root `LabelConfig`; Neo4j does
+not store frontend paint. Unmatched labels use the configured fallback color.
 
 ## Node snapshot
 
@@ -91,8 +91,57 @@ presented. Layouts do not redefine node identity. They reference, resolve,
 arrange, style, and expose interaction for nodes.
 
 The layout map key is stable layout identity. `Layout.aliases` adds vocabulary
-without replacing that identity. `Layout.size` uses `GridAxisVariable` and
-`LayoutSize` for composition.
+without replacing that identity. `Layout.size` uses `LayoutSize` directly for
+one- or two-dimensional renderer-owned composition; the redundant
+`GridAxisVariable` wrapper is not part of the model.
+
+The complete declarative Layout layer is one Dart library at
+`frontend/flutter/lib/models/layout/layout.dart`. Its sibling part files group
+Layout variants, conditions, sizes, Fan traversal configuration, tables,
+panels, Nodes, labels, searches, and screen-specific Layout models behind that
+single import boundary. This grouping keeps the configuration layer coherent
+if it is later represented through protobuf, YAML, or another serialization.
+
+`LabelConfig` is the global Layout-owned policy for classification-label
+presentation. Its `LabelStyle` owns a fallback fill color, border, and hole;
+its ordered `LayoutCondition` to `LabelConfig` state map specializes the same
+configuration recursively. Cursor highlighting resolves through
+`LayoutCondition.labelHighlighted()`, while semantic colors resolve through
+`LayoutCondition.equalsTo(...)`. `LayoutCondition.always()` supplies an ordered
+unconditional baseline, including the default beige `#F5EDD6` label fill, and
+`LayoutCondition.isIn(...)` matches one of several
+values. Dart reserves the shorter words `default` and `in`. Classification labels are decorative,
+frontend-styled folders for knowledge; their names come from Neo4j, but their
+colors are explicit Layout semantics rather than hash-assigned palette values.
+These models live in
+`frontend/flutter/lib/models/layout/label.dart` and are configured once by LG Ergo's
+root Layout rather than repeated by individual layouts.
+
+`LayoutTextConfig` is the Layout-owned typography and contrast policy. It owns
+the ordinary color, dark/light colors, font family and metrics, font features,
+and effects. When both contrast colors are present, renderers select dark text
+for a light resolved background and light text for a dark background.
+
+`NodeConfig` is a layout-owned, recursively conditional Node configuration. Its
+`style` contains immediate `NodeStyle` presentation, while its ordered
+`LayoutCondition` to `NodeConfig` state map can specialize style and future Node
+configuration without owning renderer logic. It is not Node data and is never
+stored in Neo4j. `NodeDefaults` is the frontend's canonical fallback vocabulary
+for Node opacity, hover borders, and slug presentation. `NodeConfig`,
+`NodeStyle`, and `NodeDefaults` live in
+`frontend/flutter/lib/models/layout/node_config.dart` until a separate package has a
+real consumer boundary.
+
+`PanelConfig` is reusable Layout configuration in
+`frontend/flutter/lib/models/layout/panel.dart`. A root Layout may provide shared panel
+defaults, while `TableConfig.panel` specializes them and its ordered `panels`
+map declares concrete table panels.
+
+`TableConfig` is native Layout configuration in
+`frontend/flutter/lib/models/layout/table_config.dart`. It uses `LayoutSize` directly
+and composes panels, rows, and columns. `TableLayout` inherits
+the common `node: NodeConfig`; tables do not introduce a parallel Node styling
+or state protocol.
 
 ## Notification
 

@@ -1,3 +1,5 @@
+part of 'layout.dart';
+
 enum GraphTraverseType {
   partOf('part_of'),
   family('family');

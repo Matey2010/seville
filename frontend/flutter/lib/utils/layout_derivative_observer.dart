@@ -2,7 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 
-import '../models/layout.dart';
+import '../models/layout/layout.dart';
 
 class LayoutDerivativeChange {
   const LayoutDerivativeChange({

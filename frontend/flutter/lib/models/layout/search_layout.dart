@@ -1,7 +1,4 @@
-import 'dart:ui';
-
-import 'layout.dart';
-import 'table_layout.dart';
+part of 'layout.dart';
 
 class SearchLayout extends Layout {
   const SearchLayout({
@@ -19,38 +16,36 @@ class SearchLayout extends Layout {
     super.inactiveNodeBackgroundOpacity,
     super.activeNodeBackgroundOpacity,
     super.virtualNodeBackgroundOpacity,
+    super.label,
+    super.text,
+    super.node,
+    super.panel,
     super.nodeHoverBorderStyle,
     super.nodeSlugPrefix,
     super.nodeSlugTransform,
     super.nodeSlugSuffix,
     super.slugColor,
-    super.classificationLabelColors,
-    super.classificationLabelBorderColor,
-    super.classificationLabelHoleColor,
-    super.classificationLabelTextColor,
-    super.classificationLabelBorderWidth,
-    super.classificationLabelHoverBorderStyle,
     super.layouts = const {
       searchResultsLayoutKey: TableLayout(
         guideStyle: GuideStyle(color: Color(0xFF3F51B5)),
         tableConfig: TableConfig(
-          groups: {
-            'search_results': TableGroup(
-              size: GridAxisVariable(size: LayoutSize.fr(1)),
-            ),
-          },
-          rows: {
-            'search_results': TableRow(
-              label: 'Results',
-              groupId: 'search_results',
-              size: GridAxisVariable(size: LayoutSize.fr(1)),
-            ),
-          },
+          panels: {'search_results': PanelConfig(size: LayoutSize.fr(1))},
+          rowConfig: TableRowConfig(
+            rows: {
+              'search_results': TableRow(
+                label: 'Results',
+                panelId: 'search_results',
+                size: LayoutSize.fr(1),
+              ),
+            },
+          ),
+          columnConfig: TableColumnConfig(
+            columns: {
+              'key': TableColumn(size: LayoutSize.fr(1)),
+              'value': TableColumn(size: LayoutSize.fr(3)),
+            },
+          ),
         ),
-        columns: [
-          MapEntry('key', GridAxisVariable(size: LayoutSize.fr(1))),
-          MapEntry('value', GridAxisVariable(size: LayoutSize.fr(3))),
-        ],
         layouts: {
           'search_results': NodeListLayout(
             dataSource: NodeListDataSource.searchResults,
@@ -65,7 +60,7 @@ class SearchLayout extends Layout {
        assert(maxWidth > 0),
        assert(inputHeight > 0),
        assert(inputToSuggestionsGap >= 0),
-       super.fromAxes(attributes: const [LayoutAttribute.rectangular]);
+       super(attributes: const [LayoutAttribute.rectangular]);
 
   final double padding;
   final double maxWidth;

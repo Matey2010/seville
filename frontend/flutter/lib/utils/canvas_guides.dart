@@ -2,7 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../models/layout.dart';
+import '../models/layout/layout.dart';
 
 void drawDashedLine(
   Canvas canvas,

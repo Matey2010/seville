@@ -25,13 +25,10 @@ that the visible shapes use.
 import 'layout.dart';
 
 class OrbitLayout extends Layout {
-  const OrbitLayout.fromAxes({
-    required super.axes,
+  const OrbitLayout({
     required this.ringCount,
     super.layouts,
-    super.subLayouts,
-    super.elements,
-  }) : super.fromAxes();
+  });
 
   final int ringCount;
 }
@@ -44,15 +41,9 @@ controllers, or mutable UI state.
 ## 2. Create constants
 
 ```dart
-const defaultOrbitLayout = OrbitLayout.fromAxes(
-  axes: [12, 12],
+const defaultOrbitLayout = OrbitLayout(
   ringCount: 4,
   layouts: {
-    'orbit-grid': GuideGrid(
-      renderMode: GuideGridRenderMode.intersections,
-      intersectionSize: 2,
-      style: GuideStyle(color: Color(0x334B5563)),
-    ),
     'orbit-axis': Guideline(
       start: Offset(0.5, 0),
       end: Offset(0.5, 1),
@@ -64,15 +55,16 @@ const defaultOrbitLayout = OrbitLayout.fromAxes(
       ),
     ),
   },
-);
+),
 ```
 
 Prefer normalized fractions for positions and sizes. They scale across users'
 screens and remain independent from macOS window dimensions.
 
-Guides are layouts. Put `Guideline` and `GuideGrid` values directly into
-`Layout.layouts`; their map keys are their identities. `GuideStyle` supports
-solid, dashed, and dotted patterns. Omitting a guide layout removes it.
+Guides are layouts. Put `Guideline`, `LayoutBorderGuide`, circle, and ray values
+directly into `Layout.layouts`; their map keys are their identities.
+`GuideStyle` supports solid, dashed, and dotted patterns. Omitting a guide
+layout removes it.
 
 A `Guideline` can also own line-local derivatives and markers. Use these when
 the point belongs to the guide itself rather than to the whole screen or scene:
@@ -129,60 +121,65 @@ final appLayoutComponentRegistry = const LayoutComponentRegistry().extended({
   OrbitLayout: buildOrbitLayout,
 });
 
-CompassView(
-  layout: configuredCompassLayout,
-  componentRegistry: appLayoutComponentRegistry,
-);
+final orbitComponent = appLayoutComponentRegistry.build(defaultOrbitLayout);
 ```
 
 Registry lookup uses the layout's exact runtime type. Every new concrete layout
-type needs one registration. Registered layouts work both as hierarchy nodes
-and as Compass main-slot sublayouts.
+type needs one registration. Registered layouts work as children of the active
+layout hierarchy.
 
 Neo4j `Node.labels` values in a `TableLayout` are rendered independently
 through `ClassificationLabelComponent`. Each string becomes a colored
 shopping tag instead of part of a comma-separated value. Configure that
-presentation through the table's layout defaults:
+presentation once through the root Layout's `label`:
 
 ```dart
-const nodeDefaults = LayoutDefaults(
-  classificationLabelColors: [Color(0xFF3F51B5), Color(0xFF2E7D32)],
-  classificationLabelBorderColor: Color(0xFFE8D59F),
-  classificationLabelHoleColor: Color(0xFF27251F),
-  classificationLabelTextColor: Color(0xFFF5F7FF),
+label: const LabelConfig(
+  state: {
+    LayoutCondition.always(): LabelConfig(
+      style: LabelStyle(
+        color: Color(0xFFF5EDD6),
+        borderStyle: GuideStyle(
+          color: Color(0xFFE8D59F),
+          strokeWidth: 1,
+        ),
+        holeColor: Color(0xFF27251F),
+      ),
+    ),
+    LayoutCondition.equalsTo('Science'): LabelConfig(
+      style: LabelStyle(color: Color(0xFF7B4FA3)),
+    ),
+    LayoutCondition.labelHighlighted(): LabelConfig(
+      style: LabelStyle(
+        borderStyle: GuideStyle(
+          color: Color(0xFFFFD54F),
+          strokeWidth: 2,
+        ),
+      ),
+    ),
+  },
 );
+
+text: const LayoutTextConfig(
+  color: Color(0xFFFFF8E7),
+  darkColor: Color(0xFF27251F),
+  lightColor: Color(0xFFFFF8E7),
+  fontFamily: SevilleTypography.fontFamily,
+),
 ```
 
-These colors are frontend layout policy. Neo4j supplies classification strings,
-not tag paint. Fan, Graph, and Node-list components keep their existing compact
-emoji/slug rendering and do not use classification tags.
+These colors are frontend layout policy. Assign semantic colors through
+`LayoutCondition.equalsTo(...)`; use `LayoutCondition.isIn(...)` when several
+labels share one specialization. Do not use a palette or derive paint from the
+label string. Neo4j supplies classification strings, not tag paint. Fan, Graph,
+and Node-list components keep their existing compact emoji/slug rendering and
+do not use classification tags. When both contrast colors are present, label
+text automatically uses `darkColor` on light fills and `lightColor` on dark
+fills.
 
 Raw Flame text does not inherit Flutter's `ThemeData`. Use
 `SevilleTypography.fontFamily` in every component-owned `TextStyle`; the family
 is bundled, registered, and preloaded before the game is constructed.
-
-## 5. Put it inside the Compass main slot
-
-```dart
-final orbitCompass = configuredCompassLayout.copyWith(
-  mainSlot: configuredCompassLayout.mainSlot.copyWith(
-    figure: CompassMainFigure.layout,
-    subLayout: defaultOrbitLayout,
-    positionFraction: const Offset(0.5, 0.5),
-    anchorFraction: const Offset(0.5, 0.5),
-    availableSizeFraction: const Size(0.35, 0.35),
-  ),
-);
-```
-
-- `positionFraction` places the anchor inside `CompassFrame`.
-- `anchorFraction` chooses the point inside the sublayout attached there.
-- `availableSizeFraction` sizes custom layout figures without fixed pixels.
-- `translation` adds runtime logical-pixel movement for animation.
-
-The main figure can instead be `circle`, `triangle`, `square`, or `star`.
-`CompassFigureConfig` controls size, rotation, fill, border, and parallel
-internal lines.
 
 Use `Point` when placement requires named coordinate logic:
 
@@ -204,26 +201,7 @@ units include fraction, pixels, tracks, scalar metadata, degrees, and radians.
 The same point can resolve against a small sublayout or the physical screen,
 which keeps cross-depth connectors logically aligned.
 
-## 6. Define radial slots
-
-```dart
-const activitySlot = CompassSlot(
-  slot: LayoutSlot(id: 'activity', label: 'Activity'),
-  startDegrees: 215,
-  spanDegrees: 60,
-);
-```
-
-Compass degrees are clockwise and `0°` points upward. `startDegrees` fixes an
-absolute start. `spanDegrees` fixes angular width. Slots without
-`spanDegrees` split the remaining configured sweep according to
-`LayoutSlot.fraction`; one unrestricted slot receives all `360°`.
-
-A slot's optional `layout` field establishes ownership of a nested layout.
-Rendering that nested layout into a curved wedge is intentionally separate
-from ownership and can be implemented by its Flame component.
-
-## 7. Add hierarchy depth
+## 5. Add hierarchy depth
 
 The default hierarchy is:
 
@@ -296,7 +274,7 @@ Put a shared fallback in `LayoutDefaults.backgrounds`, beside padding, gap, and
 border width. Layouts with an empty local list inherit the nearest non-empty
 ancestor default; any explicit local background list replaces it.
 
-## 8. Project a grid inside a path
+## 6. Project a grid inside a path
 
 Use `LayoutPath.grid` to divide a quadrilateral into ordinary rows and columns
 while retaining the path's perspective:
@@ -308,17 +286,17 @@ LayoutPath(
   grid: PerspectiveGridLayout(
     guideStyle: dashedGridStyle,
     rowsConfig: {
-      'timeline': GridAxisVariable(size: LayoutSize.pt(20)),
-      'hour': GridAxisVariable(size: LayoutSize.fr(1)),
-      'day': GridAxisVariable(size: LayoutSize.fr(1)),
-      'week': GridAxisVariable(size: LayoutSize.fr(1)),
+      'timeline': LayoutSize.pt(20),
+      'hour': LayoutSize.fr(1),
+      'day': LayoutSize.fr(1),
+      'week': LayoutSize.fr(1),
     },
     columnsConfig: {
-      'past-pointer': GridAxisVariable(size: LayoutSize.pt(20)),
-      'previous': GridAxisVariable(size: LayoutSize.fr(1)),
-      'current': GridAxisVariable(size: LayoutSize.fr(1)),
-      'next': GridAxisVariable(size: LayoutSize.fr(1)),
-      'future-pointer': GridAxisVariable(size: LayoutSize.pt(20)),
+      'past-pointer': LayoutSize.pt(20),
+      'previous': LayoutSize.fr(1),
+      'current': LayoutSize.fr(1),
+      'next': LayoutSize.fr(1),
+      'future-pointer': LayoutSize.pt(20),
     },
     areas: {
       'current-day': PerspectiveGridArea(
@@ -332,14 +310,46 @@ LayoutPath(
 )
 ```
 
-`rowsConfig` and `columnsConfig` are ordered maps of the same `GridAxisVariable`
-type. The map key is the track identity, so identity and measurement cannot
-drift apart as they could with parallel ID and fraction lists.
+`rowsConfig` and `columnsConfig` are ordered maps of `LayoutSize`. The map key
+is the track identity, so identity and measurement cannot drift apart as they
+could with parallel ID and fraction lists.
 `LayoutSize.fr` divides remaining space, while `LayoutSize.px` preserves a
 fixed logical-pixel width; `LayoutSize.pt` is its readable alias.
 `LayoutSize.calculatedFr` is a Vue-like calculated track: it behaves like its
 fallback fraction today, and its `derivative` names the future layout/context
 value that should drive it.
+
+### Conditional Node styles
+
+Declare common Node configuration through the owning layout's `node` property:
+
+```dart
+LandscapeXlLayout(
+  node: const NodeConfig(
+    state: {
+      LayoutCondition.nodeHighlighted(): NodeConfig(
+        style: NodeStyle(
+          borderStyle: GuideStyle(
+            color: Color(0xFF2196F3),
+            strokeWidth: 4,
+          ),
+        ),
+      ),
+    },
+  ),
+)
+```
+
+`NodeConfig.style` owns immediate presentation. Every matching condition points
+to another `NodeConfig`, resolves recursively, and contributes in map insertion
+order. Later declarations override only the non-null style values they provide.
+The recursive shape leaves room for future Node behavior beside style without
+flattening it into the renderer. Legacy Node paint fields remain active until
+the planned renderer-wide migration.
+
+`NodeConfig`, `NodeStyle`, and the canonical `NodeDefaults` are kept together
+in `lib/models/layout/node_config.dart`. Update that file for global Node fallbacks;
+use layout configuration for preset-specific conditional configuration.
 
 The LG Ergo bottom plane no longer owns the earlier hour/day/week perspective
 grid or `now` ray. It owns the `time-fan` graph presentation instead. The
@@ -395,7 +405,9 @@ connections yet. Selection membership and active fill state use the Node's
 unique slug. Fan and Graph compact labels render emoji first and wrap the slug
 fallback with `LayoutDefaults.nodeSlugPrefix` and `nodeSlugSuffix`. LG Ergo's
 Node defaults use `[[` and `]]`, producing `[[slug]]` without changing stored
-Node identity.
+Node identity. `GraphLayoutComponent` owns all GraphLayout drawing and hit
+geometry; screen/layout hosts provide only plane resolution, state, and action
+callbacks.
 `NodeListLayout` renders a dynamic Node collection as equal rows inside a
 row/column composition or a TableLayout value cell. The info table's
 Updates/Added field owns the virtual source, which reads the
@@ -404,29 +416,60 @@ Updates/Added field owns the virtual source, which reads the
 normal Node tap/toggle target.
 
 `TableLayout.includeUnconfiguredFields` combines declarative ordering with
-data-dependent rows. `unconfiguredFieldGroupId` places populated unconfigured
-keys alphabetically inside their owning group. LG Ergo has one info-panel
-table with four ordered groups: `last_selected_node`, `selected_nodes`,
-`updates`, and `system`. The first keeps Slug and Labels before the remaining
-complete Node value; the second lists selected slugs followed by deduplicated
-labels; Updates owns Added, Updated, and Deleted rows; and the fourth contains
+data-dependent rows. `unconfiguredFieldPanelId` places populated unconfigured
+keys alphabetically inside their owning panel. LG Ergo has one info-panel
+table with six ordered panels: `last_selected_node`, `updates`,
+`selected_nodes`, `me`, `settings`, and `system`. The first keeps Slug and
+Labels before the remaining complete Node value; Updates owns Added, Updated,
+and Deleted rows; Selected Nodes lists selected slugs followed by deduplicated
+labels; Me and Settings are visible empty placeholders; and System contains
 system data. Added renders virtual Nodes through a nested `NodeListLayout`.
 Updated and Deleted remain empty placeholders whenever the Updates group is
-visible. Configure this structure through `TableLayout.tableConfig`. Its
-`TableConfig.groups` and `TableConfig.rows` maps use their keys as identity;
-each `TableGroup` and `TableRow` supplies `orderPosition` instead of repeating
-an ID or key inside the value. An optional `TableGroup.title` creates a header
-only for a populated group.
-`TableGroup.size` controls its share of the table width. Flame packs consecutive
-fractional groups into one horizontal band, so two `LayoutSize.fr(0.5)` groups
-form equal columns while `LayoutSize.fr(1)` keeps a full-width band.
-These renderer-independent configuration contracts are exported by the local
-`dart_tables` package. Flame owns Seville's row resolution, geometry, hit
-testing, rendering, and action execution.
-`TableLayout.groupGap` separates visible groups, and `groupBorderStyle` wraps
-each group independently. Empty groups produce no rows or decoration. A group
+visible. Configure this structure through `TableLayout.tableConfig`, which
+combines shared `panel`, ordered `panels`, `rowConfig`, and `columnConfig`.
+Panels, rows, and columns live in identity-keyed maps. Each `PanelConfig`,
+`TableRow`, and `TableColumn` supplies
+`orderPosition` instead of repeating an ID or key inside the value. Columns do
+not live separately on `TableLayout`. An optional `PanelConfig.title` creates a
+header only for a populated panel.
+Set `PanelConfig.showEmpty` when a titled panel must remain visible without a
+populated or configured row. LG Ergo uses it for Me and Settings, which inherit
+the shared one-third panel width directly before System. The former right-plane
+Me `PanelLayout` remains commented beside the table panel as a reference for
+its future global action.
+The root Layout's `panel: PanelConfig` supplies shared panel dimensions, and
+`TableConfig.panel` may specialize them. A panel may provide `PanelConfig.size` as
+an exception, but LG Ergo's info table uses one two-dimensional `0.33fr` by
+`0.33fr` rule and has no per-panel size values. Flame packs consecutive
+fractional panels into horizontal bands.
+`TableRow.size` remains separate because it controls vertical row tracks.
+Current folding animates those content tracks while panel width remains stable;
+a later width transition belongs to the Flame renderer, not `TableConfig`.
+Use `LayoutSize.twoDimensional(primary: ..., secondary: ...)` when a panel also
+needs a configured band height. Table packing treats primary as width and
+secondary as height; a scalar panel keeps content-derived height. If peers in
+one band request different secondary dimensions, the renderer uses the largest
+normalized height for their shared band.
+
+```dart
+panel: PanelConfig(
+  foldedPanelSize: LayoutSize.twoDimensional(
+    primary: LayoutSize.fr(0.33),
+    secondary: LayoutSize.fr(0.33),
+  ),
+),
+```
+
+Omit the secondary dimension when visible row tracks should derive band height.
+These configuration contracts live in Seville's native
+`lib/models/layout/table_config.dart` Layout library and use `LayoutSize` directly.
+`TableLayout` also inherits `node: NodeConfig`, so Node content inside a table
+uses the common conditional Node protocol. Flame owns row resolution, geometry,
+hit testing, rendering, and action execution.
+`TableLayout.panelGap` separates visible panels, and `panelBorderStyle` wraps
+each panel independently. Empty panels produce no rows or decoration. A panel
 with `foldable: true` uses its title as a Flame hit target and animates its
-content tracks open or closed over `TableLayout.groupFoldDuration`; the title
+content tracks open or closed over `TableLayout.panelFoldDuration`; the title
 and its group border remain visible while folded.
 
 The Flame Search HUD submits text to Riverpod, which performs
@@ -451,9 +494,10 @@ but swaps in the canonical response, making the shared border solid. Plain
 Enter invokes this action outside the Search HUD; while the HUD is visible it
 consumes Enter to submit the query or select the highlighted Node instead.
 
-The right plane keeps Me, Copy, and Share in its second action row. Me resolves
-the exact Node slug configured by `SEVILLE_PLAYER_SLUG` and selects the returned
-canonical Node; it does not create missing data. Its bottom is a three-by-three
+The right plane keeps Copy and Share in its second action row. Me has moved to
+the left info table as a visible group; its previous exact-slug player action
+is intentionally not connected until the group receives global functionality.
+The right plane's bottom is a three-by-three
 `direction-pad` whose equal cells represent top-left, top-center,
 top-right, center-left, center, center-right, bottom-left, bottom-center, and
 bottom-right. These controls expose stable `direction-*` aliases but remain
@@ -489,7 +533,7 @@ perspective grid.
 `topStartIndex`, `topEndIndex`, `bottomStartIndex`, and
 `bottomEndIndex` select the four path points used for projection.
 
-## 9. Add a human scale figure to a scene
+## 7. Add a human scale figure to a scene
 
 `StickmanLayout` is a renderable layout entity for the center-scene human scale
 reference. Put it in the owning scene/safe-area `layouts` map:
@@ -510,35 +554,10 @@ means 20cm of conceptual space around a 200cm figure. When the parent layout has
 an `outerCircle`, the figure is fitted into the inscribed scene square of that
 circle.
 
-## 10. Animate without mutating constants
+## 8. Animate without mutating constants
 
-Keep defaults immutable and derive transient layouts in `AnimatedBuilder`:
-
-```dart
-AnimatedBuilder(
-  animation: controller,
-  builder: (context, child) {
-    final t = Curves.easeInOut.transform(controller.value);
-    final animatedMainSlot = configuredCompassLayout.mainSlot.copyWith(
-      positionFraction: Offset.lerp(
-        const Offset(0.5, 0.5),
-        const Offset(0.65, 0.42),
-        t,
-      ),
-      figureConfig:
-          configuredCompassLayout.mainSlot.figureConfig?.copyWith(
-            rotationDegrees: 90 + 90 * t,
-          ),
-    );
-    return CompassView(
-      layout: configuredCompassLayout.copyWith(mainSlot: animatedMainSlot),
-      componentRegistry: appLayoutComponentRegistry,
-    );
-  },
-);
-```
-
-Animate normalized position, fractions, degrees, and depth for device-independent
-motion. Use logical-pixel `translation` only for short local effects. For many
-simultaneously animated graph objects, keep the immutable layout as topology
-and move per-frame transforms into the Flame component tree or a GPU shader.
+Keep immutable Layout configuration as topology. Animate normalized position,
+fractions, degrees, and depth inside the owning Flame component for
+device-independent motion. Use logical-pixel translation only for short local
+effects. For many simultaneously animated graph objects, keep per-frame
+transforms in the Flame component tree or a GPU shader.

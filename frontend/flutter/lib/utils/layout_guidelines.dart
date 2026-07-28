@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../constants/typography.dart';
-import '../models/layout.dart';
+import '../models/layout/layout.dart';
 import 'canvas_guides.dart';
 
 void drawLayoutGuidelines(

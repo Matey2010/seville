@@ -1,6 +1,6 @@
 import 'package:seville_proto/seville_proto.dart';
 
-import '../models/layout.dart';
+import '../models/layout/layout.dart';
 
 class VaultNodeResolver {
   const VaultNodeResolver._(this._nodesByPath, this._nodes);
@@ -19,30 +19,30 @@ class VaultNodeResolver {
 
   bool get isEmpty => _nodes.isEmpty;
 
-  ResolvedVaultNode resolve(VaultNodeUiComponent component) {
-    final configuredStatus = component.status;
+  ResolvedVaultNode resolve(VaultNode vaultNode) {
+    final configuredStatus = vaultNode.status;
     if (configuredStatus != null) {
       final node = configuredStatus == LayoutHttpStatus.ok
-          ? _findNode(component.path)
+          ? _findNode(vaultNode.path)
           : null;
       return ResolvedVaultNode(
-        path: component.path,
-        color: component.color,
-        label: component.label,
-        status: component.status,
-        backgrounds: component.backgrounds,
+        path: vaultNode.path,
+        color: vaultNode.color,
+        label: vaultNode.label,
+        status: vaultNode.status,
+        backgrounds: vaultNode.backgrounds,
         node: node,
         resolvedStatus: configuredStatus,
       );
     }
 
-    final node = _findNode(component.path);
+    final node = _findNode(vaultNode.path);
     return ResolvedVaultNode(
-      path: component.path,
-      color: component.color,
-      label: component.label,
-      status: component.status,
-      backgrounds: component.backgrounds,
+      path: vaultNode.path,
+      color: vaultNode.color,
+      label: vaultNode.label,
+      status: vaultNode.status,
+      backgrounds: vaultNode.backgrounds,
       node: node,
       resolvedStatus: node == null
           ? LayoutHttpStatus.notFound
@@ -51,21 +51,21 @@ class VaultNodeResolver {
   }
 
   ResolvedVaultNode? findLinkedNode(String? value) {
-    final components = linkedNodeComponents(value);
-    return components.isEmpty ? null : resolve(components.first);
+    final nodes = linkedNodes(value);
+    return nodes.isEmpty ? null : resolve(nodes.first);
   }
 
   List<ResolvedVaultNode> findLinkedNodes(String? value) => [
-    for (final component in linkedNodeComponents(value)) resolve(component),
+    for (final node in linkedNodes(value)) resolve(node),
   ];
 
-  static List<VaultNodeUiComponent> linkedNodeComponents(String? value) {
+  static List<VaultNode> linkedNodes(String? value) {
     if (value == null || value.isEmpty) return const [];
     final links = RegExp(r'\[\[([^\]|]+)(?:\|([^\]]+))?\]\]');
     return [
       for (final match in links.allMatches(value))
         if ((match.group(1)?.trim() ?? '') case final path when path.isNotEmpty)
-          VaultNodeUiComponent(
+          VaultNode(
             path: path,
             label: switch (match.group(2)?.trim()) {
               final label? when label.isNotEmpty => label,

@@ -8,8 +8,7 @@ import 'package:seville_proto/seville_proto.dart';
 import '../components/layout_component_registry.dart';
 import '../constants/layout/presets/lg_ergo/lg_ergo_layout_config.dart';
 import '../data/runtime_config.dart';
-import '../models/landscape_xl_layout.dart';
-import '../models/layout.dart';
+import '../models/layout/layout.dart';
 import '../state/node_store.dart';
 import '../state/overlay_store.dart';
 import '../utils/common_utilities.dart';
@@ -62,15 +61,6 @@ class _LandscapeXlLayoutScreenState
     super.dispose();
   }
 
-  ResolvedVaultNode? _resolveInitialHighlightedNode(
-    VaultNodeResolver resolver,
-  ) {
-    final node = (widget.layout ?? lgErgoLayoutConfig).initialHighlightedNode;
-    if (node == null) return null;
-    final resolvedNode = resolver.resolve(node);
-    return resolvedNode.found ? resolvedNode : null;
-  }
-
   @override
   Widget build(BuildContext context) {
     final layout = widget.layout ?? lgErgoLayoutConfig;
@@ -87,13 +77,8 @@ class _LandscapeXlLayoutScreenState
     final resolverState = ref.watch(resolverProvider);
     final systemInfoState = ref.watch(systemInfoProvider);
     ref.listen(resolverProvider, (_, next) {
-      switch (next) {
-        case AsyncData(:final value):
-          _highlightInitialNodeIfNeeded(value);
-        case AsyncError(:final error):
-          CommonUtilities.log('[configured Node lookup] failed: $error');
-        case AsyncLoading():
-          break;
+      if (next case AsyncError(:final error)) {
+        CommonUtilities.log('[configured Node lookup] failed: $error');
       }
     });
     ref.listen(systemInfoProvider, (_, next) {
@@ -147,7 +132,7 @@ class _LandscapeXlLayoutScreenState
       ref.listen(treeProvider, (_, next) {
         if (next case AsyncError(:final error)) {
           CommonUtilities.log(
-            '[node tree] load failed for ${fan.label ?? fan.aliases.firstOrNull}: '
+            '[node tree] load failed for ${fan.caption ?? fan.aliases.firstOrNull}: '
             '$error',
           );
         }
@@ -186,12 +171,9 @@ class _LandscapeXlLayoutScreenState
     }
   }
 
-  Iterable<VaultNodeUiComponent> _configuredVaultNodes(Layout layout) sync* {
-    if (layout case LandscapeXlLayout(:final initialHighlightedNode?)) {
-      yield initialHighlightedNode;
-    }
-    if (layout case PerspectiveGridArea(:final node?)) yield node;
-    if (layout case PlaneLayout(:final node?)) yield node;
+  Iterable<VaultNode> _configuredVaultNodes(Layout layout) sync* {
+    if (layout case PerspectiveGridArea(:final vaultNode?)) yield vaultNode;
+    if (layout case PlaneLayout(:final vaultNode?)) yield vaultNode;
     for (final child in layout.layouts.values) {
       yield* _configuredVaultNodes(child);
     }
@@ -578,13 +560,6 @@ class _LandscapeXlLayoutScreenState
     for (final entry in node.frontmatter.entries) {
       CommonUtilities.log('- ${entry.key}: ${entry.value}');
     }
-  }
-
-  void _highlightInitialNodeIfNeeded(VaultNodeResolver resolver) {
-    if (ref.read(highlightedNodesProvider).isNotEmpty) return;
-    final resolvedNode = _resolveInitialHighlightedNode(resolver);
-    if (resolvedNode == null) return;
-    ref.read(highlightedNodesProvider.notifier).setNodes([resolvedNode]);
   }
 
   VaultNodeResolver? _currentVaultNodeResolver() {

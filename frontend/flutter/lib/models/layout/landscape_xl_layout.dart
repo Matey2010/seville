@@ -1,8 +1,7 @@
-import 'layout.dart';
+part of 'layout.dart';
 
 class LandscapeXlLayout extends Layout {
   const LandscapeXlLayout({
-    this.initialHighlightedNode,
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
     super.backgrounds,
@@ -19,21 +18,16 @@ class LandscapeXlLayout extends Layout {
     super.inactiveNodeBackgroundOpacity,
     super.activeNodeBackgroundOpacity,
     super.virtualNodeBackgroundOpacity,
+    super.label,
+    super.text,
+    super.node,
+    super.panel,
     super.nodeHoverBorderStyle,
     super.nodeSlugPrefix,
     super.nodeSlugTransform,
     super.nodeSlugSuffix,
     super.slugColor,
-    super.classificationLabelColors,
-    super.classificationLabelBorderColor,
-    super.classificationLabelHoleColor,
-    super.classificationLabelTextColor,
-    super.classificationLabelBorderWidth,
-    super.classificationLabelHoverBorderStyle,
-  }) : super.fromAxes();
-
-  /// Configured initial highlight until persisted user state is loaded.
-  final VaultNodeUiComponent? initialHighlightedNode;
+  }) : super();
 }
 
 class SafeAreaLayout extends LandscapeXlLayout {
@@ -57,16 +51,14 @@ class SafeAreaLayout extends LandscapeXlLayout {
     super.inactiveNodeBackgroundOpacity,
     super.activeNodeBackgroundOpacity,
     super.virtualNodeBackgroundOpacity,
+    super.label,
+    super.text,
+    super.node,
+    super.panel,
     super.nodeHoverBorderStyle,
     super.nodeSlugPrefix,
     super.nodeSlugTransform,
     super.nodeSlugSuffix,
     super.slugColor,
-    super.classificationLabelColors,
-    super.classificationLabelBorderColor,
-    super.classificationLabelHoleColor,
-    super.classificationLabelTextColor,
-    super.classificationLabelBorderWidth,
-    super.classificationLabelHoverBorderStyle,
   });
 }

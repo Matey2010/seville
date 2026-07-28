@@ -2,8 +2,9 @@ import 'dart:math' as math;
 
 import 'package:flame/components.dart';
 import 'package:flutter/painting.dart';
+import 'package:seville_proto/seville_proto.dart';
 
-import '../models/layout.dart';
+import '../models/layout/layout.dart';
 
 /// Shared Flame renderer for Node paint state and hover decoration.
 class NodeComponent extends PositionComponent {
@@ -13,6 +14,48 @@ class NodeComponent extends PositionComponent {
   void updateHoverTarget(Path? path, GuideStyle? style) {
     _hoverPath = path;
     _hoverStyle = style;
+  }
+
+  static Color? parseColor(String? rawColor) {
+    if (rawColor == null || rawColor.trim().isEmpty) return null;
+    final normalized = rawColor
+        .trim()
+        .replaceFirst('#', '')
+        .replaceFirst(RegExp('^0x', caseSensitive: false), '');
+    final hex = switch (normalized.length) {
+      6 => 'FF$normalized',
+      8 => normalized,
+      _ => null,
+    };
+    if (hex == null) return null;
+    final value = int.tryParse(hex, radix: 16);
+    return value == null ? null : Color(value);
+  }
+
+  static LayoutColor colorFor(Node node) {
+    for (final key in const ['color', 'hex', 'background']) {
+      final rawColor = node.frontmatter[key];
+      if (parseColor(rawColor) != null) {
+        return LayoutColor.fromHex(rawColor!);
+      }
+    }
+
+    final normalizedSlug = node.slug.trim();
+    final identity = normalizedSlug.isNotEmpty ? normalizedSlug : node.path;
+    var seed = 0;
+    for (final codeUnit in identity.codeUnits) {
+      seed = (seed * 31 + codeUnit) & 0x7FFFFFFF;
+    }
+    final random = math.Random(seed);
+    final red = 96 + random.nextInt(128);
+    final green = 96 + random.nextInt(128);
+    final blue = 96 + random.nextInt(128);
+    final hex = [
+      red,
+      green,
+      blue,
+    ].map((channel) => channel.toRadixString(16).padLeft(2, '0')).join();
+    return LayoutColor.fromHex(hex, opacity: 0.88);
   }
 
   static Color backgroundColor(

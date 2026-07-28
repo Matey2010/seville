@@ -1,32 +1,17 @@
-import 'dart:ui';
-
-import 'package:dart_tables/dart_tables.dart';
-
-import 'layout.dart';
-
-export 'package:dart_tables/dart_tables.dart'
-    show
-        TableData,
-        TableConfig,
-        TableDefinition,
-        TableAction,
-        TableGroup,
-        TableRow,
-        TableRowOrdering;
+part of 'layout.dart';
 
 class TableLayout extends Layout
     with TableLayoutMixin
-    implements TableDefinition<GridAxisVariable> {
+    implements TableDefinition {
   const TableLayout({
-    required this.columns,
     required this.guideStyle,
     this.tableConfig,
     this.includeUnconfiguredFields = false,
-    this.unconfiguredFieldGroupId,
-    this.unconfiguredFieldSize = const GridAxisVariable(size: LayoutSize.fr(1)),
-    this.groupGap = 12,
-    this.groupBorderStyle,
-    this.groupFoldDuration = 0.22,
+    this.unconfiguredFieldPanelId,
+    this.unconfiguredFieldSize = const LayoutSize.fr(1),
+    this.panelGap = 12,
+    this.panelBorderStyle,
+    this.panelFoldDuration = 0.22,
     this.padding = 12,
     this.cellHighlight,
     this.labelColor = const Color(0xFFFFF8E7),
@@ -44,34 +29,30 @@ class TableLayout extends Layout
     super.inactiveNodeBackgroundOpacity,
     super.activeNodeBackgroundOpacity,
     super.virtualNodeBackgroundOpacity,
+    super.label,
+    super.text,
+    super.node,
+    super.panel,
     super.nodeHoverBorderStyle,
     super.nodeSlugPrefix,
     super.nodeSlugTransform,
     super.nodeSlugSuffix,
     super.slugColor,
-    super.classificationLabelColors,
-    super.classificationLabelBorderColor,
-    super.classificationLabelHoleColor,
-    super.classificationLabelTextColor,
-    super.classificationLabelBorderWidth,
-    super.classificationLabelHoverBorderStyle,
     super.visibility,
     super.inputSources,
-  }) : assert(groupGap >= 0),
-       assert(groupFoldDuration > 0),
-       super.fromAxes();
+  }) : assert(panelGap >= 0),
+       assert(panelFoldDuration > 0),
+       super();
 
-  @override
-  final List<MapEntry<String, GridAxisVariable>> columns;
   final GuideStyle guideStyle;
   @override
-  final TableConfig<GridAxisVariable>? tableConfig;
+  final TableConfig? tableConfig;
   final bool includeUnconfiguredFields;
-  final String? unconfiguredFieldGroupId;
-  final GridAxisVariable unconfiguredFieldSize;
-  final double groupGap;
-  final GuideStyle? groupBorderStyle;
-  final double groupFoldDuration;
+  final String? unconfiguredFieldPanelId;
+  final LayoutSize unconfiguredFieldSize;
+  final double panelGap;
+  final GuideStyle? panelBorderStyle;
+  final double panelFoldDuration;
   final double padding;
   final TableCellHighlightConfig? cellHighlight;
   final Color labelColor;
@@ -80,16 +61,20 @@ class TableLayout extends Layout
   final double valueSize;
 
   @override
-  Map<String, GridAxisVariable> get tableRowsConfig => {
+  Map<String, LayoutSize> get tableRowsConfig => {
     for (final row
-        in tableConfig?.rows.entries ??
-            const <MapEntry<String, TableRow<GridAxisVariable>>>[])
+        in tableConfig?.rowConfig.orderedRows ??
+            const <MapEntry<String, TableRow>>[])
       row.key: row.value.size,
   };
 
   @override
-  Map<String, GridAxisVariable> get tableColumnsConfig =>
-      Map.fromEntries(columns);
+  Map<String, LayoutSize> get tableColumnsConfig => {
+    for (final column
+        in tableConfig?.columnConfig.orderedColumns ??
+            const <MapEntry<String, TableColumn>>[])
+      column.key: column.value.size,
+  };
 
   @override
   GuideStyle get tableGuideStyle => guideStyle;

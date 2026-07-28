@@ -1,6 +1,6 @@
 import 'package:flame/components.dart';
 
-import '../models/layout.dart';
+import '../models/layout/layout.dart';
 
 typedef LayoutComponentBuilder =
     PositionComponent Function(Layout layout, LayoutComponentRegistry registry);

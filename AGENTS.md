@@ -72,14 +72,65 @@
 - Layout composition uses `Map<String, Layout> layouts`: the key is identity
   and the value is another layout. Frames, content, guidelines, and guide grids
   share this tree; do not introduce separate root, node, or guide collections.
-- Every `Layout` owns a `GridAxisVariable size`. `ColumnLayout` and `RowLayout`
-  resolve child sizes along their main axis using `LayoutSize.fr`, `px`/`pt`,
-  or `calculatedFr`; do not introduce separate flex or extent properties.
+- The declarative Layout layer is one Dart library rooted at
+  `lib/models/layout/layout.dart`. Layout variants and configuration
+  dependencies live beside it as `part` files under `lib/models/layout/`.
+  Application code imports only the library entry point; do not scatter Layout
+  models back into `lib/models/` or restore cross-imports between its parts.
+- Treat `aliases`, `label`, `text`, `node`, and `panel` as the standard global
+  Layout configuration sequence. Presets place `label` and `text` between
+  `aliases` and `node`.
+- Every `Layout` exposes `label: LabelConfig`. `LabelConfig.style` owns
+  the classification-label `LabelStyle`, while its ordered
+  `state: Map<LayoutCondition, LabelConfig>` resolves and merges like
+  `NodeConfig`. Label hover uses `LayoutCondition.labelHighlighted()` and a
+  conditional border style. Semantic label colors use
+  `LayoutCondition.equalsTo(...)` state entries; `LabelStyle.color` is only the
+  fallback for unmatched labels. All Label defaults, including the beige
+  `#F5EDD6` fill, live under the first `LayoutCondition.always()` state entry;
+  do not place default presentation directly in `LabelConfig.style`. Do not add
+  `fillColors`, hash labels into a
+  palette, or restore separate classification-label palette, border, hole,
+  text, or hover fields on individual layouts.
+  `LabelConfig`, `LabelStyle`, and `LabelDefaults` live together in
+  `lib/models/layout/label.dart`. LG Ergo declares its complete global label
+  policy once on the root `LandscapeXlLayout`.
+- Every `Layout` exposes `text: LayoutTextConfig`. It owns general text color,
+  dark/light contrast colors, font family and metrics, font features, and
+  shadow effects. When both contrast colors exist, renderers choose dark text
+  for a light resolved background and light text for a dark background. Label
+  captions use their resolved `LabelStyle.color` as that background and must
+  not restore `LabelStyle.textColor` or painter-local contrast colors. The model
+  and defaults live in `lib/models/layout/text.dart`.
+- Every `Layout` exposes `node: NodeConfig`. `NodeConfig.style` owns the
+  immediate `NodeStyle`, while its ordered
+  `state: Map<LayoutCondition, NodeConfig>` recursively specializes the entire
+  Node configuration. Resolve every matching condition in insertion order and
+  merge later non-null style values over earlier values. `NodeConfig`,
+  `NodeStyle`, and `NodeDefaults` live together in
+  `lib/models/layout/node_config.dart`, which remains part of the Layout model
+  library until package extraction is justified. Keep base Node opacity, hover-border,
+  and slug defaults there. LG Ergo declares its shared
+  highlighted-Node border directly at the top of `LandscapeXlLayout`. The older
+  opacity and hover-style fields remain temporarily active until Node renderers
+  are migrated as one dedicated slice; do not create a second renderer path
+  during this staging period.
+- Every `Layout` exposes `panel: PanelConfig`. Reusable panel vocabulary lives
+  in `lib/models/layout/panel.dart`, not in a table-specific model. LG Ergo declares
+  its shared folded panel size immediately after `node` on the root
+  `LandscapeXlLayout`; table panels inherit that size through
+  `TableConfig.panel` and may specialize it with their own `PanelConfig`.
+- Every `Layout` owns a `LayoutSize size` directly. `ColumnLayout` and
+  `RowLayout` resolve its primary dimension along their main axis using
+  `LayoutSize.fr`, `px`/`pt`, or `calculatedFr`; do not restore the redundant
+  `GridAxisVariable` wrapper or introduce separate flex/extent properties.
+  `LayoutSize.twoDimensional(primary: ..., secondary: ...)` is the consolidated
+  two-axis form. The owning renderer assigns geometric meaning to those axes;
+  scalar consumers use `primary` and ignore an absent `secondary`.
 - Use `Layout.aliases` for extra human/config vocabulary. The layout map key
   remains the stable address; aliases are alternative names, not identity.
-- Generic layouts have default axes `[0, 0]`. Do not add axes, role tags, or
-  frame metadata when the concrete layout type or guide geometry already
-  expresses the behavior.
+- Do not add legacy axes, role tags, or frame metadata when the concrete layout
+  type or guide geometry already expresses the behavior.
 - Use `LayoutKey.innerBorder` with a subtle `LayoutBorderGuide` for meaningful
   visual boundaries. Prefer named `Point` anchors over anonymous coordinates
   when later layouts may connect to that border.
@@ -92,7 +143,10 @@
   protocol factories, such as `LayoutCondition.hasActiveNodes()`,
   `LayoutCondition.nodeHighlighted()`, and
   `LayoutCondition.not(LayoutCondition.hasActiveNodes())`. Concrete condition
-  implementations remain private.
+  implementations remain private. Use `LayoutCondition.always()` for an
+  ordered unconditional baseline, `LayoutCondition.equalsTo(...)` for one
+  current contextual value, and `LayoutCondition.isIn(...)` for membership.
+  Dart reserves `default` and `in`, so neither can be a named constructor.
 - Use `Guideline.guidelineDerivatives` plus `GuidelineMarker` for labels or
   emoji pinned to points along a specific guide line. Use this for line-local
   points such as a diagonal guide's center; do not confuse those with the
@@ -156,7 +210,11 @@
   by `emojiSlugGapFactor` times `labelSize`; without an Emoji, center the slug.
   LG Ergo uses one `lgErgoNodeFontSize` for Fan and Graph Node typography, a
   `2.0` Emoji factor, and a `0.5` gap factor. Paint and hit-test from the same
-  resolved circle geometry. Graph
+  resolved circle geometry. `GraphLayoutComponent` owns Graph geometry,
+  clipping, Node paint, labels, tap handling, and hover hit testing. The
+  landscape game may resolve its owning `LayoutPath` and supply state/callbacks,
+  but must not restore `_drawGraphLayout`, Graph geometry helpers, or Graph
+  hit-testing inside `landscape_xl_layout_view.dart`. Graph
   connections, distance, labels between Nodes, and alternate interaction modes
   remain future extensions; do not request a `NodeTree` for this layout.
   A frontend-only draft is a normal selected `ResolvedVaultNode` with
@@ -169,17 +227,17 @@
   `Virtual`, then atomically replaces that draft at the same selected-node
   index with the canonical Node returned by the backend.
   The right-plane top action row places the confirm action immediately beside
-  the nuclear close action. Me, Copy, and Share remain in the second action
-  row. Me reads `SEVILLE_PLAYER_SLUG`, performs the existing exact-slug Node
-  query, and selects a returned canonical Node through
-  `selectedNodesProvider`; it never creates a virtual fallback.
+  the nuclear close action. Copy and Share remain in the second action row.
+  Me is a visible, shared-width `PanelConfig` in the left info table. Keep the
+  former right-plane `PanelLayout` commented beside that panel as the reference
+  for its future global action; do not restore a live right-plane Me button.
   Direction controls belong to the bottom `direction-pad`: three equal rows
   and three equal columns represent top-left through bottom-right, including
   center. Keep their stable `direction-*` aliases in layout configuration;
   directional behavior remains a later interaction-policy concern.
 - Use `PerspectiveGridLayout` in `LayoutPath.grid` when a path needs normal
   rows and columns projected inside its quadrilateral. `rowsConfig` and
-  `columnsConfig` must be ordered maps of the same `GridAxisVariable` type; the
+  `columnsConfig` must be ordered maps of `LayoutSize`; the
   map key owns identity, preventing IDs and measurements from drifting apart.
   Use `LayoutSize.fr` for flexible space, `LayoutSize.pt` (`px` alias)
   for fixed gaps, and `LayoutSize.calculatedFr` when a track is a computed
@@ -209,7 +267,7 @@
   part of a track. Use `PerspectiveGridArea.borderStyle` for dashed rim
   wrappers, such as left-plane outer-with-padding and inner-without-padding
   borders.
-- For node-backed grid content, prefer `PerspectiveGridArea(node: path,
+- For node-backed grid content, prefer `PerspectiveGridArea(vaultNode: path,
   VaultNode(path: ..., color: LayoutColor.fromHex(...)))`. Every layout that is
   backed by knowledge-base data should own a `VaultNode`; runtime lookup belongs
   only to `VaultNodeResolver`, which returns `ResolvedVaultNode extends
@@ -222,42 +280,64 @@
   manual/background fills that are not graph-node assignments.
 - `TableLayout.includeUnconfiguredFields` includes every populated data value
   not already represented by its configured rows. Use
-  `unconfiguredFieldGroupId` to insert those alphabetical rows into their
-  owning configured group, and `unconfiguredFieldSize` for their tracks.
-  Table structure belongs to `TableLayout.tableConfig: TableConfig`. Its
-  `groups` and `rows` are ordered maps: each map key is stable identity, while
-  `TableGroup.orderPosition` and `TableRow.orderPosition` control visual
-  order. Do not restore list entries with duplicated `id` or `key` properties,
-  and do not restore the ambiguous `TableFieldBuilder` name.
-  `TableGroup.size` uses the same consumer-owned size type as `TableRow.size`.
-  Flame packs consecutive fractional-width groups into horizontal bands; use
-  `LayoutSize.fr(1)` for full width, `LayoutSize.fr(0.5)` for halves, and
-  one-third fractions for three-column bands.
-  The renderer-independent package that owns these contracts is `dart_tables`
-  under `frontend/flutter/packages/dart_tables`; do not restore the old
-  `table_data` package identity.
-  Keep that package limited to renderer-independent data configuration. Flame
-  owns row resolution, geometry, hit testing, rendering, and action execution.
+  `unconfiguredFieldPanelId` to insert those alphabetical rows into their
+  owning configured panel, and `unconfiguredFieldSize` for their tracks.
+  Table structure belongs only to `TableLayout.tableConfig: TableConfig`.
+  `TableConfig` is native Layout configuration and composes four required
+  contracts: shared `panel`, ordered `panels`, `rowConfig`, and `columnConfig`.
+  Do not restore parallel `TableLayout.columns`, table groups, or direct row
+  maps. Panels, rows, and columns own ordered identity maps; `PanelConfig`,
+  `TableRow`, and `TableColumn` use `orderPosition` without
+  duplicating map identity as `id` or `key`. Do not restore the ambiguous
+  `TableFieldBuilder` name.
+  The nearest Layout `panel: PanelConfig` supplies inherited defaults, while
+  `TableConfig.panel` specializes them. `PanelConfig.foldedPanelSize` owns the
+  shared `LayoutSize` dimensions; each panel's `PanelConfig.size` is an explicit
+  local
+  override. `TableRow.size` and `TableColumn.size` independently control their
+  tracks. Flame packs consecutive
+  fractional-width panels into horizontal bands. LG Ergo's root layout uses one
+  two-dimensional `LayoutSize` with `0.33fr` primary and secondary panel rules
+  and does not repeat sizes on its table panels. Folding currently animates content tracks only;
+  future panel-width animation remains a Flame renderer concern and must not
+  add mutable state to `TableConfig`.
+  For a two-dimensional table panel, Flame interprets `LayoutSize.primary` as
+  panel width and `LayoutSize.secondary` as band height. A scalar size keeps
+  the existing content-derived band height.
+  These contracts live in `lib/models/layout/table_config.dart` as part of the Layout
+  model library and use `LayoutSize` directly; do not extract or restore a
+  `dart_tables` or `table_data` package without a real external consumer.
+  `TableLayout` inherits the same `node: NodeConfig` protocol as every Layout,
+  so Node-backed table content resolves conditional Node configuration without
+  a parallel table styling model. Flame owns row resolution, geometry, hit
+  testing, rendering, and action execution.
   `TableAction.copyToClipboard()` copies the text value of a row's first
   non-key cell. Derive its hit path during the same Flame paint pass and route
   clipboard, toast, and listener side effects through the screen callback also
   used by Command-C.
-  `TableGroup.title` is optional; render its title only when non-empty and when
-  the group contains populated rows. Flame wraps every visible group with
-  `TableLayout.groupBorderStyle` and separates adjacent visible groups using
-  `TableLayout.groupGap`. `TableGroup.foldable` makes its title the fold toggle;
+  `PanelConfig.title` is optional; render its title only when non-empty and when
+  the panel contains populated rows, unless `PanelConfig.showEmpty` explicitly
+  retains it. A titled `showEmpty` panel with no configured rows resolves as a
+  title-only panel. Flame wraps every visible panel with
+  `TableLayout.panelBorderStyle` and separates adjacent visible panels using
+  `TableLayout.panelGap`. `PanelConfig.foldable` makes its title the fold toggle;
   the Flame scene owns transient expansion state and animates content tracks
-  with an `EffectController` using `TableLayout.groupFoldDuration`. Keep this
+  with an `EffectController` using `TableLayout.panelFoldDuration`. Keep this
   presentation state out of Riverpod and layout configuration. LG Ergo's single
-  info table orders `last_selected_node`, `selected_nodes`, `updates`, then
-  `system`. The first owns complete last-selected Node properties, the second
-  owns the selected slug list followed by the deduplicated alphabetical label
-  set, the third owns Added/Updated/Deleted frontend mutation rows, and the
-  fourth owns system data. The Added field owns the virtual-Node
+  info table orders `last_selected_node`, `updates`, `selected_nodes`, `me`,
+  `settings`, then `system`. Me and Settings inherit the shared one-third panel
+  width and use `showEmpty: true`, so they remain available before their future
+  rows and
+  global behavior exist. The first group owns complete last-selected Node
+  properties, Updates owns Added/Updated/Deleted frontend mutation rows,
+  Selected Nodes owns the selected slug list followed by the deduplicated
+  alphabetical label set, and System owns system data. The Added row owns the
+  virtual-Node
   `NodeListLayout` as a child layout so it retains shared Node paint, hit-testing,
   selection, and sound behavior. Updated and Deleted are reserved empty rows;
   the Updates group remains absent until any mutation row has content. Empty
-  groups emit no title, border, gap, or rows. Do not restore parallel or
+  panels emit no title, border, gap, or rows unless `showEmpty` retains them.
+  Do not restore parallel or
   visibility-switched table instances.
 - For compact Node labels, render the first assigned non-empty
   `Emoji.character` before textual metadata. Fall back to `Node.slug`; legacy
@@ -281,11 +361,13 @@
 - `Node.labels` are Neo4j classification metadata, not Nodes and not compact
   Node captions. `TableLayout` renders `labels` and `neo4j_labels` values
   through `ClassificationLabelComponent` as separate shopping-tag shapes
-  instead of comma-separated text. Their deterministic fill palette, border,
-  hole, and text colors belong to `LayoutDefaults`; Neo4j supplies only label
-  strings. Keep them on the table canvas so they obey its perspective. The
-  component also owns the additional cursor-hover border, configured by
-  `LayoutDefaults.classificationLabelHoverBorderStyle`; LG Ergo uses yellow.
+  instead of comma-separated text. Their semantic fill color, border, hole,
+  and text colors belong to the root `LabelConfig`; Neo4j supplies only label
+  strings. Label colors are decorative frontend knowledge-folder semantics,
+  selected explicitly with `LayoutCondition.equalsTo(...)`, never inferred from
+  a hash palette. Keep them on the table canvas so they obey its perspective.
+  The component also owns the additional cursor-hover border resolved through
+  `LayoutCondition.labelHighlighted()`; LG Ergo uses yellow.
 - Every `Layout` exposes its own ordered `backgrounds` list. Concrete layout
   constructors must forward that base property. `orderPosition` is frontend
   stacking metadata: lower values paint first, while guides and content stay
@@ -392,14 +474,7 @@
 - Backend graph paths are relative to the configured knowledge root:
   `SEVILLE_VAULT_PATH`, or `SEVILLE_GIT_REPOSITORY_PATH` plus
   `SEVILLE_GIT_VAULT_SUBPATH` when the Git source adapter is active.
-- Shared vault path constants live in `frontend/flutter/lib/constants/paths/`.
-  Timeline paths belong to `DefaultTimelineVaultPaths` there; broader vault
-  roots or concepts belong to sibling static classes such as `DefaultVaultPaths`.
 - The current vault root directory is already `cortex`; never prefix configured
   default paths with `cortex/`.
-- Use `DefaultVaultPaths.cortex` for the explicit cortex Node path. It should
-  resolve to a real clickable graph node, not an empty vault-root sentinel.
-  The renderer still treats empty root as a forgiving alias for older config,
-  but new interactive node config should point at a concrete path.
 - For example, use `time/century/ce/xxi-century`, not
   `cortex/time/century/ce/xxi-century`.

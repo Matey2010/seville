@@ -14,14 +14,12 @@ import 'package:seville_proto/seville_proto.dart';
 
 import '../components/layout_component_registry.dart';
 import '../components/classification_label_component.dart';
+import '../components/graph_layout_component.dart';
 import '../components/node_component.dart';
 import '../components/search_hud_component.dart';
 import '../constants/typography.dart';
 import '../domain/node.dart';
-import '../models/landscape_xl_layout.dart';
-import '../models/layout.dart';
-import '../models/search_layout.dart';
-import '../models/table_layout.dart';
+import '../models/layout/layout.dart';
 import '../utils/canvas_guides.dart';
 import '../utils/layout_guidelines.dart';
 import '../utils/vault_node_resolver.dart';
@@ -41,7 +39,7 @@ class LayoutTapTarget {
 
   final String key;
   final Layout layout;
-  final VaultNodeUiComponent? node;
+  final VaultNode? node;
   final ResolvedVaultNode? resolvedNode;
   final String? label;
   final TableAction? tableAction;
@@ -226,6 +224,7 @@ class LandscapeXlLayoutGame extends FlameGame
   final NodeComponent _nodeComponent = NodeComponent();
   final ClassificationLabelComponent _classificationLabelComponent =
       ClassificationLabelComponent();
+  final List<GraphLayoutComponent> _graphLayoutComponents = [];
 
   LayoutContext get layoutContext =>
       _layoutContext(highlightedNodes, selectedNodes);
@@ -277,7 +276,28 @@ class LandscapeXlLayoutGame extends FlameGame
       add(_FanComponent(placement)..priority = 110);
     }
     for (final placement in _pathLayoutPlacements<GraphLayout>(layout)) {
-      add(_GraphComponent(placement)..priority = 110);
+      final component = GraphLayoutComponent(
+        layoutKey: placement.key,
+        layout: placement.layout,
+        isLayoutVisible: () => placement.hierarchy.every(
+          (layout) => layout.isVisible(layoutContext),
+        ),
+        selectedNodes: () => selectedNodes,
+        layoutContext: () => layoutContext,
+        planePoints: () => _resolvePathPoints(placement.plane),
+        isTapEnabled: () => onLayoutTap != null,
+        onNodeTap: (hit) => dispatchLayoutTap(
+          LayoutTapTarget(
+            key: hit.key,
+            layout: placement.layout,
+            node: hit.resolvedNode,
+            resolvedNode: hit.resolvedNode,
+            label: hit.label,
+          ),
+        ),
+      )..priority = 110;
+      _graphLayoutComponents.add(component);
+      add(component);
     }
     for (final registered in _registeredLayoutComponents(
       layout,
@@ -329,6 +349,17 @@ class LandscapeXlLayoutGame extends FlameGame
     if (nodeKey != null && audioPool != null) {
       unawaited(audioPool.start(volume: 0.3));
     }
+  }
+
+  List<Offset>? _resolvePathPoints(LayoutPath plane) {
+    final context = layoutContext;
+    final resolvedLayouts = _resolveLayouts(
+      layout,
+      Size(size.x, size.y),
+      safePadding,
+      context,
+    );
+    return _resolvedLayoutPathPoints(plane, resolvedLayouts, context);
   }
 
   void updateHoveredClassificationLabel({Path? path, GuideStyle? style}) =>
@@ -761,7 +792,7 @@ void _drawPlaneLayout(
   final node = selectedNode?.node;
   final borderColor = node == null
       ? plane.borderColor
-      : _subjectNodeColor(node.frontmatter['color']) ??
+      : NodeComponent.parseColor(node.frontmatter['color']) ??
             plane.resolvedBorderColor;
   _drawFilledPlaneShape(
     canvas,
@@ -1052,62 +1083,21 @@ void _drawPlaneRing(
   }
 }
 
-Color? _subjectNodeColor(String? rawColor) {
-  if (rawColor == null || rawColor.trim().isEmpty) return null;
-  final normalized = rawColor
-      .trim()
-      .replaceFirst('#', '')
-      .replaceFirst(RegExp('^0x', caseSensitive: false), '');
-  final hex = switch (normalized.length) {
-    6 => 'FF$normalized',
-    8 => normalized,
-    _ => null,
-  };
-  if (hex == null) return null;
-  final value = int.tryParse(hex, radix: 16);
-  return value == null ? null : Color(value);
-}
-
-LayoutColor _nodeColor(Node node) {
-  for (final key in const ['color', 'hex', 'background']) {
-    final rawColor = node.frontmatter[key];
-    if (_subjectNodeColor(rawColor) != null) {
-      return LayoutColor.fromHex(rawColor!);
-    }
-  }
-
-  final normalizedSlug = node.slug.trim();
-  final identity = normalizedSlug.isNotEmpty ? normalizedSlug : node.path;
-  var seed = 0;
-  for (final codeUnit in identity.codeUnits) {
-    seed = (seed * 31 + codeUnit) & 0x7FFFFFFF;
-  }
-  final random = math.Random(seed);
-  final red = 96 + random.nextInt(128);
-  final green = 96 + random.nextInt(128);
-  final blue = 96 + random.nextInt(128);
-  final hex = [
-    red,
-    green,
-    blue,
-  ].map((channel) => channel.toRadixString(16).padLeft(2, '0')).join();
-  return LayoutColor.fromHex(hex, opacity: 0.88);
-}
-
 typedef _ResolvedLayout = ({Layout layout, Rect bounds});
 typedef _HoveredNodeTarget = ({String key, Path path, GuideStyle style});
 typedef _HoveredClassificationLabelTarget = ({Path path, GuideStyle style});
 typedef _TableRowPlacement = ({
-  _ResolvedTableRow<GridAxisVariable> row,
+  _ResolvedTableRow row,
   double rowStart,
   double rowEnd,
   double columnStart,
   double columnEnd,
 });
-typedef _TableGroupRun = ({
-  String? groupId,
-  List<_ResolvedTableRow<GridAxisVariable>> rows,
+typedef _TablePanelRun = ({
+  String? panelId,
+  List<_ResolvedTableRow> rows,
   double width,
+  LayoutSize? height,
 });
 
 class _LandscapeXlSceneComponent extends PositionComponent
@@ -1115,9 +1105,9 @@ class _LandscapeXlSceneComponent extends PositionComponent
         HasGameReference<LandscapeXlLayoutGame>,
         flame_events.TapCallbacks,
         flame_events.HoverCallbacks {
-  final Map<TableLayout, Map<String, _TableGroupFoldAnimation>>
-  _tableGroupAnimations = {};
-  final List<_TableGroupHeaderHit> _tableGroupHeaderHits = [];
+  final Map<TableLayout, Map<String, _TablePanelFoldAnimation>>
+  _tablePanelAnimations = {};
+  final List<_TablePanelHeaderHit> _tablePanelHeaderHits = [];
   final List<_TableNodeHit> _tableNodeHits = [];
   final List<_TableActionHit> _tableActionHits = [];
   final List<_TableClassificationLabelHit> _tableClassificationLabelHits = [];
@@ -1125,7 +1115,7 @@ class _LandscapeXlSceneComponent extends PositionComponent
 
   @override
   void update(double dt) {
-    for (final animations in _tableGroupAnimations.values) {
+    for (final animations in _tablePanelAnimations.values) {
       for (final animation in animations.values) {
         animation.update(dt);
       }
@@ -1141,7 +1131,7 @@ class _LandscapeXlSceneComponent extends PositionComponent
 
   @override
   void render(Canvas canvas) {
-    _tableGroupHeaderHits.clear();
+    _tablePanelHeaderHits.clear();
     _tableNodeHits.clear();
     _tableActionHits.clear();
     _tableClassificationLabelHits.clear();
@@ -1195,10 +1185,13 @@ class _LandscapeXlSceneComponent extends PositionComponent
           imageFor: (assetPath) => game.images.containsKey(assetPath)
               ? game.images.fromCache(assetPath)
               : null,
-          tableGroupExpansion: _tableGroupExpansion,
-          onTableGroupHeader: (table, groupId, path) {
-            _tableGroupHeaderHits.add(
-              _TableGroupHeaderHit(table: table, groupId: groupId, path: path),
+          panelDefaults: layout.panel.merge(resolved.layout.panel),
+          label: layout.label,
+          text: layout.text,
+          tablePanelExpansion: _tablePanelExpansion,
+          onTablePanelHeader: (table, panelId, path) {
+            _tablePanelHeaderHits.add(
+              _TablePanelHeaderHit(table: table, panelId: panelId, path: path),
             );
           },
           onTableNode: (target, path) {
@@ -1367,31 +1360,13 @@ class _LandscapeXlSceneComponent extends PositionComponent
         );
       }
     }
-    for (final placement in _pathLayoutPlacements<GraphLayout>(
-      game.layout,
-    ).toList().reversed) {
-      if (!placement.hierarchy.every(
-        (layout) => layout.isVisible(layoutContext),
-      )) {
-        continue;
-      }
-      final planePoints = _resolvedLayoutPathPoints(
-        placement.plane,
-        resolvedLayouts,
-        layoutContext,
-      );
-      if (planePoints == null) continue;
-      final graphNode = _hitTestGraph(
-        placement.layout,
-        game.selectedNodes,
-        position,
-        planePoints: planePoints,
-      );
+    for (final component in game._graphLayoutComponents.reversed) {
+      final graphNode = component.hitTest(position);
       if (graphNode != null) {
         return (
-          key: '${placement.key}/${graphNode.node.slug}',
-          path: Path()..addOval(graphNode.circleBounds),
-          style: placement.layout.nodeHoverBorderStyle,
+          key: graphNode.key,
+          path: graphNode.path,
+          style: component.layout.nodeHoverBorderStyle,
         );
       }
     }
@@ -1440,9 +1415,9 @@ class _LandscapeXlSceneComponent extends PositionComponent
         return;
       }
     }
-    for (final header in _tableGroupHeaderHits.reversed) {
+    for (final header in _tablePanelHeaderHits.reversed) {
       if (header.path.contains(localPosition)) {
-        _toggleTableGroup(header.table, header.groupId);
+        _toggleTablePanel(header.table, header.panelId);
         return;
       }
     }
@@ -1467,28 +1442,28 @@ class _LandscapeXlSceneComponent extends PositionComponent
     game.dispatchLayoutTap(target);
   }
 
-  double _tableGroupExpansion(TableLayout table, String groupId) {
-    final group = _tableGroup(table, groupId);
-    if (group == null || !group.foldable) return 1;
-    return (_tableGroupAnimations[table] ??= {})
+  double _tablePanelExpansion(TableLayout table, String panelId) {
+    final panel = _tablePanel(table, panelId);
+    if (panel == null || !panel.isFoldable) return 1;
+    return (_tablePanelAnimations[table] ??= {})
         .putIfAbsent(
-          groupId,
-          () => _TableGroupFoldAnimation(
-            duration: table.groupFoldDuration,
-            initiallyFolded: group.initiallyFolded,
+          panelId,
+          () => _TablePanelFoldAnimation(
+            duration: table.panelFoldDuration,
+            initiallyFolded: panel.startsFolded,
           ),
         )
         .progress;
   }
 
-  void _toggleTableGroup(TableLayout table, String groupId) {
-    _tableGroupExpansion(table, groupId);
-    _tableGroupAnimations[table]?[groupId]?.toggle();
+  void _toggleTablePanel(TableLayout table, String panelId) {
+    _tablePanelExpansion(table, panelId);
+    _tablePanelAnimations[table]?[panelId]?.toggle();
   }
 }
 
-class _TableGroupFoldAnimation {
-  _TableGroupFoldAnimation({
+class _TablePanelFoldAnimation {
+  _TablePanelFoldAnimation({
     required double duration,
     required bool initiallyFolded,
   }) : _expanded = !initiallyFolded,
@@ -1515,15 +1490,15 @@ class _TableGroupFoldAnimation {
   }
 }
 
-class _TableGroupHeaderHit {
-  const _TableGroupHeaderHit({
+class _TablePanelHeaderHit {
+  const _TablePanelHeaderHit({
     required this.table,
-    required this.groupId,
+    required this.panelId,
     required this.path,
   });
 
   final TableLayout table;
-  final String groupId;
+  final String panelId;
   final Path path;
 }
 
@@ -1689,8 +1664,11 @@ class _SearchSuggestionsComponent extends PositionComponent
         searchResults: _hud.visibleResults,
       ),
       layoutContext: game.layoutContext,
-      groupExpansion: (_) => 1,
-      onGroupHeader: (_, _) {},
+      panelDefaults: game.layout.panel.merge(_hud.layout.panel),
+      label: game.layout.label,
+      text: game.layout.text,
+      panelExpansion: (_) => 1,
+      onPanelHeader: (_, _) {},
       onNode: (target, path) {
         _nodeHits.add((target: target, path: path));
       },
@@ -1783,82 +1761,6 @@ List<Offset> _rectPoints(Rect rect) => [
   rect.bottomLeft,
 ];
 
-class _GraphComponent extends PositionComponent
-    with HasGameReference<LandscapeXlLayoutGame>, flame_events.TapCallbacks {
-  _GraphComponent(this.placement);
-
-  final _PathLayoutPlacement<GraphLayout> placement;
-
-  bool get _isVisible => placement.hierarchy.every(
-    (layout) => layout.isVisible(game.layoutContext),
-  );
-
-  @override
-  void onTapDown(flame_events.TapDownEvent event) {
-    event.continuePropagation = true;
-  }
-
-  @override
-  void onGameResize(Vector2 size) {
-    super.onGameResize(size);
-    this.size = size;
-  }
-
-  @override
-  void render(Canvas canvas) {
-    if (!_isVisible || game.selectedNodes.isEmpty) return;
-    final planePoints = _resolvePlanePoints();
-    if (planePoints == null) return;
-    _drawGraphLayout(
-      canvas,
-      placement.layout,
-      game.selectedNodes,
-      game.layoutContext,
-      planePoints: planePoints,
-    );
-  }
-
-  @override
-  void onTapUp(flame_events.TapUpEvent event) {
-    event.continuePropagation = true;
-    final tapHandler = game.onLayoutTap;
-    if (tapHandler == null || !_isVisible) return;
-    final planePoints = _resolvePlanePoints();
-    if (planePoints == null) return;
-    final graphNode = _hitTestGraph(
-      placement.layout,
-      game.selectedNodes,
-      Offset(event.localPosition.x, event.localPosition.y),
-      planePoints: planePoints,
-    );
-    if (graphNode == null) return;
-    game.dispatchLayoutTap(
-      LayoutTapTarget(
-        key: '${placement.key}/${graphNode.node.slug}',
-        layout: placement.layout,
-        node: graphNode.resolvedNode,
-        resolvedNode: graphNode.resolvedNode,
-        label: _nodePresentationLabel(graphNode.node, placement.layout),
-      ),
-    );
-    event.continuePropagation = false;
-  }
-
-  List<Offset>? _resolvePlanePoints() {
-    final resolvedLayouts = _resolveLayouts(
-      game.layout,
-      Size(size.x, size.y),
-      game.safePadding,
-      game.layoutContext,
-    );
-    return _resolvedLayoutPathPoints(
-      placement.plane,
-      resolvedLayouts,
-      game.layoutContext,
-    );
-  }
-}
-
 LayoutContext _layoutContext(
   List<ResolvedVaultNode> highlightedNodes,
   List<ResolvedVaultNode> selectedNodes,
@@ -1908,10 +1810,13 @@ void _drawLayoutPath(
   LayoutContext layoutContext, {
   required List<LayoutBackground> backgrounds,
   required ui.Image? Function(String assetPath) imageFor,
-  required double Function(TableLayout table, String groupId)
-  tableGroupExpansion,
-  required void Function(TableLayout table, String groupId, Path path)
-  onTableGroupHeader,
+  required PanelConfig panelDefaults,
+  required LabelConfig label,
+  required LayoutTextConfig text,
+  required double Function(TableLayout table, String panelId)
+  tablePanelExpansion,
+  required void Function(TableLayout table, String panelId, Path path)
+  onTablePanelHeader,
   required void Function(LayoutTapTarget target, Path path) onTableNode,
   required void Function(LayoutTapTarget target, Path path) onTableAction,
   required void Function(Path path, GuideStyle style)
@@ -2018,9 +1923,12 @@ void _drawLayoutPath(
       classificationLabelComponent,
       nodeListSources: nodeListSources,
       layoutContext: layoutContext,
-      groupExpansion: (groupId) => tableGroupExpansion(table, groupId),
-      onGroupHeader: (groupId, path) =>
-          onTableGroupHeader(table, groupId, path),
+      panelDefaults: panelDefaults.merge(layoutPath.panel),
+      label: label,
+      text: text,
+      panelExpansion: (panelId) => tablePanelExpansion(table, panelId),
+      onPanelHeader: (panelId, path) =>
+          onTablePanelHeader(table, panelId, path),
       onNode: onTableNode,
       onAction: (action, rowKey, value, path) => onTableAction(
         LayoutTapTarget(
@@ -2280,7 +2188,7 @@ void _drawPerspectiveGrid(
   final rightLength =
       (points[grid.bottomEndIndex] - points[grid.topEndIndex]).distance;
   final rowStops = _gridTrackStops([
-    for (final row in grid.rowsConfig.values) row.size,
+    for (final row in grid.rowsConfig.values) row,
   ], (leftLength + rightLength) / 2);
   if (rowStops.length < 2) return;
 
@@ -2338,125 +2246,6 @@ void _drawPerspectiveGrid(
   }
 }
 
-typedef _GraphNodeFrame = ({
-  ResolvedVaultNode resolvedNode,
-  Node node,
-  Rect circleBounds,
-});
-
-void _drawGraphLayout(
-  Canvas canvas,
-  GraphLayout graph,
-  List<ResolvedVaultNode> selectedNodes,
-  LayoutContext layoutContext, {
-  required List<Offset> planePoints,
-}) {
-  final nodes = _graphNodesInFrame(graph, selectedNodes, planePoints);
-  if (nodes.isEmpty) return;
-  final clipPath = Path()..moveTo(planePoints.first.dx, planePoints.first.dy);
-  for (final point in planePoints.skip(1)) {
-    clipPath.lineTo(point.dx, point.dy);
-  }
-  clipPath.close();
-
-  final borderStyle = graph.style;
-  final borderWidth = graph.layoutBorderWidth ?? borderStyle.strokeWidth;
-  canvas.save();
-  canvas.clipPath(clipPath);
-  for (final graphNode in nodes) {
-    final fillColor = NodeComponent.backgroundColor(
-      _nodeColor(graphNode.node).resolve(),
-      graphNode.node.slug,
-      layoutContext,
-      graph,
-      isVirtual: graphNode.resolvedNode.isVirtual,
-    );
-    canvas.drawOval(
-      graphNode.circleBounds,
-      Paint()
-        ..color = fillColor
-        ..style = PaintingStyle.fill,
-    );
-    NodeComponent.renderBorder(
-      canvas,
-      Path()..addOval(graphNode.circleBounds),
-      borderStyle,
-      borderWidth,
-      isVirtual: graphNode.resolvedNode.isVirtual,
-    );
-    _paintGraphNodeLabels(
-      canvas,
-      graphNode.node,
-      graphNode.circleBounds,
-      graph,
-    );
-  }
-  canvas.restore();
-}
-
-List<_GraphNodeFrame> _graphNodesInFrame(
-  GraphLayout graph,
-  List<ResolvedVaultNode> selectedNodes,
-  List<Offset> planePoints,
-) {
-  final resolvedNodes = [
-    for (final resolvedNode in selectedNodes)
-      if (resolvedNode.node case final node?)
-        (resolvedNode: resolvedNode, node: node),
-  ];
-  if (resolvedNodes.isEmpty || planePoints.length < 3) return const [];
-
-  final bounds = _boundsForPoints(planePoints);
-  if (bounds.isEmpty) return const [];
-  final aspectRatio = bounds.width / bounds.height;
-  final columnCount = math.min(
-    resolvedNodes.length,
-    math.max(1, math.sqrt(resolvedNodes.length * aspectRatio).ceil()),
-  );
-  final rowCount = (resolvedNodes.length / columnCount).ceil();
-  final cellWidth = bounds.width / columnCount;
-  final cellHeight = bounds.height / rowCount;
-  final diameter = math.min(cellWidth, cellHeight) * graph.nodeExtentFactor;
-  final nodes = <_GraphNodeFrame>[];
-  for (var index = 0; index < resolvedNodes.length; index += 1) {
-    final row = index ~/ columnCount;
-    final column = index % columnCount;
-    final rowStart = row * columnCount;
-    final rowNodeCount = math.min(columnCount, resolvedNodes.length - rowStart);
-    final rowLeft = bounds.center.dx - rowNodeCount * cellWidth / 2;
-    final center = Offset(
-      rowLeft + (column + 0.5) * cellWidth,
-      bounds.top + (row + 0.5) * cellHeight,
-    );
-    final resolvedNode = resolvedNodes[index];
-    nodes.add((
-      resolvedNode: resolvedNode.resolvedNode,
-      node: resolvedNode.node,
-      circleBounds: Rect.fromCircle(center: center, radius: diameter / 2),
-    ));
-  }
-  return nodes;
-}
-
-_GraphNodeFrame? _hitTestGraph(
-  GraphLayout graph,
-  List<ResolvedVaultNode> selectedNodes,
-  Offset position, {
-  required List<Offset> planePoints,
-}) {
-  for (final graphNode in _graphNodesInFrame(
-    graph,
-    selectedNodes,
-    planePoints,
-  ).reversed) {
-    final radius = graphNode.circleBounds.width / 2;
-    if ((position - graphNode.circleBounds.center).distance <= radius) {
-      return graphNode;
-    }
-  }
-  return null;
-}
-
 typedef _NodeListEntryFrame = ({
   ResolvedVaultNode resolvedNode,
   Node node,
@@ -2494,7 +2283,7 @@ void _drawNodeListLayout(
       path,
       Paint()
         ..color = NodeComponent.backgroundColor(
-          _nodeColor(entry.node).resolve(),
+          NodeComponent.colorFor(entry.node).resolve(),
           entry.node.slug,
           layoutContext,
           layout,
@@ -2673,7 +2462,7 @@ void _drawFanLayout(
   for (final segment in segments) {
     final node = segment.occurrence.node;
     final fillColor = NodeComponent.backgroundColor(
-      _nodeColor(node).resolve(),
+      NodeComponent.colorFor(node).resolve(),
       node.slug,
       layoutContext,
       fan,
@@ -2727,51 +2516,6 @@ void _paintNodeLabel(
   textPainter.paint(
     canvas,
     center - Offset(textPainter.width / 2, textPainter.height / 2),
-  );
-}
-
-void _paintGraphNodeLabels(
-  Canvas canvas,
-  Node node,
-  Rect nodeBounds,
-  GraphLayout graph,
-) {
-  final maxWidth = nodeBounds.width * 0.8;
-  if (maxWidth < graph.labelSize * 2) return;
-  final slugPainter = _nodeLabelTextPainter(
-    _nodePresentation(node, graph, forceSlug: true),
-    maxWidth: maxWidth,
-    color: graph.labelColor,
-    fontSize: graph.labelSize,
-  );
-  final emoji = node.primaryEmojiCharacter;
-  if (emoji == null) {
-    slugPainter.paint(
-      canvas,
-      nodeBounds.center - Offset(slugPainter.width / 2, slugPainter.height / 2),
-    );
-    return;
-  }
-
-  final emojiPainter = _nodeLabelTextPainter(
-    (text: emoji, isSlug: false, colorOverride: null, fontFeatures: null),
-    maxWidth: maxWidth,
-    color: graph.labelColor,
-    fontSize: graph.labelSize * graph.emojiFontSizeFactor,
-  );
-  final gap = graph.labelSize * graph.emojiSlugGapFactor;
-  final contentHeight = emojiPainter.height + gap + slugPainter.height;
-  final top = nodeBounds.center.dy - contentHeight / 2;
-  emojiPainter.paint(
-    canvas,
-    Offset(nodeBounds.center.dx - emojiPainter.width / 2, top),
-  );
-  slugPainter.paint(
-    canvas,
-    Offset(
-      nodeBounds.center.dx - slugPainter.width / 2,
-      top + emojiPainter.height + gap,
-    ),
   );
 }
 
@@ -2921,7 +2665,7 @@ _FanFrame? _resolveFanFrame(
     math.max(fan.minDepth, deepestDepth + 1),
   );
   final rowStops = _gridTrackStops([
-    for (final row in fan.rowsConfig.values.take(rowCount)) row.size,
+    for (final row in fan.rowsConfig.values.take(rowCount)) row,
   ], regularRadius);
   final columnStops = _fanTopLevelStops(fan, hierarchy, startTheta, endTheta);
   return (
@@ -3451,7 +3195,7 @@ _LayoutTapHit? _hitTestFlexComposition(
         target: LayoutTapTarget(
           key: childPath,
           layout: layout,
-          label: layout.label,
+          label: layout.caption,
         ),
         nodePath: null,
       );
@@ -3481,7 +3225,7 @@ _resolveFlexChildren(
   if (mainPixels <= 0) return;
 
   final stops = _gridTrackStops([
-    for (final child in children) child.value.size.size,
+    for (final child in children) child.value.size.primary,
   ], mainPixels);
   for (var index = 0; index < children.length; index += 1) {
     final entry = children[index];
@@ -3559,7 +3303,7 @@ void _drawPanelLayout(Canvas canvas, List<Offset> points, PanelLayout panel) {
       );
     }
   }
-  final label = panel.label;
+  final label = panel.caption;
   if (label == null || label.isEmpty) return;
   final center =
       points.fold<Offset>(Offset.zero, (sum, point) => sum + point) /
@@ -3613,7 +3357,7 @@ ResolvedVaultNode _resolvedFanNode(
   final node = occurrence.node;
   return ResolvedVaultNode(
     path: node.path,
-    color: _nodeColor(node),
+    color: NodeComponent.colorFor(node),
     label: _nodePresentationLabel(node, layout),
     node: node,
     resolvedStatus: LayoutHttpStatus.ok,
@@ -3621,7 +3365,7 @@ ResolvedVaultNode _resolvedFanNode(
 }
 
 ResolvedVaultNode _resolveVaultNode(
-  VaultNodeUiComponent node,
+  VaultNode node,
   VaultNodeResolver? resolver,
 ) {
   return (resolver ?? VaultNodeResolver.empty).resolve(node);
@@ -3649,9 +3393,9 @@ void _drawPerspectiveGridArea(
   VaultNodeResolver? vaultNodeResolver,
   LayoutContext layoutContext,
 ) {
-  final resolvedNode = area.node == null
+  final resolvedNode = area.vaultNode == null
       ? null
-      : _resolveVaultNode(area.node!, vaultNodeResolver);
+      : _resolveVaultNode(area.vaultNode!, vaultNodeResolver);
   final resolvedFillColor = resolvedNode?.fillColor;
   final fillColor = resolvedFillColor == null || resolvedNode?.node == null
       ? resolvedFillColor ?? area.fillColor
@@ -3662,12 +3406,12 @@ void _drawPerspectiveGridArea(
           area,
           isVirtual: resolvedNode.isVirtual,
         );
-  final borderStyle = area.node == null
+  final borderStyle = area.vaultNode == null
       ? area.borderStyle
       : resolvedNode?.resolvedStatus == LayoutHttpStatus.notFound
       ? area.borderStyle ?? grid.guideStyle
       : null;
-  final label = area.label;
+  final label = area.caption;
   if (fillColor == null &&
       borderStyle == null &&
       (label == null || label.isEmpty)) {
@@ -3768,8 +3512,11 @@ void _drawTableLayout(
   ClassificationLabelComponent classificationLabelComponent, {
   required _NodeListSources nodeListSources,
   required LayoutContext layoutContext,
-  required double Function(String groupId) groupExpansion,
-  required void Function(String groupId, Path path) onGroupHeader,
+  required PanelConfig panelDefaults,
+  required LabelConfig label,
+  required LayoutTextConfig text,
+  required double Function(String panelId) panelExpansion,
+  required void Function(String panelId, Path path) onPanelHeader,
   required void Function(LayoutTapTarget target, Path path) onNode,
   required void Function(
     TableAction action,
@@ -3780,14 +3527,17 @@ void _drawTableLayout(
   onAction,
   required void Function(Path path, GuideStyle style) onClassificationLabel,
 }) {
-  if (parentPoints.length < 4 || table.columns.isEmpty) {
+  if (parentPoints.length < 4 || table.tableColumnsConfig.isEmpty) {
     return;
   }
 
+  final effectivePanel = panelDefaults
+      .merge(table.panel)
+      .merge(table.tableConfig?.panel ?? const PanelConfig());
   final rows = _tableRowsWithFoldProgress(
     table,
-    _tableLayoutRows(table, data),
-    groupExpansion,
+    _tableLayoutRows(table, data, effectivePanel),
+    panelExpansion,
   );
   if (rows.isEmpty) return;
 
@@ -3814,12 +3564,13 @@ void _drawTableLayout(
   final placements = _tableRowPlacements(
     table,
     rows,
+    effectivePanel,
     averageWidth,
     averageHeight,
   );
   final columns = table.tableColumnsConfig.entries.toList(growable: false);
   final columnStops = _gridTrackStops([
-    for (final column in columns) column.value.size,
+    for (final column in columns) column.value,
   ], averageWidth);
   final tableTransformPoints = [
     _tableLayoutPoint(tablePoints, row: 0, column: 0),
@@ -3840,12 +3591,12 @@ void _drawTableLayout(
   );
   for (final placement in placements) {
     final row = placement.row;
-    final groupId = row.groupId;
-    if (!row.section || groupId == null) continue;
-    final group = _tableGroup(table, groupId);
-    if (group == null || !group.foldable) continue;
-    onGroupHeader(
-      groupId,
+    final panelId = row.panelId;
+    if (!row.section || panelId == null) continue;
+    final panel = _tablePanel(table, panelId);
+    if (panel == null || !panel.isFoldable) continue;
+    onPanelHeader(
+      panelId,
       _polygonPath([
         for (final point in _tableCellPoints(
           flatTablePoints,
@@ -3924,7 +3675,7 @@ void _drawTableLayout(
   for (final placement in placements) {
     final previous = previousPlacement;
     previousPlacement = placement;
-    if (previous == null || previous.row.groupId != placement.row.groupId) {
+    if (previous == null || previous.row.panelId != placement.row.panelId) {
       continue;
     }
     tableCanvas.drawLine(
@@ -3986,7 +3737,7 @@ void _drawTableLayout(
           rowEnd: rowEnd,
           columnStart: placement.columnStart,
           columnEnd: placement.columnEnd,
-          text: _tableGroupTitle(table, row, groupExpansion),
+          text: _tablePanelTitle(table, row, panelExpansion),
           maxLines: 1,
           textAlign: TextAlign.center,
           style: TextStyle(
@@ -4056,7 +3807,7 @@ void _drawTableLayout(
         )) {
           onNode(
             LayoutTapTarget(
-              key: 'table/${row.groupId}/${row.key}/${entry.node.slug}',
+              key: 'table/${row.panelId}/${row.key}/${entry.node.slug}',
               layout: rowLayout,
               node: entry.resolvedNode,
               resolvedNode: entry.resolvedNode,
@@ -4085,10 +3836,13 @@ void _drawTableLayout(
             columnEnd,
           ).getBounds(),
           fontSize: table.valueSize,
-          layout: table,
+          config: label,
+          textConfig: text,
+          context: layoutContext,
         );
-        final hoverStyle = table.classificationLabelHoverBorderStyle;
         for (final frame in labelFrames) {
+          final hoverStyle = frame.hoverStyle;
+          if (hoverStyle == null) continue;
           onClassificationLabel(
             frame.path.transform(tableTransform),
             hoverStyle,
@@ -4129,11 +3883,11 @@ void _drawTableLayout(
       );
     }
   }
-  _drawTableGroupBorders(
+  _drawTablePanelBorders(
     tableCanvas,
     flatTablePoints,
     placements,
-    table.groupBorderStyle ?? table.guideStyle,
+    table.panelBorderStyle ?? table.guideStyle,
   );
 
   final tablePicture = recorder.endRecording();
@@ -4145,7 +3899,7 @@ void _drawTableLayout(
   tablePicture.dispose();
 }
 
-void _drawTableGroupBorders(
+void _drawTablePanelBorders(
   Canvas canvas,
   List<Offset> points,
   List<_TableRowPlacement> placements,
@@ -4153,10 +3907,10 @@ void _drawTableGroupBorders(
 ) {
   var startIndex = 0;
   while (startIndex < placements.length) {
-    final groupId = placements[startIndex].row.groupId;
+    final panelId = placements[startIndex].row.panelId;
     var endIndex = startIndex + 1;
     while (endIndex < placements.length &&
-        placements[endIndex].row.groupId == groupId) {
+        placements[endIndex].row.panelId == panelId) {
       endIndex += 1;
     }
     final first = placements[startIndex];
@@ -4179,10 +3933,10 @@ void _drawTableGroupBorders(
   }
 }
 
-class _ResolvedTableRow<TSize> {
+class _ResolvedTableRow {
   const _ResolvedTableRow({
     this.key,
-    this.groupId,
+    this.panelId,
     required this.label,
     required this.value,
     required this.size,
@@ -4192,68 +3946,71 @@ class _ResolvedTableRow<TSize> {
   });
 
   final String? key;
-  final String? groupId;
+  final String? panelId;
   final String label;
   final Object? value;
-  final TSize size;
+  final LayoutSize size;
   final bool section;
   final bool spacer;
   final List<TableAction> actions;
 }
 
-List<_ResolvedTableRow<TSize>> _buildTableRows<TSize>(
-  TableDefinition<TSize> definition,
+List<_ResolvedTableRow> _buildTableRows(
+  TableDefinition definition,
   TableData data, {
-  required TSize Function(TSize rowSize) sectionSize,
+  required LayoutSize Function(LayoutSize rowSize) sectionSize,
   required String Function(Object? value) formatValue,
+  required PanelConfig panelDefaults,
   bool Function(Object? value)? includeValue,
 }) {
   final config = definition.tableConfig;
   if (config == null) return const [];
 
-  final rows = _orderedTableEntries(config.rows, (row) => row.orderPosition);
-  final groups = _orderedTableEntries(
-    config.groups,
-    (group) => group.orderPosition,
-  );
-  final groupIds = groups.map((entry) => entry.key).toSet();
+  final rows = config.rowConfig.orderedRows;
+  final panels = config.orderedPanels;
+  final panelIds = panels.map((entry) => entry.key).toSet();
 
-  Iterable<_ResolvedTableRow<TSize>> rowsForGroup(
-    String groupId,
-    TableGroup<TSize> group,
+  Iterable<_ResolvedTableRow> rowsForPanel(
+    String panelId,
+    PanelConfig panel,
   ) sync* {
     final owningRows = [
       for (final row in rows)
-        if (groupIds.contains(row.value.groupId) &&
-            row.value.groupId == groupId)
+        if (panelIds.contains(row.value.panelId) &&
+            row.value.panelId == panelId)
           row,
     ];
     final hasPopulatedRow = owningRows.any(
       (row) => includeValue?.call(data[row.key]) ?? true,
     );
-    if (!hasPopulatedRow) return;
-    final groupRows = [
+    if (!hasPopulatedRow && !panel.keepsEmpty) return;
+    final panelRows = [
       for (final row in owningRows)
         if (row.value.includeWhenEmpty ||
             (includeValue?.call(data[row.key]) ?? true))
           row,
     ];
-    _sortTableRows(groupRows, group.ordering, data, formatValue);
+    _sortTableRows(panelRows, panel.rowOrdering, data, formatValue);
 
-    final groupTitle = group.title?.trim();
-    if (groupTitle != null && groupTitle.isNotEmpty) {
+    final panelTitle = panel.title?.trim();
+    if (panelTitle != null && panelTitle.isNotEmpty) {
+      final panelSize = panel.size ?? panelDefaults.foldedPanelSize;
+      final titleSize = panelRows.isEmpty
+          ? panelSize
+          : panelRows.first.value.size;
+      if (titleSize == null) return;
       yield _ResolvedTableRow(
-        groupId: groupId,
-        label: groupTitle,
+        panelId: panelId,
+        label: panelTitle,
         value: null,
-        size: sectionSize(groupRows.first.value.size),
+        size: sectionSize(titleSize),
         section: true,
       );
     }
-    for (final row in groupRows) {
+    for (final row in panelRows) {
       yield _ResolvedTableRow(
         key: row.key,
-        groupId: groupId,
+        panelId: panelId,
         label: row.value.label ?? row.key,
         value: data[row.key],
         size: row.value.size,
@@ -4262,11 +4019,11 @@ List<_ResolvedTableRow<TSize>> _buildTableRows<TSize>(
     }
   }
 
-  return [for (final group in groups) ...rowsForGroup(group.key, group.value)];
+  return [for (final panel in panels) ...rowsForPanel(panel.key, panel.value)];
 }
 
-void _sortTableRows<TSize>(
-  List<MapEntry<String, TableRow<TSize>>> rows,
+void _sortTableRows(
+  List<MapEntry<String, TableRow>> rows,
   TableRowOrdering ordering,
   TableData data,
   String Function(Object? value) formatValue,
@@ -4284,44 +4041,28 @@ void _sortTableRows<TSize>(
   }
 }
 
-List<MapEntry<String, TValue>> _orderedTableEntries<TValue>(
-  Map<String, TValue> values,
-  int Function(TValue value) orderPosition,
-) {
-  final indexed = values.entries.indexed
-      .map((entry) => (index: entry.$1, entry: entry.$2))
-      .toList();
-  indexed.sort((left, right) {
-    final order = orderPosition(
-      left.entry.value,
-    ).compareTo(orderPosition(right.entry.value));
-    return order != 0 ? order : left.index.compareTo(right.index);
-  });
-  return [for (final item in indexed) item.entry];
+PanelConfig? _tablePanel(TableLayout table, String panelId) {
+  return table.tableConfig?.panels[panelId];
 }
 
-TableGroup<GridAxisVariable>? _tableGroup(TableLayout table, String groupId) {
-  return table.tableConfig?.groups[groupId];
-}
-
-List<_ResolvedTableRow<GridAxisVariable>> _tableRowsWithFoldProgress(
+List<_ResolvedTableRow> _tableRowsWithFoldProgress(
   TableLayout table,
-  List<_ResolvedTableRow<GridAxisVariable>> rows,
-  double Function(String groupId) groupExpansion,
+  List<_ResolvedTableRow> rows,
+  double Function(String panelId) panelExpansion,
 ) => [
   for (final row in rows)
-    if (row.section || row.spacer || row.groupId == null)
+    if (row.section || row.spacer || row.panelId == null)
       row
     else
       _ResolvedTableRow(
         key: row.key,
-        groupId: row.groupId,
+        panelId: row.panelId,
         label: row.label,
         value: row.value,
         size: _scaledTableTrack(
           row.size,
-          _tableGroup(table, row.groupId!)?.foldable ?? false
-              ? groupExpansion(row.groupId!)
+          _tablePanel(table, row.panelId!)?.isFoldable ?? false
+              ? panelExpansion(row.panelId!)
               : 1,
         ),
         section: row.section,
@@ -4330,46 +4071,50 @@ List<_ResolvedTableRow<GridAxisVariable>> _tableRowsWithFoldProgress(
       ),
 ];
 
-GridAxisVariable _scaledTableTrack(GridAxisVariable track, double factor) {
-  final size = track.size;
+LayoutSize _scaledTableTrack(LayoutSize track, double factor) {
+  final size = track.primary;
   final value = size.value * factor.clamp(0, 1);
-  return GridAxisVariable(
-    size: switch (size.unit) {
-      LayoutSizeUnit.fraction => LayoutSize.fr(value),
-      LayoutSizeUnit.pixels => LayoutSize.px(value),
-      LayoutSizeUnit.calculatedFraction => LayoutSize.calculatedFr(
-        value,
-        derivative: size.derivative ?? '',
-      ),
-    },
-  );
+  final scaled = switch (size.unit) {
+    LayoutSizeUnit.fraction => LayoutSize.fr(value),
+    LayoutSizeUnit.pixels => LayoutSize.px(value),
+    LayoutSizeUnit.calculatedFraction => LayoutSize.calculatedFr(
+      value,
+      derivative: size.derivative ?? '',
+    ),
+  };
+  final secondary = track.secondary;
+  return secondary == null
+      ? scaled
+      : LayoutSize.twoDimensional(primary: scaled, secondary: secondary);
 }
 
-String _tableGroupTitle(
+String _tablePanelTitle(
   TableLayout table,
-  _ResolvedTableRow<GridAxisVariable> row,
-  double Function(String groupId) groupExpansion,
+  _ResolvedTableRow row,
+  double Function(String panelId) panelExpansion,
 ) {
-  final groupId = row.groupId;
-  if (groupId == null) return row.label;
-  final group = _tableGroup(table, groupId);
-  if (group == null || !group.foldable) return row.label;
-  final marker = groupExpansion(groupId) > 0.5 ? '▾' : '▸';
+  final panelId = row.panelId;
+  if (panelId == null) return row.label;
+  final panel = _tablePanel(table, panelId);
+  if (panel == null || !panel.isFoldable) return row.label;
+  final marker = panelExpansion(panelId) > 0.5 ? '▾' : '▸';
   return '$marker ${row.label}';
 }
 
-List<_ResolvedTableRow<GridAxisVariable>> _tableLayoutRows(
+List<_ResolvedTableRow> _tableLayoutRows(
   TableLayout table,
   TableData data,
+  PanelConfig panelDefaults,
 ) {
   final configuredRows = table.tableConfig == null
-      ? const <_ResolvedTableRow<GridAxisVariable>>[]
+      ? const <_ResolvedTableRow>[]
       : _buildTableRows(
           table,
           data,
           sectionSize: _tableSeparatorSize,
           formatValue: _formatTableValue,
           includeValue: _tableValueIsPopulated,
+          panelDefaults: panelDefaults,
         );
   if (!table.includeUnconfiguredFields) {
     return configuredRows;
@@ -4377,8 +4122,8 @@ List<_ResolvedTableRow<GridAxisVariable>> _tableLayoutRows(
 
   final configuredKeys = {
     for (final row
-        in table.tableConfig?.rows.entries ??
-            const <MapEntry<String, TableRow<GridAxisVariable>>>[])
+        in table.tableConfig?.rowConfig.rows.entries ??
+            const <MapEntry<String, TableRow>>[])
       row.key,
   };
   final unconfiguredEntries =
@@ -4394,26 +4139,26 @@ List<_ResolvedTableRow<GridAxisVariable>> _tableLayoutRows(
     for (final entry in unconfiguredEntries)
       _ResolvedTableRow(
         key: entry.key,
-        groupId: table.unconfiguredFieldGroupId,
+        panelId: table.unconfiguredFieldPanelId,
         label: entry.key,
         value: entry.value,
         size: table.unconfiguredFieldSize,
       ),
   ];
-  final groupId = table.unconfiguredFieldGroupId;
-  if (groupId == null) {
+  final panelId = table.unconfiguredFieldPanelId;
+  if (panelId == null) {
     return [...configuredRows, ...unconfiguredRows];
   }
-  final groupKeys = {
+  final panelKeys = {
     for (final row
-        in table.tableConfig?.rows.entries ??
-            const <MapEntry<String, TableRow<GridAxisVariable>>>[])
-      if (row.value.groupId == groupId) row.key,
+        in table.tableConfig?.rowConfig.rows.entries ??
+            const <MapEntry<String, TableRow>>[])
+      if (row.value.panelId == panelId) row.key,
   };
-  final lastGroupRow = configuredRows.lastIndexWhere(
-    (row) => row.key != null && groupKeys.contains(row.key),
+  final lastPanelRow = configuredRows.lastIndexWhere(
+    (row) => row.key != null && panelKeys.contains(row.key),
   );
-  final insertionIndex = lastGroupRow < 0 ? 0 : lastGroupRow + 1;
+  final insertionIndex = lastPanelRow < 0 ? 0 : lastPanelRow + 1;
   return [
     ...configuredRows.take(insertionIndex),
     ...unconfiguredRows,
@@ -4423,55 +4168,64 @@ List<_ResolvedTableRow<GridAxisVariable>> _tableLayoutRows(
 
 List<_TableRowPlacement> _tableRowPlacements(
   TableLayout table,
-  List<_ResolvedTableRow<GridAxisVariable>> rows,
+  List<_ResolvedTableRow> rows,
+  PanelConfig panelDefaults,
   double availableWidth,
   double availableHeight,
 ) {
-  final groupRuns = <_TableGroupRun>[];
+  final panelRuns = <_TablePanelRun>[];
   for (final row in rows) {
-    if (groupRuns.isEmpty || groupRuns.last.groupId != row.groupId) {
-      final group = row.groupId == null
+    if (panelRuns.isEmpty || panelRuns.last.panelId != row.panelId) {
+      final panel = row.panelId == null
           ? null
-          : _tableGroup(table, row.groupId!);
-      groupRuns.add((
-        groupId: row.groupId,
-        rows: <_ResolvedTableRow<GridAxisVariable>>[row],
-        width: _tableGroupWidth(group, availableWidth),
+          : _tablePanel(table, row.panelId!);
+      final panelSize = _tablePanelSize(panelDefaults, panel);
+      panelRuns.add((
+        panelId: row.panelId,
+        rows: <_ResolvedTableRow>[row],
+        width: _tablePanelWidth(panelDefaults, panel, availableWidth),
+        height: panelSize?.secondary,
       ));
     } else {
-      groupRuns.last.rows.add(row);
+      panelRuns.last.rows.add(row);
     }
   }
 
-  final bands = <List<_TableGroupRun>>[];
+  final bands = <List<_TablePanelRun>>[];
   var usedWidth = 0.0;
-  for (final group in groupRuns) {
+  for (final panel in panelRuns) {
     if (bands.isEmpty ||
-        (bands.last.isNotEmpty && usedWidth + group.width > 1.000001)) {
+        (bands.last.isNotEmpty && usedWidth + panel.width > 1.000001)) {
       bands.add([]);
       usedWidth = 0;
     }
-    bands.last.add(group);
-    usedWidth += group.width;
+    bands.last.add(panel);
+    usedWidth += panel.width;
   }
 
   final bandTracks = <LayoutSize>[];
   for (var index = 0; index < bands.length; index += 1) {
-    if (index > 0) bandTracks.add(LayoutSize.px(table.groupGap));
+    if (index > 0) bandTracks.add(LayoutSize.px(table.panelGap));
+    final configuredHeight = _largestTableBandHeight([
+      for (final panel in bands[index])
+        if (panel.height != null) panel.height!,
+    ], availableHeight);
     final demand = bands[index]
         .map(
-          (group) => group.rows.fold<double>(
+          (panel) => panel.rows.fold<double>(
             0,
-            (sum, row) => sum + math.max(row.size.size.value, 0),
+            (sum, row) => sum + math.max(row.size.primary.value, 0),
           ),
         )
         .fold<double>(0, math.max);
-    bandTracks.add(LayoutSize.fr(math.max(demand, 0.000001)));
+    bandTracks.add(
+      configuredHeight?.primary ?? LayoutSize.fr(math.max(demand, 0.000001)),
+    );
   }
   final bandStops = _gridTrackStops(bandTracks, availableHeight);
   final horizontalGap = availableWidth <= 0
       ? 0.0
-      : (table.groupGap / availableWidth).clamp(0.0, 1.0);
+      : (table.panelGap / availableWidth).clamp(0.0, 1.0);
   final placements = <_TableRowPlacement>[];
   var trackIndex = 0;
   for (final band in bands) {
@@ -4483,16 +4237,16 @@ List<_TableRowPlacement> _tableRowPlacements(
       0,
     );
     var columnStart = 0.0;
-    for (final group in band) {
+    for (final panel in band) {
       final columnEnd = math
-          .min(columnStart + group.width * usableWidth, 1.0)
+          .min(columnStart + panel.width * usableWidth, 1.0)
           .toDouble();
       final rowStops = _gridTrackStops([
-        for (final row in group.rows) row.size.size,
+        for (final row in panel.rows) row.size.primary,
       ], availableHeight * (bandEnd - bandStart));
-      for (var index = 0; index < group.rows.length; index += 1) {
+      for (var index = 0; index < panel.rows.length; index += 1) {
         placements.add((
-          row: group.rows[index],
+          row: panel.rows[index],
           rowStart: bandStart + rowStops[index] * (bandEnd - bandStart),
           rowEnd: bandStart + rowStops[index + 1] * (bandEnd - bandStart),
           columnStart: columnStart,
@@ -4505,16 +4259,39 @@ List<_TableRowPlacement> _tableRowPlacements(
   return placements;
 }
 
-double _tableGroupWidth(
-  TableGroup<GridAxisVariable>? group,
+double _tablePanelWidth(
+  PanelConfig panelDefaults,
+  PanelConfig? panel,
   double availableWidth,
 ) {
-  final size = group?.size.size;
+  final size = _tablePanelSize(panelDefaults, panel)?.primary;
   if (size == null) return 1;
   final width = size.unit == LayoutSizeUnit.pixels
       ? size.value / math.max(availableWidth, 1)
       : _gridTrackFractionValue(size);
   return width.clamp(0.000001, 1.0);
+}
+
+LayoutSize? _tablePanelSize(PanelConfig panelDefaults, PanelConfig? panel) =>
+    panel == null ? null : panel.size ?? panelDefaults.foldedPanelSize;
+
+LayoutSize? _largestTableBandHeight(
+  List<LayoutSize> heights,
+  double availableHeight,
+) {
+  if (heights.isEmpty) return null;
+  final safeHeight = math.max(availableHeight, 1);
+  double demand(LayoutSize size) {
+    final scalar = size.primary;
+    return scalar.unit == LayoutSizeUnit.pixels
+        ? scalar.value / safeHeight
+        : _gridTrackFractionValue(scalar);
+  }
+
+  return heights.reduce(
+    (largest, candidate) =>
+        demand(candidate) > demand(largest) ? candidate : largest,
+  );
 }
 
 double _tablePlacementColumn(_TableRowPlacement placement, double column) =>
@@ -4661,19 +4438,17 @@ List<Offset> _tableCellPoints(
   _tableLayoutPoint(points, row: rowEnd, column: columnStart),
 ];
 
-GridAxisVariable _tableSeparatorSize(GridAxisVariable fieldSize) {
+LayoutSize _tableSeparatorSize(LayoutSize fieldSize) {
   const separatorScale = 0.5;
-  final size = fieldSize.size;
-  return GridAxisVariable(
-    size: switch (size.unit) {
-      LayoutSizeUnit.fraction => LayoutSize.fr(size.value * separatorScale),
-      LayoutSizeUnit.pixels => LayoutSize.px(size.value * separatorScale),
-      LayoutSizeUnit.calculatedFraction => LayoutSize.calculatedFr(
-        size.value * separatorScale,
-        derivative: size.derivative ?? '',
-      ),
-    },
-  );
+  final size = fieldSize.secondary ?? fieldSize.primary;
+  return switch (size.unit) {
+    LayoutSizeUnit.fraction => LayoutSize.fr(size.value * separatorScale),
+    LayoutSizeUnit.pixels => LayoutSize.px(size.value * separatorScale),
+    LayoutSizeUnit.calculatedFraction => LayoutSize.calculatedFr(
+      size.value * separatorScale,
+      derivative: size.derivative ?? '',
+    ),
+  };
 }
 
 Map<String, Object?> _nodeInfoValues(ResolvedVaultNode selectedNode) {
@@ -4772,7 +4547,7 @@ void _paintTextInTableCell(
 
 String _formatTableValue(Object? value) {
   if (value == null) return '—';
-  if (value is VaultNodeUiComponent) {
+  if (value is VaultNode) {
     final label = value.label?.trim();
     return label == null || label.isEmpty
         ? value.path
@@ -4910,7 +4685,7 @@ List<double> _perspectiveColumnStops(
   final left = _perspectiveGridPoint(points, grid, row, 0);
   final right = _perspectiveGridPoint(points, grid, row, 1);
   return _gridTrackStops([
-    for (final column in grid.columnsConfig.values) column.size,
+    for (final column in grid.columnsConfig.values) column,
   ], (right - left).distance);
 }
 
@@ -4919,11 +4694,12 @@ bool _hasPoint(List<Offset> points, int index) {
 }
 
 List<double> _gridTrackStops(List<LayoutSize> tracks, double availablePixels) {
+  final primaryTracks = [for (final track in tracks) track.primary];
   final safePixels = math.max(availablePixels, 0);
-  final fixedPixels = tracks
+  final fixedPixels = primaryTracks
       .where((track) => track.unit == LayoutSizeUnit.pixels)
       .fold<double>(0, (sum, track) => sum + math.max(track.value, 0));
-  final fractionTotal = tracks
+  final fractionTotal = primaryTracks
       .where((track) => track.unit != LayoutSizeUnit.pixels)
       .fold<double>(
         0,
@@ -4931,7 +4707,7 @@ List<double> _gridTrackStops(List<LayoutSize> tracks, double availablePixels) {
       );
   final fractionPixels = math.max(safePixels - fixedPixels, 0);
   final rawSizes = [
-    for (final track in tracks)
+    for (final track in primaryTracks)
       track.unit == LayoutSizeUnit.pixels
           ? math.max(track.value, 0)
           : fractionTotal == 0
@@ -5111,7 +4887,7 @@ List<Offset>? _resolvePerspectiveGridAreaCorners(
   final rightLength =
       (points[grid.bottomEndIndex] - points[grid.topEndIndex]).distance;
   final rowStops = _gridTrackStops([
-    for (final row in grid.rowsConfig.values) row.size,
+    for (final row in grid.rowsConfig.values) row,
   ], (leftLength + rightLength) / 2);
   if (rowStops.length < 2) return null;
 

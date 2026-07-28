@@ -4,7 +4,7 @@ import 'package:flame/components.dart';
 import 'package:flutter/painting.dart';
 
 import '../constants/typography.dart';
-import '../models/layout.dart';
+import '../models/layout/layout.dart';
 
 /// Flame renderer for Neo4j classification labels in table value cells.
 ///
@@ -26,7 +26,9 @@ class ClassificationLabelComponent extends PositionComponent {
     required Iterable<String> labels,
     required Rect bounds,
     required double fontSize,
-    required Layout layout,
+    required LabelConfig config,
+    required LayoutTextConfig textConfig,
+    required LayoutContext context,
   }) {
     final values = labels
         .map((label) => label.trim())
@@ -36,12 +38,13 @@ class ClassificationLabelComponent extends PositionComponent {
       return const [];
     }
 
+    final resolvedFontSize = textConfig.fontSize ?? fontSize;
     final tagHeight = math
-        .min(math.max(fontSize * 1.8, 16), bounds.height - 4)
+        .min(math.max(resolvedFontSize * 1.8, 16), bounds.height - 4)
         .toDouble();
     if (tagHeight < 8) return const [];
     final pointWidth = tagHeight * 0.42;
-    final horizontalPadding = math.max(fontSize * 0.55, 4);
+    final horizontalPadding = math.max(resolvedFontSize * 0.55, 4);
     const gap = 5.0;
     var x = bounds.left + 6;
     var y = bounds.top + 4;
@@ -50,17 +53,28 @@ class ClassificationLabelComponent extends PositionComponent {
     final frames = <ClassificationLabelFrame>[];
 
     for (final label in values) {
+      final labelContext = context.withCurrentLabel(label);
+      final style = config.resolveWithDefaults(labelContext).style;
       final availableTextWidth = math
-          .max(bounds.width - 12 - pointWidth - horizontalPadding * 2, fontSize)
+          .max(
+            bounds.width - 12 - pointWidth - horizontalPadding * 2,
+            resolvedFontSize,
+          )
           .toDouble();
       final textPainter = TextPainter(
         text: TextSpan(
           text: label,
           style: TextStyle(
-            fontFamily: SevilleTypography.fontFamily,
-            color: layout.classificationLabelTextColor,
-            fontSize: fontSize,
-            fontWeight: FontWeight.w700,
+            fontFamily: textConfig.fontFamily ?? SevilleTypography.fontFamily,
+            color: textConfig.resolveColor(style.color!),
+            fontSize: resolvedFontSize,
+            fontWeight: textConfig.fontWeight ?? FontWeight.w700,
+            fontStyle: textConfig.fontStyle,
+            letterSpacing: textConfig.letterSpacing,
+            wordSpacing: textConfig.wordSpacing,
+            height: textConfig.height,
+            shadows: textConfig.effects,
+            fontFeatures: textConfig.fontFeatures,
           ),
         ),
         maxLines: 1,
@@ -81,14 +95,11 @@ class ClassificationLabelComponent extends PositionComponent {
       frames.add(
         ClassificationLabelFrame(
           label: label,
-          path: _paintTag(
-            canvas,
-            label,
-            tagBounds,
-            pointWidth,
-            textPainter,
-            layout,
-          ),
+          hoverStyle: config
+              .resolveWithDefaults(labelContext.withLabelHighlighted(true))
+              .style
+              .borderStyle,
+          path: _paintTag(canvas, tagBounds, pointWidth, textPainter, style),
         ),
       );
       x += tagWidth + gap;
@@ -98,11 +109,10 @@ class ClassificationLabelComponent extends PositionComponent {
 
   Path _paintTag(
     Canvas canvas,
-    String label,
     Rect bounds,
     double pointWidth,
     TextPainter textPainter,
-    Layout layout,
+    LabelStyle style,
   ) {
     final path = Path()
       ..moveTo(bounds.left, bounds.center.dy)
@@ -111,22 +121,19 @@ class ClassificationLabelComponent extends PositionComponent {
       ..lineTo(bounds.right, bounds.bottom)
       ..lineTo(bounds.left + pointWidth, bounds.bottom)
       ..close();
-    final palette = layout.classificationLabelColors.isEmpty
-        ? const [Color(0xFF4E79A7)]
-        : layout.classificationLabelColors;
-    final color = palette[_stableColorIndex(label, palette.length)];
     canvas.drawPath(
       path,
       Paint()
-        ..color = color
+        ..color = style.color!
         ..style = PaintingStyle.fill,
     );
-    if (layout.classificationLabelBorderWidth > 0) {
+    final borderStyle = style.borderStyle;
+    if (borderStyle != null && borderStyle.strokeWidth > 0) {
       canvas.drawPath(
         path,
         Paint()
-          ..color = layout.classificationLabelBorderColor
-          ..strokeWidth = layout.classificationLabelBorderWidth
+          ..color = borderStyle.color
+          ..strokeWidth = borderStyle.strokeWidth
           ..style = PaintingStyle.stroke,
       );
     }
@@ -134,7 +141,7 @@ class ClassificationLabelComponent extends PositionComponent {
       Offset(bounds.left + pointWidth * 0.58, bounds.center.dy),
       math.max(bounds.height * 0.075, 1.2),
       Paint()
-        ..color = layout.classificationLabelHoleColor
+        ..color = style.holeColor!
         ..style = PaintingStyle.fill,
     );
     final textCenter = Offset(
@@ -174,16 +181,13 @@ class ClassificationLabelComponent extends PositionComponent {
 }
 
 class ClassificationLabelFrame {
-  const ClassificationLabelFrame({required this.label, required this.path});
+  const ClassificationLabelFrame({
+    required this.label,
+    required this.path,
+    this.hoverStyle,
+  });
 
   final String label;
   final Path path;
-}
-
-int _stableColorIndex(String value, int colorCount) {
-  var hash = 0;
-  for (final codeUnit in value.codeUnits) {
-    hash = (hash * 31 + codeUnit) & 0x7FFFFFFF;
-  }
-  return hash % colorCount;
+  final GuideStyle? hoverStyle;
 }

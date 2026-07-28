@@ -4,14 +4,26 @@ import 'dart:ui';
 import 'package:seville_proto/seville_proto.dart'
     hide NodeSearchFilter, NodeSearchParameter;
 
-import 'graph_traverse_type.dart';
-import 'node_search.dart';
+part 'graph_traverse_type.dart';
+part 'label.dart';
+part 'landscape_xl_layout.dart';
+part 'layout_condition.dart';
+part 'node_config.dart';
+part 'node_search.dart';
+part 'panel.dart';
+part 'search_layout.dart';
+part 'table_config.dart';
+part 'table_layout.dart';
+part 'text.dart';
 
 abstract class Layout {
-  const Layout.fromAxes({
-    this.size = const GridAxisVariable(size: LayoutSize.fr(1)),
-    this.axes = const [0, 0],
+  const Layout({
+    this.size = const LayoutSize.fr(1),
     this.aliases = const [],
+    this.label = LabelDefaults.config,
+    this.text = LayoutTextDefaults.config,
+    this.node = NodeDefaults.config,
+    this.panel = const PanelConfig(),
     this.attributes = const [],
     this.backgrounds = const [],
     this.layouts = const {},
@@ -24,39 +36,14 @@ abstract class Layout {
     this.layoutGap = 0,
     this.layoutBorderWidth,
     this.backgroundDefaults = const [],
-    this.inactiveNodeBackgroundOpacity = 0.1,
-    this.activeNodeBackgroundOpacity = 1,
-    this.virtualNodeBackgroundOpacity = 0.5,
-    this.nodeHoverBorderStyle = const GuideStyle(
-      color: Color(0xFF2196F3),
-      strokeWidth: 4,
-    ),
-    this.nodeSlugPrefix = '',
-    this.nodeSlugTransform = const TextTransform.none(),
-    this.nodeSlugSuffix = '',
-    this.slugColor = const Color(0xFFFFD54F),
-    this.classificationLabelColors = const [
-      Color(0xFF4E79A7),
-      Color(0xFF59A14F),
-      Color(0xFFF28E2B),
-      Color(0xFFE15759),
-      Color(0xFFB07AA1),
-      Color(0xFF76B7B2),
-    ],
-    this.classificationLabelBorderColor = const Color(0xFFE8D59F),
-    this.classificationLabelHoleColor = const Color(0xFF27251F),
-    this.classificationLabelTextColor = const Color(0xFFFFF8E7),
-    this.classificationLabelBorderWidth = 1,
-    this.classificationLabelHoverBorderStyle = const GuideStyle(
-      color: Color(0xFFFFD54F),
-      strokeWidth: 4,
-    ),
-    this.columnFractions,
-    this.rowFractions,
-    this.depthFractions,
-    this.fractionSpans,
-    this.subLayouts = const {},
-    this.elements = const {},
+    this.inactiveNodeBackgroundOpacity = NodeDefaults.inactiveBackgroundOpacity,
+    this.activeNodeBackgroundOpacity = NodeDefaults.activeBackgroundOpacity,
+    this.virtualNodeBackgroundOpacity = NodeDefaults.virtualBackgroundOpacity,
+    this.nodeHoverBorderStyle = NodeDefaults.hoverBorderStyle,
+    this.nodeSlugPrefix = NodeDefaults.slugPrefix,
+    this.nodeSlugTransform = NodeDefaults.slugTransform,
+    this.nodeSlugSuffix = NodeDefaults.slugSuffix,
+    this.slugColor = NodeDefaults.slugColor,
   }) : assert(layoutPadding >= 0),
        assert(layoutGap >= 0),
        assert(layoutBorderWidth == null || layoutBorderWidth >= 0),
@@ -69,13 +56,19 @@ abstract class Layout {
        ),
        assert(
          virtualNodeBackgroundOpacity >= 0 && virtualNodeBackgroundOpacity <= 1,
-       ),
-       assert(classificationLabelBorderWidth >= 0);
+       );
 
-  /// Main-axis size when this layout is a child of a row or column.
-  final GridAxisVariable size;
-  final List<int> axes;
+  /// Size interpreted by the owning renderer.
+  ///
+  /// Row and column composition use the primary dimension as their main-axis
+  /// track. Renderers that support two-dimensional items may additionally use
+  /// [LayoutSize.secondary].
+  final LayoutSize size;
   final List<String> aliases;
+  final LabelConfig label;
+  final LayoutTextConfig text;
+  final NodeConfig node;
+  final PanelConfig panel;
   final List<LayoutAttribute> attributes;
   final List<LayoutBackground> backgrounds;
 
@@ -103,31 +96,13 @@ abstract class Layout {
   final TextTransform nodeSlugTransform;
   final String nodeSlugSuffix;
   final Color slugColor;
-  final List<Color> classificationLabelColors;
-  final Color classificationLabelBorderColor;
-  final Color classificationLabelHoleColor;
-  final Color classificationLabelTextColor;
-  final double classificationLabelBorderWidth;
-  final GuideStyle classificationLabelHoverBorderStyle;
-  final List<double>? columnFractions;
-  final List<double>? rowFractions;
-  final List<double>? depthFractions;
-  final List<double>? fractionSpans;
-  final Map<String, SubLayout> subLayouts;
-  final Map<String, LayoutElement> elements;
-
-  LayoutDimensions get dimensions => LayoutDimensions.fromAxes(
-    axes,
-    columnFractions: columnFractions,
-    rowFractions: rowFractions,
-    depthFractions: depthFractions,
-    fractionSpans: fractionSpans,
-  );
-
-  int get dimensionCount => axes.length;
 
   bool supportsInputSource(LayoutInputSource source) =>
       inputSources.contains(source);
+
+  NodeConfig resolveNodeConfig(LayoutContext context) => node.resolve(context);
+  LabelConfig resolveLabelConfig(LayoutContext context) =>
+      label.resolveWithDefaults(context);
 
   List<LayoutBackground> resolveBackgrounds([Layout? inheritedDefaults]) {
     if (backgrounds.isNotEmpty) return backgrounds;
@@ -243,6 +218,8 @@ class LayoutContext {
     this.selectedNodePath,
     this.selectedNodePaths = const [],
     this.highlightedNodePaths = const [],
+    this.labelHighlighted = false,
+    this.currentLabel,
     this.currentNodePath,
     this.activeNodeSlugs = const [],
     this.activeNodePaths = const [],
@@ -256,6 +233,8 @@ class LayoutContext {
   final String? selectedNodePath;
   final List<String> selectedNodePaths;
   final List<String> highlightedNodePaths;
+  final bool labelHighlighted;
+  final String? currentLabel;
   final String? currentNodePath;
   final List<String> activeNodeSlugs;
   final List<String> activeNodePaths;
@@ -273,131 +252,45 @@ class LayoutContext {
       selectedNodePath: selectedNodePath,
       selectedNodePaths: selectedNodePaths,
       highlightedNodePaths: highlightedNodePaths,
+      labelHighlighted: labelHighlighted,
+      currentLabel: currentLabel,
       currentNodePath: path,
       activeNodeSlugs: activeNodeSlugs,
       activeNodePaths: activeNodePaths,
       layoutPath: layoutPath,
     );
   }
-}
 
-abstract class LayoutCondition {
-  const LayoutCondition._({this.exclude = const {}});
-
-  factory LayoutCondition(
-    bool Function(LayoutContext context) test, {
-    Set<String> exclude = const {},
-  }) {
-    return _LayoutPredicateCondition(test, exclude: exclude);
+  LayoutContext withLabelHighlighted(bool value) {
+    return LayoutContext(
+      inputSource: inputSource,
+      selectedNodePath: selectedNodePath,
+      selectedNodePaths: selectedNodePaths,
+      highlightedNodePaths: highlightedNodePaths,
+      labelHighlighted: value,
+      currentLabel: currentLabel,
+      currentNodePath: currentNodePath,
+      activeNodeSlugs: activeNodeSlugs,
+      activeNodePaths: activeNodePaths,
+      layoutPath: layoutPath,
+    );
   }
 
-  static const never = _LayoutNeverCondition();
-
-  const factory LayoutCondition.noSelectedNode() = _NoSelectedNodesCondition;
-
-  const factory LayoutCondition.hasActiveNodes({Set<String> exclude}) =
-      _HasActiveNodesCondition;
-
-  const factory LayoutCondition.not(LayoutCondition condition) =
-      _LayoutNotCondition;
-
-  const factory LayoutCondition.nodeHighlighted({String? nodePath}) =
-      _LayoutNodeHighlightedCondition;
-
-  const factory LayoutCondition.inputSource(LayoutInputSource source) =
-      _LayoutInputSourceCondition;
-
-  final Set<String> exclude;
-
-  Set<String> get normalizedExclude => {
-    for (final path in exclude) _normalizeLayoutPath(path),
-  };
-
-  bool isActive(LayoutContext context);
-}
-
-class _LayoutPredicateCondition extends LayoutCondition {
-  const _LayoutPredicateCondition(this.test, {super.exclude = const {}})
-    : super._();
-
-  final bool Function(LayoutContext context) test;
-
-  @override
-  bool isActive(LayoutContext context) => test(context);
-}
-
-class _LayoutNeverCondition extends LayoutCondition {
-  const _LayoutNeverCondition() : super._();
-
-  @override
-  bool isActive(LayoutContext context) => false;
-}
-
-class _LayoutNotCondition extends LayoutCondition {
-  const _LayoutNotCondition(this.condition) : super._();
-
-  final LayoutCondition condition;
-
-  @override
-  bool isActive(LayoutContext context) => !condition.isActive(context);
-}
-
-class _LayoutInputSourceCondition extends LayoutCondition {
-  const _LayoutInputSourceCondition(this.source) : super._();
-
-  final LayoutInputSource source;
-
-  @override
-  bool isActive(LayoutContext context) => context.inputSource == source;
-}
-
-class _LayoutNodeHighlightedCondition extends LayoutCondition {
-  const _LayoutNodeHighlightedCondition({this.nodePath}) : super._();
-
-  final String? nodePath;
-
-  @override
-  bool isActive(LayoutContext context) {
-    final path = nodePath ?? context.currentNodePath;
-    if (path == null) return false;
-    final normalized = _normalizeLayoutPath(path);
-    return context.highlightedNodePaths.any(
-      (candidate) => _normalizeLayoutPath(candidate) == normalized,
+  LayoutContext withCurrentLabel(String? label) {
+    return LayoutContext(
+      inputSource: inputSource,
+      selectedNodePath: selectedNodePath,
+      selectedNodePaths: selectedNodePaths,
+      highlightedNodePaths: highlightedNodePaths,
+      labelHighlighted: labelHighlighted,
+      currentLabel: label,
+      currentNodePath: currentNodePath,
+      activeNodeSlugs: activeNodeSlugs,
+      activeNodePaths: activeNodePaths,
+      layoutPath: layoutPath,
     );
   }
 }
-
-class _HasActiveNodesCondition extends LayoutCondition {
-  const _HasActiveNodesCondition({super.exclude = const {}}) : super._();
-
-  @override
-  bool isActive(LayoutContext context) {
-    final excluded = normalizedExclude;
-    return context.resolvedActiveNodePaths.any(
-      (path) => !excluded.contains(_normalizeLayoutPath(path)),
-    );
-  }
-}
-
-class _NoSelectedNodesCondition extends LayoutCondition {
-  const _NoSelectedNodesCondition() : super._();
-
-  @override
-  bool isActive(LayoutContext context) => context.selectedNodePaths.isEmpty;
-}
-
-String _normalizeLayoutPath(String path) {
-  return path
-      .trim()
-      .replaceAll(r'\', '/')
-      .toLowerCase()
-      .replaceAll(RegExp(r'/+'), '/')
-      .replaceFirst(RegExp(r'\.md$'), '')
-      .replaceFirst(RegExp(r'^/+'), '')
-      .replaceFirst(RegExp(r'/+$'), '');
-}
-
-typedef SubLayout = ({Layout layout, LayoutArea area});
 
 abstract final class LayoutKey {
   static const innerBorder = 'inner-border';
@@ -479,11 +372,6 @@ class PlaneLayoutStyle {
   final GuideStyle? radiusStyle;
   final Color? centerPointColor;
   final double centerPointRadius;
-}
-
-abstract final class LayoutFraction {
-  /// Consumes the fraction span left after all fixed fractions are allocated.
-  static const fullSpan = double.infinity;
 }
 
 abstract final class CoordAlias {
@@ -574,8 +462,6 @@ class PointConnection {
 
 enum GuideLinePattern { solid, dashed, dotted }
 
-enum GuideGridRenderMode { lines, intersections }
-
 class TextTransform {
   const TextTransform.none() : _kind = _TextTransformKind.none;
 
@@ -636,8 +522,8 @@ abstract final class LayoutHttpStatus {
   static const notFound = 404;
 }
 
-class VaultNodeUiComponent {
-  const VaultNodeUiComponent({
+class VaultNode {
+  const VaultNode({
     required this.path,
     this.color = const LayoutColor.fromHex('939393', opacity: 0.32),
     this.label,
@@ -652,10 +538,7 @@ class VaultNodeUiComponent {
   final List<LayoutBackground> backgrounds;
 }
 
-@Deprecated('Use VaultNodeUiComponent for layout/UI config.')
-typedef VaultNode = VaultNodeUiComponent;
-
-class ResolvedVaultNode extends VaultNodeUiComponent {
+class ResolvedVaultNode extends VaultNode {
   const ResolvedVaultNode({
     required super.path,
     super.color,
@@ -756,62 +639,21 @@ abstract class LayoutGuide extends Layout {
     super.inactiveNodeBackgroundOpacity,
     super.activeNodeBackgroundOpacity,
     super.virtualNodeBackgroundOpacity,
+    super.label,
+    super.text,
+    super.node,
+    super.panel,
     super.nodeHoverBorderStyle,
     super.nodeSlugPrefix,
     super.nodeSlugTransform,
     super.nodeSlugSuffix,
     super.slugColor,
-    super.classificationLabelColors,
-    super.classificationLabelBorderColor,
-    super.classificationLabelHoleColor,
-    super.classificationLabelTextColor,
-    super.classificationLabelBorderWidth,
-    super.classificationLabelHoverBorderStyle,
     super.visibility,
     super.inputSources,
-  }) : super.fromAxes();
+  }) : super();
 
   final GuideStyle style;
   final bool visible;
-}
-
-class GuideGrid extends LayoutGuide {
-  const GuideGrid({
-    required super.style,
-    super.visible,
-    this.drawColumns = true,
-    this.drawRows = true,
-    this.renderMode = GuideGridRenderMode.lines,
-    this.intersectionSize = 2,
-    super.aliases,
-    super.attributes = const [LayoutAttribute.rectangular],
-    super.backgrounds,
-    super.layoutPadding,
-    super.layoutGap,
-    super.layoutBorderWidth,
-    super.backgroundDefaults,
-    super.inactiveNodeBackgroundOpacity,
-    super.activeNodeBackgroundOpacity,
-    super.virtualNodeBackgroundOpacity,
-    super.nodeHoverBorderStyle,
-    super.nodeSlugPrefix,
-    super.nodeSlugTransform,
-    super.nodeSlugSuffix,
-    super.slugColor,
-    super.classificationLabelColors,
-    super.classificationLabelBorderColor,
-    super.classificationLabelHoleColor,
-    super.classificationLabelTextColor,
-    super.classificationLabelBorderWidth,
-    super.classificationLabelHoverBorderStyle,
-    super.visibility,
-    super.inputSources,
-  });
-
-  final bool drawColumns;
-  final bool drawRows;
-  final GuideGridRenderMode renderMode;
-  final double intersectionSize;
 }
 
 enum LayoutCircleBoundary { inner, outer }
@@ -831,17 +673,15 @@ class CirleLayout extends LayoutGuide {
     super.inactiveNodeBackgroundOpacity,
     super.activeNodeBackgroundOpacity,
     super.virtualNodeBackgroundOpacity,
+    super.label,
+    super.text,
+    super.node,
+    super.panel,
     super.nodeHoverBorderStyle,
     super.nodeSlugPrefix,
     super.nodeSlugTransform,
     super.nodeSlugSuffix,
     super.slugColor,
-    super.classificationLabelColors,
-    super.classificationLabelBorderColor,
-    super.classificationLabelHoleColor,
-    super.classificationLabelTextColor,
-    super.classificationLabelBorderWidth,
-    super.classificationLabelHoverBorderStyle,
     super.visibility,
     super.inputSources,
   });
@@ -1301,31 +1141,65 @@ class LayoutPathPadding {
 enum LayoutSizeUnit { fraction, pixels, calculatedFraction }
 
 class LayoutSize {
-  const LayoutSize.fr(this.value)
-    : unit = LayoutSizeUnit.fraction,
-      derivative = null;
+  const LayoutSize.fr(double value)
+    : _value = value,
+      _unit = LayoutSizeUnit.fraction,
+      _derivative = null,
+      _primary = null,
+      _secondary = null;
 
-  const LayoutSize.px(this.value)
-    : unit = LayoutSizeUnit.pixels,
-      derivative = null;
+  const LayoutSize.px(double value)
+    : _value = value,
+      _unit = LayoutSizeUnit.pixels,
+      _derivative = null,
+      _primary = null,
+      _secondary = null;
 
-  const LayoutSize.pt(this.value)
-    : unit = LayoutSizeUnit.pixels,
-      derivative = null;
+  const LayoutSize.pt(double value)
+    : _value = value,
+      _unit = LayoutSizeUnit.pixels,
+      _derivative = null,
+      _primary = null,
+      _secondary = null;
 
-  const LayoutSize.calculatedFr(this.value, {required this.derivative})
-    : unit = LayoutSizeUnit.calculatedFraction;
+  const LayoutSize.calculatedFr(double value, {required String derivative})
+    : _value = value,
+      _unit = LayoutSizeUnit.calculatedFraction,
+      // Keep the public parameter name free of private storage vocabulary.
+      // ignore: prefer_initializing_formals
+      _derivative = derivative,
+      _primary = null,
+      _secondary = null;
 
-  final double value;
-  final LayoutSizeUnit unit;
-  final String? derivative;
-}
+  /// A renderer-interpreted two-dimensional size.
+  ///
+  /// The owning renderer decides which physical or projected axes correspond
+  /// to [primary] and [secondary]. Both dimensions must be scalar sizes.
+  const LayoutSize.twoDimensional({
+    required LayoutSize primary,
+    required LayoutSize secondary,
+  }) : _value = null,
+       _unit = null,
+       _derivative = null,
+       // Keep the public dimension name independent of private storage.
+       // ignore: prefer_initializing_formals
+       _primary = primary,
+       // Keep the public dimension name independent of private storage.
+       // ignore: prefer_initializing_formals
+       _secondary = secondary;
 
-class GridAxisVariable {
-  const GridAxisVariable({required this.size, this.aliases = const []});
+  final double? _value;
+  final LayoutSizeUnit? _unit;
+  final String? _derivative;
+  final LayoutSize? _primary;
+  final LayoutSize? _secondary;
 
-  final LayoutSize size;
-  final List<String> aliases;
+  LayoutSize get primary => _primary?.primary ?? this;
+  LayoutSize? get secondary => _secondary;
+  bool get isTwoDimensional => secondary != null;
+  double get value => _primary?.value ?? _value!;
+  LayoutSizeUnit get unit => _primary?.unit ?? _unit!;
+  String? get derivative => _primary?.derivative ?? _derivative;
 }
 
 /// Shared ordered track contract for layouts that present content as a table.
@@ -1333,8 +1207,8 @@ class GridAxisVariable {
 /// Concrete layouts keep their own content model: radial areas remain radial,
 /// while node-property fields remain node-property fields.
 mixin TableLayoutMixin on Layout {
-  Map<String, GridAxisVariable> get tableRowsConfig;
-  Map<String, GridAxisVariable> get tableColumnsConfig;
+  Map<String, LayoutSize> get tableRowsConfig;
+  Map<String, LayoutSize> get tableColumnsConfig;
   GuideStyle? get tableGuideStyle;
 }
 
@@ -1350,11 +1224,11 @@ class PerspectiveGridArea extends Layout {
     this.columnOffset = 0,
     this.rowSpan = 1,
     this.columnSpan = 1,
-    this.node,
+    this.vaultNode,
     this.defaultPath,
     this.fillColor,
     this.borderStyle,
-    this.label,
+    this.caption,
     this.labelColor = const Color(0xFFFFF8E7),
     this.labelSize = 12,
     super.aliases,
@@ -1367,20 +1241,18 @@ class PerspectiveGridArea extends Layout {
     super.inactiveNodeBackgroundOpacity,
     super.activeNodeBackgroundOpacity,
     super.virtualNodeBackgroundOpacity,
+    super.label,
+    super.text,
+    super.node,
+    super.panel,
     super.nodeHoverBorderStyle,
     super.nodeSlugPrefix,
     super.nodeSlugTransform,
     super.nodeSlugSuffix,
     super.slugColor,
-    super.classificationLabelColors,
-    super.classificationLabelBorderColor,
-    super.classificationLabelHoleColor,
-    super.classificationLabelTextColor,
-    super.classificationLabelBorderWidth,
-    super.classificationLabelHoverBorderStyle,
     super.visibility,
     super.inputSources,
-  }) : super.fromAxes();
+  }) : super();
 
   final String row;
   final String column;
@@ -1388,11 +1260,11 @@ class PerspectiveGridArea extends Layout {
   final double columnOffset;
   final double rowSpan;
   final double columnSpan;
-  final VaultNodeUiComponent? node;
+  final VaultNode? vaultNode;
   final String? defaultPath;
   final Color? fillColor;
   final GuideStyle? borderStyle;
-  final String? label;
+  final String? caption;
   final Color labelColor;
   final double labelSize;
 }
@@ -1417,23 +1289,21 @@ class PerspectiveGridLayout extends Layout {
     super.inactiveNodeBackgroundOpacity,
     super.activeNodeBackgroundOpacity,
     super.virtualNodeBackgroundOpacity,
+    super.label,
+    super.text,
+    super.node,
+    super.panel,
     super.nodeHoverBorderStyle,
     super.nodeSlugPrefix,
     super.nodeSlugTransform,
     super.nodeSlugSuffix,
     super.slugColor,
-    super.classificationLabelColors,
-    super.classificationLabelBorderColor,
-    super.classificationLabelHoleColor,
-    super.classificationLabelTextColor,
-    super.classificationLabelBorderWidth,
-    super.classificationLabelHoverBorderStyle,
     super.visibility,
     super.inputSources,
-  }) : super.fromAxes();
+  }) : super();
 
-  final Map<String, GridAxisVariable> rowsConfig;
-  final Map<String, GridAxisVariable> columnsConfig;
+  final Map<String, LayoutSize> rowsConfig;
+  final Map<String, LayoutSize> columnsConfig;
   final Map<String, PerspectiveGridArea> areas;
   final GuideStyle guideStyle;
 
@@ -1460,20 +1330,18 @@ class ColumnLayout extends Layout {
     super.inactiveNodeBackgroundOpacity,
     super.activeNodeBackgroundOpacity,
     super.virtualNodeBackgroundOpacity,
+    super.label,
+    super.text,
+    super.node,
+    super.panel,
     super.nodeHoverBorderStyle,
     super.nodeSlugPrefix,
     super.nodeSlugTransform,
     super.nodeSlugSuffix,
     super.slugColor,
-    super.classificationLabelColors,
-    super.classificationLabelBorderColor,
-    super.classificationLabelHoleColor,
-    super.classificationLabelTextColor,
-    super.classificationLabelBorderWidth,
-    super.classificationLabelHoverBorderStyle,
     super.visibility,
     super.inputSources,
-  }) : super.fromAxes(attributes: const [LayoutAttribute.rectangular]);
+  }) : super(attributes: const [LayoutAttribute.rectangular]);
 }
 
 /// Horizontal composition whose children retain their identity in [layouts].
@@ -1490,20 +1358,18 @@ class RowLayout extends Layout {
     super.inactiveNodeBackgroundOpacity,
     super.activeNodeBackgroundOpacity,
     super.virtualNodeBackgroundOpacity,
+    super.label,
+    super.text,
+    super.node,
+    super.panel,
     super.nodeHoverBorderStyle,
     super.nodeSlugPrefix,
     super.nodeSlugTransform,
     super.nodeSlugSuffix,
     super.slugColor,
-    super.classificationLabelColors,
-    super.classificationLabelBorderColor,
-    super.classificationLabelHoleColor,
-    super.classificationLabelTextColor,
-    super.classificationLabelBorderWidth,
-    super.classificationLabelHoverBorderStyle,
     super.visibility,
     super.inputSources,
-  }) : super.fromAxes(attributes: const [LayoutAttribute.rectangular]);
+  }) : super(attributes: const [LayoutAttribute.rectangular]);
 }
 
 /// Paintable leaf used inside row/column composition.
@@ -1512,7 +1378,7 @@ class PanelLayout extends Layout {
     super.size,
     this.fillColor,
     this.borderStyle,
-    this.label,
+    this.caption,
     this.labelColor = const Color(0xFFFFF8E7),
     this.labelSize = 12,
     super.aliases,
@@ -1524,23 +1390,21 @@ class PanelLayout extends Layout {
     super.inactiveNodeBackgroundOpacity,
     super.activeNodeBackgroundOpacity,
     super.virtualNodeBackgroundOpacity,
+    super.label,
+    super.text,
+    super.node,
+    super.panel,
     super.nodeHoverBorderStyle,
     super.nodeSlugPrefix,
     super.nodeSlugTransform,
     super.nodeSlugSuffix,
     super.slugColor,
-    super.classificationLabelColors,
-    super.classificationLabelBorderColor,
-    super.classificationLabelHoleColor,
-    super.classificationLabelTextColor,
-    super.classificationLabelBorderWidth,
-    super.classificationLabelHoverBorderStyle,
     super.visibility,
     super.inputSources,
-  }) : super.fromAxes(attributes: const [LayoutAttribute.rectangular]);
+  }) : super(attributes: const [LayoutAttribute.rectangular]);
   final Color? fillColor;
   final GuideStyle? borderStyle;
-  final String? label;
+  final String? caption;
   final Color labelColor;
   final double labelSize;
 }
@@ -1569,18 +1433,16 @@ class LayoutPath extends Layout {
     super.inactiveNodeBackgroundOpacity,
     super.activeNodeBackgroundOpacity,
     super.virtualNodeBackgroundOpacity,
+    super.label,
+    super.text,
+    super.node,
+    super.panel,
     super.nodeHoverBorderStyle,
     super.nodeSlugPrefix,
     super.nodeSlugTransform,
     super.nodeSlugSuffix,
     super.slugColor,
-    super.classificationLabelColors,
-    super.classificationLabelBorderColor,
-    super.classificationLabelHoleColor,
-    super.classificationLabelTextColor,
-    super.classificationLabelBorderWidth,
-    super.classificationLabelHoverBorderStyle,
-  }) : super.fromAxes();
+  }) : super();
 
   final List<LayoutDerivativeReference> points;
   final LayoutPathStyle? style;
@@ -1602,7 +1464,7 @@ class FanLayout extends Layout with TableLayoutMixin {
     this.maxDepth = 3,
     this.maxSectionCount = 6,
     this.sectionSizing = FanSectionSizing.equal,
-    this.label,
+    this.caption,
     this.labelColor = const Color(0xFFFFF8E7),
     this.labelSize = 12,
     this.position = LayoutRelativePosition.top,
@@ -1618,17 +1480,15 @@ class FanLayout extends Layout with TableLayoutMixin {
     super.inactiveNodeBackgroundOpacity,
     super.activeNodeBackgroundOpacity,
     super.virtualNodeBackgroundOpacity,
+    super.label,
+    super.text,
+    super.node,
+    super.panel,
     super.nodeHoverBorderStyle,
     super.nodeSlugPrefix,
     super.nodeSlugTransform,
     super.nodeSlugSuffix,
     super.slugColor,
-    super.classificationLabelColors,
-    super.classificationLabelBorderColor,
-    super.classificationLabelHoleColor,
-    super.classificationLabelTextColor,
-    super.classificationLabelBorderWidth,
-    super.classificationLabelHoverBorderStyle,
     super.visibility,
     super.inputSources,
   }) : assert(
@@ -1641,9 +1501,9 @@ class FanLayout extends Layout with TableLayoutMixin {
        assert(maxDepth > 0),
        assert(minDepth <= maxDepth),
        assert(maxSectionCount > 0),
-       super.fromAxes();
+       super();
 
-  final String? label;
+  final String? caption;
   final String? rootNodeId;
   final LayoutNodePointer? rootNodePointer;
   final NodeSearchFilter? rootNodeFilter;
@@ -1685,23 +1545,21 @@ class FanLayout extends Layout with TableLayoutMixin {
     return 360;
   }
 
-  Map<String, GridAxisVariable> get rowsConfig => {
+  Map<String, LayoutSize> get rowsConfig => {
     for (var layer = 0; layer < maxDepth; layer += 1)
-      layer == 0 ? 'root' : 'depth-$layer': const GridAxisVariable(
-        size: LayoutSize.fr(1),
-      ),
+      layer == 0 ? 'root' : 'depth-$layer': const LayoutSize.fr(1),
   };
 
-  Map<String, GridAxisVariable> get columnsConfig => {
+  Map<String, LayoutSize> get columnsConfig => {
     for (var section = 0; section < maxSectionCount; section += 1)
-      'section-${section + 1}': const GridAxisVariable(size: LayoutSize.fr(1)),
+      'section-${section + 1}': const LayoutSize.fr(1),
   };
 
   @override
-  Map<String, GridAxisVariable> get tableRowsConfig => rowsConfig;
+  Map<String, LayoutSize> get tableRowsConfig => rowsConfig;
 
   @override
-  Map<String, GridAxisVariable> get tableColumnsConfig => columnsConfig;
+  Map<String, LayoutSize> get tableColumnsConfig => columnsConfig;
 
   @override
   GuideStyle? get tableGuideStyle => gridStyle;
@@ -1727,24 +1585,22 @@ class GraphLayout extends Layout {
     super.inactiveNodeBackgroundOpacity,
     super.activeNodeBackgroundOpacity,
     super.virtualNodeBackgroundOpacity,
+    super.label,
+    super.text,
+    super.node,
+    super.panel,
     super.nodeHoverBorderStyle,
     super.nodeSlugPrefix,
     super.nodeSlugTransform,
     super.nodeSlugSuffix,
     super.slugColor,
-    super.classificationLabelColors,
-    super.classificationLabelBorderColor,
-    super.classificationLabelHoleColor,
-    super.classificationLabelTextColor,
-    super.classificationLabelBorderWidth,
-    super.classificationLabelHoverBorderStyle,
     super.visibility,
     super.inputSources,
   }) : assert(nodeExtentFactor > 0 && nodeExtentFactor <= 1),
        assert(labelSize > 0),
        assert(emojiFontSizeFactor > 0),
        assert(emojiSlugGapFactor >= 0),
-       super.fromAxes();
+       super();
 
   /// Diameter of a rendered Node relative to its equal-sized pool cell.
   final double nodeExtentFactor;
@@ -1772,20 +1628,18 @@ class NodeListLayout extends Layout {
     super.inactiveNodeBackgroundOpacity,
     super.activeNodeBackgroundOpacity,
     super.virtualNodeBackgroundOpacity,
+    super.label,
+    super.text,
+    super.node,
+    super.panel,
     super.nodeHoverBorderStyle,
     super.nodeSlugPrefix,
     super.nodeSlugTransform,
     super.nodeSlugSuffix,
     super.slugColor,
-    super.classificationLabelColors,
-    super.classificationLabelBorderColor,
-    super.classificationLabelHoleColor,
-    super.classificationLabelTextColor,
-    super.classificationLabelBorderWidth,
-    super.classificationLabelHoverBorderStyle,
     super.visibility,
     super.inputSources,
-  }) : super.fromAxes();
+  }) : super();
 
   final NodeListDataSource dataSource;
   final Color labelColor;
@@ -1832,17 +1686,15 @@ class RayLayout extends LayoutGuide {
     super.inactiveNodeBackgroundOpacity,
     super.activeNodeBackgroundOpacity,
     super.virtualNodeBackgroundOpacity,
+    super.label,
+    super.text,
+    super.node,
+    super.panel,
     super.nodeHoverBorderStyle,
     super.nodeSlugPrefix,
     super.nodeSlugTransform,
     super.nodeSlugSuffix,
     super.slugColor,
-    super.classificationLabelColors,
-    super.classificationLabelBorderColor,
-    super.classificationLabelHoleColor,
-    super.classificationLabelTextColor,
-    super.classificationLabelBorderWidth,
-    super.classificationLabelHoverBorderStyle,
     super.visibility,
     super.inputSources,
   });
@@ -1887,17 +1739,15 @@ class LayoutAreaRayLayout extends LayoutGuide {
     super.inactiveNodeBackgroundOpacity,
     super.activeNodeBackgroundOpacity,
     super.virtualNodeBackgroundOpacity,
+    super.label,
+    super.text,
+    super.node,
+    super.panel,
     super.nodeHoverBorderStyle,
     super.nodeSlugPrefix,
     super.nodeSlugTransform,
     super.nodeSlugSuffix,
     super.slugColor,
-    super.classificationLabelColors,
-    super.classificationLabelBorderColor,
-    super.classificationLabelHoleColor,
-    super.classificationLabelTextColor,
-    super.classificationLabelBorderWidth,
-    super.classificationLabelHoverBorderStyle,
     super.visibility,
     super.inputSources,
   });
@@ -1926,17 +1776,15 @@ class LayoutAreaToDerivativeRayLayout extends LayoutGuide {
     super.inactiveNodeBackgroundOpacity,
     super.activeNodeBackgroundOpacity,
     super.virtualNodeBackgroundOpacity,
+    super.label,
+    super.text,
+    super.node,
+    super.panel,
     super.nodeHoverBorderStyle,
     super.nodeSlugPrefix,
     super.nodeSlugTransform,
     super.nodeSlugSuffix,
     super.slugColor,
-    super.classificationLabelColors,
-    super.classificationLabelBorderColor,
-    super.classificationLabelHoleColor,
-    super.classificationLabelTextColor,
-    super.classificationLabelBorderWidth,
-    super.classificationLabelHoverBorderStyle,
     super.visibility,
     super.inputSources,
   });
@@ -1972,20 +1820,18 @@ class StickmanLayout extends Layout {
     super.inactiveNodeBackgroundOpacity,
     super.activeNodeBackgroundOpacity,
     super.virtualNodeBackgroundOpacity,
+    super.label,
+    super.text,
+    super.node,
+    super.panel,
     super.nodeHoverBorderStyle,
     super.nodeSlugPrefix,
     super.nodeSlugTransform,
     super.nodeSlugSuffix,
     super.slugColor,
-    super.classificationLabelColors,
-    super.classificationLabelBorderColor,
-    super.classificationLabelHoleColor,
-    super.classificationLabelTextColor,
-    super.classificationLabelBorderWidth,
-    super.classificationLabelHoverBorderStyle,
     super.visibility,
     super.inputSources,
-  }) : super.fromAxes();
+  }) : super();
 
   /// Logical body height. In this layout 1.0 vertical unit equals [heightCm].
   final double heightCm;
@@ -2007,7 +1853,7 @@ class StickmanLayout extends Layout {
 
 class PlaneLayout extends Layout {
   const PlaneLayout({
-    this.node,
+    this.vaultNode,
     this.shape = LayoutShape.circle,
     this.style,
     this.position = const Offset(0.5, 0.5),
@@ -2043,20 +1889,18 @@ class PlaneLayout extends Layout {
     super.inactiveNodeBackgroundOpacity,
     super.activeNodeBackgroundOpacity,
     super.virtualNodeBackgroundOpacity,
+    super.label,
+    super.text,
+    super.node,
+    super.panel,
     super.nodeHoverBorderStyle,
     super.nodeSlugPrefix,
     super.nodeSlugTransform,
     super.nodeSlugSuffix,
     super.slugColor,
-    super.classificationLabelColors,
-    super.classificationLabelBorderColor,
-    super.classificationLabelHoleColor,
-    super.classificationLabelTextColor,
-    super.classificationLabelBorderWidth,
-    super.classificationLabelHoverBorderStyle,
-  }) : super.fromAxes();
+  }) : super();
 
-  final VaultNodeUiComponent? node;
+  final VaultNode? vaultNode;
   final LayoutShape shape;
   final PlaneLayoutStyle? style;
   final Offset position;
@@ -2084,7 +1928,7 @@ class PlaneRingGuide {
 
 class SubjectNodeLayout extends PlaneLayout {
   const SubjectNodeLayout({
-    super.node,
+    super.vaultNode,
     super.position,
     super.radiusFraction,
     super.padding,
@@ -2107,17 +1951,15 @@ class SubjectNodeLayout extends PlaneLayout {
     super.inactiveNodeBackgroundOpacity,
     super.activeNodeBackgroundOpacity,
     super.virtualNodeBackgroundOpacity,
+    super.label,
+    super.text,
+    super.node,
+    super.panel,
     super.nodeHoverBorderStyle,
     super.nodeSlugPrefix,
     super.nodeSlugTransform,
     super.nodeSlugSuffix,
     super.slugColor,
-    super.classificationLabelColors,
-    super.classificationLabelBorderColor,
-    super.classificationLabelHoleColor,
-    super.classificationLabelTextColor,
-    super.classificationLabelBorderWidth,
-    super.classificationLabelHoverBorderStyle,
     super.shape,
     super.visibility,
     super.inputSources,
@@ -2151,17 +1993,15 @@ class LayoutBorderGuide extends LayoutGuide {
     super.inactiveNodeBackgroundOpacity,
     super.activeNodeBackgroundOpacity,
     super.virtualNodeBackgroundOpacity,
+    super.label,
+    super.text,
+    super.node,
+    super.panel,
     super.nodeHoverBorderStyle,
     super.nodeSlugPrefix,
     super.nodeSlugTransform,
     super.nodeSlugSuffix,
     super.slugColor,
-    super.classificationLabelColors,
-    super.classificationLabelBorderColor,
-    super.classificationLabelHoleColor,
-    super.classificationLabelTextColor,
-    super.classificationLabelBorderWidth,
-    super.classificationLabelHoverBorderStyle,
     super.visibility,
     super.inputSources,
   });
@@ -2175,337 +2015,4 @@ class LayoutBorderGuide extends LayoutGuide {
   final bool showAnchorDirections;
   final double anchorDirectionLength;
   final bool useLayoutStyle;
-}
-
-class LayoutSlotStyle {
-  const LayoutSlotStyle({
-    required this.borderColor,
-    this.strokeWidth = 2,
-    this.dashLength = 7,
-    this.gapLength = 5,
-  });
-
-  final Color borderColor;
-  final double strokeWidth;
-  final double dashLength;
-  final double gapLength;
-}
-
-class LayoutSlot {
-  const LayoutSlot({
-    required this.id,
-    required this.label,
-    this.fraction,
-    this.span,
-    this.minWidth,
-    this.maxWidth,
-  });
-
-  final String id;
-  final String label;
-
-  /// Flex weight on the slot container's main axis.
-  final double? fraction;
-
-  /// Preferred cross-axis width in the container's fraction units.
-  final double? span;
-
-  /// Minimum cross-axis width in the container's fraction units.
-  final double? minWidth;
-
-  /// Maximum cross-axis width in the container's fraction units.
-  final double? maxWidth;
-}
-
-class LayoutElement {
-  const LayoutElement({
-    required this.area,
-    this.defaultPath,
-    this.defaultLabel,
-    this.slotStyle,
-    this.borderRadius = 0,
-  });
-
-  final LayoutArea area;
-  final String? defaultPath;
-  final String? defaultLabel;
-  final LayoutSlotStyle? slotStyle;
-  final double borderRadius;
-}
-
-class SceneLayout extends Layout {
-  const SceneLayout.fromAxes({
-    required super.axes,
-    super.aliases,
-    super.attributes = const [LayoutAttribute.rectangular],
-    super.backgrounds,
-    super.layoutPadding,
-    super.layoutGap,
-    super.layoutBorderWidth,
-    super.backgroundDefaults,
-    super.inactiveNodeBackgroundOpacity,
-    super.activeNodeBackgroundOpacity,
-    super.virtualNodeBackgroundOpacity,
-    super.nodeHoverBorderStyle,
-    super.nodeSlugPrefix,
-    super.nodeSlugTransform,
-    super.nodeSlugSuffix,
-    super.slugColor,
-    super.classificationLabelColors,
-    super.classificationLabelBorderColor,
-    super.classificationLabelHoleColor,
-    super.classificationLabelTextColor,
-    super.classificationLabelBorderWidth,
-    super.classificationLabelHoverBorderStyle,
-    super.layouts,
-    super.derivatives,
-    super.derivativeSnapshot,
-    super.observables,
-    super.visibility,
-    super.inputSources,
-    super.columnFractions,
-    super.rowFractions,
-    super.depthFractions,
-    super.fractionSpans,
-    super.subLayouts,
-    super.elements,
-  }) : super.fromAxes();
-}
-
-class GridLayout extends Layout {
-  const GridLayout.fromAxes({
-    required super.axes,
-    super.aliases,
-    super.attributes = const [LayoutAttribute.rectangular],
-    super.backgrounds,
-    super.layoutPadding,
-    super.layoutGap,
-    super.layoutBorderWidth,
-    super.backgroundDefaults,
-    super.inactiveNodeBackgroundOpacity,
-    super.activeNodeBackgroundOpacity,
-    super.virtualNodeBackgroundOpacity,
-    super.nodeHoverBorderStyle,
-    super.nodeSlugPrefix,
-    super.nodeSlugTransform,
-    super.nodeSlugSuffix,
-    super.slugColor,
-    super.classificationLabelColors,
-    super.classificationLabelBorderColor,
-    super.classificationLabelHoleColor,
-    super.classificationLabelTextColor,
-    super.classificationLabelBorderWidth,
-    super.classificationLabelHoverBorderStyle,
-    super.layouts,
-    super.derivatives,
-    super.derivativeSnapshot,
-    super.observables,
-    super.visibility,
-    super.inputSources,
-    super.columnFractions,
-    super.rowFractions,
-    super.fractionSpans,
-    super.subLayouts,
-    super.elements,
-  }) : super.fromAxes();
-}
-
-class TrackLayout extends Layout {
-  const TrackLayout.fromAxes({
-    required super.axes,
-    super.aliases,
-    super.attributes = const [LayoutAttribute.linear],
-    super.backgrounds,
-    super.layoutPadding,
-    super.layoutGap,
-    super.layoutBorderWidth,
-    super.backgroundDefaults,
-    super.inactiveNodeBackgroundOpacity,
-    super.activeNodeBackgroundOpacity,
-    super.virtualNodeBackgroundOpacity,
-    super.nodeHoverBorderStyle,
-    super.nodeSlugPrefix,
-    super.nodeSlugTransform,
-    super.nodeSlugSuffix,
-    super.slugColor,
-    super.classificationLabelColors,
-    super.classificationLabelBorderColor,
-    super.classificationLabelHoleColor,
-    super.classificationLabelTextColor,
-    super.classificationLabelBorderWidth,
-    super.classificationLabelHoverBorderStyle,
-    super.layouts,
-    super.derivatives,
-    super.derivativeSnapshot,
-    super.observables,
-    super.visibility,
-    super.inputSources,
-    super.columnFractions,
-    super.fractionSpans,
-    super.subLayouts,
-    super.elements,
-  }) : super.fromAxes();
-}
-
-class LayoutDimensions {
-  const LayoutDimensions.fromAxes(
-    this.axes, {
-    this.columnFractions,
-    this.rowFractions,
-    this.depthFractions,
-    this.fractionSpans,
-  });
-
-  final List<int> axes;
-  final List<double>? columnFractions;
-  final List<double>? rowFractions;
-  final List<double>? depthFractions;
-  final List<double>? fractionSpans;
-
-  int get dimensionCount => axes.length;
-
-  int axis(int dimension) => axes[dimension];
-
-  int get horizontal => axis(0);
-
-  int get vertical => axis(1);
-
-  int get depth => axis(2);
-
-  double normalizedHorizontalPosition(num track) {
-    return normalizedAxisPosition(0, track);
-  }
-
-  double normalizedVerticalPosition(num track) {
-    return normalizedAxisPosition(1, track);
-  }
-
-  double axisWeight(int dimension) {
-    final trackCount = axis(dimension);
-    final fractions = _validFractionsFor(dimension);
-    if (fractions == null) {
-      return trackCount.toDouble();
-    }
-    final fullSpanWeight = _fullSpanWeight(dimension, fractions);
-    return fractions.fold<double>(
-      0,
-      (sum, fraction) =>
-          sum + _resolvedFractionWeight(fraction, fullSpanWeight),
-    );
-  }
-
-  double normalizedAxisPosition(int dimension, num track) {
-    final trackCount = axis(dimension);
-    if (trackCount <= 0) return 0;
-    final clampedTrack = track.clamp(0, trackCount);
-    final fractions = _validFractionsFor(dimension);
-
-    if (fractions == null) {
-      return clampedTrack / trackCount;
-    }
-
-    final fullSpanWeight = _fullSpanWeight(dimension, fractions);
-    final total = fractions.fold<double>(
-      0,
-      (sum, fraction) =>
-          sum + _resolvedFractionWeight(fraction, fullSpanWeight),
-    );
-    if (total <= 0) return clampedTrack / trackCount;
-
-    final wholeTracks = clampedTrack.floor();
-    final partialTrack = clampedTrack - wholeTracks;
-    var weightedPosition = 0.0;
-
-    for (var index = 0; index < wholeTracks; index += 1) {
-      weightedPosition += _resolvedFractionWeight(
-        fractions[index],
-        fullSpanWeight,
-      );
-    }
-    if (wholeTracks < fractions.length && partialTrack > 0) {
-      weightedPosition +=
-          _resolvedFractionWeight(fractions[wholeTracks], fullSpanWeight) *
-          partialTrack;
-    }
-
-    return (weightedPosition / total).clamp(0.0, 1.0);
-  }
-
-  List<double>? _fractionsFor(int dimension) {
-    return switch (dimension) {
-      0 => columnFractions,
-      1 => rowFractions,
-      2 => depthFractions,
-      _ => null,
-    };
-  }
-
-  List<double>? _validFractionsFor(int dimension) {
-    final fractions = _fractionsFor(dimension);
-    if (fractions == null || fractions.length != axis(dimension)) return null;
-    return fractions;
-  }
-
-  double _fullSpanWeight(int dimension, List<double> fractions) {
-    var fullSpanCount = 0;
-    var fixedWeight = 0.0;
-    for (final fraction in fractions) {
-      if (fraction == LayoutFraction.fullSpan) {
-        fullSpanCount += 1;
-      } else {
-        fixedWeight += _positiveFraction(fraction);
-      }
-    }
-    if (fullSpanCount == 0) return 0;
-    final configuredSpan =
-        fractionSpans != null && dimension < fractionSpans!.length
-        ? _positiveFraction(fractionSpans![dimension])
-        : fixedWeight;
-    final remainingWeight = configuredSpan > fixedWeight
-        ? configuredSpan - fixedWeight
-        : 0.0;
-    return remainingWeight / fullSpanCount;
-  }
-
-  double _resolvedFractionWeight(double fraction, double fullSpanWeight) =>
-      fraction == LayoutFraction.fullSpan
-      ? fullSpanWeight
-      : _positiveFraction(fraction);
-
-  double _positiveFraction(double fraction) {
-    return fraction.clamp(0, double.maxFinite).toDouble();
-  }
-}
-
-class LayoutArea {
-  // Named `column` remains public while its nullable source stays internal.
-  const LayoutArea({
-    num? column,
-    required this.row,
-    this.depth = 0,
-    this.columnSpan = 1,
-    this.rowSpan = 1,
-    this.depthSpan = 0,
-    // ignore: prefer_initializing_formals
-  }) : _column = column;
-
-  final num? _column;
-  final num row;
-  final num depth;
-  final num columnSpan;
-  final num rowSpan;
-  final num depthSpan;
-
-  /// Defaults to zero for layouts without auto-placement behavior.
-  num get column => _column ?? 0;
-
-  bool get hasExplicitColumn => _column != null;
-}
-
-class LayoutPoint {
-  const LayoutPoint({required this.column, required this.row, this.depth = 0});
-
-  final num column;
-  final num row;
-  final num depth;
 }

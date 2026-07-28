@@ -7,8 +7,7 @@ import 'package:flutter/services.dart';
 
 import '../constants/keymap.dart';
 import '../constants/typography.dart';
-import '../models/layout.dart';
-import '../models/search_layout.dart';
+import '../models/layout/layout.dart';
 
 class SearchHudComponent extends PositionComponent with KeyboardHandler {
   SearchHudComponent({

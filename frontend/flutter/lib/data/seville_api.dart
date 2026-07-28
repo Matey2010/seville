@@ -18,8 +18,7 @@ import 'package:seville_proto/seville_proto.dart'
         NodeSearchQuery,
         NodeTreeQuery;
 
-import '../models/graph_traverse_type.dart';
-import '../models/node_search.dart';
+import '../models/layout/layout.dart';
 import 'runtime_config.dart';
 
 class SevilleApi {
@@ -56,18 +55,6 @@ class SevilleApi {
       }
       rethrow;
     }
-  }
-
-  /// Legacy bulk graph read used only by the standalone Node field screen.
-  ///
-  /// The layout interface deliberately uses focused tree and search queries.
-  Future<NodeSnapshot> snapshot() async {
-    final response = await _dio.get<List<int>>('/v2/snapshot');
-    final bytes = response.data;
-    if (bytes == null) {
-      throw const FormatException('The backend returned an empty snapshot.');
-    }
-    return NodeSnapshot.fromBuffer(bytes);
   }
 
   Future<SystemInfo> systemInfo() async {

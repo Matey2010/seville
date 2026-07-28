@@ -1,3 +1,5 @@
+part of 'layout.dart';
+
 class NodeSearchFilter {
   /// Accepts a Node when any matching parameter succeeds and no exclusion does.
   const NodeSearchFilter.anyOf(
