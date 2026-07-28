@@ -165,7 +165,7 @@ class _LandscapeXlLayoutScreenState
   }
 
   Iterable<FanLayout> _fanLayouts(Layout layout) sync* {
-    for (final child in layout.layouts.values) {
+    for (final child in layout.children.values) {
       if (child is FanLayout) yield child;
       yield* _fanLayouts(child);
     }
@@ -174,7 +174,7 @@ class _LandscapeXlLayoutScreenState
   Iterable<VaultNode> _configuredVaultNodes(Layout layout) sync* {
     if (layout case PerspectiveGridArea(:final vaultNode?)) yield vaultNode;
     if (layout case PlaneLayout(:final vaultNode?)) yield vaultNode;
-    for (final child in layout.layouts.values) {
+    for (final child in layout.children.values) {
       yield* _configuredVaultNodes(child);
     }
   }

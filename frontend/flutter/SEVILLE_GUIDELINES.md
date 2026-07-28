@@ -7,7 +7,7 @@ scaling, and animation.
 ## Layout type taxonomy
 
 - `LandscapeXlLayout` owns the full-screen landscape hierarchy. It extends
-  `Layout` and nests every child under a stable key in `Layout.layouts`.
+  `Layout` and nests every child under a stable key in `Layout.children`.
 - `SafeAreaLayout`, `PlaneLayout`, `LayoutPath`, `ColumnLayout`, and
   `RowLayout` describe the active screen's structural composition.
 - `PerspectiveGridLayout` projects keyed row and column tracks inside a
@@ -51,7 +51,7 @@ owning layout bounds as their coordinate space:
   circle's center, and finally `(0.5, 0.5)`.
 
 The circles are geometry references, not mandatory decoration. Add a
-`CirleLayout` to `layout.layouts` when either boundary should be visible.
+`CirleLayout` to `layout.children` when either boundary should be visible.
 This keeps centering and radial calculations usable even when the circles are
 hidden.
 
@@ -168,7 +168,7 @@ vertical, and both corner-to-corner diagonals span the full screen and intersect
 at its center.
 
 New top- and bottom-plane layers are added beneath their respective
-`LayoutPath.layouts` maps inside `safe-area`, not beside `safe-area` at the
+`LayoutPath.children` maps inside `safe-area`, not beside `safe-area` at the
 screen root. Existing graph, perceptual-map, and Compass models remain
 available but inactive.
 
@@ -216,7 +216,7 @@ application callback boundary.
 
 Use `ColumnLayout` and `RowLayout` when content has semantic interface order
 that must remain independent from a plane's perspective-grid axes. Their
-children remain in `Map<String, Layout> layouts`, where each map key is the
+children remain in `Map<String, Layout> children`, where each map key is the
 child's stable identity.
 
 Every `Layout` owns a `LayoutSize size` directly. A row resolves its primary
@@ -359,7 +359,7 @@ visually distinct from graph edges and the box's perspective seams.
 
 Structural perspective guides are red and dashed. Every alignment aid is a
 `Guideline`, `LayoutBorderGuide`, circle, or ray layout inside
-`Layout.layouts`. Shared `GuideStyle` supports solid, dashed, and dotted
+`Layout.children`. Shared `GuideStyle` supports solid, dashed, and dotted
 patterns, configurable dash length and interval, stroke width, color, and cap.
 Explicit guidelines use normalized endpoints, so later editing tools can add,
 remove, or reposition them without changing graph rendering.

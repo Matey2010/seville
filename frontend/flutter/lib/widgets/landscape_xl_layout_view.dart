@@ -598,7 +598,7 @@ Iterable<String> _layoutImageAssetPaths(
   )) {
     yield* _backgroundImageAssetPaths(background);
   }
-  for (final child in layout.layouts.values) {
+  for (final child in layout.children.values) {
     yield* _layoutImageAssetPaths(child, effectiveBackgroundDefaults);
   }
 }
@@ -619,7 +619,7 @@ Map<Layout, Layout?> _layoutBackgroundDefaults(Layout root) {
         ? layout
         : inheritedDefaults;
     resolved[layout] = effectiveDefaults;
-    for (final child in layout.layouts.values) {
+    for (final child in layout.children.values) {
       visit(child, effectiveDefaults);
     }
   }
@@ -645,7 +645,7 @@ Iterable<_RegisteredLayoutComponent> _registeredLayoutComponents(
       yield (hierarchy: hierarchy, component: component);
     }
   }
-  for (final child in root.layouts.values) {
+  for (final child in root.children.values) {
     yield* _registeredLayoutComponents(child, registry, hierarchy);
   }
 }
@@ -694,11 +694,11 @@ Iterable<_PathLayoutPlacement<T>> _pathLayoutPlacements<T extends Layout>(
   List<Layout> ancestors = const [],
 ]) sync* {
   final hierarchy = [...ancestors, layout];
-  for (final entry in layout.layouts.entries) {
+  for (final entry in layout.children.entries) {
     final childPath = [...parentPath, entry.key];
     final child = entry.value;
     if (child is LayoutPath) {
-      for (final layoutEntry in child.layouts.entries) {
+      for (final layoutEntry in child.children.entries) {
         final pathLayout = layoutEntry.value;
         if (pathLayout is T) {
           yield (
@@ -1165,7 +1165,7 @@ class _LandscapeXlSceneComponent extends PositionComponent
     }
     for (final resolved in resolvedLayouts.values) {
       for (final path
-          in resolved.layout.layouts.values.whereType<LayoutPath>()) {
+          in resolved.layout.children.values.whereType<LayoutPath>()) {
         if (!path.isVisible(layoutContext)) continue;
         _drawLayoutPath(
           canvas,
@@ -1207,7 +1207,8 @@ class _LandscapeXlSceneComponent extends PositionComponent
           },
         );
       }
-      for (final ray in resolved.layout.layouts.values.whereType<RayLayout>()) {
+      for (final ray
+          in resolved.layout.children.values.whereType<RayLayout>()) {
         if (!ray.visible || !ray.isVisible(layoutContext)) continue;
         final start = _resolveReference(
           ray.start,
@@ -1226,7 +1227,7 @@ class _LandscapeXlSceneComponent extends PositionComponent
         }
       }
       for (final ray
-          in resolved.layout.layouts.values.whereType<LayoutAreaRayLayout>()) {
+          in resolved.layout.children.values.whereType<LayoutAreaRayLayout>()) {
         if (!ray.visible || !ray.isVisible(layoutContext)) continue;
         final start = _resolveReference(
           ray.start,
@@ -1245,7 +1246,7 @@ class _LandscapeXlSceneComponent extends PositionComponent
         }
       }
       for (final ray
-          in resolved.layout.layouts.values
+          in resolved.layout.children.values
               .whereType<LayoutAreaToDerivativeRayLayout>()) {
         if (!ray.visible || !ray.isVisible(layoutContext)) continue;
         final start = _resolvePathAreaReference(
@@ -1265,12 +1266,12 @@ class _LandscapeXlSceneComponent extends PositionComponent
         }
       }
       for (final stickman
-          in resolved.layout.layouts.values.whereType<StickmanLayout>()) {
+          in resolved.layout.children.values.whereType<StickmanLayout>()) {
         if (!stickman.isVisible(layoutContext)) continue;
         _drawStickmanLayout(canvas, resolved.layout, resolved.bounds, stickman);
       }
       for (final plane
-          in resolved.layout.layouts.values.whereType<PlaneLayout>()) {
+          in resolved.layout.children.values.whereType<PlaneLayout>()) {
         if (!plane.isVisible(layoutContext)) continue;
         _drawPlaneLayout(
           canvas,
@@ -1789,7 +1790,7 @@ SearchLayout _searchLayoutConfig(Layout root) =>
 
 SearchLayout? _searchLayoutConfigOrNull(Layout root) {
   if (root is SearchLayout) return root;
-  for (final child in root.layouts.values) {
+  for (final child in root.children.values) {
     final searchLayout = _searchLayoutConfigOrNull(child);
     if (searchLayout != null) return searchLayout;
   }
@@ -1892,7 +1893,7 @@ void _drawLayoutPath(
   canvas.save();
   canvas.clipPath(path);
   for (final composition
-      in layoutPath.layouts.values.whereType<ColumnLayout>()) {
+      in layoutPath.children.values.whereType<ColumnLayout>()) {
     if (!composition.isVisible(layoutContext)) continue;
     _drawFlexComposition(
       canvas,
@@ -1902,7 +1903,7 @@ void _drawLayoutPath(
       nodeListSources,
     );
   }
-  for (final composition in layoutPath.layouts.values.whereType<RowLayout>()) {
+  for (final composition in layoutPath.children.values.whereType<RowLayout>()) {
     if (!composition.isVisible(layoutContext)) continue;
     _drawFlexComposition(
       canvas,
@@ -1912,7 +1913,7 @@ void _drawLayoutPath(
       nodeListSources,
     );
   }
-  for (final table in layoutPath.layouts.values.whereType<TableLayout>()) {
+  for (final table in layoutPath.children.values.whereType<TableLayout>()) {
     if (!table.isVisible(layoutContext)) continue;
     _drawTableLayout(
       canvas,
@@ -3009,10 +3010,10 @@ _LayoutTapHit? _hitTestLayoutTap(
     layoutContext,
   );
   for (final resolved in resolvedLayouts.values.toList().reversed) {
-    final children = resolved.layout.layouts.entries.toList().reversed;
+    final children = resolved.layout.children.entries.toList().reversed;
     for (final entry in children) {
       final child = entry.value;
-      if (child is LayoutPath && child.layouts.isNotEmpty) {
+      if (child is LayoutPath && child.children.isNotEmpty) {
         final points = [
           for (final reference in child.points)
             _resolveReference(reference, resolvedLayouts, layoutContext),
@@ -3024,7 +3025,7 @@ _LayoutTapHit? _hitTestLayoutTap(
           );
           final compositionPoints = _screenOrderedQuadrilateral(paddedPoints);
           for (final compositionEntry
-              in child.layouts.entries.toList().reversed) {
+              in child.children.entries.toList().reversed) {
             final composition = compositionEntry.value;
             if (composition is! ColumnLayout && composition is! RowLayout) {
               continue;
@@ -3212,7 +3213,7 @@ _resolveFlexChildren(
 ) sync* {
   final vertical = composition is ColumnLayout;
   if (!vertical && composition is! RowLayout) return;
-  final children = composition.layouts.entries
+  final children = composition.children.entries
       .where((entry) => entry.value.isVisible(layoutContext))
       .toList(growable: false);
   if (children.isEmpty) return;
@@ -3784,7 +3785,7 @@ void _drawTableLayout(
       final isKeyColumn = column.key == 'key';
       final rowLayout = isKeyColumn || row.key == null
           ? null
-          : table.layouts[row.key];
+          : table.children[row.key];
       if (rowLayout is NodeListLayout && rowLayout.isVisible(layoutContext)) {
         final flatCellPoints = _tableCellPoints(
           flatTablePoints,
@@ -4789,7 +4790,7 @@ Map<String, _ResolvedLayout> _resolveLayouts(
     List<String> parentPath,
     EdgeInsets remainingSafePadding,
   ) {
-    for (final entry in parent.layouts.entries) {
+    for (final entry in parent.children.entries) {
       final child = entry.value;
       if (!child.isVisible(layoutContext)) continue;
       var bounds = parentBounds;
@@ -4840,7 +4841,7 @@ Offset? _resolvePathAreaReference(
 ]) {
   final resolved = layouts[reference.layoutPath.join('/')];
   if (resolved == null) return null;
-  final path = resolved.layout.layouts[reference.path];
+  final path = resolved.layout.children[reference.path];
   if (path is! LayoutPath) return null;
   final grid = path.grid;
   final area = grid?.areas[reference.area];

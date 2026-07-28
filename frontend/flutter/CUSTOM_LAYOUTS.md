@@ -6,7 +6,7 @@ Seville separates layout data from Flame rendering:
 2. Constants create the default configuration.
 3. A Flame `PositionComponent` renders that model.
 4. `LayoutComponentRegistry` connects the model type to its component.
-5. A parent layout places it under a stable key in `Layout.layouts`.
+5. A parent layout places it under a stable key in `Layout.children`.
 
 Do not start by inventing a new entity. First inspect the related layout,
 guide, derivative, path, grid, plane, component, and rendering primitives
@@ -27,7 +27,7 @@ import 'layout.dart';
 class OrbitLayout extends Layout {
   const OrbitLayout({
     required this.ringCount,
-    super.layouts,
+    super.children,
   });
 
   final int ringCount;
@@ -43,7 +43,7 @@ controllers, or mutable UI state.
 ```dart
 const defaultOrbitLayout = OrbitLayout(
   ringCount: 4,
-  layouts: {
+  children: {
     'orbit-axis': Guideline(
       start: Offset(0.5, 0),
       end: Offset(0.5, 1),
@@ -62,7 +62,7 @@ Prefer normalized fractions for positions and sizes. They scale across users'
 screens and remain independent from macOS window dimensions.
 
 Guides are layouts. Put `Guideline`, `LayoutBorderGuide`, circle, and ray values
-directly into `Layout.layouts`; their map keys are their identities.
+directly into `Layout.children`; their map keys are their identities.
 `GuideStyle` supports solid, dashed, and dotted patterns. Omitting a guide
 layout removes it.
 
@@ -216,12 +216,12 @@ screen
 
 Start from `lgErgoLayoutConfig` in
 `constants/layout/presets/lg_ergo/lg_ergo_layout_config.dart`. Add subsections
-directly to a parent layout's `layouts` map. Use `SafeAreaLayout` when a child
+directly to a parent layout's `children` map. Use `SafeAreaLayout` when a child
 must respect macOS display insets; no role or frame metadata is required.
 
 Every layout may also declare normalized `innerCircle` and `outerCircle`
 geometry. Use `Layout.center` as the canonical center reference and add
-`CirleLayout` values to `layouts` only when those boundaries should be painted.
+`CirleLayout` values to `children` only when those boundaries should be painted.
 Circle visibility and style are configured like any other guide; for example
 the LG Ergo scene paints its inner circle with a purple dashed `GuideStyle`
 declared in the preset constants.
@@ -356,8 +356,8 @@ grid or `now` ray. It owns the `time-fan` graph presentation instead. The
 surrounding screen and safe-area anchors stay unpadded; each plane owns its own
 side-specific `LayoutPath.padding`, derived from `lgErgoLayoutDefaults.padding`
 where needed.
-The LG Ergo top and bottom planes themselves live in `safe-area.layouts`, and
-future plane-specific content belongs in each plane's own `layouts` map.
+The LG Ergo top and bottom planes themselves live in `safe-area.children`, and
+future plane-specific content belongs in each plane's own `children` map.
 `FanLayout` is the graph presentation used by both planes. Its cardinal
 positions span 180 degrees, angular `LayoutRelativePosition.d(...)` positions
 span 90 degrees, and non-directional positions span 360 degrees. Sections split
@@ -536,7 +536,7 @@ perspective grid.
 ## 7. Add a human scale figure to a scene
 
 `StickmanLayout` is a renderable layout entity for the center-scene human scale
-reference. Put it in the owning scene/safe-area `layouts` map:
+reference. Put it in the owning scene/safe-area `children` map:
 
 ```dart
 'scene-stickman': StickmanLayout(

@@ -158,7 +158,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
       },
     ),
   },
-  layouts: {
+  children: {
     'action-panel': LayoutPath(
       aliases: [
         'action-panel',
@@ -202,14 +202,14 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
         )),
       ),
       padding: LayoutPathPadding(top: (20.0), bottom: (20.0), left: (20.0)),
-      layouts: {
+      children: {
         'action-column': ColumnLayout(
           aliases: ['action-column', 'action-panel-column', 'form-column'],
-          layouts: {
+          children: {
             'navigation-row': RowLayout(
               size: LayoutSize.px(48),
               aliases: ['navigation-row', 'browser-navigation'],
-              layouts: {
+              children: {
                 'refresh-fans': PanelLayout(
                   size: LayoutSize.fr(1),
                   aliases: [
@@ -319,7 +319,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
             'node-actions-row': RowLayout(
               size: LayoutSize.px(48),
               aliases: ['node-actions', 'node-actions-row'],
-              layouts: {
+              children: {
                 'copy': PanelLayout(
                   size: LayoutSize.fr(1),
                   aliases: [
@@ -364,11 +364,11 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                 'node-direction-controls',
                 'spatial-navigation',
               ],
-              layouts: {
+              children: {
                 'top-directions': RowLayout(
                   size: LayoutSize.fr(1),
                   aliases: ['direction-row', 'top-direction-row'],
-                  layouts: {
+                  children: {
                     'top-left': PanelLayout(
                       size: LayoutSize.fr(1),
                       aliases: [
@@ -428,7 +428,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                 'center-directions': RowLayout(
                   size: LayoutSize.fr(1),
                   aliases: ['direction-row', 'center-direction-row'],
-                  layouts: {
+                  children: {
                     'center-left': PanelLayout(
                       size: LayoutSize.fr(1),
                       aliases: [
@@ -488,7 +488,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                 'bottom-directions': RowLayout(
                   size: LayoutSize.fr(1),
                   aliases: ['direction-row', 'bottom-direction-row'],
-                  layouts: {
+                  children: {
                     'bottom-left': PanelLayout(
                       size: LayoutSize.fr(1),
                       aliases: [
@@ -579,7 +579,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
         LayoutDerivativeReference(derivative: 'A'),
       ],
       pointDerivatives: {'A': 0, 'B': 1, 'C': 2, 'D': 3},
-      layouts: {
+      children: {
         'info-table': TableLayout(
           aliases: ['info-table', 'table-layout', 'node-info', 'system-info'],
           layoutBorderWidth: 1.8,
@@ -759,7 +759,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               },
             ),
           ),
-          layouts: {
+          children: {
             'added': NodeListLayout(
               dataSource: NodeListDataSource.virtualNodes,
               style: (GuideStyle(
@@ -980,7 +980,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
       observables: {
         'square-anchors': LayoutObservable(derivatives: {'A', 'B', 'C', 'D'}),
       },
-      layouts: {
+      children: {
         'search-layout': SearchLayout(
           aliases: ['search-layout', 'search-overlay', 'search-hud'],
           layoutBorderWidth: 1.8,
@@ -993,7 +993,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
           nodeSlugTransform: const TextTransform.capitalCap(),
           nodeSlugSuffix: ']]',
           slugColor: const Color(0xFFFFD54F),
-          layouts: {
+          children: {
             SearchLayout.searchResultsLayoutKey: TableLayout(
               aliases: ['search-results', 'search-results-table'],
               layoutBorderWidth: 1.8,
@@ -1046,7 +1046,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                   },
                 ),
               ),
-              layouts: {
+              children: {
                 'search_results': NodeListLayout(
                   dataSource: NodeListDataSource.searchResults,
                   style: (GuideStyle(
@@ -1092,7 +1092,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               pattern: GuideLinePattern.solid,
             )),
           ),
-          layouts: {
+          children: {
             'cortex-bush': FanLayout(
               aliases: [
                 'cortex-tree',
@@ -1198,7 +1198,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               pattern: GuideLinePattern.solid,
             )),
           ),
-          layouts: {
+          children: {
             'time-fan': FanLayout(
               aliases: [
                 'time-tree',
@@ -1298,7 +1298,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
           borderWidth: 0,
           wrapPadding: 0,
           showGeometryGuides: true,
-          layouts: {
+          children: {
             'wrapped-scene-square': PlaneLayout(
               aliases: ['wrapped-scene-square', 'scene-square-plane'],
               attributes: [LayoutAttribute.rectangular],
@@ -1310,7 +1310,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               borderWidth: 0,
               wrapPadding: 0,
               showGeometryGuides: true,
-              layouts: {
+              children: {
                 'scene-graph-plane': LayoutPath(
                   aliases: [
                     'scene-graph-plane',
@@ -1351,7 +1351,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                       derivative: 'D',
                     ),
                   ],
-                  layouts: {
+                  children: {
                     'scene-graph': GraphLayout(
                       aliases: [
                         'scene-graph',

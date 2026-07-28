@@ -26,7 +26,7 @@ abstract class Layout {
     this.panel = const PanelConfig(),
     this.attributes = const [],
     this.backgrounds = const [],
-    this.layouts = const {},
+    this.children = const {},
     this.derivatives = const {},
     this.derivativeSnapshot,
     this.observables = const {},
@@ -72,8 +72,8 @@ abstract class Layout {
   final List<LayoutAttribute> attributes;
   final List<LayoutBackground> backgrounds;
 
-  /// Recursive layout tree. Map keys are the child layouts' identities.
-  final Map<String, Layout> layouts;
+  /// Recursive layout tree. Map keys are the children's identities.
+  final Map<String, Layout> children;
   final Map<String, LayoutDerivativeSnapshot> derivatives;
   final String? derivativeSnapshot;
   final Map<String, LayoutObservable> observables;
@@ -1316,10 +1316,10 @@ class PerspectiveGridLayout extends Layout {
   final int bottomEndIndex;
 }
 
-/// Vertical composition whose children retain their identity in [layouts].
+/// Vertical composition whose children retain their identity in [children].
 class ColumnLayout extends Layout {
   const ColumnLayout({
-    super.layouts,
+    super.children,
     super.size,
     super.aliases,
     super.backgrounds,
@@ -1344,10 +1344,10 @@ class ColumnLayout extends Layout {
   }) : super(attributes: const [LayoutAttribute.rectangular]);
 }
 
-/// Horizontal composition whose children retain their identity in [layouts].
+/// Horizontal composition whose children retain their identity in [children].
 class RowLayout extends Layout {
   const RowLayout({
-    super.layouts,
+    super.children,
     super.size,
     super.aliases,
     super.backgrounds,
@@ -1417,7 +1417,7 @@ class LayoutPath extends Layout {
     this.grid,
     this.padding = const LayoutPathPadding(),
     this.pointDerivatives = const {'A': 0, 'B': 1, 'C': 2, 'D': 3},
-    super.layouts,
+    super.children,
     super.derivatives,
     super.derivativeSnapshot,
     super.observables,
@@ -1876,7 +1876,7 @@ class PlaneLayout extends Layout {
     super.aliases,
     super.attributes = const [LayoutAttribute.circular],
     super.backgrounds,
-    super.layouts,
+    super.children,
     super.derivatives,
     super.derivativeSnapshot,
     super.observables,

@@ -69,7 +69,7 @@
 - Keep the visible hierarchy ordered from the shallowest screen layer to the
   deepest nested layer. Supporting styles, frames, and other primitives belong
   below the primary configuration.
-- Layout composition uses `Map<String, Layout> layouts`: the key is identity
+- Layout composition uses `Map<String, Layout> children`: the key is identity
   and the value is another layout. Frames, content, guidelines, and guide grids
   share this tree; do not introduce separate root, node, or guide collections.
 - The declarative Layout layer is one Dart library rooted at
@@ -245,7 +245,7 @@
   in LG Ergo; each plane owns its own padding using `LayoutPath.padding` and
   `lgErgoLayoutDefaults.padding`, not fake grid tracks.
   The LG Ergo `top-plane` and `bottom-plane` are owned by
-  `safe-area.layouts` and each owns a `FanLayout`. `cortex-bush` uses
+  `safe-area.children` and each owns a `FanLayout`. `cortex-bush` uses
   direct-parts-weighted sizing and excludes the shared space-time name matches;
   `time-fan` includes those matches and uses equal sizing. Keep the shared match
   list as the configuration dependency between their complementary filters.

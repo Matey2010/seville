@@ -25,7 +25,7 @@ class SearchLayout extends Layout {
     super.nodeSlugTransform,
     super.nodeSlugSuffix,
     super.slugColor,
-    super.layouts = const {
+    super.children = const {
       searchResultsLayoutKey: TableLayout(
         guideStyle: GuideStyle(color: Color(0xFF3F51B5)),
         tableConfig: TableConfig(
@@ -46,7 +46,7 @@ class SearchLayout extends Layout {
             },
           ),
         ),
-        layouts: {
+        children: {
           'search_results': NodeListLayout(
             dataSource: NodeListDataSource.searchResults,
             style: GuideStyle(color: Color(0xFF3F51B5)),
@@ -70,7 +70,7 @@ class SearchLayout extends Layout {
   static const searchResultsLayoutKey = 'search-results';
 
   TableLayout? get searchResultsLayout {
-    final configured = layouts[searchResultsLayoutKey];
+    final configured = children[searchResultsLayoutKey];
     return configured is TableLayout ? configured : null;
   }
 }
