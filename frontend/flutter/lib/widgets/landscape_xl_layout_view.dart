@@ -284,7 +284,8 @@ class LandscapeXlLayoutGame extends FlameGame
         ),
         selectedNodes: () => selectedNodes,
         layoutContext: () => layoutContext,
-        planePoints: () => _resolvePathPoints(placement.plane),
+        nodeStyle: () => _resolvedNodeStyle(placement.hierarchy, layoutContext),
+        planePoints: () => _resolvePathPlacementPoints(placement),
         isTapEnabled: () => onLayoutTap != null,
         onNodeTap: (hit) => dispatchLayoutTap(
           LayoutTapTarget(
@@ -351,7 +352,9 @@ class LandscapeXlLayoutGame extends FlameGame
     }
   }
 
-  List<Offset>? _resolvePathPoints(LayoutPath plane) {
+  List<Offset>? _resolvePathPlacementPoints<T extends Layout>(
+    _PathLayoutPlacement<T> placement,
+  ) {
     final context = layoutContext;
     final resolvedLayouts = _resolveLayouts(
       layout,
@@ -359,7 +362,19 @@ class LandscapeXlLayoutGame extends FlameGame
       safePadding,
       context,
     );
-    return _resolvedLayoutPathPoints(plane, resolvedLayouts, context);
+    final points = _resolvedLayoutPathPoints(
+      placement.plane,
+      resolvedLayouts,
+      context,
+    );
+    if (points == null) return null;
+    final projection = _resolvedLayoutPathProjection(
+      placement.plane,
+      points,
+      resolvedLayouts,
+      context,
+    );
+    return _resolveGridPlacementPoints(points, projection, placement.gridSteps);
   }
 
   void updateHoveredClassificationLabel({Path? path, GuideStyle? style}) =>
@@ -661,7 +676,19 @@ typedef _PathLayoutPlacement<T extends Layout> = ({
   LayoutPath plane,
   T layout,
   List<Layout> hierarchy,
+  List<({GridLayout grid, String area})> gridSteps,
 });
+
+NodeStyle _resolvedNodeStyle(
+  Iterable<Layout> hierarchy,
+  LayoutContext context,
+) {
+  var config = NodeDefaults.config;
+  for (final layout in hierarchy) {
+    config = config.merge(layout.resolveNodeConfig(context));
+  }
+  return config.style;
+}
 
 Iterable<_PathLayoutPlacement<T>> _pathLayoutPlacements<T extends Layout>(
   Layout layout, [
@@ -681,11 +708,52 @@ Iterable<_PathLayoutPlacement<T>> _pathLayoutPlacements<T extends Layout>(
             plane: child,
             layout: pathLayout,
             hierarchy: [...hierarchy, child, pathLayout],
+            gridSteps: const [],
+          );
+        } else if (pathLayout is GridLayout) {
+          yield* _gridPathLayoutPlacements<T>(
+            child,
+            pathLayout,
+            [...childPath, layoutEntry.key],
+            [...hierarchy, child, pathLayout],
           );
         }
       }
     }
     yield* _pathLayoutPlacements<T>(child, childPath, hierarchy);
+  }
+}
+
+Iterable<_PathLayoutPlacement<T>> _gridPathLayoutPlacements<T extends Layout>(
+  LayoutPath plane,
+  GridLayout grid,
+  List<String> gridPath,
+  List<Layout> hierarchy, [
+  List<({GridLayout grid, String area})> gridSteps = const [],
+]) sync* {
+  for (final entry in grid.children.entries) {
+    final child = entry.value;
+    final childPath = [...gridPath, entry.key];
+    final childHierarchy = [...hierarchy, child];
+    final childSteps = [...gridSteps, (grid: grid, area: entry.key)];
+    if (child is T) {
+      yield (
+        key: childPath.join('/'),
+        plane: plane,
+        layout: child,
+        hierarchy: childHierarchy,
+        gridSteps: childSteps,
+      );
+    }
+    if (child is GridLayout) {
+      yield* _gridPathLayoutPlacements<T>(
+        plane,
+        child,
+        childPath,
+        childHierarchy,
+        childSteps,
+      );
+    }
   }
 }
 
@@ -1137,79 +1205,95 @@ class _LandscapeXlSceneComponent extends PositionComponent
       safePadding,
       layoutContext,
     );
-    for (final resolved in resolvedLayouts.values) {
-      canvas.save();
-      canvas.translate(resolved.bounds.left, resolved.bounds.top);
-      drawLayoutGuidelines(
-        canvas,
-        resolved.bounds.size,
-        resolved.layout,
-        layoutContext,
-      );
-      canvas.restore();
-    }
-    for (final resolved in resolvedLayouts.values) {
-      for (final path
-          in resolved.layout.children.values.whereType<LayoutPath>()) {
-        if (!path.isVisible(layoutContext)) continue;
-        _drawLayoutPath(
+    bool isPanoramicPath(LayoutPath path) =>
+        path.aliases.contains('panoramic-scene-plane');
+
+    void drawGuidelines() {
+      for (final resolved in resolvedLayouts.values) {
+        canvas.save();
+        canvas.translate(resolved.bounds.left, resolved.bounds.top);
+        drawLayoutGuidelines(
           canvas,
-          viewport,
+          resolved.bounds.size,
+          resolved.layout,
+          layoutContext,
+        );
+        canvas.restore();
+      }
+    }
+
+    final pathPaintEntries =
+        <({int index, _ResolvedLayout owner, LayoutPath path})>[];
+    var pathIndex = 0;
+    for (final resolved in resolvedLayouts.values) {
+      for (final entry in resolved.layout.children.entries) {
+        final path = entry.value;
+        if (path is! LayoutPath) continue;
+        pathPaintEntries.add((index: pathIndex, owner: resolved, path: path));
+        pathIndex += 1;
+      }
+    }
+    pathPaintEntries.sort((left, right) {
+      final leftIsPanorama = isPanoramicPath(left.path);
+      final rightIsPanorama = isPanoramicPath(right.path);
+      if (leftIsPanorama != rightIsPanorama) return leftIsPanorama ? -1 : 1;
+      return left.index.compareTo(right.index);
+    });
+    var guidelinesPainted = false;
+    for (final entry in pathPaintEntries) {
+      final path = entry.path;
+      final owner = entry.owner;
+      if (!guidelinesPainted && !isPanoramicPath(path)) {
+        drawGuidelines();
+        guidelinesPainted = true;
+      }
+      if (!path.isVisible(layoutContext)) continue;
+      _drawLayoutPath(
+        canvas,
+        viewport,
+        path,
+        resolvedLayouts,
+        vaultNodeResolver,
+        systemInfo,
+        selectedNodes,
+        nodeListSources,
+        game._classificationLabelComponent,
+        hoverPosition,
+        layoutContext,
+        background: path.background,
+        curvedImageMeshes: _curvedLayoutPathImageMeshes,
+        imageFor: (assetPath) => game.images.containsKey(assetPath)
+            ? game.images.fromCache(assetPath)
+            : null,
+        panelDefaults: layout.panel.merge(owner.layout.panel),
+        nodeStyle: _resolvedNodeStyle([
+          layout,
+          owner.layout,
           path,
-          resolvedLayouts,
-          vaultNodeResolver,
-          systemInfo,
-          selectedNodes,
-          nodeListSources,
-          game._classificationLabelComponent,
-          hoverPosition,
-          layoutContext,
-          background: path.background,
-          curvedImageMeshes: _curvedLayoutPathImageMeshes,
-          imageFor: (assetPath) => game.images.containsKey(assetPath)
-              ? game.images.fromCache(assetPath)
-              : null,
-          panelDefaults: layout.panel.merge(resolved.layout.panel),
-          label: layout.label,
-          text: layout.text,
-          tablePanelExpansion: _tablePanelExpansion,
-          onTablePanelHeader: (table, panelId, path) {
-            _tablePanelHeaderHits.add(
-              _TablePanelHeaderHit(table: table, panelId: panelId, path: path),
-            );
-          },
-          onTableNode: (target, path) {
-            _tableNodeHits.add(_TableNodeHit(target: target, path: path));
-          },
-          onTableAction: (target, path) {
-            _tableActionHits.add(_TableActionHit(target: target, path: path));
-          },
-          onTableClassificationLabel: (path, style) {
-            _tableClassificationLabelHits.add(
-              _TableClassificationLabelHit(path: path, style: style),
-            );
-          },
-        );
-      }
-      for (final ray
-          in resolved.layout.children.values.whereType<RayLayout>()) {
-        if (!ray.visible || !ray.isVisible(layoutContext)) continue;
-        final start = _resolveReference(
-          ray.start,
-          resolvedLayouts,
-          layoutContext,
-        );
-        final target = _resolveReference(
-          ray.towards,
-          resolvedLayouts,
-          layoutContext,
-        );
-        if (start == null || target == null) continue;
-        drawGuideLine(canvas, start, target, ray.style);
-        if (ray.showArrow) {
-          _drawRayArrow(canvas, start, target, ray);
-        }
-      }
+        ], layoutContext),
+        label: layout.label,
+        text: layout.text,
+        tablePanelExpansion: _tablePanelExpansion,
+        onTablePanelHeader: (table, panelId, path) {
+          _tablePanelHeaderHits.add(
+            _TablePanelHeaderHit(table: table, panelId: panelId, path: path),
+          );
+        },
+        onTableNode: (target, path) {
+          _tableNodeHits.add(_TableNodeHit(target: target, path: path));
+        },
+        onTableAction: (target, path) {
+          _tableActionHits.add(_TableActionHit(target: target, path: path));
+        },
+        onTableClassificationLabel: (path, style) {
+          _tableClassificationLabelHits.add(
+            _TableClassificationLabelHit(path: path, style: style),
+          );
+        },
+      );
+    }
+    if (!guidelinesPainted) drawGuidelines();
+    for (final resolved in resolvedLayouts.values) {
       for (final ray
           in resolved.layout.children.values.whereType<LayoutAreaRayLayout>()) {
         if (!ray.visible || !ray.isVisible(layoutContext)) continue;
@@ -1322,11 +1406,7 @@ class _LandscapeXlSceneComponent extends PositionComponent
       }
       final tree = game.nodeTrees[placement.layout];
       if (tree == null) continue;
-      final planePoints = _resolvedLayoutPathPoints(
-        placement.plane,
-        resolvedLayouts,
-        layoutContext,
-      );
+      final planePoints = game._resolvePathPlacementPoints(placement);
       if (planePoints == null) continue;
       final segments = _fanSegments(
         placement.layout,
@@ -1541,11 +1621,7 @@ class _FanComponent extends PositionComponent
       game.safePadding,
       game.layoutContext,
     );
-    final planePoints = _resolvedLayoutPathPoints(
-      placement.plane,
-      resolvedLayouts,
-      game.layoutContext,
-    );
+    final planePoints = game._resolvePathPlacementPoints(placement);
     if (planePoints == null) return;
     _drawFanLayout(
       canvas,
@@ -1554,6 +1630,7 @@ class _FanComponent extends PositionComponent
       nodeTree,
       resolvedLayouts,
       game.layoutContext,
+      nodeStyle: _resolvedNodeStyle(placement.hierarchy, game.layoutContext),
       planePoints: planePoints,
     );
   }
@@ -1573,11 +1650,7 @@ class _FanComponent extends PositionComponent
       game.safePadding,
       game.layoutContext,
     );
-    final planePoints = _resolvedLayoutPathPoints(
-      placement.plane,
-      resolvedLayouts,
-      game.layoutContext,
-    );
+    final planePoints = game._resolvePathPlacementPoints(placement);
     if (planePoints == null) return;
     final occurrence = _hitTestFan(
       fan,
@@ -1596,7 +1669,14 @@ class _FanComponent extends PositionComponent
         layout: fan,
         node: resolvedNode,
         resolvedNode: resolvedNode,
-        label: _nodePresentationLabel(occurrence.node, fan),
+        label: _nodePresentation(
+          occurrence.node,
+          fan,
+          nodeStyle: _resolvedNodeStyle(
+            placement.hierarchy,
+            game.layoutContext,
+          ),
+        ).text,
       ),
     );
     event.continuePropagation = false;
@@ -1650,6 +1730,11 @@ class _SearchSuggestionsComponent extends PositionComponent
       ),
       layoutContext: game.layoutContext,
       panelDefaults: game.layout.panel.merge(_hud.layout.panel),
+      nodeStyle: _resolvedNodeStyle([
+        game.layout,
+        _hud.layout,
+        table,
+      ], game.layoutContext),
       label: game.layout.label,
       text: game.layout.text,
       panelExpansion: (_) => 1,
@@ -1798,6 +1883,7 @@ void _drawLayoutPath(
   curvedImageMeshes,
   required ui.Image? Function(String assetPath) imageFor,
   required PanelConfig panelDefaults,
+  required NodeStyle nodeStyle,
   required LabelConfig label,
   required LayoutTextConfig text,
   required double Function(TableLayout table, String panelId)
@@ -1855,19 +1941,49 @@ void _drawLayoutPath(
     _drawPathTicks(canvas, size, resolvedPoints, ticks);
   }
 
-  final grid = layoutPath.grid;
-  if (grid != null) {
-    _drawPerspectiveGrid(
+  canvas.save();
+  canvas.clipPath(path);
+
+  void drawTable(
+    TableLayout table,
+    List<Offset> tablePoints, {
+    PanelConfig? inheritedPanel,
+    NodeStyle? inheritedNodeStyle,
+  }) {
+    _drawTableLayout(
       canvas,
-      resolvedPoints,
-      grid,
-      vaultNodeResolver,
-      layoutContext,
+      tablePoints,
+      table,
+      _tableData(selectedNodes, systemInfo),
+      hoverPosition,
+      classificationLabelComponent,
+      nodeListSources: nodeListSources,
+      layoutContext: layoutContext,
+      panelDefaults: inheritedPanel ?? panelDefaults.merge(layoutPath.panel),
+      nodeStyle: (inheritedNodeStyle ?? nodeStyle).merge(
+        table.resolveNodeConfig(layoutContext).style,
+      ),
+      label: label,
+      text: text,
+      panelExpansion: (panelId) => tablePanelExpansion(table, panelId),
+      onPanelHeader: (panelId, path) =>
+          onTablePanelHeader(table, panelId, path),
+      onNode: onTableNode,
+      onAction: (action, rowKey, value, path) => onTableAction(
+        LayoutTapTarget(
+          key:
+              'table/${table.aliases.firstOrNull ?? 'table'}/$rowKey/${action.name}',
+          layout: table,
+          label: value,
+          tableAction: action,
+          textValue: value,
+        ),
+        path,
+      ),
+      onClassificationLabel: onTableClassificationLabel,
     );
   }
 
-  canvas.save();
-  canvas.clipPath(path);
   for (final composition
       in layoutPath.children.values.whereType<ColumnLayout>()) {
     if (!composition.isVisible(layoutContext)) continue;
@@ -1891,37 +2007,57 @@ void _drawLayoutPath(
       projection: projection,
     );
   }
+  for (final grid in layoutPath.children.values.whereType<GridLayout>()) {
+    if (!grid.isVisible(layoutContext)) continue;
+    _drawGridComposition(
+      canvas,
+      _screenOrderedQuadrilateral(resolvedPoints),
+      grid,
+      layoutContext,
+      nodeListSources,
+      projection: projection,
+    );
+  }
   for (final table in layoutPath.children.values.whereType<TableLayout>()) {
     if (!table.isVisible(layoutContext)) continue;
-    _drawTableLayout(
-      canvas,
-      resolvedPoints,
-      table,
-      _tableData(selectedNodes, systemInfo),
-      hoverPosition,
-      classificationLabelComponent,
-      nodeListSources: nodeListSources,
-      layoutContext: layoutContext,
-      panelDefaults: panelDefaults.merge(layoutPath.panel),
-      label: label,
-      text: text,
-      panelExpansion: (panelId) => tablePanelExpansion(table, panelId),
-      onPanelHeader: (panelId, path) =>
-          onTablePanelHeader(table, panelId, path),
-      onNode: onTableNode,
-      onAction: (action, rowKey, value, path) => onTableAction(
-        LayoutTapTarget(
-          key:
-              'table/${table.aliases.firstOrNull ?? 'table'}/$rowKey/${action.name}',
-          layout: table,
-          label: value,
-          tableAction: action,
-          textValue: value,
-        ),
-        path,
-      ),
-      onClassificationLabel: onTableClassificationLabel,
+    drawTable(table, resolvedPoints);
+  }
+  for (final entry in layoutPath.children.entries) {
+    final grid = entry.value;
+    if (grid is! GridLayout || !grid.isVisible(layoutContext)) continue;
+    final placements = _gridPathLayoutPlacements<TableLayout>(
+      layoutPath,
+      grid,
+      [entry.key],
+      [layoutPath, grid],
     );
+    for (final placement in placements) {
+      if (!placement.hierarchy.every(
+        (layout) => layout.isVisible(layoutContext),
+      )) {
+        continue;
+      }
+      final tablePoints = _resolveGridPlacementPoints(
+        resolvedPoints,
+        projection,
+        placement.gridSteps,
+      );
+      if (tablePoints == null) continue;
+      var inheritedPanel = panelDefaults.merge(layoutPath.panel);
+      var inheritedNodeStyle = nodeStyle;
+      for (final step in placement.gridSteps) {
+        inheritedPanel = inheritedPanel.merge(step.grid.panel);
+        inheritedNodeStyle = inheritedNodeStyle.merge(
+          step.grid.resolveNodeConfig(layoutContext).style,
+        );
+      }
+      drawTable(
+        placement.layout,
+        tablePoints,
+        inheritedPanel: inheritedPanel,
+        inheritedNodeStyle: inheritedNodeStyle,
+      );
+    }
   }
   canvas.restore();
 }
@@ -2343,14 +2479,35 @@ _LayoutPathProjection? _resolvedLayoutPathProjection(
   List<Offset> points,
   Map<String, _ResolvedLayout> layouts,
   LayoutContext layoutContext,
-) => _LayoutPathProjection.resolve(points, [
-  for (final curve in layoutPath.curves)
-    (
-      from: _resolveReference(curve.from, layouts, layoutContext),
-      through: _resolveReference(curve.through, layouts, layoutContext),
-      to: _resolveReference(curve.to, layouts, layoutContext),
-    ),
-], close: layoutPath.style?.close ?? true);
+) {
+  final rawPoints = [
+    for (final reference in layoutPath.points)
+      _resolveReference(reference, layouts, layoutContext),
+  ];
+
+  Offset? structuralEndpoint(LayoutDerivativeReference reference) {
+    final resolved = _resolveReference(reference, layouts, layoutContext);
+    if (resolved == null) return null;
+    for (var index = 0; index < rawPoints.length; index += 1) {
+      final rawPoint = rawPoints[index];
+      if (rawPoint != null &&
+          (rawPoint - resolved).distance <= 0.000001 &&
+          index < points.length) {
+        return points[index];
+      }
+    }
+    return resolved;
+  }
+
+  return _LayoutPathProjection.resolve(points, [
+    for (final curve in layoutPath.curves)
+      (
+        from: structuralEndpoint(curve.from),
+        through: _resolveReference(curve.through, layouts, layoutContext),
+        to: structuralEndpoint(curve.to),
+      ),
+  ], close: layoutPath.style?.close ?? true);
+}
 
 class _CurvedLayoutPathImageMesh {
   _CurvedLayoutPathImageMesh({
@@ -2591,85 +2748,6 @@ List<Offset>? _resolvedLayoutPathPoints(
   return _paddedPathPoints(points.cast<Offset>(), layoutPath.padding);
 }
 
-void _drawPerspectiveGrid(
-  Canvas canvas,
-  List<Offset> points,
-  PerspectiveGridLayout grid,
-  VaultNodeResolver? vaultNodeResolver,
-  LayoutContext layoutContext,
-) {
-  if (grid.rowsConfig.isEmpty ||
-      grid.columnsConfig.isEmpty ||
-      !_hasPoint(points, grid.topStartIndex) ||
-      !_hasPoint(points, grid.topEndIndex) ||
-      !_hasPoint(points, grid.bottomStartIndex) ||
-      !_hasPoint(points, grid.bottomEndIndex)) {
-    return;
-  }
-
-  final leftLength =
-      (points[grid.bottomStartIndex] - points[grid.topStartIndex]).distance;
-  final rightLength =
-      (points[grid.bottomEndIndex] - points[grid.topEndIndex]).distance;
-  final rowStops = _gridTrackStops([
-    for (final row in grid.rowsConfig.values) row,
-  ], (leftLength + rightLength) / 2);
-  if (rowStops.length < 2) return;
-
-  final rowKeys = grid.rowsConfig.keys.toList(growable: false);
-  final columnKeys = grid.columnsConfig.keys.toList(growable: false);
-  for (final area in grid.areas.values) {
-    final rowStartIndex = rowKeys.indexOf(area.row);
-    final columnStartIndex = columnKeys.indexOf(area.column);
-    if (rowStartIndex < 0 || columnStartIndex < 0) continue;
-    _drawPerspectiveGridArea(
-      canvas,
-      points,
-      grid,
-      rowStops,
-      rowStartIndex + area.rowOffset,
-      _gridAreaEnd(
-        rowStartIndex + area.rowOffset,
-        area.rowSpan,
-        rowKeys.length,
-      ),
-      columnStartIndex + area.columnOffset,
-      _gridAreaEnd(
-        columnStartIndex + area.columnOffset,
-        area.columnSpan,
-        columnKeys.length,
-      ),
-      area,
-      vaultNodeResolver,
-      layoutContext,
-    );
-  }
-
-  for (final stop in rowStops.skip(1).take(rowStops.length - 2)) {
-    drawGuideLine(
-      canvas,
-      _perspectiveGridPoint(points, grid, stop, 0),
-      _perspectiveGridPoint(points, grid, stop, 1),
-      grid.guideStyle,
-    );
-  }
-
-  final topStops = _perspectiveColumnStops(points, grid, 0);
-  final bottomStops = _perspectiveColumnStops(points, grid, 1);
-  for (
-    var columnIndex = 1;
-    columnIndex < grid.columnsConfig.length;
-    columnIndex += 1
-  ) {
-    drawGuideLine(
-      canvas,
-      _perspectiveGridPoint(points, grid, 0, topStops[columnIndex]),
-      _perspectiveGridPoint(points, grid, 1, bottomStops[columnIndex]),
-      grid.guideStyle,
-    );
-  }
-}
-
 typedef _NodeListEntryFrame = ({
   ResolvedVaultNode resolvedNode,
   Node node,
@@ -2697,8 +2775,10 @@ void _drawNodeListLayout(
   List<Offset> points,
   NodeListLayout layout,
   _NodeListSources sources,
-  LayoutContext layoutContext,
-) {
+  LayoutContext layoutContext, {
+  NodeStyle? nodeStyle,
+}) {
+  final resolvedNodeStyle = nodeStyle ?? layout.nodeStyle;
   final entries = _nodeListEntries(layout, sources, points);
   final borderWidth = layout.layoutBorderWidth ?? layout.style.strokeWidth;
   for (final entry in entries) {
@@ -2729,10 +2809,10 @@ void _drawNodeListLayout(
     final bottomWidth = (entry.points[2] - entry.points[3]).distance;
     _paintNodeLabel(
       canvas,
-      _nodePresentation(entry.node, layout),
+      _nodePresentation(entry.node, layout, nodeStyle: resolvedNodeStyle),
       center,
       math.min(topWidth, bottomWidth) * 0.88,
-      layout.labelColor,
+      resolvedNodeStyle.labelColor ?? NodeDefaults.labelColor,
       layout.labelSize,
     );
   }
@@ -2805,7 +2885,9 @@ _NodePresentation _nodePresentation(
   Node node,
   Layout layout, {
   bool forceSlug = false,
+  NodeStyle? nodeStyle,
 }) {
+  final resolvedNodeStyle = nodeStyle ?? layout.nodeStyle;
   final slug = node.slug.trim();
   if (!forceSlug) {
     final emoji = node.primaryEmojiCharacter;
@@ -2820,10 +2902,12 @@ _NodePresentation _nodePresentation(
   }
   if (slug.isNotEmpty) {
     return (
-      text: layout.formatNodeSlug(slug),
+      text: resolvedNodeStyle.formatSlug(slug),
       isSlug: true,
-      colorOverride: layout.slugColor,
-      fontFeatures: layout.nodeSlugTransform.fontFeatures,
+      colorOverride: resolvedNodeStyle.slugColor ?? NodeDefaults.slugColor,
+      fontFeatures:
+          (resolvedNodeStyle.slugTransform ?? NodeDefaults.slugTransform)
+              .fontFeatures,
     );
   }
   return (
@@ -2866,6 +2950,7 @@ void _drawFanLayout(
   NodeTree? tree,
   Map<String, _ResolvedLayout> layouts,
   LayoutContext layoutContext, {
+  required NodeStyle nodeStyle,
   required List<Offset> planePoints,
 }) {
   if (tree == null || tree.occurrences.isEmpty) return;
@@ -2912,10 +2997,10 @@ void _drawFanLayout(
     final node = segment.occurrence.node;
     _paintNodeLabel(
       canvas,
-      _nodePresentation(node, fan),
+      _nodePresentation(node, fan, nodeStyle: nodeStyle),
       segment.labelPoint,
       segment.labelWidth,
-      fan.labelColor,
+      nodeStyle.labelColor ?? NodeDefaults.labelColor,
       fan.labelSize,
     );
   }
@@ -3456,18 +3541,30 @@ _LayoutTapHit? _hitTestLayoutTap(
           for (final compositionEntry
               in child.children.entries.toList().reversed) {
             final composition = compositionEntry.value;
-            if (composition is! ColumnLayout && composition is! RowLayout) {
+            if (composition is! ColumnLayout &&
+                composition is! RowLayout &&
+                composition is! GridLayout) {
               continue;
             }
-            final hit = _hitTestFlexComposition(
-              composition,
-              compositionPoints,
-              position,
-              '${entry.key}/${compositionEntry.key}',
-              layoutContext,
-              nodeListSources,
-              projection: projection,
-            );
+            final hit = composition is GridLayout
+                ? _hitTestGridComposition(
+                    composition,
+                    compositionPoints,
+                    position,
+                    '${entry.key}/${compositionEntry.key}',
+                    layoutContext,
+                    nodeListSources,
+                    projection: projection,
+                  )
+                : _hitTestFlexComposition(
+                    composition,
+                    compositionPoints,
+                    position,
+                    '${entry.key}/${compositionEntry.key}',
+                    layoutContext,
+                    nodeListSources,
+                    projection: projection,
+                  );
             if (hit != null) return hit;
           }
         }
@@ -3548,6 +3645,113 @@ void _drawFlexComposition(
   picture.dispose();
 }
 
+void _drawGridComposition(
+  Canvas canvas,
+  List<Offset> points,
+  GridLayout grid,
+  LayoutContext layoutContext,
+  _NodeListSources nodeListSources, {
+  _LayoutPathProjection? projection,
+}) {
+  if (points.length != 4) return;
+  if (projection?.canProjectBackground ?? false) {
+    _drawCurvedGridComposition(
+      canvas,
+      grid,
+      projection!,
+      layoutContext,
+      nodeListSources,
+    );
+    return;
+  }
+
+  final leftHeight = (points[3] - points[0]).distance;
+  final rightHeight = (points[2] - points[1]).distance;
+  final topWidth = (points[1] - points[0]).distance;
+  final bottomWidth = (points[2] - points[3]).distance;
+  final flatWidth = (topWidth + bottomWidth) / 2;
+  final flatHeight = (leftHeight + rightHeight) / 2;
+  if (flatWidth <= 0 || flatHeight <= 0) return;
+
+  final flatPoints = [
+    Offset.zero,
+    Offset(flatWidth, 0),
+    Offset(flatWidth, flatHeight),
+    Offset(0, flatHeight),
+  ];
+  final recorder = ui.PictureRecorder();
+  final flatCanvas = Canvas(
+    recorder,
+    Rect.fromLTWH(0, 0, flatWidth, flatHeight),
+  )..clipRect(Rect.fromLTWH(0, 0, flatWidth, flatHeight));
+  _drawFlatGridComposition(
+    flatCanvas,
+    flatPoints,
+    grid,
+    layoutContext,
+    nodeListSources,
+  );
+
+  final picture = recorder.endRecording();
+  canvas.save();
+  canvas.clipPath(_polygonPath(points));
+  canvas.transform(_rectToQuadTransform(flatWidth, flatHeight, points));
+  canvas.drawPicture(picture);
+  canvas.restore();
+  picture.dispose();
+}
+
+void _drawFlatGridComposition(
+  Canvas canvas,
+  List<Offset> points,
+  GridLayout grid,
+  LayoutContext layoutContext,
+  _NodeListSources nodeListSources,
+) {
+  if (points.length != 4) return;
+  final size = _quadrilateralAverageSize(points);
+  final tracks = _resolvedGridTracks(grid, size);
+  if (tracks == null) return;
+  for (final child in _resolveGridChildren(grid, tracks, layoutContext)) {
+    final childPoints = _quadrilateralSlice(
+      points,
+      left: child.frame.left,
+      right: child.frame.right,
+      top: child.frame.top,
+      bottom: child.frame.bottom,
+    );
+    final layout = child.layout;
+    if (layout is PanelLayout) {
+      _drawPanelLayout(canvas, childPoints, layout);
+    } else if (layout is NodeListLayout) {
+      _drawNodeListLayout(
+        canvas,
+        childPoints,
+        layout,
+        nodeListSources,
+        layoutContext,
+      );
+    } else if (layout is ColumnLayout || layout is RowLayout) {
+      _drawFlatFlexComposition(
+        canvas,
+        childPoints,
+        layout,
+        layoutContext,
+        nodeListSources,
+      );
+    } else if (layout is GridLayout) {
+      _drawFlatGridComposition(
+        canvas,
+        childPoints,
+        layout,
+        layoutContext,
+        nodeListSources,
+      );
+    }
+  }
+  _drawFlatGridGuides(canvas, points, grid, tracks);
+}
+
 void _drawFlatFlexComposition(
   Canvas canvas,
   List<Offset> points,
@@ -3579,6 +3783,14 @@ void _drawFlatFlexComposition(
         layoutContext,
         nodeListSources,
       );
+    } else if (layout is GridLayout) {
+      _drawFlatGridComposition(
+        canvas,
+        child.points,
+        layout,
+        layoutContext,
+        nodeListSources,
+      );
     }
   }
 }
@@ -3589,6 +3801,149 @@ typedef _FlexSurfaceRect = ({
   double right,
   double bottom,
 });
+
+typedef _ResolvedGridTracks = ({
+  List<String> rowKeys,
+  List<String> columnKeys,
+  List<double> rowStops,
+  List<double> columnStops,
+});
+
+List<Offset>? _resolveGridPlacementPoints(
+  List<Offset> points,
+  _LayoutPathProjection? projection,
+  List<({GridLayout grid, String area})> gridSteps,
+) {
+  if (gridSteps.isEmpty) return points;
+  if (points.length != 4) return null;
+  final flatSize = projection?.canProjectBackground ?? false
+      ? projection!.flatSize
+      : _quadrilateralAverageSize(points);
+  var frame = const (left: 0.0, top: 0.0, right: 1.0, bottom: 1.0);
+  for (final step in gridSteps) {
+    final tracks = _resolvedGridTracks(
+      step.grid,
+      Size(
+        flatSize.width * (frame.right - frame.left),
+        flatSize.height * (frame.bottom - frame.top),
+      ),
+    );
+    if (tracks == null) return null;
+    final area = step.grid.areas[step.area];
+    if (area == null) return null;
+    final areaFrame = _resolveGridAreaFrame(area, tracks);
+    if (areaFrame == null) return null;
+    frame = _scaleFlexSurfaceRect(frame, areaFrame);
+  }
+  return projection?.canProjectBackground ?? false
+      ? _curvedSurfaceCorners(projection!, frame)
+      : _quadrilateralSlice(
+          _screenOrderedQuadrilateral(points),
+          left: frame.left,
+          right: frame.right,
+          top: frame.top,
+          bottom: frame.bottom,
+        );
+}
+
+_ResolvedGridTracks? _resolvedGridTracks(GridLayout grid, Size size) {
+  if (grid.rowsConfig.isEmpty || grid.columnsConfig.isEmpty || size.isEmpty) {
+    return null;
+  }
+  return (
+    rowKeys: grid.rowsConfig.keys.toList(growable: false),
+    columnKeys: grid.columnsConfig.keys.toList(growable: false),
+    rowStops: _gridTrackStops(grid.rowsConfig.values.toList(), size.height),
+    columnStops: _gridTrackStops(
+      grid.columnsConfig.values.toList(),
+      size.width,
+    ),
+  );
+}
+
+Iterable<({String key, Layout layout, _FlexSurfaceRect frame})>
+_resolveGridChildren(
+  GridLayout grid,
+  _ResolvedGridTracks tracks,
+  LayoutContext layoutContext,
+) sync* {
+  for (final entry in grid.children.entries) {
+    final layout = entry.value;
+    if (!layout.isVisible(layoutContext)) continue;
+    final area = grid.areas[entry.key];
+    if (area == null) continue;
+    final frame = _resolveGridAreaFrame(area, tracks);
+    if (frame == null) continue;
+    yield (key: entry.key, layout: layout, frame: frame);
+  }
+}
+
+_FlexSurfaceRect? _resolveGridAreaFrame(
+  GridArea area,
+  _ResolvedGridTracks tracks,
+) {
+  final rowIndex = tracks.rowKeys.indexOf(area.row);
+  final columnIndex = tracks.columnKeys.indexOf(area.column);
+  if (rowIndex < 0 || columnIndex < 0) return null;
+  final rowStartIndex = rowIndex + area.rowOffset;
+  final columnStartIndex = columnIndex + area.columnOffset;
+  final rowEndIndex = _gridAreaEnd(
+    rowStartIndex,
+    area.rowSpan,
+    tracks.rowKeys.length,
+  );
+  final columnEndIndex = _gridAreaEnd(
+    columnStartIndex,
+    area.columnSpan,
+    tracks.columnKeys.length,
+  );
+  if (rowStartIndex < 0 ||
+      rowEndIndex > tracks.rowKeys.length ||
+      rowStartIndex >= rowEndIndex ||
+      columnStartIndex < 0 ||
+      columnEndIndex > tracks.columnKeys.length ||
+      columnStartIndex >= columnEndIndex) {
+    return null;
+  }
+  return (
+    left: _gridStopAt(tracks.columnStops, columnStartIndex),
+    top: _gridStopAt(tracks.rowStops, rowStartIndex),
+    right: _gridStopAt(tracks.columnStops, columnEndIndex),
+    bottom: _gridStopAt(tracks.rowStops, rowEndIndex),
+  );
+}
+
+Size _quadrilateralAverageSize(List<Offset> points) => Size(
+  ((points[1] - points[0]).distance + (points[2] - points[3]).distance) / 2,
+  ((points[3] - points[0]).distance + (points[2] - points[1]).distance) / 2,
+);
+
+void _drawFlatGridGuides(
+  Canvas canvas,
+  List<Offset> points,
+  GridLayout grid,
+  _ResolvedGridTracks tracks,
+) {
+  final style = grid.guideStyle;
+  if (style == null) return;
+  for (final stop in tracks.rowStops.skip(1).take(tracks.rowStops.length - 2)) {
+    drawGuideLine(
+      canvas,
+      _projectiveQuadrilateralPoint(points, 0, stop),
+      _projectiveQuadrilateralPoint(points, 1, stop),
+      style,
+    );
+  }
+  for (final stop
+      in tracks.columnStops.skip(1).take(tracks.columnStops.length - 2)) {
+    drawGuideLine(
+      canvas,
+      _projectiveQuadrilateralPoint(points, stop, 0),
+      _projectiveQuadrilateralPoint(points, stop, 1),
+      style,
+    );
+  }
+}
 
 void _drawCurvedFlexComposition(
   Canvas canvas,
@@ -3624,7 +3979,112 @@ void _drawCurvedFlexComposition(
         nodeListSources,
         frame: child.frame,
       );
+    } else if (layout is GridLayout) {
+      _drawCurvedGridComposition(
+        canvas,
+        layout,
+        projection,
+        layoutContext,
+        nodeListSources,
+        frame: child.frame,
+      );
     }
+  }
+}
+
+void _drawCurvedGridComposition(
+  Canvas canvas,
+  GridLayout grid,
+  _LayoutPathProjection projection,
+  LayoutContext layoutContext,
+  _NodeListSources nodeListSources, {
+  _FlexSurfaceRect frame = const (left: 0, top: 0, right: 1, bottom: 1),
+}) {
+  final tracks = _resolvedGridTracks(
+    grid,
+    Size(
+      projection.flatSize.width * (frame.right - frame.left),
+      projection.flatSize.height * (frame.bottom - frame.top),
+    ),
+  );
+  if (tracks == null) return;
+  for (final child in _resolveGridChildren(grid, tracks, layoutContext)) {
+    final childFrame = _scaleFlexSurfaceRect(frame, child.frame);
+    final layout = child.layout;
+    if (layout is PanelLayout) {
+      _drawCurvedPanelLayout(canvas, projection, childFrame, layout);
+    } else if (layout is NodeListLayout) {
+      _drawNodeListLayout(
+        canvas,
+        _curvedSurfaceCorners(projection, childFrame),
+        layout,
+        nodeListSources,
+        layoutContext,
+      );
+    } else if (layout is ColumnLayout || layout is RowLayout) {
+      _drawCurvedFlexComposition(
+        canvas,
+        layout,
+        projection,
+        layoutContext,
+        nodeListSources,
+        frame: childFrame,
+      );
+    } else if (layout is GridLayout) {
+      _drawCurvedGridComposition(
+        canvas,
+        layout,
+        projection,
+        layoutContext,
+        nodeListSources,
+        frame: childFrame,
+      );
+    }
+  }
+  _drawCurvedGridGuides(canvas, projection, frame, grid, tracks);
+}
+
+_FlexSurfaceRect _scaleFlexSurfaceRect(
+  _FlexSurfaceRect parent,
+  _FlexSurfaceRect child,
+) => (
+  left: ui.lerpDouble(parent.left, parent.right, child.left)!,
+  top: ui.lerpDouble(parent.top, parent.bottom, child.top)!,
+  right: ui.lerpDouble(parent.left, parent.right, child.right)!,
+  bottom: ui.lerpDouble(parent.top, parent.bottom, child.bottom)!,
+);
+
+void _drawCurvedGridGuides(
+  Canvas canvas,
+  _LayoutPathProjection projection,
+  _FlexSurfaceRect frame,
+  GridLayout grid,
+  _ResolvedGridTracks tracks,
+) {
+  final style = grid.guideStyle;
+  if (style == null) return;
+  for (final stop in tracks.rowStops.skip(1).take(tracks.rowStops.length - 2)) {
+    final y = ui.lerpDouble(frame.top, frame.bottom, stop)!;
+    _drawGuidePath(
+      canvas,
+      _curvedSurfaceHorizontalPath(
+        projection,
+        left: frame.left,
+        right: frame.right,
+        y: y,
+      ),
+      style,
+    );
+  }
+  for (final stop
+      in tracks.columnStops.skip(1).take(tracks.columnStops.length - 2)) {
+    final x = ui.lerpDouble(frame.left, frame.right, stop)!;
+    drawGuideLine(
+      canvas,
+      projection.project(x, frame.top),
+      projection.project(x, frame.bottom),
+      style,
+    );
   }
 }
 
@@ -3691,22 +4151,45 @@ Path _curvedSurfacePath(
   final samples = (projection.meshSegmentCount * horizontalFraction / 8)
       .ceil()
       .clamp(8, 96);
-  final path = Path();
-  for (var index = 0; index <= samples; index += 1) {
-    final x = ui.lerpDouble(frame.left, frame.right, index / samples)!;
-    final point = projection.project(x, frame.top);
-    if (index == 0) {
-      path.moveTo(point.dx, point.dy);
-    } else {
-      path.lineTo(point.dx, point.dy);
-    }
-  }
+  final path = _curvedSurfaceHorizontalPath(
+    projection,
+    left: frame.left,
+    right: frame.right,
+    y: frame.top,
+    samples: samples,
+  );
   for (var index = samples; index >= 0; index -= 1) {
     final x = ui.lerpDouble(frame.left, frame.right, index / samples)!;
     final point = projection.project(x, frame.bottom);
     path.lineTo(point.dx, point.dy);
   }
   return path..close();
+}
+
+Path _curvedSurfaceHorizontalPath(
+  _LayoutPathProjection projection, {
+  required double left,
+  required double right,
+  required double y,
+  int? samples,
+}) {
+  final sampleCount =
+      samples ??
+      (projection.meshSegmentCount * (right - left).abs() / 8).ceil().clamp(
+        8,
+        96,
+      );
+  final path = Path();
+  for (var index = 0; index <= sampleCount; index += 1) {
+    final x = ui.lerpDouble(left, right, index / sampleCount)!;
+    final point = projection.project(x, y);
+    if (index == 0) {
+      path.moveTo(point.dx, point.dy);
+    } else {
+      path.lineTo(point.dx, point.dy);
+    }
+  }
+  return path;
 }
 
 void _drawCurvedPanelLayout(
@@ -3781,6 +4264,17 @@ _LayoutTapHit? _hitTestCurvedFlexComposition(
         frame: child.frame,
       );
       if (nested != null) return nested;
+    } else if (layout is GridLayout) {
+      final nested = _hitTestCurvedGridComposition(
+        layout,
+        projection,
+        position,
+        childPath,
+        layoutContext,
+        nodeListSources,
+        frame: child.frame,
+      );
+      if (nested != null) return nested;
     }
     final corners = _curvedSurfaceCorners(projection, child.frame);
     if (layout is NodeListLayout) {
@@ -3819,6 +4313,183 @@ _LayoutTapHit? _hitTestCurvedFlexComposition(
   return null;
 }
 
+_LayoutTapHit? _hitTestGridComposition(
+  GridLayout grid,
+  List<Offset> points,
+  Offset position,
+  String path,
+  LayoutContext layoutContext,
+  _NodeListSources nodeListSources, {
+  _LayoutPathProjection? projection,
+}) {
+  if (projection?.canProjectBackground ?? false) {
+    return _hitTestCurvedGridComposition(
+      grid,
+      projection!,
+      position,
+      path,
+      layoutContext,
+      nodeListSources,
+    );
+  }
+  if (points.length != 4) return null;
+  final tracks = _resolvedGridTracks(grid, _quadrilateralAverageSize(points));
+  if (tracks == null) return null;
+  final children = _resolveGridChildren(
+    grid,
+    tracks,
+    layoutContext,
+  ).toList().reversed;
+  for (final child in children) {
+    final childPath = '$path/${child.key}';
+    final childPoints = _quadrilateralSlice(
+      points,
+      left: child.frame.left,
+      right: child.frame.right,
+      top: child.frame.top,
+      bottom: child.frame.bottom,
+    );
+    final layout = child.layout;
+    if (layout is ColumnLayout || layout is RowLayout) {
+      final nested = _hitTestFlexComposition(
+        layout,
+        childPoints,
+        position,
+        childPath,
+        layoutContext,
+        nodeListSources,
+      );
+      if (nested != null) return nested;
+    } else if (layout is GridLayout) {
+      final nested = _hitTestGridComposition(
+        layout,
+        childPoints,
+        position,
+        childPath,
+        layoutContext,
+        nodeListSources,
+      );
+      if (nested != null) return nested;
+    }
+    final hit = _hitTestGridLeaf(
+      layout,
+      childPoints,
+      position,
+      childPath,
+      nodeListSources,
+    );
+    if (hit != null) return hit;
+  }
+  return null;
+}
+
+_LayoutTapHit? _hitTestCurvedGridComposition(
+  GridLayout grid,
+  _LayoutPathProjection projection,
+  Offset position,
+  String path,
+  LayoutContext layoutContext,
+  _NodeListSources nodeListSources, {
+  _FlexSurfaceRect frame = const (left: 0, top: 0, right: 1, bottom: 1),
+}) {
+  final tracks = _resolvedGridTracks(
+    grid,
+    Size(
+      projection.flatSize.width * (frame.right - frame.left),
+      projection.flatSize.height * (frame.bottom - frame.top),
+    ),
+  );
+  if (tracks == null) return null;
+  final children = _resolveGridChildren(
+    grid,
+    tracks,
+    layoutContext,
+  ).toList().reversed;
+  for (final child in children) {
+    final childPath = '$path/${child.key}';
+    final childFrame = _scaleFlexSurfaceRect(frame, child.frame);
+    final layout = child.layout;
+    if (layout is ColumnLayout || layout is RowLayout) {
+      final nested = _hitTestCurvedFlexComposition(
+        layout,
+        projection,
+        position,
+        childPath,
+        layoutContext,
+        nodeListSources,
+        frame: childFrame,
+      );
+      if (nested != null) return nested;
+    } else if (layout is GridLayout) {
+      final nested = _hitTestCurvedGridComposition(
+        layout,
+        projection,
+        position,
+        childPath,
+        layoutContext,
+        nodeListSources,
+        frame: childFrame,
+      );
+      if (nested != null) return nested;
+    }
+    final childPoints = _curvedSurfaceCorners(projection, childFrame);
+    if (layout is PanelLayout &&
+        layout.aliases.contains('action-button') &&
+        _curvedSurfacePath(projection, childFrame).contains(position)) {
+      return (
+        target: LayoutTapTarget(
+          key: childPath,
+          layout: layout,
+          label: layout.caption,
+        ),
+        nodePath: null,
+      );
+    }
+    final hit = _hitTestGridLeaf(
+      layout,
+      childPoints,
+      position,
+      childPath,
+      nodeListSources,
+    );
+    if (hit != null) return hit;
+  }
+  return null;
+}
+
+_LayoutTapHit? _hitTestGridLeaf(
+  Layout layout,
+  List<Offset> points,
+  Offset position,
+  String path,
+  _NodeListSources nodeListSources,
+) {
+  if (layout is NodeListLayout) {
+    final entry = _hitTestNodeList(layout, nodeListSources, points, position);
+    if (entry != null) {
+      return (
+        target: LayoutTapTarget(
+          key: '$path/${entry.node.slug}',
+          layout: layout,
+          node: entry.resolvedNode,
+          resolvedNode: entry.resolvedNode,
+          label: _nodePresentationLabel(entry.node, layout),
+        ),
+        nodePath: _polygonPath(entry.points),
+      );
+    }
+  }
+  if (layout is PanelLayout &&
+      layout.aliases.contains('action-button') &&
+      _polygonContains(points, position)) {
+    return (
+      target: LayoutTapTarget(key: path, layout: layout, label: layout.caption),
+      nodePath: null,
+    );
+  }
+  return null;
+}
+
 _LayoutTapHit? _hitTestFlexComposition(
   Layout composition,
   List<Offset> points,
@@ -3848,6 +4519,16 @@ _LayoutTapHit? _hitTestFlexComposition(
     final layout = child.layout;
     if (layout is ColumnLayout || layout is RowLayout) {
       final nested = _hitTestFlexComposition(
+        layout,
+        child.points,
+        position,
+        childPath,
+        layoutContext,
+        nodeListSources,
+      );
+      if (nested != null) return nested;
+    } else if (layout is GridLayout) {
+      final nested = _hitTestGridComposition(
         layout,
         child.points,
         position,
@@ -4053,142 +4734,12 @@ ResolvedVaultNode _resolvedFanNode(
   );
 }
 
-ResolvedVaultNode _resolveVaultNode(
-  VaultNode node,
-  VaultNodeResolver? resolver,
-) {
-  return (resolver ?? VaultNodeResolver.empty).resolve(node);
-}
-
 Rect _boundsForPoints(List<Offset> points) {
   return Rect.fromLTRB(
     points.map((point) => point.dx).reduce(math.min),
     points.map((point) => point.dy).reduce(math.min),
     points.map((point) => point.dx).reduce(math.max),
     points.map((point) => point.dy).reduce(math.max),
-  );
-}
-
-void _drawPerspectiveGridArea(
-  Canvas canvas,
-  List<Offset> points,
-  PerspectiveGridLayout grid,
-  List<double> rowStops,
-  double rowStartIndex,
-  double rowEndIndex,
-  double columnStartIndex,
-  double columnEndIndex,
-  PerspectiveGridArea area,
-  VaultNodeResolver? vaultNodeResolver,
-  LayoutContext layoutContext,
-) {
-  final resolvedNode = area.vaultNode == null
-      ? null
-      : _resolveVaultNode(area.vaultNode!, vaultNodeResolver);
-  final resolvedFillColor = resolvedNode?.fillColor;
-  final fillColor = resolvedFillColor == null || resolvedNode?.node == null
-      ? resolvedFillColor ?? area.fillColor
-      : NodeComponent.backgroundColor(
-          resolvedFillColor,
-          resolvedNode!.node!.slug,
-          layoutContext,
-          area,
-          isVirtual: resolvedNode.isVirtual,
-        );
-  final borderStyle = area.vaultNode == null
-      ? area.borderStyle
-      : resolvedNode?.resolvedStatus == LayoutHttpStatus.notFound
-      ? area.borderStyle ?? grid.guideStyle
-      : null;
-  final label = area.caption;
-  if (fillColor == null &&
-      borderStyle == null &&
-      (label == null || label.isEmpty)) {
-    return;
-  }
-  if (rowStartIndex < 0 ||
-      rowEndIndex > grid.rowsConfig.length ||
-      rowStartIndex >= rowEndIndex ||
-      columnStartIndex < 0 ||
-      columnEndIndex > grid.columnsConfig.length ||
-      columnStartIndex >= columnEndIndex) {
-    return;
-  }
-
-  final rowStart = _gridStopAt(rowStops, rowStartIndex);
-  final rowEnd = _gridStopAt(rowStops, rowEndIndex);
-  final startStops = _perspectiveColumnStops(points, grid, rowStart);
-  final endStops = _perspectiveColumnStops(points, grid, rowEnd);
-  final corners = [
-    _perspectiveGridPoint(
-      points,
-      grid,
-      rowStart,
-      _gridStopAt(startStops, columnStartIndex),
-    ),
-    _perspectiveGridPoint(
-      points,
-      grid,
-      rowStart,
-      _gridStopAt(startStops, columnEndIndex),
-    ),
-    _perspectiveGridPoint(
-      points,
-      grid,
-      rowEnd,
-      _gridStopAt(endStops, columnEndIndex),
-    ),
-    _perspectiveGridPoint(
-      points,
-      grid,
-      rowEnd,
-      _gridStopAt(endStops, columnStartIndex),
-    ),
-  ];
-  if (fillColor != null) {
-    final path = Path()..moveTo(corners.first.dx, corners.first.dy);
-    for (final corner in corners.skip(1)) {
-      path.lineTo(corner.dx, corner.dy);
-    }
-    path.close();
-    canvas.drawPath(
-      path,
-      Paint()
-        ..color = fillColor
-        ..style = PaintingStyle.fill,
-    );
-  }
-  if (borderStyle != null) {
-    for (var index = 0; index < corners.length; index += 1) {
-      drawGuideLine(
-        canvas,
-        corners[index],
-        corners[(index + 1) % corners.length],
-        borderStyle,
-      );
-    }
-  }
-
-  if (label == null || label.isEmpty) return;
-  final center =
-      corners.fold<Offset>(Offset.zero, (sum, corner) => sum + corner) /
-      corners.length.toDouble();
-  final textPainter = TextPainter(
-    text: TextSpan(
-      text: label,
-      style: TextStyle(
-        fontFamily: SevilleTypography.fontFamily,
-        color: area.labelColor,
-        fontSize: area.labelSize,
-        fontWeight: FontWeight.w600,
-      ),
-    ),
-    textDirection: TextDirection.ltr,
-    textAlign: TextAlign.center,
-  )..layout();
-  textPainter.paint(
-    canvas,
-    center - Offset(textPainter.width / 2, textPainter.height / 2),
   );
 }
 
@@ -4202,6 +4753,7 @@ void _drawTableLayout(
   required _NodeListSources nodeListSources,
   required LayoutContext layoutContext,
   required PanelConfig panelDefaults,
+  required NodeStyle nodeStyle,
   required LabelConfig label,
   required LayoutTextConfig text,
   required double Function(String panelId) panelExpansion,
@@ -4431,7 +4983,7 @@ void _drawTableLayout(
           textAlign: TextAlign.center,
           style: TextStyle(
             fontFamily: SevilleTypography.fontFamily,
-            color: table.labelColor,
+            color: nodeStyle.labelColor ?? NodeDefaults.labelColor,
             fontSize: table.labelSize,
             fontWeight: FontWeight.w900,
           ),
@@ -4488,6 +5040,9 @@ void _drawTableLayout(
           rowLayout,
           nodeListSources,
           layoutContext,
+          nodeStyle: nodeStyle.merge(
+            rowLayout.resolveNodeConfig(layoutContext).style,
+          ),
         );
         for (final entry in _nodeListEntries(
           rowLayout,
@@ -4500,7 +5055,13 @@ void _drawTableLayout(
               layout: rowLayout,
               node: entry.resolvedNode,
               resolvedNode: entry.resolvedNode,
-              label: _nodePresentationLabel(entry.node, rowLayout),
+              label: _nodePresentation(
+                entry.node,
+                rowLayout,
+                nodeStyle: nodeStyle.merge(
+                  rowLayout.resolveNodeConfig(layoutContext).style,
+                ),
+              ).text,
             ),
             _polygonPath([
               for (final point in entry.points)
@@ -4549,15 +5110,15 @@ void _drawTableLayout(
         columnEnd: columnEnd,
         text: isKeyColumn
             ? row.label
-            : _formatTableRowValue(row.key, row.value, table),
+            : _formatTableRowValue(row.key, row.value, nodeStyle),
         maxLines: isKeyColumn ? 2 : 3,
         style: TextStyle(
           fontFamily: isNodeSlugValue ? null : SevilleTypography.fontFamily,
           color: isKeyColumn
-              ? table.labelColor
+              ? nodeStyle.labelColor ?? NodeDefaults.labelColor
               : isNodeSlugValue
-              ? table.slugColor
-              : table.valueColor,
+              ? nodeStyle.slugColor ?? NodeDefaults.slugColor
+              : nodeStyle.valueColor ?? NodeDefaults.valueColor,
           fontSize: isKeyColumn ? table.labelSize : table.valueSize,
           fontWeight: isKeyColumn
               ? FontWeight.w800
@@ -4565,7 +5126,8 @@ void _drawTableLayout(
               ? FontWeight.w700
               : FontWeight.w600,
           fontFeatures: isNodeSlugValue
-              ? table.nodeSlugTransform.fontFeatures
+              ? (nodeStyle.slugTransform ?? NodeDefaults.slugTransform)
+                    .fontFeatures
               : null,
           height: isKeyColumn ? null : 1.25,
         ),
@@ -5263,17 +5825,17 @@ String _formatTableValue(Object? value) {
 bool _isNodeSlugField(String? key) =>
     key == 'slug' || key == 'selected_node_slugs';
 
-String _formatTableRowValue(String? key, Object? value, Layout layout) {
+String _formatTableRowValue(String? key, Object? value, NodeStyle nodeStyle) {
   if (!_isNodeSlugField(key)) return _formatTableValue(value);
   if (value is Iterable) {
     return value
         .map((item) => item.toString().trim())
         .where((slug) => slug.isNotEmpty)
-        .map(layout.formatNodeSlug)
+        .map(nodeStyle.formatSlug)
         .join(', ');
   }
   final slug = value?.toString().trim() ?? '';
-  return slug.isEmpty ? '—' : layout.formatNodeSlug(slug);
+  return slug.isEmpty ? '—' : nodeStyle.formatSlug(slug);
 }
 
 void _drawStickmanLayout(
@@ -5366,22 +5928,6 @@ double _gridStopAt(List<double> stops, double track) {
   return stops[index] + (stops[index + 1] - stops[index]) * fraction;
 }
 
-List<double> _perspectiveColumnStops(
-  List<Offset> points,
-  PerspectiveGridLayout grid,
-  double row,
-) {
-  final left = _perspectiveGridPoint(points, grid, row, 0);
-  final right = _perspectiveGridPoint(points, grid, row, 1);
-  return _gridTrackStops([
-    for (final column in grid.columnsConfig.values) column,
-  ], (right - left).distance);
-}
-
-bool _hasPoint(List<Offset> points, int index) {
-  return index >= 0 && index < points.length;
-}
-
 List<double> _gridTrackStops(List<LayoutSize> tracks, double availablePixels) {
   final primaryTracks = [for (final track in tracks) track.primary];
   final safePixels = math.max(availablePixels, 0);
@@ -5445,21 +5991,6 @@ double _gridTrackFractionValue(LayoutSize track) {
       track.value + hourPassedFraction - 0.5 + dayPassedFraction - 0.5,
     _ => track.value,
   };
-}
-
-Offset _perspectiveGridPoint(
-  List<Offset> points,
-  PerspectiveGridLayout layout,
-  double row,
-  double column,
-) {
-  final topStart = points[layout.topStartIndex];
-  final topEnd = points[layout.topEndIndex];
-  final bottomStart = points[layout.bottomStartIndex];
-  final bottomEnd = points[layout.bottomEndIndex];
-  final left = Offset.lerp(topStart, bottomStart, row)!;
-  final right = Offset.lerp(topEnd, bottomEnd, row)!;
-  return Offset.lerp(left, right, column)!;
 }
 
 Map<String, _ResolvedLayout> _resolveLayouts(
@@ -5531,123 +6062,38 @@ Offset? _resolvePathAreaReference(
   if (resolved == null) return null;
   final path = resolved.layout.children[reference.path];
   if (path is! LayoutPath) return null;
-  final grid = path.grid;
-  final area = grid?.areas[reference.area];
-  if (grid == null || area == null) return null;
+  final grid = path.children[reference.grid];
+  if (grid is! GridLayout) return null;
+  final area = grid.areas[reference.area];
+  if (area == null) return null;
 
-  final points = [
-    for (final pointReference in path.points)
-      _resolveReference(pointReference, layouts, layoutContext),
-  ];
-  if (points.length < 2 || points.any((point) => point == null)) return null;
-  final corners = _resolvePerspectiveGridAreaCorners(
-    _paddedPathPoints(points.cast<Offset>(), path.padding),
+  final points = _resolvedLayoutPathPoints(path, layouts, layoutContext);
+  if (points == null || points.length != 4) return null;
+  final projection = _resolvedLayoutPathProjection(
+    path,
+    points,
+    layouts,
+    layoutContext,
+  );
+  final tracks = _resolvedGridTracks(
     grid,
-    area,
+    projection?.canProjectBackground ?? false
+        ? projection!.flatSize
+        : _quadrilateralAverageSize(points),
   );
-  if (corners == null) return null;
-
-  final bounds = _boundsForPoints(corners);
-  return reference.position.resolve(bounds);
-}
-
-List<Offset>? _resolvePerspectiveGridAreaCorners(
-  List<Offset> points,
-  PerspectiveGridLayout grid,
-  PerspectiveGridArea area,
-) {
-  if (grid.rowsConfig.isEmpty ||
-      grid.columnsConfig.isEmpty ||
-      !_hasPoint(points, grid.topStartIndex) ||
-      !_hasPoint(points, grid.topEndIndex) ||
-      !_hasPoint(points, grid.bottomStartIndex) ||
-      !_hasPoint(points, grid.bottomEndIndex)) {
-    return null;
-  }
-
-  final rowKeys = grid.rowsConfig.keys.toList(growable: false);
-  final columnKeys = grid.columnsConfig.keys.toList(growable: false);
-  final rowStartIndex = rowKeys.indexOf(area.row);
-  final columnStartIndex = columnKeys.indexOf(area.column);
-  if (rowStartIndex < 0 || columnStartIndex < 0) return null;
-
-  final leftLength =
-      (points[grid.bottomStartIndex] - points[grid.topStartIndex]).distance;
-  final rightLength =
-      (points[grid.bottomEndIndex] - points[grid.topEndIndex]).distance;
-  final rowStops = _gridTrackStops([
-    for (final row in grid.rowsConfig.values) row,
-  ], (leftLength + rightLength) / 2);
-  if (rowStops.length < 2) return null;
-
-  final rowStartIndexWithOffset = rowStartIndex + area.rowOffset;
-  final rowEndIndex = _gridAreaEnd(
-    rowStartIndexWithOffset,
-    area.rowSpan,
-    rowKeys.length,
-  );
-  final columnStartIndexWithOffset = columnStartIndex + area.columnOffset;
-  final columnEndIndex = _gridAreaEnd(
-    columnStartIndexWithOffset,
-    area.columnSpan,
-    columnKeys.length,
-  );
-
-  if (rowStartIndexWithOffset < 0 ||
-      rowEndIndex > grid.rowsConfig.length ||
-      rowStartIndexWithOffset >= rowEndIndex ||
-      columnStartIndexWithOffset < 0 ||
-      columnEndIndex > grid.columnsConfig.length ||
-      columnStartIndexWithOffset >= columnEndIndex) {
-    return null;
-  }
-
-  final rowStart = _gridStopAt(rowStops, rowStartIndexWithOffset);
-  final rowEnd = _gridStopAt(rowStops, rowEndIndex);
-  final startStops = _perspectiveColumnStops(points, grid, rowStart);
-  final endStops = _perspectiveColumnStops(points, grid, rowEnd);
-  return [
-    _perspectiveGridPoint(
-      points,
-      grid,
-      rowStart,
-      _gridStopAt(startStops, columnStartIndexWithOffset),
-    ),
-    _perspectiveGridPoint(
-      points,
-      grid,
-      rowStart,
-      _gridStopAt(startStops, columnEndIndex),
-    ),
-    _perspectiveGridPoint(
-      points,
-      grid,
-      rowEnd,
-      _gridStopAt(endStops, columnEndIndex),
-    ),
-    _perspectiveGridPoint(
-      points,
-      grid,
-      rowEnd,
-      _gridStopAt(endStops, columnStartIndexWithOffset),
-    ),
-  ];
-}
-
-void _drawRayArrow(Canvas canvas, Offset start, Offset target, RayLayout ray) {
-  final delta = target - start;
-  final distance = delta.distance;
-  if (distance == 0) return;
-  final direction = delta / distance;
-  final base = target - direction * ray.arrowSize;
-  final perpendicular = Offset(-direction.dy, direction.dx);
-  final paint = Paint()
-    ..color = ray.style.color
-    ..strokeWidth = ray.style.strokeWidth
-    ..strokeCap = ray.style.strokeCap
-    ..style = PaintingStyle.stroke;
-  canvas.drawLine(target, base + perpendicular * ray.arrowSize * 0.5, paint);
-  canvas.drawLine(target, base - perpendicular * ray.arrowSize * 0.5, paint);
+  if (tracks == null) return null;
+  final frame = _resolveGridAreaFrame(area, tracks);
+  if (frame == null) return null;
+  final corners = projection?.canProjectBackground ?? false
+      ? _curvedSurfaceCorners(projection!, frame)
+      : _quadrilateralSlice(
+          _screenOrderedQuadrilateral(points),
+          left: frame.left,
+          right: frame.right,
+          top: frame.top,
+          bottom: frame.bottom,
+        );
+  return reference.position.resolve(_boundsForPoints(corners));
 }
 
 void _drawAreaRayArrow(

@@ -20,10 +20,6 @@ class SearchLayout extends Layout {
     super.node,
     super.panel,
     super.nodeHoverBorderStyle,
-    super.nodeSlugPrefix,
-    super.nodeSlugTransform,
-    super.nodeSlugSuffix,
-    super.slugColor,
     super.children = const {
       searchResultsLayoutKey: TableLayout(
         guideStyle: GuideStyle(color: Color(0xFF3F51B5)),

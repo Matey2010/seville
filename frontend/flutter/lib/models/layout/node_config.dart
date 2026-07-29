@@ -2,7 +2,16 @@ part of 'layout.dart';
 
 /// Canonical fallback values for Node presentation across Layouts.
 abstract final class NodeDefaults {
-  static const config = NodeConfig();
+  static const config = NodeConfig(
+    style: NodeStyle(
+      slugColor: slugColor,
+      labelColor: labelColor,
+      valueColor: valueColor,
+      slugPrefix: slugPrefix,
+      slugTransform: slugTransform,
+      slugSuffix: slugSuffix,
+    ),
+  );
   static const inactiveBackgroundOpacity = 0.1;
   static const activeBackgroundOpacity = 1.0;
   static const virtualBackgroundOpacity = 0.5;
@@ -14,6 +23,8 @@ abstract final class NodeDefaults {
   static const slugTransform = TextTransform.none();
   static const slugSuffix = '';
   static const slugColor = Color(0xFFFFD54F);
+  static const labelColor = Color(0xFFFFF8E7);
+  static const valueColor = Color(0xFFFFF8E7);
 }
 
 /// Extensible Node configuration selected by Layout state.
@@ -50,7 +61,11 @@ class NodeStyle {
     this.backgroundOpacity,
     this.borderStyle,
     this.slugColor,
+    this.slugPrefix,
+    this.slugTransform,
+    this.slugSuffix,
     this.labelColor,
+    this.valueColor,
     this.labelSize,
   }) : assert(
          backgroundOpacity == null ||
@@ -62,15 +77,30 @@ class NodeStyle {
   final double? backgroundOpacity;
   final GuideStyle? borderStyle;
   final Color? slugColor;
+  final String? slugPrefix;
+  final TextTransform? slugTransform;
+  final String? slugSuffix;
   final Color? labelColor;
+  final Color? valueColor;
   final double? labelSize;
+
+  String formatSlug(String slug) {
+    final prefix = slugPrefix ?? NodeDefaults.slugPrefix;
+    final transform = slugTransform ?? NodeDefaults.slugTransform;
+    final suffix = slugSuffix ?? NodeDefaults.slugSuffix;
+    return '$prefix${transform.apply(slug)}$suffix';
+  }
 
   NodeStyle merge(NodeStyle overlay) => NodeStyle(
     backgroundColor: overlay.backgroundColor ?? backgroundColor,
     backgroundOpacity: overlay.backgroundOpacity ?? backgroundOpacity,
     borderStyle: overlay.borderStyle ?? borderStyle,
     slugColor: overlay.slugColor ?? slugColor,
+    slugPrefix: overlay.slugPrefix ?? slugPrefix,
+    slugTransform: overlay.slugTransform ?? slugTransform,
+    slugSuffix: overlay.slugSuffix ?? slugSuffix,
     labelColor: overlay.labelColor ?? labelColor,
+    valueColor: overlay.valueColor ?? valueColor,
     labelSize: overlay.labelSize ?? labelSize,
   );
 }

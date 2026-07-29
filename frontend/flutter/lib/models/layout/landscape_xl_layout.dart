@@ -22,10 +22,6 @@ class LandscapeXlLayout extends Layout {
     super.node,
     super.panel,
     super.nodeHoverBorderStyle,
-    super.nodeSlugPrefix,
-    super.nodeSlugTransform,
-    super.nodeSlugSuffix,
-    super.slugColor,
   }) : super();
 }
 
@@ -54,9 +50,5 @@ class SafeAreaLayout extends LandscapeXlLayout {
     super.node,
     super.panel,
     super.nodeHoverBorderStyle,
-    super.nodeSlugPrefix,
-    super.nodeSlugTransform,
-    super.nodeSlugSuffix,
-    super.slugColor,
   });
 }

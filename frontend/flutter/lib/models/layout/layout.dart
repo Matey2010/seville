@@ -22,7 +22,7 @@ abstract class Layout {
     this.aliases = const [],
     this.label = LabelDefaults.config,
     this.text = LayoutTextDefaults.config,
-    this.node = NodeDefaults.config,
+    this.node = const NodeConfig(),
     this.panel = const PanelConfig(),
     this.attributes = const [],
     this.background = const [],
@@ -39,10 +39,6 @@ abstract class Layout {
     this.activeNodeBackgroundOpacity = NodeDefaults.activeBackgroundOpacity,
     this.virtualNodeBackgroundOpacity = NodeDefaults.virtualBackgroundOpacity,
     this.nodeHoverBorderStyle = NodeDefaults.hoverBorderStyle,
-    this.nodeSlugPrefix = NodeDefaults.slugPrefix,
-    this.nodeSlugTransform = NodeDefaults.slugTransform,
-    this.nodeSlugSuffix = NodeDefaults.slugSuffix,
-    this.slugColor = NodeDefaults.slugColor,
   }) : assert(layoutPadding >= 0),
        assert(layoutGap >= 0),
        assert(layoutBorderWidth == null || layoutBorderWidth >= 0),
@@ -90,15 +86,15 @@ abstract class Layout {
   final double activeNodeBackgroundOpacity;
   final double virtualNodeBackgroundOpacity;
   final GuideStyle nodeHoverBorderStyle;
-  final String nodeSlugPrefix;
-  final TextTransform nodeSlugTransform;
-  final String nodeSlugSuffix;
-  final Color slugColor;
 
   bool supportsInputSource(LayoutInputSource source) =>
       inputSources.contains(source);
 
   NodeConfig resolveNodeConfig(LayoutContext context) => node.resolve(context);
+  NodeStyle get nodeStyle => node.style;
+  Color get slugColor => nodeStyle.slugColor ?? NodeDefaults.slugColor;
+  Color get labelColor => nodeStyle.labelColor ?? NodeDefaults.labelColor;
+  Color get valueColor => nodeStyle.valueColor ?? NodeDefaults.valueColor;
   LabelConfig resolveLabelConfig(LayoutContext context) =>
       label.resolveWithDefaults(context);
 
@@ -153,8 +149,7 @@ abstract class Layout {
   bool isVisible(LayoutContext context) =>
       visibility.every((condition) => condition.isActive(context));
 
-  String formatNodeSlug(String slug) =>
-      '$nodeSlugPrefix${nodeSlugTransform.apply(slug)}$nodeSlugSuffix';
+  String formatNodeSlug(String slug) => nodeStyle.formatSlug(slug);
 
   LayoutDerivativeSnapshot getDerivatives([
     String? snapshot,
@@ -634,10 +629,6 @@ abstract class LayoutGuide extends Layout {
     super.node,
     super.panel,
     super.nodeHoverBorderStyle,
-    super.nodeSlugPrefix,
-    super.nodeSlugTransform,
-    super.nodeSlugSuffix,
-    super.slugColor,
     super.visibility,
     super.inputSources,
   }) : super();
@@ -667,10 +658,6 @@ class CirleLayout extends LayoutGuide {
     super.node,
     super.panel,
     super.nodeHoverBorderStyle,
-    super.nodeSlugPrefix,
-    super.nodeSlugTransform,
-    super.nodeSlugSuffix,
-    super.slugColor,
     super.visibility,
     super.inputSources,
   });
@@ -1205,42 +1192,15 @@ abstract final class GridSpan {
   static const full = double.infinity;
 }
 
-class PerspectiveGridArea extends Layout {
-  const PerspectiveGridArea({
+class GridArea {
+  const GridArea({
     required this.row,
     required this.column,
     this.rowOffset = 0,
     this.columnOffset = 0,
     this.rowSpan = 1,
     this.columnSpan = 1,
-    this.vaultNode,
-    this.defaultPath,
-    this.fillColor,
-    this.borderStyle,
-    this.caption,
-    this.labelColor = const Color(0xFFFFF8E7),
-    this.labelSize = 12,
-    super.aliases,
-    super.attributes = const [LayoutAttribute.rectangular],
-    super.background,
-    super.layoutPadding,
-    super.layoutGap,
-    super.layoutBorderWidth,
-    super.inactiveNodeBackgroundOpacity,
-    super.activeNodeBackgroundOpacity,
-    super.virtualNodeBackgroundOpacity,
-    super.label,
-    super.text,
-    super.node,
-    super.panel,
-    super.nodeHoverBorderStyle,
-    super.nodeSlugPrefix,
-    super.nodeSlugTransform,
-    super.nodeSlugSuffix,
-    super.slugColor,
-    super.visibility,
-    super.inputSources,
-  }) : super();
+  });
 
   final String row;
   final String column;
@@ -1248,25 +1208,19 @@ class PerspectiveGridArea extends Layout {
   final double columnOffset;
   final double rowSpan;
   final double columnSpan;
-  final VaultNode? vaultNode;
-  final String? defaultPath;
-  final Color? fillColor;
-  final GuideStyle? borderStyle;
-  final String? caption;
-  final Color labelColor;
-  final double labelSize;
 }
 
-class PerspectiveGridLayout extends Layout {
-  const PerspectiveGridLayout({
+/// CSS-like two-dimensional composition using named tracks and areas.
+///
+/// Each entry in [areas] positions the child with the same key in [children].
+class GridLayout extends Layout {
+  const GridLayout({
     required this.rowsConfig,
     required this.columnsConfig,
-    required this.guideStyle,
     this.areas = const {},
-    this.topStartIndex = 1,
-    this.topEndIndex = 2,
-    this.bottomStartIndex = 0,
-    this.bottomEndIndex = 3,
+    this.guideStyle,
+    super.children,
+    super.size,
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
     super.background,
@@ -1281,26 +1235,14 @@ class PerspectiveGridLayout extends Layout {
     super.node,
     super.panel,
     super.nodeHoverBorderStyle,
-    super.nodeSlugPrefix,
-    super.nodeSlugTransform,
-    super.nodeSlugSuffix,
-    super.slugColor,
     super.visibility,
     super.inputSources,
   }) : super();
 
   final Map<String, LayoutSize> rowsConfig;
   final Map<String, LayoutSize> columnsConfig;
-  final Map<String, PerspectiveGridArea> areas;
-  final GuideStyle guideStyle;
-
-  /// Edge used as the spatial top of the perspective grid.
-  final int topStartIndex;
-  final int topEndIndex;
-
-  /// Edge used as the spatial bottom of the perspective grid.
-  final int bottomStartIndex;
-  final int bottomEndIndex;
+  final Map<String, GridArea> areas;
+  final GuideStyle? guideStyle;
 }
 
 /// Vertical composition whose children retain their identity in [children].
@@ -1321,10 +1263,6 @@ class ColumnLayout extends Layout {
     super.node,
     super.panel,
     super.nodeHoverBorderStyle,
-    super.nodeSlugPrefix,
-    super.nodeSlugTransform,
-    super.nodeSlugSuffix,
-    super.slugColor,
     super.visibility,
     super.inputSources,
   }) : super(attributes: const [LayoutAttribute.rectangular]);
@@ -1348,10 +1286,6 @@ class RowLayout extends Layout {
     super.node,
     super.panel,
     super.nodeHoverBorderStyle,
-    super.nodeSlugPrefix,
-    super.nodeSlugTransform,
-    super.nodeSlugSuffix,
-    super.slugColor,
     super.visibility,
     super.inputSources,
   }) : super(attributes: const [LayoutAttribute.rectangular]);
@@ -1379,16 +1313,13 @@ class PanelLayout extends Layout {
     super.node,
     super.panel,
     super.nodeHoverBorderStyle,
-    super.nodeSlugPrefix,
-    super.nodeSlugTransform,
-    super.nodeSlugSuffix,
-    super.slugColor,
     super.visibility,
     super.inputSources,
   }) : super(attributes: const [LayoutAttribute.rectangular]);
   final Color? fillColor;
   final GuideStyle? borderStyle;
   final String? caption;
+  @override
   final Color labelColor;
   final double labelSize;
 }
@@ -1398,7 +1329,6 @@ class LayoutPath extends Layout {
     required this.points,
     this.style,
     this.ticks,
-    this.grid,
     this.curves = const [],
     this.padding = const LayoutPathPadding(),
     this.pointDerivatives = const {'A': 0, 'B': 1, 'C': 2, 'D': 3},
@@ -1422,16 +1352,11 @@ class LayoutPath extends Layout {
     super.node,
     super.panel,
     super.nodeHoverBorderStyle,
-    super.nodeSlugPrefix,
-    super.nodeSlugTransform,
-    super.nodeSlugSuffix,
-    super.slugColor,
   }) : super();
 
   final List<LayoutDerivativeReference> points;
   final LayoutPathStyle? style;
   final LayoutPathTickStyle? ticks;
-  final PerspectiveGridLayout? grid;
   final List<LayoutPathCurve> curves;
   final LayoutPathPadding padding;
   final Map<String, int> pointDerivatives;
@@ -1466,7 +1391,6 @@ class FanLayout extends Layout with TableLayoutMixin {
     this.maxSectionCount = 6,
     this.sectionSizing = FanSectionSizing.equal,
     this.caption,
-    this.labelColor = const Color(0xFFFFF8E7),
     this.labelSize = 12,
     this.position = LayoutRelativePosition.top,
     this.growthDirection,
@@ -1485,10 +1409,6 @@ class FanLayout extends Layout with TableLayoutMixin {
     super.node,
     super.panel,
     super.nodeHoverBorderStyle,
-    super.nodeSlugPrefix,
-    super.nodeSlugTransform,
-    super.nodeSlugSuffix,
-    super.slugColor,
     super.visibility,
     super.inputSources,
   }) : assert(
@@ -1518,7 +1438,6 @@ class FanLayout extends Layout with TableLayoutMixin {
   final int maxDepth;
   final int maxSectionCount;
   final FanSectionSizing sectionSizing;
-  final Color labelColor;
   final double labelSize;
   final LayoutRelativePosition position;
   final LayoutDerivativeReference? growthDirection;
@@ -1571,7 +1490,6 @@ class GraphLayout extends Layout {
   const GraphLayout({
     required this.style,
     this.nodeExtentFactor = 0.5,
-    this.labelColor = const Color(0xFFFFF8E7),
     this.labelSize = 12,
     this.emojiFontSizeFactor = 2,
     this.emojiSlugGapFactor = 0.5,
@@ -1589,10 +1507,6 @@ class GraphLayout extends Layout {
     super.node,
     super.panel,
     super.nodeHoverBorderStyle,
-    super.nodeSlugPrefix,
-    super.nodeSlugTransform,
-    super.nodeSlugSuffix,
-    super.slugColor,
     super.visibility,
     super.inputSources,
   }) : assert(nodeExtentFactor > 0 && nodeExtentFactor <= 1),
@@ -1603,7 +1517,6 @@ class GraphLayout extends Layout {
 
   /// Diameter of a rendered Node relative to its equal-sized pool cell.
   final double nodeExtentFactor;
-  final Color labelColor;
   final double labelSize;
   final double emojiFontSizeFactor;
   final double emojiSlugGapFactor;
@@ -1614,7 +1527,6 @@ class NodeListLayout extends Layout {
   const NodeListLayout({
     required this.dataSource,
     required this.style,
-    this.labelColor = const Color(0xFFFFF8E7),
     this.labelSize = 12,
     super.size,
     super.aliases,
@@ -1631,16 +1543,11 @@ class NodeListLayout extends Layout {
     super.node,
     super.panel,
     super.nodeHoverBorderStyle,
-    super.nodeSlugPrefix,
-    super.nodeSlugTransform,
-    super.nodeSlugSuffix,
-    super.slugColor,
     super.visibility,
     super.inputSources,
   }) : super();
 
   final NodeListDataSource dataSource;
-  final Color labelColor;
   final double labelSize;
   final GuideStyle style;
 }
@@ -1666,52 +1573,18 @@ final class _SelectedNodeLayoutNodePointer extends LayoutNodePointer {
   }
 }
 
-class RayLayout extends LayoutGuide {
-  const RayLayout({
-    required this.start,
-    required this.towards,
-    required super.style,
-    this.showArrow = true,
-    this.arrowSize = 10,
-    super.visible,
-    super.aliases,
-    super.attributes = const [LayoutAttribute.linear],
-    super.background,
-    super.layoutPadding,
-    super.layoutGap,
-    super.layoutBorderWidth,
-    super.inactiveNodeBackgroundOpacity,
-    super.activeNodeBackgroundOpacity,
-    super.virtualNodeBackgroundOpacity,
-    super.label,
-    super.text,
-    super.node,
-    super.panel,
-    super.nodeHoverBorderStyle,
-    super.nodeSlugPrefix,
-    super.nodeSlugTransform,
-    super.nodeSlugSuffix,
-    super.slugColor,
-    super.visibility,
-    super.inputSources,
-  });
-
-  final LayoutDerivativeReference start;
-  final LayoutDerivativeReference towards;
-  final bool showArrow;
-  final double arrowSize;
-}
-
 class LayoutPathAreaReference {
   const LayoutPathAreaReference({
     this.layoutPath = const [],
     required this.path,
+    required this.grid,
     required this.area,
     this.position = LayoutRelativePosition.center,
   });
 
   final List<String> layoutPath;
   final String path;
+  final String grid;
   final String area;
 
   /// Position relative to the resolved target area.
@@ -1740,10 +1613,6 @@ class LayoutAreaRayLayout extends LayoutGuide {
     super.node,
     super.panel,
     super.nodeHoverBorderStyle,
-    super.nodeSlugPrefix,
-    super.nodeSlugTransform,
-    super.nodeSlugSuffix,
-    super.slugColor,
     super.visibility,
     super.inputSources,
   });
@@ -1776,10 +1645,6 @@ class LayoutAreaToDerivativeRayLayout extends LayoutGuide {
     super.node,
     super.panel,
     super.nodeHoverBorderStyle,
-    super.nodeSlugPrefix,
-    super.nodeSlugTransform,
-    super.nodeSlugSuffix,
-    super.slugColor,
     super.visibility,
     super.inputSources,
   });
@@ -1819,10 +1684,6 @@ class StickmanLayout extends Layout {
     super.node,
     super.panel,
     super.nodeHoverBorderStyle,
-    super.nodeSlugPrefix,
-    super.nodeSlugTransform,
-    super.nodeSlugSuffix,
-    super.slugColor,
     super.visibility,
     super.inputSources,
   }) : super();
@@ -1887,10 +1748,6 @@ class PlaneLayout extends Layout {
     super.node,
     super.panel,
     super.nodeHoverBorderStyle,
-    super.nodeSlugPrefix,
-    super.nodeSlugTransform,
-    super.nodeSlugSuffix,
-    super.slugColor,
   }) : super();
 
   final VaultNode? vaultNode;
@@ -1948,10 +1805,6 @@ class SubjectNodeLayout extends PlaneLayout {
     super.node,
     super.panel,
     super.nodeHoverBorderStyle,
-    super.nodeSlugPrefix,
-    super.nodeSlugTransform,
-    super.nodeSlugSuffix,
-    super.slugColor,
     super.shape,
     super.visibility,
     super.inputSources,
@@ -1989,10 +1842,6 @@ class LayoutBorderGuide extends LayoutGuide {
     super.node,
     super.panel,
     super.nodeHoverBorderStyle,
-    super.nodeSlugPrefix,
-    super.nodeSlugTransform,
-    super.nodeSlugSuffix,
-    super.slugColor,
     super.visibility,
     super.inputSources,
   });

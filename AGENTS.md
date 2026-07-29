@@ -103,7 +103,8 @@
   not restore `LabelStyle.textColor` or painter-local contrast colors. The model
   and defaults live in `lib/models/layout/text.dart`.
 - Every `Layout` exposes `node: NodeConfig`. `NodeConfig.style` owns the
-  immediate `NodeStyle`, while its ordered
+  immediate `NodeStyle`, including `slugPrefix`, `slugTransform`, and
+  `slugSuffix`, while its ordered
   `state: Map<LayoutCondition, NodeConfig>` recursively specializes the entire
   Node configuration. Resolve every matching condition in insertion order and
   merge later non-null style values over earlier values. `NodeConfig`,
@@ -151,18 +152,24 @@
   emoji pinned to points along a specific guide line. Use this for line-local
   points such as a diagonal guide's center; do not confuse those with the
   owning layout's center derivative.
-- Use `RayLayout` for geometry with a fixed origin and direction toward another
-  derivative. Use layout paths for cross-layout references rather than copying
-  resolved screen coordinates.
 - Use `LayoutAreaRayLayout` when a ray should target a named
-  `PerspectiveGridArea` position instead of a layout derivative; for example,
+  `GridArea` position instead of a layout derivative; for example,
   target `position: LayoutRelativePosition.bottom` or
   `position: LayoutRelativePosition.d(90)` for the bottom of a grid area.
+  `LayoutPathAreaReference.path`, `grid`, and `area` address the owning path,
+  its `GridLayout` child, and the named area directly.
 - Use `LayoutAreaToDerivativeRayLayout` for the reverse direction: starting at
-  a named `PerspectiveGridArea` anchor and pointing toward a layout derivative.
+  a named `GridArea` anchor and pointing toward a layout derivative.
 - Use `LayoutPath` for filled/vector-like planes and polygons. Its points
   should be `LayoutDerivativeReference` values, so SVG-like path structures stay
   configurable instead of becoming painter-only geometry.
+- `LayoutPathCurve` replaces one structural edge through direct `from`,
+  `through`, and `to` derivative references. Keep curve-only shaping
+  derivatives out of `LayoutPath.points`; a quadrilateral remains four points
+  for grids and other structural consumers. Curved `GridLayout`, `RowLayout`,
+  and `ColumnLayout` descendants resolve on the same normalized surface, and
+  paint and hit testing must use the same curved paths rather than clipping a
+  flat composition.
 - Every `LayoutPath.padding` is a `LayoutPathPadding`. Configure its `left`,
   `top`, `right`, and `bottom` values independently, or use
   `LayoutPathPadding.all(...)` for a uniform inset.
@@ -201,7 +208,10 @@
   `columnsConfig` are angular segments across the tree fan.
   LG Ergo keeps its always-available shallow fan under `top-plane`.
 - Use `GraphLayout` for the selected Node pool at
-  `safe-area/inner-circle-plane/wrapped-scene-square/scene-graph-plane/scene-graph`.
+  `safe-area/inner-circle-plane/wrapped-scene-square/scene-graph-plane/scene-graph-grid/scene-graph`.
+  `scene-graph-grid` places it in the center area of three 1fr/2fr/1fr rows and
+  columns; the Graph component must use that resolved grid area rather than the
+  complete owning path.
   It renders every Riverpod-selected Node through one Flame component. Arrange
   Nodes in equal centered cells, render each Node as a circle whose diameter is
   `nodeExtentFactor` of its cell, and shrink the cells as the selected set
@@ -231,14 +241,23 @@
   Me is a visible, shared-width `PanelConfig` in the left info table. Keep the
   former right-plane `PanelLayout` commented beside that panel as the reference
   for its future global action; do not restore a live right-plane Me button.
-  Direction controls belong to the bottom `direction-pad`: three equal rows
-  and three equal columns represent top-left through bottom-right, including
-  center. Keep their stable `direction-*` aliases in layout configuration;
+  Direction controls belong to `panoramic-scene-plane/direction-pad`. Its
+  three named rows and three named columns represent top-left through
+  bottom-right, including center; the center column is wider than the side
+  columns. Keep their stable `direction-*` aliases in layout configuration;
   directional behavior remains a later interaction-policy concern.
-- Use `PerspectiveGridLayout` in `LayoutPath.grid` when a path needs normal
-  rows and columns projected inside its quadrilateral. `rowsConfig` and
-  `columnsConfig` must be ordered maps of `LayoutSize`; the
+- Use `GridLayout` for named two-dimensional composition. It may be a
+  `LayoutPath.children` entry and follows that path's straight, projective, or
+  curved surface. `rowsConfig` and `columnsConfig` must be ordered maps of
+  `LayoutSize`; the
   map key owns identity, preventing IDs and measurements from drifting apart.
+  `GridLayout.areas` maps a child identity to `GridArea` geometry; the child
+  with the same key remains in the ordinary `Layout.children` tree. Areas
+  reference named starting tracks and use `GridSpan.full` when they must
+  continue through all remaining tracks, including tracks added later. Use
+  `columnOffset`/`rowOffset` plus fractional spans when an area must consume
+  part of a track. Do not restore `PerspectiveGridLayout`,
+  `PerspectiveGridArea`, or `LayoutPath.grid`.
   Use `LayoutSize.fr` for flexible space, `LayoutSize.pt` (`px` alias)
   for fixed gaps, and `LayoutSize.calculatedFr` when a track is a computed
   fraction with a fallback value. Do not pad root screen or safe-area anchors
@@ -258,18 +277,11 @@
   when drawing the padded scene square between raw ABCD and the inner circle;
   derivative anchors intentionally snap back to raw ABCD.
   `left-plane` is the 12-segment x/space plane between scene-left and
-  screen-left; its perspective grid contains only the real 12 space rows.
-  Defer passed/left timeline-point adjustments to a later overlay
-  layer. Keep content and paint in named `PerspectiveGridArea` values; areas
-  reference track map keys and use `GridSpan.full` when they must continue
-  through all remaining tracks, including tracks added later. Use
-  `columnOffset`/`rowOffset` plus fractional spans when an area must consume
-  part of a track. Use `PerspectiveGridArea.borderStyle` for dashed rim
-  wrappers, such as left-plane outer-with-padding and inner-without-padding
-  borders.
-- For node-backed grid content, prefer `PerspectiveGridArea(vaultNode: path,
-  VaultNode(path: ..., color: LayoutColor.fromHex(...)))`. Every layout that is
-  backed by knowledge-base data should own a `VaultNode`; runtime lookup belongs
+  screen-left. Defer passed/left timeline-point adjustments to a later overlay
+  layer.
+- For node-backed grid content, place the node-backed layout under the matching
+  `GridLayout.children` key. Every layout that is backed by knowledge-base data
+  should own a `VaultNode`; runtime lookup belongs
   only to `VaultNodeResolver`, which returns `ResolvedVaultNode extends
   VaultNode`. Do not duplicate node path resolution in screens or painters.
   `ResolvedVaultNode.node` is the single source for tap/frontmatter behavior,
@@ -342,18 +354,20 @@
 - For compact Node labels, render the first assigned non-empty
   `Emoji.character` before textual metadata. Fall back to `Node.slug`; legacy
   title and ID values are only last-resort compatibility labels. When a slug is
-  rendered, wrap it with `LayoutDefaults.nodeSlugPrefix` and
-  `LayoutDefaults.nodeSlugSuffix`; LG Ergo uses `[[` and `]]`. Search result
+  rendered, wrap it with the owning `NodeConfig.style.slugPrefix` and
+  `slugSuffix`; LG Ergo uses `[[` and `]]`. Search result
   rows deliberately render the wrapped slug even when the Node has an Emoji.
   Render slug references with their stored casing and bold weight; do not use
   the Alegreya Sans SC face for them because its small-cap glyphs visually
   uppercase lowercase syntax. Emoji and ordinary interface captions continue
   to use the shared interface font. Paint every slug with the owning
-  `LayoutDefaults.slugColor`; the default and LG Ergo value are readable gold
-  `#FFD54F`, while ordinary layout text uses ivory `#FFF8E7`. This applies to
+  resolved `NodeConfig.style.slugColor`; the default and LG Ergo value are
+  readable gold `#FFD54F`. `NodeStyle.labelColor` and `valueColor` own the
+  related Node text colors, and LG Ergo declares all three once on the root
+  Layout. Ordinary layout text uses ivory `#FFF8E7`. This applies to
   Node components and plain
   `TableLayout` values whose field keys are `slug` or `selected_node_slugs`;
-  wrap every item through the owning `LayoutDefaults` exactly once.
+  wrap every item through the resolved `NodeStyle` exactly once.
   Keep this priority and formatting in the shared Node presentation helper
   rather than implementing different rules in individual Flame components.
   Riverpod-selected

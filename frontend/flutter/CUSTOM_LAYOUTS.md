@@ -242,11 +242,6 @@ one with `derivativeSnapshot`, and consume its names through
 `LayoutDerivativeObserver.addListener()` when runtime code must react to a
 resolved point changing.
 
-Use `RayLayout` when geometry starts at one derivative and points toward
-another. `LayoutDerivativeReference.layoutPath` addresses nested layouts, so a
-ray can connect scene geometry to screen geometry without copying either
-coordinate.
-
 Every concrete `Layout` constructor accepts the base `background` list. Lower
 `orderPosition` values paint first; guides and content remain above the owning
 layout's background elements. For example, a path can own an image without
@@ -273,39 +268,44 @@ placing a screen-facing image behind distorted content.
 An empty `background` list paints no background for that layout. Background
 configuration is always owned directly by the layout whose geometry it fills.
 
-## 6. Project a grid inside a path
+## 6. Compose named grid areas
 
-Use `LayoutPath.grid` to divide a quadrilateral into ordinary rows and columns
-while retaining the path's perspective:
+Use `GridLayout` for CSS-like two-dimensional composition. Rows and columns are
+ordered track maps, `areas` maps stable child identities to track geometry, and
+the matching entries in `children` provide the rendered layouts:
 
 ```dart
 LayoutPath(
-  points: [screenA, sceneA, sceneD, screenD],
+  points: [a, b, c, d],
   style: planeStyle,
-  grid: PerspectiveGridLayout(
-    guideStyle: dashedGridStyle,
-    rowsConfig: {
-      'timeline': LayoutSize.pt(20),
-      'hour': LayoutSize.fr(1),
-      'day': LayoutSize.fr(1),
-      'week': LayoutSize.fr(1),
-    },
-    columnsConfig: {
-      'past-pointer': LayoutSize.pt(20),
-      'previous': LayoutSize.fr(1),
-      'current': LayoutSize.fr(1),
-      'next': LayoutSize.fr(1),
-      'future-pointer': LayoutSize.pt(20),
-    },
-    areas: {
-      'current-day': PerspectiveGridArea(
-        row: 'day',
-        column: 'current',
-        aliases: ['today'],
-        label: 'today',
-      ),
-    },
-  ),
+  children: {
+    'controls': GridLayout(
+      rowsConfig: {
+        'top': LayoutSize.fr(1),
+        'center': LayoutSize.fr(1),
+        'bottom': LayoutSize.fr(1),
+      },
+      columnsConfig: {
+        'left': LayoutSize.fr(1),
+        'center': LayoutSize.fr(2),
+        'right': LayoutSize.fr(1),
+      },
+      areas: {
+        'top-left': GridArea(row: 'top', column: 'left'),
+        'center': GridArea(row: 'center', column: 'center'),
+        'footer': GridArea(
+          row: 'bottom',
+          column: 'left',
+          columnSpan: GridSpan.full,
+        ),
+      },
+      children: {
+        'top-left': PanelLayout(caption: '↖'),
+        'center': PanelLayout(caption: '•'),
+        'footer': RowLayout(children: {...}),
+      },
+    ),
+  },
 )
 ```
 
@@ -317,6 +317,43 @@ fixed logical-pixel width; `LayoutSize.pt` is its readable alias.
 `LayoutSize.calculatedFr` is a Vue-like calculated track: it behaves like its
 fallback fraction today, and its `derivative` names the future layout/context
 value that should drive it.
+
+An area's key is also its child identity. `row` and `column` select named
+starting tracks; `rowSpan`, `columnSpan`, `rowOffset`, and `columnOffset`
+extend or fractionally adjust that placement. `GridSpan.full` continues through
+all remaining tracks. Areas may contain `PanelLayout`, `NodeListLayout`,
+`TableLayout`, `RowLayout`, `ColumnLayout`, or another `GridLayout`.
+`TableLayout` painting and interaction geometry both resolve from its named
+area, so folding, Node hits, labels, and actions remain aligned after nesting.
+
+### Curved paths
+
+`LayoutPathCurve` replaces a structural path edge without adding shaping
+points to `LayoutPath.points`:
+
+```dart
+LayoutPath(
+  points: [a, b, c, d],
+  curves: [
+    LayoutPathCurve(
+      from: b,
+      through: LayoutDerivativeReference(
+        layoutPath: ['safe-area'],
+        derivative: 'innerSquare.BC-center',
+      ),
+      to: c,
+    ),
+  ],
+  children: {'content': GridLayout(/* ... */)},
+)
+```
+
+`from` and `to` must resolve to structural path corners. The curve passes
+through the resolved `through` derivative. A `GridLayout`, `RowLayout`, or
+`ColumnLayout` beneath a curved path is resolved in normalized surface
+coordinates: horizontal boundaries follow the curve, nested layouts inherit
+the same projection, and hit testing uses the rendered curved paths. The
+content is not rendered as a flat quadrilateral and clipped afterward.
 
 ### Conditional Node styles
 
@@ -395,17 +432,18 @@ excludes the shared space-time slug matches. `time-fan` starts from the same
 cortex root and reverses that complete child filter, keeping the two planes as
 derived complementary partitions. The top uses direct-parts-weighted sizing;
 the bottom uses equal sizing.
-`GraphLayout` is the selected Node pool used by the center scene. It is owned by
-a `LayoutPath`, reads the complete Riverpod-selected Node collection, and gives
-every Node an equal centered cell. `nodeExtentFactor` controls the circular
+`GraphLayout` is the selected Node pool used by the center scene. It is nested
+under the owning `LayoutPath` through `scene-graph-grid`, whose center named
+area supplies the Graph frame. It reads the complete Riverpod-selected Node
+collection and gives every Node an equal centered cell. `nodeExtentFactor` controls the circular
 Node diameter relative to that cell and defaults to `0.5`. The pool becomes
 denser as selection grows; it does not fetch a `NodeTree` or infer graph
 connections yet. Selection membership and active fill state use the Node's
 unique slug. Fan and Graph compact labels render emoji first and wrap the slug
-fallback with `LayoutDefaults.nodeSlugPrefix` and `nodeSlugSuffix`. LG Ergo's
+fallback with `NodeConfig.style.slugPrefix` and `slugSuffix`. LG Ergo's
 Node defaults use `[[` and `]]`, producing `[[slug]]` without changing stored
 Node identity. `GraphLayoutComponent` owns all GraphLayout drawing and hit
-geometry; screen/layout hosts provide only plane resolution, state, and action
+geometry; screen/layout hosts provide only resolved grid-area geometry, state, and action
 callbacks.
 `NodeListLayout` renders a dynamic Node collection as equal rows inside a
 row/column composition or a TableLayout value cell. The info table's
@@ -496,10 +534,11 @@ consumes Enter to submit the query or select the highlighted Node instead.
 The right plane keeps Copy and Share in its second action row. Me has moved to
 the left info table as a visible group; its previous exact-slug player action
 is intentionally not connected until the group receives global functionality.
-The right plane's bottom is a three-by-three
-`direction-pad` whose equal cells represent top-left, top-center,
+The panoramic scene contains a three-by-three `direction-pad` whose areas
+represent top-left, top-center,
 top-right, center-left, center, center-right, bottom-left, bottom-center, and
-bottom-right. These controls expose stable `direction-*` aliases but remain
+bottom-right. Its center column is wider than its side columns. These controls
+expose stable `direction-*` aliases but remain
 declarative interaction placeholders for now.
 
 The top-row Today action formats the local calendar date as `DD-MM-YYYY` and
@@ -518,19 +557,10 @@ grid contains only the real space rows, not fake padding tracks. The scene inner
 circle uses the owning layout's `padding + borderWidth` as an inset, while the
 outer circle remains the scene boundary for anchors and shape framing.
 
-`areas` owns content and paint independently from track geometry. An area
-references its starting row and column by their stable map keys, then spans
-tracks with `rowSpan` and `columnSpan`. `GridSpan.full` means from the starting
-track through every remaining track, including rows added later.
-`rowOffset` and `columnOffset` allow fractional placement inside the starting
-track, so an area can span, for example, one full column plus half of the next.
-
-Fills are painted before the dashed grid, keeping structural lines visible.
-`PerspectiveGridArea.borderStyle` can draw dashed border-only areas, useful for
-wrapping an outer padded rim and an inner content rim inside the same
-perspective grid.
-`topStartIndex`, `topEndIndex`, `bottomStartIndex`, and
-`bottomEndIndex` select the four path points used for projection.
+The `direction-pad` is the reference named-area grid: three named rows, three
+named columns, and nine direct `PanelLayout` children. Its center track is
+wider than its side tracks, demonstrating that grid tracks remain independent
+from child `Layout.size` values.
 
 ## 7. Add a human scale figure to a scene
 

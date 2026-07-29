@@ -14,8 +14,6 @@ class TableLayout extends Layout
     this.panelFoldDuration = 0.22,
     this.padding = 12,
     this.cellHighlight,
-    this.labelColor = const Color(0xFFFFF8E7),
-    this.valueColor = const Color(0xFFFFF8E7),
     this.labelSize = 11,
     this.valueSize = 11,
     super.aliases,
@@ -33,10 +31,6 @@ class TableLayout extends Layout
     super.node,
     super.panel,
     super.nodeHoverBorderStyle,
-    super.nodeSlugPrefix,
-    super.nodeSlugTransform,
-    super.nodeSlugSuffix,
-    super.slugColor,
     super.visibility,
     super.inputSources,
   }) : assert(panelGap >= 0),
@@ -54,8 +48,6 @@ class TableLayout extends Layout
   final double panelFoldDuration;
   final double padding;
   final TableCellHighlightConfig? cellHighlight;
-  final Color labelColor;
-  final Color valueColor;
   final double labelSize;
   final double valueSize;
 

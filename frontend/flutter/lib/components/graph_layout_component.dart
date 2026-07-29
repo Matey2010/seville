@@ -27,6 +27,7 @@ class GraphLayoutComponent extends PositionComponent with TapCallbacks {
     required this.isLayoutVisible,
     required this.selectedNodes,
     required this.layoutContext,
+    required this.nodeStyle,
     required this.planePoints,
     required this.isTapEnabled,
     required this.onNodeTap,
@@ -37,6 +38,7 @@ class GraphLayoutComponent extends PositionComponent with TapCallbacks {
   final bool Function() isLayoutVisible;
   final List<ResolvedVaultNode> Function() selectedNodes;
   final LayoutContext Function() layoutContext;
+  final NodeStyle Function() nodeStyle;
   final List<Offset>? Function() planePoints;
   final bool Function() isTapEnabled;
   final void Function(GraphLayoutNodeHit hit) onNodeTap;
@@ -123,7 +125,7 @@ class GraphLayoutComponent extends PositionComponent with TapCallbacks {
 
   String nodeLabel(Node node) {
     final slug = node.slug.trim();
-    return slug.isNotEmpty ? layout.formatNodeSlug(slug) : node.displayLabel;
+    return slug.isNotEmpty ? nodeStyle().formatSlug(slug) : node.displayLabel;
   }
 
   List<_GraphNodeFrame> _nodesInFrame(
@@ -188,15 +190,18 @@ class GraphLayoutComponent extends PositionComponent with TapCallbacks {
   }
 
   void _paintNodeLabels(Canvas canvas, Node node, Rect bounds) {
+    final resolvedNodeStyle = nodeStyle();
     final maxWidth = bounds.width * 0.8;
     if (maxWidth < layout.labelSize * 2) return;
     final slugPainter = _textPainter(
       nodeLabel(node),
       isSlug: true,
       maxWidth: maxWidth,
-      color: layout.slugColor,
+      color: resolvedNodeStyle.slugColor ?? NodeDefaults.slugColor,
       fontSize: layout.labelSize,
-      fontFeatures: layout.nodeSlugTransform.fontFeatures,
+      fontFeatures:
+          (resolvedNodeStyle.slugTransform ?? NodeDefaults.slugTransform)
+              .fontFeatures,
     );
     final emoji = node.primaryEmojiCharacter;
     if (emoji == null) {
@@ -211,7 +216,7 @@ class GraphLayoutComponent extends PositionComponent with TapCallbacks {
       emoji,
       isSlug: false,
       maxWidth: maxWidth,
-      color: layout.labelColor,
+      color: resolvedNodeStyle.labelColor ?? NodeDefaults.labelColor,
       fontSize: layout.labelSize * layout.emojiFontSizeFactor,
     );
     final gap = layout.labelSize * layout.emojiSlugGapFactor;

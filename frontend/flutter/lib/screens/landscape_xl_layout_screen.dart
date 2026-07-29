@@ -172,7 +172,6 @@ class _LandscapeXlLayoutScreenState
   }
 
   Iterable<VaultNode> _configuredVaultNodes(Layout layout) sync* {
-    if (layout case PerspectiveGridArea(:final vaultNode?)) yield vaultNode;
     if (layout case PlaneLayout(:final vaultNode?)) yield vaultNode;
     for (final child in layout.children.values) {
       yield* _configuredVaultNodes(child);

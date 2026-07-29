@@ -8,10 +8,11 @@ scaling, and animation.
 
 - `LandscapeXlLayout` owns the full-screen landscape hierarchy. It extends
   `Layout` and nests every child under a stable key in `Layout.children`.
-- `SafeAreaLayout`, `PlaneLayout`, `LayoutPath`, `ColumnLayout`, and
-  `RowLayout` describe the active screen's structural composition.
-- `PerspectiveGridLayout` projects keyed row and column tracks inside a
-  `LayoutPath`; its areas place content without a second layout tree.
+- `SafeAreaLayout`, `PlaneLayout`, `LayoutPath`, `GridLayout`, `ColumnLayout`,
+  and `RowLayout` describe the active screen's structural composition.
+- `GridLayout` combines ordered row and column tracks with named `GridArea`
+  placements. Area keys address the same children in the ordinary
+  `Layout.children` tree.
 - `FanLayout` renders graph trees in radial bands, while `GraphLayout`
   renders the selected Node pool in equal centered cells.
 - `TableLayout` and `SearchLayout` describe the active information and
@@ -24,6 +25,19 @@ scaling, and animation.
 The retired open-box, perceptual-map, and calendar-timeline model families are
 not part of the current layout protocol. Add new behavior by composing the
 active layout tree and extending an existing model where its semantics fit.
+
+## Curved composition surfaces
+
+`LayoutPathCurve` identifies a structural edge with direct `from` and `to`
+derivative references and a shaping derivative in `through`. Keep curve-only
+derivatives out of `LayoutPath.points`; a four-corner path remains a
+quadrilateral for structural consumers.
+
+When a curved `LayoutPath` owns `GridLayout`, `RowLayout`, or `ColumnLayout`
+content, Flame resolves descendants in normalized surface coordinates. Grid
+rows and nested horizontal boundaries follow the path curves, while paint and
+hit testing use the same sampled paths. Curving is inherited through nested
+grid and flex layouts rather than approximated by clipping flat content.
 
 ## Layout parameters
 
@@ -106,19 +120,6 @@ contribute standard derivatives:
 explicit snapshot. Explicit derivatives therefore override defaults without
 copying the entire characteristic set.
 
-## Rays
-
-`RayLayout` has a fixed starting derivative and a `towards` derivative that
-defines its direction. A vector alone has direction and magnitude but no fixed
-origin; the scene projection has an origin, so ray is the more useful layout
-name. Both references may include a nested `layoutPath` and derivative snapshot,
-allowing rays to cross layout boundaries.
-
-LG Ergo defines screen-corner A–D derivatives and draws four rays from the
-SafeArea square's derived A–D anchors toward the corresponding physical-screen
-corners. The renderer resolves both layouts into screen coordinates before
-painting, so SafeArea padding does not distort the correspondence.
-
 ## Ordered layout backgrounds
 
 Every `Layout` exposes an ordered `background` list. Concrete layout
@@ -193,9 +194,10 @@ planes remain complementary without duplicating parameters. Painters and
 components must not independently reimplement the filter.
 
 Selected Nodes have an explicit center configuration at
-`safe-area/inner-circle-plane/wrapped-scene-square/scene-graph-plane/scene-graph`.
-Its transparent `LayoutPath` follows the wrapped scene square. Its `GraphLayout`
-renders the complete Riverpod-selected Node pool in equal centered cells, with
+`safe-area/inner-circle-plane/wrapped-scene-square/scene-graph-plane/scene-graph-grid/scene-graph`.
+Its transparent `LayoutPath` follows the wrapped scene square, while
+`scene-graph-grid` places the `GraphLayout` in its center 1fr/2fr/1fr area. The
+Graph renders the complete Riverpod-selected Node pool in equal centered cells, with
 each circular Node occupying half of its cell by default. More selected Nodes
 therefore produce smaller circles. Every circle shows its wrapped slug; an
 assigned Emoji appears above it at twice the configured base Node font size,
@@ -212,7 +214,7 @@ application callback boundary.
 ## Row and column composition
 
 Use `ColumnLayout` and `RowLayout` when content has semantic interface order
-that must remain independent from a plane's perspective-grid axes. Their
+that must remain independent from a `GridLayout`'s named axes. Their
 children remain in `Map<String, Layout> children`, where each map key is the
 child's stable identity.
 
@@ -400,8 +402,8 @@ The normalized value is stored in `interfaceOverlayStateProvider`, and
 Flame-native Node option components rendered directly beneath the HUD input.
 Arrow keys move the highlighted option; Enter or a tap selects it through the
 same slug-based selected-node state and selection-sound path. LG Ergo configures
-`LayoutDefaults.nodeSlugPrefix` and
-`nodeSlugSuffix` as `[[` and `]]`; Fan and Graph apply them only to their slug
+`NodeConfig.style.slugPrefix` and
+`slugSuffix` as `[[` and `]]`; Fan and Graph apply them only to their slug
 fallback, while search rows always expose the wrapped slug.
 
 The left info-table Updates/Added row owns a `NodeListLayout` sourced from
@@ -475,9 +477,12 @@ they preserve their stored case in a bold normal-case face because Alegreya
 Sans SC would visually convert lowercase wikilink-like syntax into small caps.
 The same rule applies to the left info table's `slug` and
 `selected_node_slugs` fields, including configured slug wrappers. Every slug
-uses the owning `LayoutDefaults.slugColor`; the default LG Ergo syntax color is
-gold `#FFD54F`. Ordinary layout text uses ivory `#FFF8E7` instead of hard white,
-keeping wrapped Node references visually distinct.
+uses the resolved `NodeConfig.style.slugColor`; the default LG Ergo syntax
+color is gold `#FFD54F`. `NodeStyle.labelColor` and `valueColor` provide the
+corresponding Node label and value colors. LG Ergo declares all three once on
+the root Layout's `NodeConfig`, and descendants inherit them. Ordinary layout
+text uses ivory `#FFF8E7` instead of hard white, keeping wrapped Node references
+visually distinct.
 
 ## Interface audio
 
@@ -517,10 +522,11 @@ Copy and Share occupy the second right-plane action row. Me is now a visible
 shared-width group in the left info table. Its former right-plane implementation
 is retained as a comment beside the new group, ready for a later global action
 contract; the current group does not dispatch the player query yet.
-Direction controls occupy the bottom as a three-by-three grid of equal cells, ordered from
-top-left through bottom-right with center included. Their `direction-*` aliases
-are configuration-level interaction vocabulary; concrete movement behavior is
-not implied by their rendering.
+Direction controls use a three-by-three named-area `GridLayout`, ordered from
+top-left through bottom-right with center included. Its center column is wider
+than the side columns. Their `direction-*` aliases are configuration-level
+interaction vocabulary; concrete movement behavior is not implied by their
+rendering.
 
 The right-plane Today action performs an exact-slug Node query for the local
 `DD-MM-YYYY` value. A returned canonical Node is slug-upserted into
