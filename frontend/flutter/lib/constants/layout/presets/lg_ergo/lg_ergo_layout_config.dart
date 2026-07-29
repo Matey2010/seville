@@ -475,16 +475,18 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
         ),
         'bottom-plane': LayoutPath(
           aliases: ['bottom-plane', 'time-plane', 'x-axis-plane'],
+          curves: [
+                        LayoutPathCurve(
+              from: LayoutDerivativeReference(derivative: 'D'),
+              through: LayoutDerivativeReference(
+                layoutPath: ['safe-area'],
+                derivative: 'innerSquare.AD-center',
+              ),
+              to: LayoutDerivativeReference(derivative: 'A'),
+            ),
+          ],
           points: [
             LayoutDerivativeReference(derivative: 'A'),
-            LayoutDerivativeReference(
-              layoutPath: ['safe-area'],
-              derivative: 'leftPlane.bottom',
-            ),
-            LayoutDerivativeReference(
-              layoutPath: ['safe-area'],
-              derivative: 'rightPlane.bottom',
-            ),
             LayoutDerivativeReference(derivative: 'D'),
           ],
           style: LayoutPathStyle(
@@ -698,17 +700,6 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               ],
               children: {
                 'action-panel': ColumnLayout(
-                  background: [
-                    LayoutImageBackground(
-                      assetPath: 'assets/wallpapers/dark-vintage-scheme.jpg',
-                      fit: LayoutBackgroundFit.cover,
-                    ),
-                    LayoutImageBackground(
-                      assetPath: 'assets/wallpapers/helmet-background.jpg',
-                      fit: LayoutBackgroundFit.cover,
-                      opacity: 0.34,
-                    ),
-                  ],
                   layoutPadding: 20,
                   aliases: [
                     'action-panel',
@@ -1102,6 +1093,18 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                   },
                 ),
                 'scene-graph': GraphLayout(
+                  background: [
+                    LayoutImageBackground(
+                      assetPath: 'assets/wallpapers/dark-vintage-scheme.jpg',
+                      fit: LayoutBackgroundFit.cover,
+                      opacity: 0.78,
+                    ),
+                    LayoutImageBackground(
+                      assetPath: 'assets/wallpapers/helmet-background.jpg',
+                      fit: LayoutBackgroundFit.cover,
+                      opacity: 0.50,
+                    ),
+                  ],
                   aliases: [
                     'scene-graph',
                     'node-scene',
