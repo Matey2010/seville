@@ -176,6 +176,9 @@ excludes the shared space-time name match list. The bottom `time-fan` includes
 that same list and retains equal sizing, making both policies visible at once.
 Cardinal fan positions span 180 degrees, angular positions span 90 degrees, and
 other positions span 360 degrees. Internal bands use a regular radius.
+The two-point curved top plane resolves its structural midpoint as the Fan root
+and its configured curve as the sampled outer boundary; it does not depend on
+an opposing edge.
 `sectionSizing` determines sibling spans: equal sizing assigns `1fr` to each
 occurrence, while direct-parts weighting assigns
 `1 + visibleDirectPartCount` fractions. Only the final band conforms to the
@@ -194,16 +197,17 @@ planes remain complementary without duplicating parameters. Painters and
 components must not independently reimplement the filter.
 
 Selected Nodes have an explicit center configuration at
-`safe-area/inner-circle-plane/wrapped-scene-square/scene-graph-plane/scene-graph-grid/scene-graph`.
-Its transparent `LayoutPath` follows the wrapped scene square, while
-`scene-graph-grid` places the `GraphLayout` in its center 1fr/2fr/1fr area. The
+`safe-area/panoramic-scene-plane/direction-pad/scene-graph`.
+The panoramic plane's `GridLayout` places the `GraphLayout` across the complete
+center 2fr column between 1fr side columns. Its three 1fr rows inherit the
+owning curved `LayoutPath` projection. The
 Graph renders the complete Riverpod-selected Node pool in equal centered cells, with
 each circular Node occupying half of its cell by default. More selected Nodes
 therefore produce smaller circles. Every circle shows its wrapped slug; an
 assigned Emoji appears above it at twice the configured base Node font size,
 with a half-font-size vertical gap. LG Ergo's Fan and Graph renderers share
 `lgErgoNodeFontSize` as that typography source. It is visible only when
-`LayoutCondition.not(LayoutCondition.noSelectedNode())` is active and does not
+`LayoutCondition.hasActiveNodes()` is active and does not
 request a `NodeTree`; connections and graph-distance placement remain future
 extensions. `GraphLayoutComponent` is the single Flame owner of its geometry,
 clipping, Node painting, labels, tap handling, and hover hit testing.

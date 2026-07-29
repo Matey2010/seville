@@ -161,463 +161,6 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
     ),
   },
   children: {
-    'action-panel': LayoutPath(
-      aliases: [
-        'action-panel',
-        'action-pane',
-        'action-plane',
-        'form-panel',
-        'form-pane',
-        'form-plane',
-        'right-plane',
-        'east-plane',
-      ],
-      background: [
-        LayoutImageBackground(
-          assetPath: 'assets/wallpapers/dark-vintage-scheme.jpg',
-          fit: LayoutBackgroundFit.cover,
-        ),
-        LayoutImageBackground(
-          assetPath: 'assets/wallpapers/helmet-background.jpg',
-          fit: LayoutBackgroundFit.cover,
-          opacity: 0.34,
-        ),
-      ],
-      points: [
-        LayoutDerivativeReference(derivative: 'C'),
-        LayoutDerivativeReference(
-          layoutPath: ['safe-area'],
-          derivative: 'rightPlane.top',
-        ),
-        LayoutDerivativeReference(
-          layoutPath: ['safe-area'],
-          derivative: 'rightPlane.bottom',
-        ),
-        LayoutDerivativeReference(derivative: 'D'),
-      ],
-      style: LayoutPathStyle(
-        fillColor: Color(0x333F51B5),
-        strokeStyle: (GuideStyle(
-          color: Color(0xAA3F51B5),
-          strokeWidth: (1.2),
-          pattern: GuideLinePattern.solid,
-        )),
-      ),
-      padding: LayoutPathPadding(top: (20.0), bottom: (20.0), left: (20.0)),
-      children: {
-        'action-column': ColumnLayout(
-          aliases: ['action-column', 'action-panel-column', 'form-column'],
-          children: {
-            'navigation-row': RowLayout(
-              size: LayoutSize.px(48),
-              aliases: ['navigation-row', 'browser-navigation'],
-              children: {
-                'refresh-fans': PanelLayout(
-                  size: LayoutSize.fr(1),
-                  aliases: [
-                    'action-button',
-                    'refresh-action',
-                    'refresh-fan-data',
-                  ],
-                  fillColor: (Color(0x553F51B5)),
-                  borderStyle: (GuideStyle(
-                    color: Color(0xCCB7C2FF),
-                    strokeWidth: 1,
-                    pattern: GuideLinePattern.solid,
-                  )),
-                  caption: '🔄',
-                  labelColor: ((Color(0xFFFFF8E7))),
-                  labelSize: 18,
-                ),
-                'search': PanelLayout(
-                  size: LayoutSize.fr(1),
-                  aliases: [
-                    'action-button',
-                    'search-action',
-                    'open-search-hud',
-                  ],
-                  fillColor: (Color(0x553F51B5)),
-                  borderStyle: (GuideStyle(
-                    color: Color(0xCCB7C2FF),
-                    strokeWidth: 1,
-                    pattern: GuideLinePattern.solid,
-                  )),
-                  caption: '🔍',
-                  labelColor: ((Color(0xFFFFF8E7))),
-                  labelSize: 18,
-                ),
-                'add-node': PanelLayout(
-                  size: LayoutSize.fr(1),
-                  aliases: [
-                    'action-button',
-                    'add-action',
-                    'create-virtual-node',
-                  ],
-                  fillColor: (Color(0x6652A66B)),
-                  borderStyle: (GuideStyle(
-                    color: Color(0xCCB7C2FF),
-                    strokeWidth: 1,
-                    pattern: GuideLinePattern.solid,
-                  )),
-                  caption: 'Add',
-                  labelColor: ((Color(0xFFFFF8E7))),
-                  labelSize: 12,
-                ),
-                'today': PanelLayout(
-                  size: LayoutSize.fr(1),
-                  aliases: [
-                    'action-button',
-                    'today-action',
-                    'resolve-today-node',
-                  ],
-                  fillColor: (Color(0x553F51B5)),
-                  borderStyle: (GuideStyle(
-                    color: Color(0xCCB7C2FF),
-                    strokeWidth: 1,
-                    pattern: GuideLinePattern.solid,
-                  )),
-                  caption: 'Today',
-                  labelColor: ((Color(0xFFFFF8E7))),
-                  labelSize: 12,
-                ),
-                'confirm': PanelLayout(
-                  size: LayoutSize.fr(1),
-                  aliases: [
-                    'action-button',
-                    'confirm-action',
-                    'submit-action',
-                    'create-first-virtual-node',
-                  ],
-                  fillColor: (Color(0x6652A66B)),
-                  borderStyle: (GuideStyle(
-                    color: Color(0xCCB7C2FF),
-                    strokeWidth: 1,
-                    pattern: GuideLinePattern.solid,
-                  )),
-                  caption: '✅',
-                  labelColor: ((Color(0xFFFFF8E7))),
-                  labelSize: 18,
-                ),
-                'close-selection': PanelLayout(
-                  size: LayoutSize.fr(1),
-                  aliases: [
-                    'action-button',
-                    'close-action',
-                    'cancel-interface-action',
-                    'clear-selection-action',
-                  ],
-                  fillColor: (Color(0x668F3E4B)),
-                  borderStyle: (GuideStyle(
-                    color: Color(0xCCB7C2FF),
-                    strokeWidth: 1,
-                    pattern: GuideLinePattern.solid,
-                  )),
-                  caption: '×',
-                  labelColor: ((Color(0xFFFFF8E7))),
-                  labelSize: 18,
-                ),
-              },
-            ),
-            'node-actions-row': RowLayout(
-              size: LayoutSize.px(48),
-              aliases: ['node-actions', 'node-actions-row'],
-              children: {
-                'copy': PanelLayout(
-                  size: LayoutSize.fr(1),
-                  aliases: [
-                    'action-button',
-                    'selected-node-action',
-                    'copy-action',
-                    'copy-selected-node-slug',
-                  ],
-                  fillColor: (Color(0x553F51B5)),
-                  borderStyle: (GuideStyle(
-                    color: Color(0xCCB7C2FF),
-                    strokeWidth: 1,
-                    pattern: GuideLinePattern.solid,
-                  )),
-                  caption: '📋',
-                  labelColor: ((Color(0xFFFFF8E7))),
-                  labelSize: 18,
-                ),
-                'share': PanelLayout(
-                  size: LayoutSize.fr(1),
-                  aliases: [
-                    'action-button',
-                    'selected-node-action',
-                    'share-action',
-                  ],
-                  fillColor: (Color(0x553F51B5)),
-                  borderStyle: (GuideStyle(
-                    color: Color(0xCCB7C2FF),
-                    strokeWidth: 1,
-                    pattern: GuideLinePattern.solid,
-                  )),
-                  caption: '📤',
-                  labelColor: ((Color(0xFFFFF8E7))),
-                  labelSize: 18,
-                ),
-              },
-            ),
-          },
-        ),
-      },
-    ),
-    'info-panel': LayoutPath(
-      background: [
-        LayoutImageBackground(
-          assetPath: 'assets/wallpapers/daft-punk-suit.jpg',
-          fit: LayoutBackgroundFit.contain,
-          opacity: 0.34,
-        ),
-      ],
-      aliases: [
-        'info-panel',
-        'info-pane',
-        'info-plane',
-        'left-plane',
-        'west-plane',
-      ],
-      points: [
-        LayoutDerivativeReference(derivative: 'B'),
-        LayoutDerivativeReference(
-          layoutPath: ['safe-area'],
-          derivative: 'leftPlane.top',
-        ),
-        LayoutDerivativeReference(
-          layoutPath: ['safe-area'],
-          derivative: 'leftPlane.bottom',
-        ),
-        LayoutDerivativeReference(derivative: 'A'),
-      ],
-      pointDerivatives: {'A': 0, 'B': 1, 'C': 2, 'D': 3},
-      children: {
-        'info-grid': GridLayout(
-          rowsConfig: {'content': LayoutSize.fr(1)},
-          columnsConfig: {
-            'first': LayoutSize.fr(1),
-            'second': LayoutSize.fr(1),
-          },
-          areas: {'info-table': GridArea(row: 'content', column: 'first')},
-          children: {
-            'info-table': TableLayout(
-              aliases: [
-                'info-table',
-                'table-layout',
-                'node-info',
-                'system-info',
-              ],
-              layoutBorderWidth: 1.8,
-              nodeHoverBorderStyle: GuideStyle(
-                color: Color(0xFF2196F3),
-                strokeWidth: 4,
-                pattern: GuideLinePattern.solid,
-              ),
-              node: const NodeConfig(
-                style: NodeStyle(
-                  slugPrefix: '[[',
-                  slugTransform: TextTransform.capitalCap(),
-                  slugSuffix: ']]',
-                ),
-              ),
-              guideStyle: GuideStyle(
-                color: Color(0x665F7CFF),
-                strokeWidth: 1,
-                pattern: GuideLinePattern.solid,
-              ),
-              cellHighlight: TableCellHighlightConfig(
-                rows: true,
-                // columns: true,
-                color: Color(0x66374A9B),
-              ),
-              includeUnconfiguredFields: true,
-              unconfiguredFieldPanelId: 'last_selected_node',
-              panelGap: 12.0,
-              panelBorderStyle: GuideStyle(
-                color: Color(0xAA5F7CFF),
-                strokeWidth: 1.4,
-                pattern: GuideLinePattern.solid,
-              ),
-              tableConfig: TableConfig(
-                panels: {
-                  'last_selected_node': PanelConfig(
-                    orderPosition: 0,
-                    title: 'Last Selected Node',
-                    foldable: true,
-                  ),
-                  'updates': PanelConfig(
-                    orderPosition: 2,
-                    title: 'Updates',
-                    foldable: true,
-                  ),
-                  'selected_nodes': PanelConfig(
-                    orderPosition: 3,
-                    title: 'Selected Nodes',
-                    foldable: true,
-                  ),
-                  'me': PanelConfig(
-                    orderPosition: 4,
-                    title: 'Me',
-                    showEmpty: true,
-                  ),
-                  'settings': PanelConfig(
-                    orderPosition: 5,
-                    title: 'Settings',
-                    showEmpty: true,
-                  ),
-                  'system': PanelConfig(
-                    orderPosition: 6,
-                    title: 'System',
-                    foldable: true,
-                    initiallyFolded: true,
-                  ),
-                  /* Previous right action-plane implementation, retained here for
-                 the next global Panel action migration:
-              'me': PanelLayout(
-                size: LayoutSize.fr(1),
-                aliases: [
-                  'action-button',
-                  'player-action',
-                  'resolve-player-node',
-                ],
-                fillColor: Color(0x553F51B5),
-                borderStyle: GuideStyle(
-                  color: Color(0xCCB7C2FF),
-                  strokeWidth: 1,
-                  pattern: GuideLinePattern.solid,
-                ),
-                caption: 'Me',
-                labelColor: Color(0xFFFFF8E7),
-                labelSize: 12,
-              ),
-              */
-                },
-                rowConfig: TableRowConfig(
-                  rows: {
-                    'slug': TableRow(
-                      orderPosition: 0,
-                      label: 'Slug',
-                      panelId: 'last_selected_node',
-                      size: LayoutSize.fr(1),
-                      actions: [TableAction.copyToClipboard()],
-                    ),
-                    'labels': TableRow(
-                      orderPosition: 1,
-                      label: 'Labels',
-                      panelId: 'last_selected_node',
-                      size: LayoutSize.fr(1),
-                    ),
-                    'classification': TableRow(
-                      orderPosition: 2,
-                      panelId: 'last_selected_node',
-                      size: LayoutSize.fr(1),
-                    ),
-                    'version': TableRow(
-                      orderPosition: 3,
-                      panelId: 'last_selected_node',
-                      size: LayoutSize.fr(0.5),
-                    ),
-                    'selected_node_slugs': TableRow(
-                      orderPosition: 0,
-                      label: 'Slugs',
-                      panelId: 'selected_nodes',
-                      size: LayoutSize.fr(1),
-                    ),
-                    'selected_node_labels': TableRow(
-                      orderPosition: 1,
-                      label: 'Labels',
-                      panelId: 'selected_nodes',
-                      size: LayoutSize.fr(1),
-                    ),
-                    'added': TableRow(
-                      orderPosition: 0,
-                      label: 'Added',
-                      panelId: 'updates',
-                      includeWhenEmpty: true,
-                      size: LayoutSize.fr(1),
-                    ),
-                    'updated': TableRow(
-                      orderPosition: 1,
-                      label: 'Updated',
-                      panelId: 'updates',
-                      includeWhenEmpty: true,
-                      size: LayoutSize.fr(1),
-                    ),
-                    'deleted': TableRow(
-                      orderPosition: 2,
-                      label: 'Deleted',
-                      panelId: 'updates',
-                      includeWhenEmpty: true,
-                      size: LayoutSize.fr(1),
-                    ),
-                    'node_count': TableRow(
-                      orderPosition: 0,
-                      label: 'Nodes',
-                      panelId: 'system',
-                      size: LayoutSize.fr(1),
-                    ),
-                    'neo4j_labels': TableRow(
-                      orderPosition: 1,
-                      label: 'Trending Labels',
-                      panelId: 'system',
-                      size: LayoutSize.fr(1),
-                    ),
-                    'node_property_count': TableRow(
-                      orderPosition: 2,
-                      label: 'Node properties',
-                      panelId: 'system',
-                      size: LayoutSize.fr(1),
-                    ),
-                    'go_version': TableRow(
-                      orderPosition: 3,
-                      label: 'Go version',
-                      panelId: 'system',
-                      size: LayoutSize.fr(1),
-                    ),
-                    'neo4j_version': TableRow(
-                      orderPosition: 4,
-                      label: 'Neo4j version',
-                      panelId: 'system',
-                      size: LayoutSize.fr(1),
-                    ),
-                  },
-                ),
-                columnConfig: TableColumnConfig(
-                  columns: {
-                    'key': TableColumn(size: LayoutSize.fr(1)),
-                    'value': TableColumn(size: LayoutSize.fr(3)),
-                  },
-                ),
-              ),
-              children: {
-                'added': NodeListLayout(
-                  dataSource: NodeListDataSource.virtualNodes,
-                  style: GuideStyle(
-                    color: Color(0xFFFFF7D6),
-                    strokeWidth: 1.8,
-                    pattern: GuideLinePattern.solid,
-                  ),
-                  layoutBorderWidth: 1.8,
-                  nodeHoverBorderStyle: GuideStyle(
-                    color: Color(0xFF2196F3),
-                    strokeWidth: 4,
-                    pattern: GuideLinePattern.solid,
-                  ),
-                  node: const NodeConfig(
-                    style: NodeStyle(
-                      slugPrefix: '[[',
-                      slugTransform: TextTransform.capitalCap(),
-                      slugSuffix: ']]',
-                    ),
-                  ),
-                  aliases: ['virtual-nodes', 'draft-nodes', 'uncreated-nodes'],
-                ),
-              },
-            ),
-          },
-        ),
-      },
-    ),
     'safe-area': SafeAreaLayout(
       aliases: ['safe-area'],
       layoutPadding: 20,
@@ -831,14 +374,6 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
           aliases: ['top-plane', 'control-plane', 'north-plane'],
           points: [
             LayoutDerivativeReference(derivative: 'B'),
-            LayoutDerivativeReference(
-              layoutPath: ['safe-area'],
-              derivative: 'leftPlane.top',
-            ),
-            LayoutDerivativeReference(
-              layoutPath: ['safe-area'],
-              derivative: 'rightPlane.top',
-            ),
             LayoutDerivativeReference(derivative: 'C'),
           ],
           style: LayoutPathStyle(
@@ -849,6 +384,16 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               pattern: GuideLinePattern.solid,
             )),
           ),
+          curves: [
+            LayoutPathCurve(
+              from: LayoutDerivativeReference(derivative: 'B'),
+              through: LayoutDerivativeReference(
+                layoutPath: ['safe-area'],
+                derivative: 'innerSquare.BC-center',
+              ),
+              to: LayoutDerivativeReference(derivative: 'C'),
+            ),
+          ],
           children: {
             'cortex-bush': FanLayout(
               aliases: [
@@ -869,13 +414,6 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                 strokeWidth: 4,
                 pattern: GuideLinePattern.solid,
               )),
-              node: const NodeConfig(
-                style: NodeStyle(
-                  slugPrefix: '[[',
-                  slugTransform: TextTransform.capitalCap(),
-                  slugSuffix: ']]',
-                ),
-              ),
               rootNodeFilter: (NodeSearchFilter.allOf([
                 NodeSearchParameter(
                   parameter: NodeParameter.slug,
@@ -923,7 +461,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               maxSectionCount: 4,
               sectionSizing: FanSectionSizing.directPartsWeighted,
               caption: 'cortex',
-              labelSize: (10.0),
+              labelSize: lgErgoNodeFontSize,
               gridStyle: (GuideStyle(
                 color: Color(0x88FFD54F),
                 strokeWidth: 0.9,
@@ -1029,7 +567,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               maxSectionCount: 4,
               sectionSizing: FanSectionSizing.equal,
               caption: 'space-time',
-              labelSize: (10.0),
+              labelSize: lgErgoNodeFontSize,
               gridStyle: (GuideStyle(
                 color: Color(0x88FFD54F),
                 strokeWidth: 0.9,
@@ -1127,6 +665,21 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                 'right': LayoutSize.fr(1),
               },
               areas: {
+                'info-grid': GridArea(
+                  row: 'top',
+                  column: 'left',
+                  rowSpan: GridSpan.full,
+                ),
+                'scene-graph': GridArea(
+                  row: 'top',
+                  column: 'center',
+                  rowSpan: GridSpan.full,
+                ),
+                'action-panel': GridArea(
+                  row: 'top',
+                  column: 'right',
+                  rowSpan: GridSpan.full,
+                ),
                 'top-left': GridArea(row: 'top', column: 'left'),
                 'top-center': GridArea(row: 'top', column: 'center'),
                 'top-right': GridArea(row: 'top', column: 'right'),
@@ -1138,10 +691,442 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                 'bottom-right': GridArea(row: 'bottom', column: 'right'),
               },
               aliases: [
+                'panoramic-grid',
                 'direction-pad',
                 'node-direction-controls',
                 'spatial-navigation',
               ],
+              children: {
+                'action-panel': ColumnLayout(
+                  background: [
+                    LayoutImageBackground(
+                      assetPath: 'assets/wallpapers/dark-vintage-scheme.jpg',
+                      fit: LayoutBackgroundFit.cover,
+                    ),
+                    LayoutImageBackground(
+                      assetPath: 'assets/wallpapers/helmet-background.jpg',
+                      fit: LayoutBackgroundFit.cover,
+                      opacity: 0.34,
+                    ),
+                  ],
+                  layoutPadding: 20,
+                  aliases: [
+                    'action-panel',
+                    'action-pane',
+                    'action-plane',
+                    'form-panel',
+                    'form-pane',
+                    'form-plane',
+                    'right-plane',
+                    'east-plane',
+                    'action-column',
+                    'action-panel-column',
+                    'form-column',
+                  ],
+                  children: {
+                    'navigation-row': RowLayout(
+                      size: LayoutSize.px(48),
+                      aliases: ['navigation-row', 'browser-navigation'],
+                      children: {
+                        'refresh-fans': PanelLayout(
+                          size: LayoutSize.fr(1),
+                          aliases: [
+                            'action-button',
+                            'refresh-action',
+                            'refresh-fan-data',
+                          ],
+                          fillColor: (Color(0x553F51B5)),
+                          borderStyle: (GuideStyle(
+                            color: Color(0xCCB7C2FF),
+                            strokeWidth: 1,
+                            pattern: GuideLinePattern.solid,
+                          )),
+                          caption: '🔄',
+                          labelColor: ((Color(0xFFFFF8E7))),
+                          labelSize: 18,
+                        ),
+                        'search': PanelLayout(
+                          size: LayoutSize.fr(1),
+                          aliases: [
+                            'action-button',
+                            'search-action',
+                            'open-search-hud',
+                          ],
+                          fillColor: (Color(0x553F51B5)),
+                          borderStyle: (GuideStyle(
+                            color: Color(0xCCB7C2FF),
+                            strokeWidth: 1,
+                            pattern: GuideLinePattern.solid,
+                          )),
+                          caption: '🔍',
+                          labelColor: ((Color(0xFFFFF8E7))),
+                          labelSize: 18,
+                        ),
+                        'add-node': PanelLayout(
+                          size: LayoutSize.fr(1),
+                          aliases: [
+                            'action-button',
+                            'add-action',
+                            'create-virtual-node',
+                          ],
+                          fillColor: (Color(0x6652A66B)),
+                          borderStyle: (GuideStyle(
+                            color: Color(0xCCB7C2FF),
+                            strokeWidth: 1,
+                            pattern: GuideLinePattern.solid,
+                          )),
+                          caption: 'Add',
+                          labelColor: ((Color(0xFFFFF8E7))),
+                          labelSize: 12,
+                        ),
+                        'today': PanelLayout(
+                          size: LayoutSize.fr(1),
+                          aliases: [
+                            'action-button',
+                            'today-action',
+                            'resolve-today-node',
+                          ],
+                          fillColor: (Color(0x553F51B5)),
+                          borderStyle: (GuideStyle(
+                            color: Color(0xCCB7C2FF),
+                            strokeWidth: 1,
+                            pattern: GuideLinePattern.solid,
+                          )),
+                          caption: 'Today',
+                          labelColor: ((Color(0xFFFFF8E7))),
+                          labelSize: 12,
+                        ),
+                        'confirm': PanelLayout(
+                          size: LayoutSize.fr(1),
+                          aliases: [
+                            'action-button',
+                            'confirm-action',
+                            'submit-action',
+                            'create-first-virtual-node',
+                          ],
+                          fillColor: (Color(0x6652A66B)),
+                          borderStyle: (GuideStyle(
+                            color: Color(0xCCB7C2FF),
+                            strokeWidth: 1,
+                            pattern: GuideLinePattern.solid,
+                          )),
+                          caption: '✅',
+                          labelColor: ((Color(0xFFFFF8E7))),
+                          labelSize: 18,
+                        ),
+                        'close-selection': PanelLayout(
+                          size: LayoutSize.fr(1),
+                          aliases: [
+                            'action-button',
+                            'close-action',
+                            'cancel-interface-action',
+                            'clear-selection-action',
+                          ],
+                          fillColor: (Color(0x668F3E4B)),
+                          borderStyle: (GuideStyle(
+                            color: Color(0xCCB7C2FF),
+                            strokeWidth: 1,
+                            pattern: GuideLinePattern.solid,
+                          )),
+                          caption: '×',
+                          labelColor: ((Color(0xFFFFF8E7))),
+                          labelSize: 18,
+                        ),
+                      },
+                    ),
+                    'node-actions-row': RowLayout(
+                      size: LayoutSize.px(48),
+                      aliases: ['node-actions', 'node-actions-row'],
+                      children: {
+                        'copy': PanelLayout(
+                          size: LayoutSize.fr(1),
+                          aliases: [
+                            'action-button',
+                            'selected-node-action',
+                            'copy-action',
+                            'copy-selected-node-slug',
+                          ],
+                          fillColor: (Color(0x553F51B5)),
+                          borderStyle: (GuideStyle(
+                            color: Color(0xCCB7C2FF),
+                            strokeWidth: 1,
+                            pattern: GuideLinePattern.solid,
+                          )),
+                          caption: '📋',
+                          labelColor: ((Color(0xFFFFF8E7))),
+                          labelSize: 18,
+                        ),
+                        'share': PanelLayout(
+                          size: LayoutSize.fr(1),
+                          aliases: [
+                            'action-button',
+                            'selected-node-action',
+                            'share-action',
+                          ],
+                          fillColor: (Color(0x553F51B5)),
+                          borderStyle: (GuideStyle(
+                            color: Color(0xCCB7C2FF),
+                            strokeWidth: 1,
+                            pattern: GuideLinePattern.solid,
+                          )),
+                          caption: '📤',
+                          labelColor: ((Color(0xFFFFF8E7))),
+                          labelSize: 18,
+                        ),
+                      },
+                    ),
+                  },
+                ),
+                'info-grid': TableLayout(
+                  aliases: [
+                    'info-grid',
+                    'info-table',
+                    'info-panel',
+                    'info-pane',
+                    'info-plane',
+                    'left-plane',
+                    'west-plane',
+                    'table-layout',
+                    'node-info',
+                    'system-info',
+                  ],
+                  background: [
+                    LayoutImageBackground(
+                      assetPath: 'assets/wallpapers/daft-punk-suit.jpg',
+                      fit: LayoutBackgroundFit.contain,
+                      opacity: 0.34,
+                    ),
+                  ],
+                  layoutBorderWidth: 1.8,
+                  nodeHoverBorderStyle: GuideStyle(
+                    color: Color(0xFF2196F3),
+                    strokeWidth: 4,
+                    pattern: GuideLinePattern.solid,
+                  ),
+                  guideStyle: GuideStyle(
+                    color: Color(0x665F7CFF),
+                    strokeWidth: 1,
+                    pattern: GuideLinePattern.solid,
+                  ),
+                  cellHighlight: TableCellHighlightConfig(
+                    rows: true,
+                    // columns: true,
+                    color: Color(0x66374A9B),
+                  ),
+                  includeUnconfiguredFields: true,
+                  unconfiguredFieldPanelId: 'last_selected_node',
+                  panelGap: 12.0,
+                  panelBorderStyle: GuideStyle(
+                    color: Color(0xAA5F7CFF),
+                    strokeWidth: 1.4,
+                    pattern: GuideLinePattern.solid,
+                  ),
+                  tableConfig: TableConfig(
+                    panels: {
+                      'last_selected_node': PanelConfig(
+                        orderPosition: 0,
+                        title: 'Last Selected Node',
+                        foldable: true,
+                      ),
+                      'updates': PanelConfig(
+                        orderPosition: 2,
+                        title: 'Updates',
+                        foldable: true,
+                      ),
+                      'selected_nodes': PanelConfig(
+                        orderPosition: 3,
+                        title: 'Selected Nodes',
+                        foldable: true,
+                      ),
+                      'me': PanelConfig(
+                        orderPosition: 4,
+                        title: 'Me',
+                        showEmpty: true,
+                      ),
+                      'settings': PanelConfig(
+                        orderPosition: 5,
+                        title: 'Settings',
+                        showEmpty: true,
+                      ),
+                      'system': PanelConfig(
+                        orderPosition: 6,
+                        title: 'System',
+                        foldable: true,
+                        initiallyFolded: true,
+                      ),
+                      /* Previous right action-plane implementation, retained here for
+                         the next global Panel action migration:
+                      'me': PanelLayout(
+                        size: LayoutSize.fr(1),
+                        aliases: [
+                          'action-button',
+                          'player-action',
+                          'resolve-player-node',
+                        ],
+                        fillColor: Color(0x553F51B5),
+                        borderStyle: GuideStyle(
+                          color: Color(0xCCB7C2FF),
+                          strokeWidth: 1,
+                          pattern: GuideLinePattern.solid,
+                        ),
+                        caption: 'Me',
+                        labelColor: Color(0xFFFFF8E7),
+                        labelSize: 12,
+                      ),
+                      */
+                    },
+                    rowConfig: TableRowConfig(
+                      rows: {
+                        'slug': TableRow(
+                          orderPosition: 0,
+                          label: 'Slug',
+                          panelId: 'last_selected_node',
+                          size: LayoutSize.fr(1),
+                          actions: [TableAction.copyToClipboard()],
+                        ),
+                        'labels': TableRow(
+                          orderPosition: 1,
+                          label: 'Labels',
+                          panelId: 'last_selected_node',
+                          size: LayoutSize.fr(1),
+                        ),
+                        'classification': TableRow(
+                          orderPosition: 2,
+                          panelId: 'last_selected_node',
+                          size: LayoutSize.fr(1),
+                        ),
+                        'version': TableRow(
+                          orderPosition: 3,
+                          panelId: 'last_selected_node',
+                          size: LayoutSize.fr(0.5),
+                        ),
+                        'selected_node_slugs': TableRow(
+                          orderPosition: 0,
+                          label: 'Slugs',
+                          panelId: 'selected_nodes',
+                          size: LayoutSize.fr(1),
+                        ),
+                        'selected_node_labels': TableRow(
+                          orderPosition: 1,
+                          label: 'Labels',
+                          panelId: 'selected_nodes',
+                          size: LayoutSize.fr(1),
+                        ),
+                        'added': TableRow(
+                          orderPosition: 0,
+                          label: 'Added',
+                          panelId: 'updates',
+                          includeWhenEmpty: true,
+                          size: LayoutSize.fr(1),
+                        ),
+                        'updated': TableRow(
+                          orderPosition: 1,
+                          label: 'Updated',
+                          panelId: 'updates',
+                          includeWhenEmpty: true,
+                          size: LayoutSize.fr(1),
+                        ),
+                        'deleted': TableRow(
+                          orderPosition: 2,
+                          label: 'Deleted',
+                          panelId: 'updates',
+                          includeWhenEmpty: true,
+                          size: LayoutSize.fr(1),
+                        ),
+                        'node_count': TableRow(
+                          orderPosition: 0,
+                          label: 'Nodes',
+                          panelId: 'system',
+                          size: LayoutSize.fr(1),
+                        ),
+                        'neo4j_labels': TableRow(
+                          orderPosition: 1,
+                          label: 'Trending Labels',
+                          panelId: 'system',
+                          size: LayoutSize.fr(1),
+                        ),
+                        'node_property_count': TableRow(
+                          orderPosition: 2,
+                          label: 'Node properties',
+                          panelId: 'system',
+                          size: LayoutSize.fr(1),
+                        ),
+                        'go_version': TableRow(
+                          orderPosition: 3,
+                          label: 'Go version',
+                          panelId: 'system',
+                          size: LayoutSize.fr(1),
+                        ),
+                        'neo4j_version': TableRow(
+                          orderPosition: 4,
+                          label: 'Neo4j version',
+                          panelId: 'system',
+                          size: LayoutSize.fr(1),
+                        ),
+                      },
+                    ),
+                    columnConfig: TableColumnConfig(
+                      columns: {
+                        'key': TableColumn(size: LayoutSize.fr(1)),
+                        'value': TableColumn(size: LayoutSize.fr(3)),
+                      },
+                    ),
+                  ),
+                  children: {
+                    'added': NodeListLayout(
+                      dataSource: NodeListDataSource.virtualNodes,
+                      style: GuideStyle(
+                        color: Color(0xFFFFF7D6),
+                        strokeWidth: 1.8,
+                        pattern: GuideLinePattern.solid,
+                      ),
+                      layoutBorderWidth: 1.8,
+                      nodeHoverBorderStyle: GuideStyle(
+                        color: Color(0xFF2196F3),
+                        strokeWidth: 4,
+                        pattern: GuideLinePattern.solid,
+                      ),
+                      node: const NodeConfig(
+                        style: NodeStyle(
+                          slugPrefix: '[[',
+                          slugTransform: TextTransform.capitalCap(),
+                          slugSuffix: ']]',
+                        ),
+                      ),
+                      aliases: [
+                        'virtual-nodes',
+                        'draft-nodes',
+                        'uncreated-nodes',
+                      ],
+                    ),
+                  },
+                ),
+                'scene-graph': GraphLayout(
+                  aliases: [
+                    'scene-graph',
+                    'node-scene',
+                    'selected-node-graph',
+                    'selected-node-pool',
+                    'graph-layout',
+                  ],
+                  visibility: [LayoutCondition.hasActiveNodes()],
+                  style: GuideStyle(
+                    color: Color(0xFFFFF7D6),
+                    strokeWidth: 1.8,
+                    pattern: GuideLinePattern.solid,
+                  ),
+                  layoutBorderWidth: 1.8,
+                  nodeHoverBorderStyle: GuideStyle(
+                    color: Color(0xFF2196F3),
+                    strokeWidth: 4,
+                    pattern: GuideLinePattern.solid,
+                  ),
+                  nodeExtentFactor: 0.5,
+                  labelSize: lgErgoNodeFontSize,
+                  emojiFontSizeFactor: 2,
+                  emojiSlugGapFactor: 0.5,
+                ),
+              },
             ),
           },
         ),
@@ -1149,3 +1134,5 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
     ),
   },
 );
+
+const lgErgoNodeFontSize = 10.0;

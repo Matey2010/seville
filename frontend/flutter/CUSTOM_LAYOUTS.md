@@ -403,6 +403,10 @@ sibling widths. `FanSectionSizing.directPartsWeighted` assigns each occurrence
 limits. Internal bands keep a regular radius while the final band adapts the
 same cumulative fractions to the owning `LayoutPath` boundary by path length,
 preventing triangle or trapezoid perspective from adding unintended edge width.
+For a two-point curved Fan plane, Flame uses the midpoint of the structural
+edge as the root and samples the configured curve as the outer boundary. Both
+curve endpoints close directly back to that root, so no opposing plane edge or
+extra curve points are required.
 Use `rootNodeId` for a fixed API root,
 `rootNodeFilter` for data-driven root discovery, or
 `rootNodePointer: LayoutNodePointer.selectedNode()` when the fan must follow
@@ -433,8 +437,9 @@ cortex root and reverses that complete child filter, keeping the two planes as
 derived complementary partitions. The top uses direct-parts-weighted sizing;
 the bottom uses equal sizing.
 `GraphLayout` is the selected Node pool used by the center scene. It is nested
-under the owning `LayoutPath` through `scene-graph-grid`, whose center named
-area supplies the Graph frame. It reads the complete Riverpod-selected Node
+at `panoramic-scene-plane/direction-pad/scene-graph`; its named area spans the
+curved grid's complete center column and supplies the projected Graph frame. It
+reads the complete Riverpod-selected Node
 collection and gives every Node an equal centered cell. `nodeExtentFactor` controls the circular
 Node diameter relative to that cell and defaults to `0.5`. The pool becomes
 denser as selection grows; it does not fetch a `NodeTree` or infer graph
@@ -454,8 +459,9 @@ normal Node tap/toggle target.
 
 `TableLayout.includeUnconfiguredFields` combines declarative ordering with
 data-dependent rows. `unconfiguredFieldPanelId` places populated unconfigured
-keys alphabetically inside their owning panel. LG Ergo has one info-panel
-table with six ordered panels: `last_selected_node`, `updates`,
+keys alphabetically inside their owning panel. LG Ergo has one `info-grid`
+table in the panoramic grid's projected left column, with six ordered panels:
+`last_selected_node`, `updates`,
 `selected_nodes`, `me`, `settings`, and `system`. The first keeps Slug and
 Labels before the remaining complete Node value; Updates owns Added, Updated,
 and Deleted rows; Selected Nodes lists selected slugs followed by deduplicated
@@ -557,8 +563,11 @@ grid contains only the real space rows, not fake padding tracks. The scene inner
 circle uses the owning layout's `padding + borderWidth` as an inset, while the
 outer circle remains the scene boundary for anchors and shape framing.
 
-The `direction-pad` is the reference named-area grid: three named rows, three
-named columns, and nine direct `PanelLayout` children. Its center track is
+The `direction-pad` is the panoramic reference grid: three named rows and three
+named columns. `info-grid` spans its projected left column, `scene-graph` spans
+its projected center column, and `action-panel` directly owns the projected
+right column as a `ColumnLayout`. The directional areas remain reserved for
+controls. Its center track is
 wider than its side tracks, demonstrating that grid tracks remain independent
 from child `Layout.size` values.
 

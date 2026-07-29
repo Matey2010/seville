@@ -180,6 +180,11 @@
   `growthDirection: LayoutDerivativeReference(...)` only when a specific target
   derivative must override that natural direction. Its final row follows the
   owning polygon boundary; do not add a parallel radius/semicircle renderer.
+  A two-point curved owning path uses the midpoint of those structural points
+  as the Fan root and samples its configured curve as the outer boundary. The
+  renderer closes that simple surface from both curve endpoints back to the
+  root; do not require an opposite plane edge or add curve-only points to
+  `LayoutPath.points`.
   Cardinal positions (`top`, `right`, `bottom`, and `left`) own a 180-degree
   fan, `LayoutRelativePosition.d(...)` owns a 90-degree fan, and other
   positions own a 360-degree fan. `FanSectionSizing.equal` divides sibling
@@ -208,10 +213,10 @@
   `columnsConfig` are angular segments across the tree fan.
   LG Ergo keeps its always-available shallow fan under `top-plane`.
 - Use `GraphLayout` for the selected Node pool at
-  `safe-area/inner-circle-plane/wrapped-scene-square/scene-graph-plane/scene-graph-grid/scene-graph`.
-  `scene-graph-grid` places it in the center area of three 1fr/2fr/1fr rows and
-  columns; the Graph component must use that resolved grid area rather than the
-  complete owning path.
+  `safe-area/panoramic-scene-plane/direction-pad/scene-graph`.
+  The panoramic grid places it across all three 1fr rows of its center 2fr
+  column between 1fr side columns; the Graph component must use that curved,
+  resolved grid area rather than the complete owning path.
   It renders every Riverpod-selected Node through one Flame component. Arrange
   Nodes in equal centered cells, render each Node as a circle whose diameter is
   `nodeExtentFactor` of its cell, and shrink the cells as the selected set

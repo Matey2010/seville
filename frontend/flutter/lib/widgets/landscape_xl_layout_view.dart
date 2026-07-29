@@ -377,6 +377,43 @@ class LandscapeXlLayoutGame extends FlameGame
     return _resolveGridPlacementPoints(points, projection, placement.gridSteps);
   }
 
+  List<Offset>? _resolveFanPlacementPoints(
+    _PathLayoutPlacement<FanLayout> placement,
+  ) {
+    final context = layoutContext;
+    final resolvedLayouts = _resolveLayouts(
+      layout,
+      Size(size.x, size.y),
+      safePadding,
+      context,
+    );
+    final points = _resolvedLayoutPathPoints(
+      placement.plane,
+      resolvedLayouts,
+      context,
+    );
+    if (points == null) return null;
+    if (points.length >= 3 || placement.gridSteps.isNotEmpty) {
+      final projection = _resolvedLayoutPathProjection(
+        placement.plane,
+        points,
+        resolvedLayouts,
+        context,
+      );
+      return _resolveGridPlacementPoints(
+        points,
+        projection,
+        placement.gridSteps,
+      );
+    }
+    return _resolvedCurvedFanSurface(
+      placement.plane,
+      points,
+      resolvedLayouts,
+      context,
+    );
+  }
+
   void updateHoveredClassificationLabel({Path? path, GuideStyle? style}) =>
       _classificationLabelComponent.updateHoverTarget(path, style);
 
@@ -1406,7 +1443,7 @@ class _LandscapeXlSceneComponent extends PositionComponent
       }
       final tree = game.nodeTrees[placement.layout];
       if (tree == null) continue;
-      final planePoints = game._resolvePathPlacementPoints(placement);
+      final planePoints = game._resolveFanPlacementPoints(placement);
       if (planePoints == null) continue;
       final segments = _fanSegments(
         placement.layout,
@@ -1621,7 +1658,7 @@ class _FanComponent extends PositionComponent
       game.safePadding,
       game.layoutContext,
     );
-    final planePoints = game._resolvePathPlacementPoints(placement);
+    final planePoints = game._resolveFanPlacementPoints(placement);
     if (planePoints == null) return;
     _drawFanLayout(
       canvas,
@@ -1650,7 +1687,7 @@ class _FanComponent extends PositionComponent
       game.safePadding,
       game.layoutContext,
     );
-    final planePoints = game._resolvePathPlacementPoints(placement);
+    final planePoints = game._resolveFanPlacementPoints(placement);
     if (planePoints == null) return;
     final occurrence = _hitTestFan(
       fan,
@@ -2009,6 +2046,16 @@ void _drawLayoutPath(
   }
   for (final grid in layoutPath.children.values.whereType<GridLayout>()) {
     if (!grid.isVisible(layoutContext)) continue;
+    _drawGridBackgrounds(
+      canvas,
+      resolvedPoints,
+      grid,
+      layoutContext,
+      imageFor,
+      layoutPath: layoutPath,
+      projection: projection,
+      curvedImageMeshes: curvedImageMeshes,
+    );
     _drawGridComposition(
       canvas,
       _screenOrderedQuadrilateral(resolvedPoints),
@@ -2062,6 +2109,120 @@ void _drawLayoutPath(
   canvas.restore();
 }
 
+void _drawGridBackgrounds(
+  Canvas canvas,
+  List<Offset> owningPoints,
+  GridLayout grid,
+  LayoutContext layoutContext,
+  ui.Image? Function(String assetPath) imageFor, {
+  required LayoutPath layoutPath,
+  required _LayoutPathProjection? projection,
+  required Map<(LayoutPath, LayoutImageBackground), _CurvedLayoutPathImageMesh>
+  curvedImageMeshes,
+  _FlexSurfaceRect frame = const (left: 0, top: 0, right: 1, bottom: 1),
+}) {
+  _drawSurfaceBackgrounds(
+    canvas,
+    owningPoints,
+    grid,
+    frame,
+    layoutContext,
+    imageFor,
+    layoutPath: layoutPath,
+    projection: projection,
+    curvedImageMeshes: curvedImageMeshes,
+  );
+  final isCurved = projection?.canProjectBackground ?? false;
+  final tracks = _resolvedGridTracks(
+    grid,
+    Size(
+      (isCurved
+                  ? projection!.flatSize
+                  : _quadrilateralAverageSize(owningPoints))
+              .width *
+          (frame.right - frame.left),
+      (isCurved
+                  ? projection!.flatSize
+                  : _quadrilateralAverageSize(owningPoints))
+              .height *
+          (frame.bottom - frame.top),
+    ),
+  );
+  if (tracks == null) return;
+  for (final child in _resolveGridChildren(grid, tracks, layoutContext)) {
+    final childFrame = _scaleFlexSurfaceRect(frame, child.frame);
+    if (child.layout case final GridLayout childGrid) {
+      _drawGridBackgrounds(
+        canvas,
+        owningPoints,
+        childGrid,
+        layoutContext,
+        imageFor,
+        layoutPath: layoutPath,
+        projection: projection,
+        curvedImageMeshes: curvedImageMeshes,
+        frame: childFrame,
+      );
+    } else {
+      _drawSurfaceBackgrounds(
+        canvas,
+        owningPoints,
+        child.layout,
+        childFrame,
+        layoutContext,
+        imageFor,
+        layoutPath: layoutPath,
+        projection: projection,
+        curvedImageMeshes: curvedImageMeshes,
+      );
+    }
+  }
+}
+
+void _drawSurfaceBackgrounds(
+  Canvas canvas,
+  List<Offset> owningPoints,
+  Layout layout,
+  _FlexSurfaceRect frame,
+  LayoutContext layoutContext,
+  ui.Image? Function(String assetPath) imageFor, {
+  required LayoutPath layoutPath,
+  required _LayoutPathProjection? projection,
+  required Map<(LayoutPath, LayoutImageBackground), _CurvedLayoutPathImageMesh>
+  curvedImageMeshes,
+}) {
+  if (layout.background.isEmpty) return;
+  final isCurved = projection?.canProjectBackground ?? false;
+  final points = isCurved
+      ? _curvedSurfaceCorners(projection!, frame)
+      : _quadrilateralSlice(
+          _screenOrderedQuadrilateral(owningPoints),
+          left: frame.left,
+          right: frame.right,
+          top: frame.top,
+          bottom: frame.bottom,
+        );
+  final path = isCurved
+      ? _curvedSurfacePath(projection!, frame)
+      : _polygonPath(points);
+  final backgrounds = [...layout.background]
+    ..sort((left, right) => left.orderPosition.compareTo(right.orderPosition));
+  for (final background in backgrounds) {
+    _drawLayoutPathBackground(
+      canvas,
+      path,
+      points,
+      background,
+      layoutContext,
+      imageFor,
+      layoutPath: layoutPath,
+      projection: isCurved ? projection : null,
+      curvedImageMeshes: curvedImageMeshes,
+      surfaceFrame: frame,
+    );
+  }
+}
+
 void _drawLayoutPathBackgrounds(
   Canvas canvas,
   Path path,
@@ -2103,6 +2264,7 @@ void _drawLayoutPathBackground(
   required Map<(LayoutPath, LayoutImageBackground), _CurvedLayoutPathImageMesh>
   curvedImageMeshes,
   double inheritedOpacity = 1,
+  _FlexSurfaceRect surfaceFrame = const (left: 0, top: 0, right: 1, bottom: 1),
 }) {
   final opacity = (inheritedOpacity * background.opacity)
       .clamp(0, 1)
@@ -2121,6 +2283,7 @@ void _drawLayoutPathBackground(
       projection: projection,
       curvedImageMeshes: curvedImageMeshes,
       inheritedOpacity: opacity,
+      surfaceFrame: surfaceFrame,
     );
     return;
   }
@@ -2132,12 +2295,13 @@ void _drawLayoutPathBackground(
   if (projection case final projection? when projection.canProjectBackground) {
     final key = (layoutPath, background);
     final cachedMesh = curvedImageMeshes[key];
-    final mesh = cachedMesh?.matches(projection, image) ?? false
+    final mesh = cachedMesh?.matches(projection, image, surfaceFrame) ?? false
         ? cachedMesh!
         : _CurvedLayoutPathImageMesh(
             projection: projection,
             image: image,
             background: background,
+            surfaceFrame: surfaceFrame,
           );
     if (!identical(mesh, cachedMesh)) {
       cachedMesh?.dispose();
@@ -2368,7 +2532,7 @@ class _LayoutPathProjection {
     List<({Offset? from, Offset? through, Offset? to})> configuredCurves, {
     required bool close,
   }) {
-    if (configuredCurves.isEmpty || points.length < 3) return null;
+    if (configuredCurves.isEmpty || points.length < 2) return null;
     final curves = <_ResolvedLayoutPathCurve>[];
     for (final configuredCurve in configuredCurves) {
       final from = configuredCurve.from;
@@ -2396,7 +2560,11 @@ class _LayoutPathProjection {
       for (final curve in curves) ...curve.points,
     ];
     final path = Path()..moveTo(points.first.dx, points.first.dy);
-    final segmentCount = close ? points.length : points.length - 1;
+    final segmentCount = points.length == 2
+        ? 1
+        : close
+        ? points.length
+        : points.length - 1;
     for (var index = 0; index < segmentCount; index += 1) {
       final nextIndex = (index + 1) % points.length;
       final curvedEdge = curvedEdges[(index, nextIndex)];
@@ -2425,7 +2593,7 @@ class _LayoutPathProjection {
         );
       }
     }
-    if (close) path.close();
+    if (close && points.length > 2) path.close();
 
     final verticallyOrdered = [...curves]
       ..sort((left, right) => left.averageY.compareTo(right.averageY));
@@ -2509,14 +2677,49 @@ _LayoutPathProjection? _resolvedLayoutPathProjection(
   ], close: layoutPath.style?.close ?? true);
 }
 
+List<Offset>? _resolvedCurvedFanSurface(
+  LayoutPath layoutPath,
+  List<Offset> points,
+  Map<String, _ResolvedLayout> layouts,
+  LayoutContext layoutContext,
+) {
+  if (points.length != 2 || layoutPath.curves.isEmpty) return null;
+  final curve = layoutPath.curves.first;
+  final from = _resolveReference(curve.from, layouts, layoutContext);
+  final through = _resolveReference(curve.through, layouts, layoutContext);
+  final to = _resolveReference(curve.to, layouts, layoutContext);
+  if (from == null || through == null || to == null) return null;
+
+  final forward =
+      (points.first - from).distance <= (points.last - from).distance;
+  final start = forward ? points.first : points.last;
+  final end = forward ? points.last : points.first;
+  final resolvedCurve = _ResolvedLayoutPathCurve.resolve(
+    [start, end],
+    from: start,
+    through: through,
+    to: end,
+  );
+  if (resolvedCurve == null) return null;
+
+  const sampleCount = 96;
+  final root = Offset.lerp(start, end, 0.5)!;
+  return [
+    root,
+    for (var index = 0; index <= sampleCount; index += 1)
+      resolvedCurve.pointAt(index / sampleCount),
+  ];
+}
+
 class _CurvedLayoutPathImageMesh {
   _CurvedLayoutPathImageMesh({
     required _LayoutPathProjection projection,
     required this.image,
     required LayoutImageBackground background,
+    this.surfaceFrame = const (left: 0, top: 0, right: 1, bottom: 1),
   }) : sourcePoints = projection.sourcePoints,
        meshSegmentCount = projection.meshSegmentCount,
-       _vertices = _buildVertices(projection, image, background),
+       _vertices = _buildVertices(projection, image, background, surfaceFrame),
        _shader = ui.ImageShader(
          image,
          TileMode.clamp,
@@ -2547,13 +2750,24 @@ class _CurvedLayoutPathImageMesh {
   final List<Offset> sourcePoints;
   final int meshSegmentCount;
   final ui.Image image;
+  final _FlexSurfaceRect surfaceFrame;
   final ui.Vertices _vertices;
   final ui.ImageShader _shader;
   final Paint _paint = Paint();
 
-  bool matches(_LayoutPathProjection projection, ui.Image candidateImage) {
+  bool matches(
+    _LayoutPathProjection projection,
+    ui.Image candidateImage, [
+    _FlexSurfaceRect candidateFrame = const (
+      left: 0,
+      top: 0,
+      right: 1,
+      bottom: 1,
+    ),
+  ]) {
     if (!identical(image, candidateImage) ||
         meshSegmentCount != projection.meshSegmentCount ||
+        surfaceFrame != candidateFrame ||
         sourcePoints.length != projection.sourcePoints.length) {
       return false;
     }
@@ -2580,8 +2794,12 @@ class _CurvedLayoutPathImageMesh {
     _LayoutPathProjection projection,
     ui.Image image,
     LayoutImageBackground background,
+    _FlexSurfaceRect surfaceFrame,
   ) {
-    final flatSize = projection.flatSize;
+    final flatSize = Size(
+      projection.flatSize.width * (surfaceFrame.right - surfaceFrame.left),
+      projection.flatSize.height * (surfaceFrame.bottom - surfaceFrame.top),
+    );
     final imageSize = Size(image.width.toDouble(), image.height.toDouble());
     final fit = switch (background.fit) {
       LayoutBackgroundFit.cover => BoxFit.cover,
@@ -2609,11 +2827,22 @@ class _CurvedLayoutPathImageMesh {
     final textureCoordinates = <Offset>[];
     for (var index = 0; index <= projection.meshSegmentCount; index += 1) {
       final stop = index / projection.meshSegmentCount;
-      final u = ui.lerpDouble(left, right, stop)!;
+      final localU = ui.lerpDouble(left, right, stop)!;
+      final u = ui.lerpDouble(surfaceFrame.left, surfaceFrame.right, localU)!;
       final textureX = ui.lerpDouble(sourceRect.left, sourceRect.right, stop)!;
       positions
-        ..add(projection.project(u, top))
-        ..add(projection.project(u, bottom));
+        ..add(
+          projection.project(
+            u,
+            ui.lerpDouble(surfaceFrame.top, surfaceFrame.bottom, top)!,
+          ),
+        )
+        ..add(
+          projection.project(
+            u,
+            ui.lerpDouble(surfaceFrame.top, surfaceFrame.bottom, bottom)!,
+          ),
+        );
       textureCoordinates
         ..add(Offset(textureX, sourceRect.top))
         ..add(Offset(textureX, sourceRect.bottom));
@@ -3124,7 +3353,15 @@ _FanFrame? _resolveFanFrame(
 }) {
   if (planePoints.length < 3) return null;
 
-  final center = fan.position.resolve(bounds);
+  final boundaryMidpoint = planePoints.length > 2
+      ? Offset.lerp(planePoints[1], planePoints.last, 0.5)
+      : null;
+  final hasExplicitRoot =
+      boundaryMidpoint != null &&
+      (planePoints.first - boundaryMidpoint).distance <= 0.000001;
+  final center = hasExplicitRoot
+      ? planePoints.first
+      : fan.position.resolve(bounds);
   final target = fan.growthDirection == null
       ? bounds.center
       : _resolveReference(fan.growthDirection!, layouts, layoutContext);
