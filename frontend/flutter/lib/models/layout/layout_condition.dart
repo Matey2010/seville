@@ -25,6 +25,9 @@ abstract class LayoutCondition {
   const factory LayoutCondition.nodeHighlighted({String? nodePath}) =
       _LayoutNodeHighlightedCondition;
 
+  const factory LayoutCondition.nodeSelected({String? nodePath}) =
+      _LayoutNodeSelectedCondition;
+
   const factory LayoutCondition.labelHighlighted() =
       _LayoutLabelHighlightedCondition;
 
@@ -100,6 +103,32 @@ class _LayoutNodeHighlightedCondition extends LayoutCondition {
     final normalized = _normalizeLayoutPath(path);
     return context.highlightedNodePaths.any(
       (candidate) => _normalizeLayoutPath(candidate) == normalized,
+    );
+  }
+}
+
+class _LayoutNodeSelectedCondition extends LayoutCondition {
+  const _LayoutNodeSelectedCondition({this.nodePath}) : super._();
+
+  final String? nodePath;
+
+  @override
+  bool isActive(LayoutContext context) {
+    final path = nodePath ?? context.currentNodePath;
+    if (path != null && path.trim().isNotEmpty) {
+      final normalized = _normalizeLayoutPath(path);
+      if (context.selectedNodePaths.any(
+        (candidate) => _normalizeLayoutPath(candidate) == normalized,
+      )) {
+        return true;
+      }
+    }
+    if (nodePath != null) return false;
+    final slug = context.currentNodeSlug?.trim();
+    if (slug == null || slug.isEmpty) return false;
+    final normalizedSlug = _normalizeConditionValue(slug);
+    return context.activeNodeSlugs.any(
+      (candidate) => _normalizeConditionValue(candidate) == normalizedSlug,
     );
   }
 }

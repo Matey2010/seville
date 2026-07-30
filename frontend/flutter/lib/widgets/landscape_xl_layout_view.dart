@@ -12,10 +12,12 @@ import 'package:flame_audio/flame_audio.dart';
 import 'package:flutter/material.dart' hide TableRow;
 import 'package:seville_proto/seville_proto.dart';
 
+import '../audio/background_music_controller.dart';
 import '../components/layout_component_registry.dart';
 import '../components/classification_label_component.dart';
 import '../components/graph_layout_component.dart';
 import '../components/node_component.dart';
+import '../components/node_layout_component.dart';
 import '../components/search_hud_component.dart';
 import '../constants/typography.dart';
 import '../domain/node.dart';
@@ -53,6 +55,7 @@ class LandscapeXlLayoutView extends StatefulWidget {
     this.vaultNodeResolver,
     this.systemInfo,
     this.nodeTrees = const {},
+    this.nodeLayoutNodes = const {},
     this.queryNodes = const [],
     this.highlightedNodes = const [],
     this.selectedNodes = const [],
@@ -72,6 +75,7 @@ class LandscapeXlLayoutView extends StatefulWidget {
   final VaultNodeResolver? vaultNodeResolver;
   final SystemInfo? systemInfo;
   final Map<FanLayout, NodeTree> nodeTrees;
+  final Map<NodeLayout, ResolvedVaultNode> nodeLayoutNodes;
   final List<ResolvedVaultNode> queryNodes;
   final List<ResolvedVaultNode> highlightedNodes;
   final List<ResolvedVaultNode> selectedNodes;
@@ -95,6 +99,7 @@ class _LandscapeXlLayoutViewState extends State<LandscapeXlLayoutView> {
     vaultNodeResolver: widget.vaultNodeResolver,
     systemInfo: widget.systemInfo,
     nodeTrees: widget.nodeTrees,
+    nodeLayoutNodes: widget.nodeLayoutNodes,
     queryNodes: widget.queryNodes,
     highlightedNodes: widget.highlightedNodes,
     selectedNodes: widget.selectedNodes,
@@ -125,6 +130,7 @@ class _LandscapeXlLayoutViewState extends State<LandscapeXlLayoutView> {
         vaultNodeResolver: widget.vaultNodeResolver,
         systemInfo: widget.systemInfo,
         nodeTrees: widget.nodeTrees,
+        nodeLayoutNodes: widget.nodeLayoutNodes,
         queryNodes: widget.queryNodes,
         highlightedNodes: widget.highlightedNodes,
         selectedNodes: widget.selectedNodes,
@@ -145,6 +151,7 @@ class _LandscapeXlLayoutViewState extends State<LandscapeXlLayoutView> {
       vaultNodeResolver: widget.vaultNodeResolver,
       systemInfo: widget.systemInfo,
       nodeTrees: widget.nodeTrees,
+      nodeLayoutNodes: widget.nodeLayoutNodes,
       queryNodes: widget.queryNodes,
       highlightedNodes: widget.highlightedNodes,
       selectedNodes: widget.selectedNodes,
@@ -172,6 +179,7 @@ class LandscapeXlLayoutGame extends FlameGame
     required this.vaultNodeResolver,
     required this.systemInfo,
     required this.nodeTrees,
+    required this.nodeLayoutNodes,
     required this.queryNodes,
     required this.highlightedNodes,
     required this.selectedNodes,
@@ -203,6 +211,7 @@ class LandscapeXlLayoutGame extends FlameGame
   VaultNodeResolver? vaultNodeResolver;
   SystemInfo? systemInfo;
   Map<FanLayout, NodeTree> nodeTrees;
+  Map<NodeLayout, ResolvedVaultNode> nodeLayoutNodes;
   List<ResolvedVaultNode> queryNodes;
   List<ResolvedVaultNode> highlightedNodes;
   List<ResolvedVaultNode> selectedNodes;
@@ -219,12 +228,15 @@ class LandscapeXlLayoutGame extends FlameGame
   late final SearchHudComponent _searchHud;
   AudioPool? _nodeSelectionAudioPool;
   AudioPool? _nodeHoverAudioPool;
+  final BackgroundMusicController _backgroundMusic =
+      BackgroundMusicController();
   String? _hoveredNodeKey;
   final _GameCursorComponent _gameCursor = _GameCursorComponent();
   final NodeComponent _nodeComponent = NodeComponent();
   final ClassificationLabelComponent _classificationLabelComponent =
       ClassificationLabelComponent();
   final List<GraphLayoutComponent> _graphLayoutComponents = [];
+  final List<NodeLayoutComponent> _nodeLayoutComponents = [];
 
   LayoutContext get layoutContext =>
       _layoutContext(layout, highlightedNodes, selectedNodes);
@@ -257,6 +269,7 @@ class LandscapeXlLayoutGame extends FlameGame
       'stone-scrap.wav',
       maxPlayers: 4,
     );
+    await _backgroundMusic.start();
     images.prefix = '';
     final resolvedRoot = layout.resolve(layoutContext);
     for (final assetPath in _layoutImageAssetPaths(layout).toSet()) {
@@ -293,7 +306,10 @@ class LandscapeXlLayoutGame extends FlameGame
         ),
         selectedNodes: () => selectedNodes,
         layoutContext: () => layoutContext,
-        nodeStyle: () => _resolvedNodeStyle(placement.hierarchy, layoutContext),
+        nodeConfig: (node) => _resolvedNodeConfig(
+          placement.hierarchy,
+          _nodeLayoutContext(layoutContext, node),
+        ),
         surface: () => _resolveGraphPlacementSurface(placement),
         isTapEnabled: () => onLayoutTap != null,
         onNodeTap: (hit) => dispatchLayoutTap(
@@ -307,6 +323,37 @@ class LandscapeXlLayoutGame extends FlameGame
         ),
       )..priority = 110;
       _graphLayoutComponents.add(component);
+      add(component);
+    }
+    for (final placement in _pathLayoutPlacements<NodeLayout>(
+      layout,
+      layoutContext,
+    )) {
+      final component = NodeLayoutComponent(
+        layoutKey: placement.key,
+        layout: placement.layout,
+        isLayoutVisible: () => placement.hierarchy.every(
+          (layout) => layout.isVisible(layoutContext),
+        ),
+        resolvedNode: () => nodeLayoutNodes[placement.layout],
+        layoutContext: () => layoutContext,
+        nodeConfig: (node) => _resolvedNodeConfig(
+          placement.hierarchy,
+          _nodeLayoutContext(layoutContext, node),
+        ),
+        surface: () => _resolveNodePlacementSurface(placement),
+        isTapEnabled: () => onLayoutTap != null,
+        onNodeTap: (hit) => dispatchLayoutTap(
+          LayoutTapTarget(
+            key: hit.key,
+            layout: placement.layout,
+            node: hit.resolvedNode,
+            resolvedNode: hit.resolvedNode,
+            label: hit.label,
+          ),
+        ),
+      )..priority = 110;
+      _nodeLayoutComponents.add(component);
       add(component);
     }
     for (final registered in _registeredLayoutComponents(
@@ -400,8 +447,12 @@ class LandscapeXlLayoutGame extends FlameGame
     );
   }
 
-  GraphLayoutSurface? _resolveGraphPlacementSurface(
+  LayoutNodeSurface? _resolveGraphPlacementSurface(
     _PathLayoutPlacement<GraphLayout> placement,
+  ) => _resolveNodePlacementSurface(placement);
+
+  LayoutNodeSurface? _resolveNodePlacementSurface<T extends Layout>(
+    _PathLayoutPlacement<T> placement,
   ) {
     final context = layoutContext;
     final resolvedLayouts = _resolveLayouts(
@@ -463,6 +514,9 @@ class LandscapeXlLayoutGame extends FlameGame
   void updateCursorPosition(Offset? position) =>
       _gameCursor.updatePointer(position);
 
+  Future<bool> playBackgroundMusicTrack(int trackIndex) =>
+      _backgroundMusic.playTrack(trackIndex);
+
   @override
   void onRemove() {
     final audioPool = _nodeSelectionAudioPool;
@@ -473,6 +527,7 @@ class LandscapeXlLayoutGame extends FlameGame
     mouseCursor = MouseCursor.defer;
     if (audioPool != null) unawaited(audioPool.dispose());
     if (hoverAudioPool != null) unawaited(hoverAudioPool.dispose());
+    unawaited(_backgroundMusic.dispose());
     super.onRemove();
   }
 
@@ -489,6 +544,7 @@ class LandscapeXlLayoutGame extends FlameGame
     required VaultNodeResolver? vaultNodeResolver,
     required SystemInfo? systemInfo,
     required Map<FanLayout, NodeTree> nodeTrees,
+    required Map<NodeLayout, ResolvedVaultNode> nodeLayoutNodes,
     required List<ResolvedVaultNode> queryNodes,
     required List<ResolvedVaultNode> highlightedNodes,
     required List<ResolvedVaultNode> selectedNodes,
@@ -506,6 +562,7 @@ class LandscapeXlLayoutGame extends FlameGame
     this.vaultNodeResolver = vaultNodeResolver;
     this.systemInfo = systemInfo;
     this.nodeTrees = nodeTrees;
+    this.nodeLayoutNodes = nodeLayoutNodes;
     this.queryNodes = queryNodes;
     this.highlightedNodes = highlightedNodes;
     this.selectedNodes = selectedNodes;
@@ -689,7 +746,16 @@ Iterable<String> _layoutImageAssetPaths(Layout layout) sync* {
     yield* _layoutImageAssetPaths(child);
   }
   for (final conditional in layout.state.values.values) {
-    yield* _layoutImageAssetPaths(conditional);
+    yield* _layoutConfigImageAssetPaths(conditional);
+  }
+}
+
+Iterable<String> _layoutConfigImageAssetPaths(LayoutConfig config) sync* {
+  for (final background in config.background ?? const <LayoutBackground>[]) {
+    yield* _backgroundImageAssetPaths(background);
+  }
+  for (final conditional in config.state.values.values) {
+    yield* _layoutConfigImageAssetPaths(conditional);
   }
 }
 
@@ -764,29 +830,64 @@ typedef _PathLayoutPlacement<T extends Layout> = ({
   List<({GridLayout grid, String area})> gridSteps,
 });
 
-NodeStyle _resolvedNodeStyle(
+NodeConfig _resolvedNodeConfig(
   Iterable<Layout> hierarchy,
   LayoutContext context,
 ) {
-  var config = NodeDefaults.config;
+  var config = NodeDefaults.config.resolve(context);
   for (final layout in hierarchy) {
     config = config.merge(layout.resolveNodeConfig(context));
-  }
-  return config.style;
-}
-
-LayoutTextConfig _resolvedTextConfig(Iterable<Layout> hierarchy) {
-  var config = LayoutTextDefaults.config;
-  for (final layout in hierarchy) {
-    config = config.merge(layout.text);
   }
   return config;
 }
 
-LabelConfig _resolvedLabelConfig(Iterable<Layout> hierarchy) {
-  var config = const LabelConfig();
+List<Layout>? _layoutHierarchyTo(
+  Layout current,
+  Layout target, [
+  List<Layout> ancestors = const [],
+]) {
+  final hierarchy = [...ancestors, current];
+  if (identical(current, target)) return hierarchy;
+  for (final child in current.children.values) {
+    final result = _layoutHierarchyTo(child, target, hierarchy);
+    if (result != null) return result;
+  }
+  return null;
+}
+
+GuideStyle? _resolvedNodeHighlightBorderStyle(
+  Layout root,
+  Layout target,
+  ResolvedVaultNode? node,
+  LayoutContext context,
+) {
+  if (node == null) return null;
+  final nodeContext = _nodeLayoutContext(context, node);
+  final nodePath = nodeContext.currentNodePath?.trim();
+  if (nodePath == null || nodePath.isEmpty) return null;
+  final highlightedContext = nodeContext.withHighlightedNodePath(nodePath);
+  final hierarchy = _layoutHierarchyTo(root, target) ?? [root, target];
+  return _resolvedNodeConfig(hierarchy, highlightedContext).borderStyle;
+}
+
+LayoutTextConfig _resolvedTextConfig(
+  Iterable<Layout> hierarchy,
+  LayoutContext context,
+) {
+  var config = LayoutTextDefaults.config;
   for (final layout in hierarchy) {
-    config = config.merge(layout.label);
+    config = config.merge(layout.resolveTextConfig(context));
+  }
+  return config;
+}
+
+LabelConfig _resolvedLabelConfig(
+  Iterable<Layout> hierarchy,
+  LayoutContext context,
+) {
+  var config = LabelDefaults.config.resolve(context);
+  for (final layout in hierarchy) {
+    config = config.merge(layout.resolveLabelConfig(context));
   }
   return config;
 }
@@ -898,13 +999,12 @@ class _LayoutImageBackgroundComponent extends PositionComponent
       Rect.fromLTWH(0, 0, size.x, size.y),
       background.repeat,
     )) {
-      paintImage(
-        canvas: canvas,
-        rect: tile,
-        image: image,
-        fit: _backgroundImageBoxFit(background.fit),
-        alignment: _backgroundImageAlignment(background.position),
-        opacity: background.opacity.clamp(0, 1).toDouble(),
+      _paintBackgroundImage(
+        canvas,
+        tile,
+        image,
+        background,
+        background.opacity.clamp(0, 1).toDouble(),
       );
     }
   }
@@ -1268,7 +1368,7 @@ typedef _ResolvedLayout = ({
   Rect bounds,
   List<Layout> hierarchy,
 });
-typedef _HoveredNodeTarget = ({String key, Path path, GuideStyle style});
+typedef _HoveredNodeTarget = ({String key, Path path, GuideStyle? style});
 typedef _HoveredClassificationLabelTarget = ({Path path, GuideStyle style});
 typedef _TableRowPlacement = ({
   _ResolvedTableRow row,
@@ -1409,18 +1509,20 @@ class _LandscapeXlSceneComponent extends PositionComponent
         game._classificationLabelComponent,
         hoverPosition,
         layoutContext,
-        background: path.background,
+        background: path.resolveBackground(layoutContext),
         curvedImageMeshes: _curvedLayoutPathImageMeshes,
         imageFor: (assetPath) => game.images.containsKey(assetPath)
             ? game.images.fromCache(assetPath)
             : null,
-        panelDefaults: resolvedRoot.panel.merge(owner.layout.panel),
-        nodeStyle: _resolvedNodeStyle([
+        panelDefaults: resolvedRoot
+            .resolvePanelConfig(layoutContext)
+            .merge(owner.layout.resolvePanelConfig(layoutContext)),
+        nodeConfig: _resolvedNodeConfig([
           ...owner.hierarchy,
           path,
         ], layoutContext),
-        label: _resolvedLabelConfig([...owner.hierarchy, path]),
-        text: _resolvedTextConfig([...owner.hierarchy, path]),
+        label: _resolvedLabelConfig([...owner.hierarchy, path], layoutContext),
+        text: _resolvedTextConfig([...owner.hierarchy, path], layoutContext),
         tablePanelExpansion: _tablePanelExpansion,
         onTablePanelHeader: (table, panelId, path) {
           _tablePanelHeaderHits.add(
@@ -1540,7 +1642,12 @@ class _LandscapeXlSceneComponent extends PositionComponent
       return (
         key: nodeHit.target.key,
         path: nodeHit.path,
-        style: nodeHit.target.layout.nodeHoverBorderStyle,
+        style: _resolvedNodeHighlightBorderStyle(
+          game.layout,
+          nodeHit.target.layout,
+          nodeHit.target.resolvedNode,
+          game.layoutContext,
+        ),
       );
     }
 
@@ -1574,10 +1681,19 @@ class _LandscapeXlSceneComponent extends PositionComponent
       );
       for (final segment in segments.reversed) {
         if (!segment.path.contains(position)) continue;
+        final resolvedNode = _resolvedFanNode(
+          segment.occurrence,
+          placement.layout,
+        );
         return (
           key: '${placement.key}/${segment.occurrence.occurrenceId}',
           path: segment.path,
-          style: placement.layout.nodeHoverBorderStyle,
+          style: _resolvedNodeHighlightBorderStyle(
+            game.layout,
+            placement.layout,
+            resolvedNode,
+            game.layoutContext,
+          ),
         );
       }
     }
@@ -1587,7 +1703,27 @@ class _LandscapeXlSceneComponent extends PositionComponent
         return (
           key: graphNode.key,
           path: graphNode.path,
-          style: component.layout.nodeHoverBorderStyle,
+          style: _resolvedNodeHighlightBorderStyle(
+            game.layout,
+            component.layout,
+            graphNode.resolvedNode,
+            game.layoutContext,
+          ),
+        );
+      }
+    }
+    for (final component in game._nodeLayoutComponents.reversed) {
+      final node = component.hitTest(position);
+      if (node != null) {
+        return (
+          key: node.key,
+          path: node.path,
+          style: _resolvedNodeHighlightBorderStyle(
+            game.layout,
+            component.layout,
+            node.resolvedNode,
+            game.layoutContext,
+          ),
         );
       }
     }
@@ -1606,7 +1742,12 @@ class _LandscapeXlSceneComponent extends PositionComponent
     return (
       key: hit!.target.key,
       path: nodePath,
-      style: hit.target.layout.nodeHoverBorderStyle,
+      style: _resolvedNodeHighlightBorderStyle(
+        game.layout,
+        hit.target.layout,
+        hit.target.resolvedNode,
+        game.layoutContext,
+      ),
     );
   }
 
@@ -1770,7 +1911,6 @@ class _FanComponent extends PositionComponent
     final fan = placement.layout;
     if (!_isVisible) return;
     final nodeTree = game.nodeTrees[fan];
-    if (nodeTree == null) return;
     final resolvedLayouts = _resolveLayouts(
       game.layout,
       Size(size.x, size.y),
@@ -1786,7 +1926,13 @@ class _FanComponent extends PositionComponent
       nodeTree,
       resolvedLayouts,
       game.layoutContext,
-      nodeStyle: _resolvedNodeStyle(placement.hierarchy, game.layoutContext),
+      nodeConfig: (node) => _resolvedNodeConfig(
+        placement.hierarchy,
+        _nodeLayoutContext(game.layoutContext, node),
+      ),
+      imageFor: (assetPath) => game.images.containsKey(assetPath)
+          ? game.images.fromCache(assetPath)
+          : null,
       planePoints: planePoints,
     );
   }
@@ -1828,9 +1974,9 @@ class _FanComponent extends PositionComponent
         label: _nodePresentation(
           occurrence.node,
           fan,
-          nodeStyle: _resolvedNodeStyle(
+          nodeConfig: _resolvedNodeConfig(
             placement.hierarchy,
-            game.layoutContext,
+            _nodeLayoutContext(game.layoutContext, resolvedNode),
           ),
         ).text,
       ),
@@ -1885,14 +2031,24 @@ class _SearchSuggestionsComponent extends PositionComponent
         searchResults: _hud.visibleResults,
       ),
       layoutContext: game.layoutContext,
-      panelDefaults: game.layout.panel.merge(_hud.layout.panel),
-      nodeStyle: _resolvedNodeStyle([
+      panelDefaults: game.layout
+          .resolvePanelConfig(game.layoutContext)
+          .merge(_hud.layout.resolvePanelConfig(game.layoutContext)),
+      nodeConfig: _resolvedNodeConfig([
         game.layout,
         _hud.layout,
         table,
       ], game.layoutContext),
-      label: game.layout.label,
-      text: game.layout.text,
+      label: _resolvedLabelConfig([
+        game.layout,
+        _hud.layout,
+        table,
+      ], game.layoutContext),
+      text: _resolvedTextConfig([
+        game.layout,
+        _hud.layout,
+        table,
+      ], game.layoutContext),
       panelExpansion: (_) => 1,
       onPanelHeader: (_, _) {},
       onNode: (target, path) {
@@ -1905,7 +2061,13 @@ class _SearchSuggestionsComponent extends PositionComponent
     final highlightedIndex = _hud.highlightedIndex;
     if (highlightedIndex < 0 || highlightedIndex >= _nodeHits.length) return;
     final hit = _nodeHits[highlightedIndex];
-    final style = table.nodeHoverBorderStyle;
+    final style = _resolvedNodeHighlightBorderStyle(
+      game.layout,
+      hit.target.layout,
+      hit.target.resolvedNode,
+      game.layoutContext,
+    );
+    if (style == null) return;
     NodeComponent.renderBorder(
       canvas,
       hit.path,
@@ -1938,8 +2100,12 @@ class _SearchSuggestionsComponent extends PositionComponent
       game.updateHoveredNode(null);
     } else {
       _hud.highlightResult(resultIndex);
-      final table = _table!;
-      final style = table.nodeHoverBorderStyle;
+      final style = _resolvedNodeHighlightBorderStyle(
+        game.layout,
+        hit.target.layout,
+        hit.target.resolvedNode,
+        game.layoutContext,
+      );
       game.updateHoveredNode(
         'search/${hit.target.resolvedNode?.node?.slug ?? resultIndex}',
         path: hit.path.shift(position.toOffset()),
@@ -2012,6 +2178,23 @@ LayoutContext _layoutContext(
   return nodeContext;
 }
 
+LayoutContext _nodeLayoutContext(
+  LayoutContext context,
+  ResolvedVaultNode resolvedNode,
+) {
+  final node = resolvedNode.node;
+  final resolvedPath = resolvedNode.path.trim();
+  final nodePath = node?.path.trim();
+  return context.withCurrentNode(
+    path: resolvedPath.isNotEmpty
+        ? resolvedPath
+        : nodePath == null || nodePath.isEmpty
+        ? null
+        : nodePath,
+    slug: node?.slug.trim(),
+  );
+}
+
 SearchLayout _searchLayoutConfig(Layout root) =>
     _searchLayoutConfigOrNull(root) ?? const SearchLayout();
 
@@ -2041,7 +2224,7 @@ void _drawLayoutPath(
   curvedImageMeshes,
   required ui.Image? Function(String assetPath) imageFor,
   required PanelConfig panelDefaults,
-  required NodeStyle nodeStyle,
+  required NodeConfig nodeConfig,
   required LabelConfig label,
   required LayoutTextConfig text,
   required double Function(TableLayout table, String panelId)
@@ -2106,7 +2289,7 @@ void _drawLayoutPath(
     TableLayout table,
     List<Offset> tablePoints, {
     PanelConfig? inheritedPanel,
-    NodeStyle? inheritedNodeStyle,
+    NodeConfig? inheritedNodeConfig,
   }) {
     _drawTableLayout(
       canvas,
@@ -2117,9 +2300,11 @@ void _drawLayoutPath(
       classificationLabelComponent,
       nodeListSources: nodeListSources,
       layoutContext: layoutContext,
-      panelDefaults: inheritedPanel ?? panelDefaults.merge(layoutPath.panel),
-      nodeStyle: (inheritedNodeStyle ?? nodeStyle).merge(
-        table.resolveNodeConfig(layoutContext).style,
+      panelDefaults:
+          inheritedPanel ??
+          panelDefaults.merge(layoutPath.resolvePanelConfig(layoutContext)),
+      nodeConfig: (inheritedNodeConfig ?? nodeConfig).merge(
+        table.resolveNodeConfig(layoutContext),
       ),
       label: label,
       text: text,
@@ -2153,7 +2338,7 @@ void _drawLayoutPath(
       composition,
       layoutContext,
       nodeListSources,
-      text: text.merge(composition.text),
+      text: text.merge(composition.resolveTextConfig(layoutContext)),
       projection: projection,
     );
   }
@@ -2168,7 +2353,7 @@ void _drawLayoutPath(
       composition,
       layoutContext,
       nodeListSources,
-      text: text.merge(composition.text),
+      text: text.merge(composition.resolveTextConfig(layoutContext)),
       projection: projection,
     );
   }
@@ -2193,7 +2378,7 @@ void _drawLayoutPath(
       grid,
       layoutContext,
       nodeListSources,
-      text: text.merge(grid.text),
+      text: text.merge(grid.resolveTextConfig(layoutContext)),
       projection: projection,
     );
   }
@@ -2227,19 +2412,23 @@ void _drawLayoutPath(
         layoutContext,
       );
       if (tablePoints == null) continue;
-      var inheritedPanel = panelDefaults.merge(layoutPath.panel);
-      var inheritedNodeStyle = nodeStyle;
+      var inheritedPanel = panelDefaults.merge(
+        layoutPath.resolvePanelConfig(layoutContext),
+      );
+      var inheritedNodeConfig = nodeConfig;
       for (final step in placement.gridSteps) {
-        inheritedPanel = inheritedPanel.merge(step.grid.panel);
-        inheritedNodeStyle = inheritedNodeStyle.merge(
-          step.grid.resolveNodeConfig(layoutContext).style,
+        inheritedPanel = inheritedPanel.merge(
+          step.grid.resolvePanelConfig(layoutContext),
+        );
+        inheritedNodeConfig = inheritedNodeConfig.merge(
+          step.grid.resolveNodeConfig(layoutContext),
         );
       }
       drawTable(
         placement.layout,
         tablePoints,
         inheritedPanel: inheritedPanel,
-        inheritedNodeStyle: inheritedNodeStyle,
+        inheritedNodeConfig: inheritedNodeConfig,
       );
     }
   }
@@ -2301,11 +2490,133 @@ void _drawGridBackgrounds(
         curvedImageMeshes: curvedImageMeshes,
         frame: childFrame,
       );
+    } else if (child.layout is RowLayout || child.layout is ColumnLayout) {
+      _drawFlexBackgrounds(
+        canvas,
+        owningPoints,
+        child.layout,
+        layoutContext,
+        imageFor,
+        layoutPath: layoutPath,
+        projection: projection,
+        curvedImageMeshes: curvedImageMeshes,
+        frame: childFrame,
+      );
     } else {
       _drawSurfaceBackgrounds(
         canvas,
         owningPoints,
         child.layout,
+        childFrame,
+        layoutContext,
+        imageFor,
+        layoutPath: layoutPath,
+        projection: projection,
+        curvedImageMeshes: curvedImageMeshes,
+      );
+    }
+  }
+}
+
+void _drawFlexBackgrounds(
+  Canvas canvas,
+  List<Offset> owningPoints,
+  Layout composition,
+  LayoutContext layoutContext,
+  ui.Image? Function(String assetPath) imageFor, {
+  required LayoutPath layoutPath,
+  required _LayoutPathProjection? projection,
+  required Map<(LayoutPath, LayoutImageBackground), _CurvedLayoutPathImageMesh>
+  curvedImageMeshes,
+  _FlexSurfaceRect frame = const (left: 0, top: 0, right: 1, bottom: 1),
+}) {
+  _drawSurfaceBackgrounds(
+    canvas,
+    owningPoints,
+    composition,
+    frame,
+    layoutContext,
+    imageFor,
+    layoutPath: layoutPath,
+    projection: projection,
+    curvedImageMeshes: curvedImageMeshes,
+  );
+  final vertical = composition is ColumnLayout;
+  if (!vertical && composition is! RowLayout) return;
+  final children = _resolvedLayoutChildren(composition, layoutContext)
+      .where((entry) => entry.value.isVisible(layoutContext))
+      .toList(growable: false);
+  if (children.isEmpty) return;
+  final surfaceSize = projection?.canProjectBackground ?? false
+      ? projection!.flatSize
+      : _quadrilateralAverageSize(owningPoints);
+  final mainPixels = vertical
+      ? surfaceSize.height * (frame.bottom - frame.top)
+      : surfaceSize.width * (frame.right - frame.left);
+  final crossPixels = vertical
+      ? surfaceSize.width * (frame.right - frame.left)
+      : surfaceSize.height * (frame.bottom - frame.top);
+  if (mainPixels <= 0) return;
+  final stops = _gridTrackStops(
+    [
+      for (final child in children)
+        child.value.resolveSize(layoutContext).primary,
+    ],
+    mainPixels,
+    rootFontSize: layoutContext.rootFontSize,
+  );
+  for (var index = 0; index < children.length; index += 1) {
+    final child = children[index].value;
+    final start = stops[index];
+    final end = stops[index + 1];
+    final crossRange = _resolveFlexCrossAxisRange(
+      composition,
+      child,
+      crossPixels,
+      layoutContext,
+    );
+    final childFrame = vertical
+        ? (
+            left: frame.left,
+            top: ui.lerpDouble(frame.top, frame.bottom, start)!,
+            right: frame.right,
+            bottom: ui.lerpDouble(frame.top, frame.bottom, end)!,
+          )
+        : (
+            left: ui.lerpDouble(frame.left, frame.right, start)!,
+            top: ui.lerpDouble(frame.top, frame.bottom, crossRange.start)!,
+            right: ui.lerpDouble(frame.left, frame.right, end)!,
+            bottom: ui.lerpDouble(frame.top, frame.bottom, crossRange.end)!,
+          );
+    if (child is GridLayout) {
+      _drawGridBackgrounds(
+        canvas,
+        owningPoints,
+        child,
+        layoutContext,
+        imageFor,
+        layoutPath: layoutPath,
+        projection: projection,
+        curvedImageMeshes: curvedImageMeshes,
+        frame: childFrame,
+      );
+    } else if (child is RowLayout || child is ColumnLayout) {
+      _drawFlexBackgrounds(
+        canvas,
+        owningPoints,
+        child,
+        layoutContext,
+        imageFor,
+        layoutPath: layoutPath,
+        projection: projection,
+        curvedImageMeshes: curvedImageMeshes,
+        frame: childFrame,
+      );
+    } else {
+      _drawSurfaceBackgrounds(
+        canvas,
+        owningPoints,
+        child,
         childFrame,
         layoutContext,
         imageFor,
@@ -2329,7 +2640,8 @@ void _drawSurfaceBackgrounds(
   required Map<(LayoutPath, LayoutImageBackground), _CurvedLayoutPathImageMesh>
   curvedImageMeshes,
 }) {
-  if (layout.background.isEmpty) return;
+  final resolvedBackground = layout.resolveBackground(layoutContext);
+  if (resolvedBackground.isEmpty) return;
   final isCurved = projection?.canProjectBackground ?? false;
   final points = isCurved
       ? _curvedSurfaceCorners(projection!, frame)
@@ -2343,7 +2655,7 @@ void _drawSurfaceBackgrounds(
   final path = isCurved
       ? _curvedSurfacePath(projection!, frame)
       : _polygonPath(points);
-  final backgrounds = [...layout.background]
+  final backgrounds = [...resolvedBackground]
     ..sort((left, right) => left.orderPosition.compareTo(right.orderPosition));
   for (final background in backgrounds) {
     _drawLayoutPathBackground(
@@ -2491,15 +2803,35 @@ void _drawLayoutPathBackground(
     imageRect = Rect.fromLTWH(0, 0, flatWidth, flatHeight);
   }
   for (final tile in _backgroundImageTiles(imageRect, background.repeat)) {
-    paintImage(
-      canvas: canvas,
-      rect: tile,
-      image: image,
-      fit: _backgroundImageBoxFit(background.fit),
-      alignment: _backgroundImageAlignment(background.position),
-      opacity: opacity,
-    );
+    _paintBackgroundImage(canvas, tile, image, background, opacity);
   }
+  canvas.restore();
+}
+
+void _paintBackgroundImage(
+  Canvas canvas,
+  Rect tile,
+  ui.Image image,
+  LayoutImageBackground background,
+  double opacity,
+) {
+  canvas.save();
+  final radians = background.rotationDegrees * math.pi / 180;
+  if (radians != 0 || background.scale != 1) {
+    canvas
+      ..translate(tile.center.dx, tile.center.dy)
+      ..rotate(radians)
+      ..scale(background.scale)
+      ..translate(-tile.center.dx, -tile.center.dy);
+  }
+  paintImage(
+    canvas: canvas,
+    rect: tile,
+    image: image,
+    fit: _backgroundImageBoxFit(background.fit),
+    alignment: _backgroundImageAlignment(background.position),
+    opacity: opacity,
+  );
   canvas.restore();
 }
 
@@ -3015,6 +3347,22 @@ class _CurvedLayoutPathImageMesh {
     final bottom = destinationRect.bottom / flatSize.height;
     final positions = <Offset>[];
     final textureCoordinates = <Offset>[];
+    final rotationRadians = background.rotationDegrees * math.pi / 180;
+    final rotationCosine = math.cos(rotationRadians);
+    final rotationSine = math.sin(rotationRadians);
+    Offset transformedDestination(double x, double y) {
+      final centeredX = x - 0.5;
+      final centeredY = y - 0.5;
+      return Offset(
+        0.5 +
+            background.scale *
+                (rotationCosine * centeredX - rotationSine * centeredY),
+        0.5 +
+            background.scale *
+                (rotationSine * centeredX + rotationCosine * centeredY),
+      );
+    }
+
     final sampleCount =
         (projection.meshSegmentCount *
                 (surfaceFrame.right - surfaceFrame.left).abs())
@@ -3023,19 +3371,36 @@ class _CurvedLayoutPathImageMesh {
     for (var index = 0; index <= sampleCount; index += 1) {
       final stop = index / sampleCount;
       final localU = ui.lerpDouble(left, right, stop)!;
-      final u = ui.lerpDouble(surfaceFrame.left, surfaceFrame.right, localU)!;
+      final topDestination = transformedDestination(localU, top);
+      final bottomDestination = transformedDestination(localU, bottom);
       final textureX = ui.lerpDouble(sourceRect.left, sourceRect.right, stop)!;
       positions
         ..add(
           projection.project(
-            u,
-            ui.lerpDouble(surfaceFrame.top, surfaceFrame.bottom, top)!,
+            ui.lerpDouble(
+              surfaceFrame.left,
+              surfaceFrame.right,
+              topDestination.dx,
+            )!,
+            ui.lerpDouble(
+              surfaceFrame.top,
+              surfaceFrame.bottom,
+              topDestination.dy,
+            )!,
           ),
         )
         ..add(
           projection.project(
-            u,
-            ui.lerpDouble(surfaceFrame.top, surfaceFrame.bottom, bottom)!,
+            ui.lerpDouble(
+              surfaceFrame.left,
+              surfaceFrame.right,
+              bottomDestination.dx,
+            )!,
+            ui.lerpDouble(
+              surfaceFrame.top,
+              surfaceFrame.bottom,
+              bottomDestination.dy,
+            )!,
           ),
         );
       textureCoordinates
@@ -3200,9 +3565,9 @@ void _drawNodeListLayout(
   NodeListLayout layout,
   _NodeListSources sources,
   LayoutContext layoutContext, {
-  NodeStyle? nodeStyle,
+  NodeConfig? nodeConfig,
 }) {
-  final resolvedNodeStyle = nodeStyle ?? layout.nodeStyle;
+  final resolvedNodeConfig = nodeConfig ?? layout.node;
   final entries = _nodeListEntries(layout, sources, points);
   final borderWidth = layout.layoutBorderWidth ?? layout.style.strokeWidth;
   for (final entry in entries) {
@@ -3216,13 +3581,14 @@ void _drawNodeListLayout(
           layoutContext,
           layout,
           isVirtual: entry.resolvedNode.isVirtual,
+          config: resolvedNodeConfig,
         )
         ..style = PaintingStyle.fill,
     );
     NodeComponent.renderBorder(
       canvas,
       path,
-      layout.style,
+      resolvedNodeConfig.borderStyle ?? layout.style,
       borderWidth,
       isVirtual: entry.resolvedNode.isVirtual,
     );
@@ -3233,10 +3599,10 @@ void _drawNodeListLayout(
     final bottomWidth = (entry.points[2] - entry.points[3]).distance;
     _paintNodeLabel(
       canvas,
-      _nodePresentation(entry.node, layout, nodeStyle: resolvedNodeStyle),
+      _nodePresentation(entry.node, layout, nodeConfig: resolvedNodeConfig),
       center,
       math.min(topWidth, bottomWidth) * 0.88,
-      resolvedNodeStyle.labelColor ?? NodeDefaults.labelColor,
+      resolvedNodeConfig.labelColor ?? NodeDefaults.labelColor,
       layout.labelSize,
     );
   }
@@ -3309,10 +3675,24 @@ _NodePresentation _nodePresentation(
   Node node,
   Layout layout, {
   bool forceSlug = false,
-  NodeStyle? nodeStyle,
+  NodeConfig? nodeConfig,
 }) {
-  final resolvedNodeStyle = nodeStyle ?? layout.nodeStyle;
+  final resolvedNodeConfig = nodeConfig ?? layout.node;
   final slug = node.slug.trim();
+  final content = resolvedNodeConfig.content;
+  if (!forceSlug && content != null) {
+    return (
+      text: content.resolve(node, resolvedNodeConfig),
+      isSlug: content.isSlug,
+      colorOverride: content.isSlug
+          ? resolvedNodeConfig.slugColor ?? NodeDefaults.slugColor
+          : null,
+      fontFeatures: content.isSlug
+          ? (resolvedNodeConfig.slugTransform ?? NodeDefaults.slugTransform)
+                .fontFeatures
+          : null,
+    );
+  }
   if (!forceSlug) {
     final emoji = node.primaryEmojiCharacter;
     if (emoji != null) {
@@ -3326,11 +3706,11 @@ _NodePresentation _nodePresentation(
   }
   if (slug.isNotEmpty) {
     return (
-      text: resolvedNodeStyle.formatSlug(slug),
+      text: resolvedNodeConfig.formatSlug(slug),
       isSlug: true,
-      colorOverride: resolvedNodeStyle.slugColor ?? NodeDefaults.slugColor,
+      colorOverride: resolvedNodeConfig.slugColor ?? NodeDefaults.slugColor,
       fontFeatures:
-          (resolvedNodeStyle.slugTransform ?? NodeDefaults.slugTransform)
+          (resolvedNodeConfig.slugTransform ?? NodeDefaults.slugTransform)
               .fontFeatures,
     );
   }
@@ -3374,9 +3754,11 @@ void _drawFanLayout(
   NodeTree? tree,
   Map<String, _ResolvedLayout> layouts,
   LayoutContext layoutContext, {
-  required NodeStyle nodeStyle,
+  required NodeConfig Function(ResolvedVaultNode node) nodeConfig,
+  required ui.Image? Function(String assetPath) imageFor,
   required List<Offset> planePoints,
 }) {
+  _drawFanBackgrounds(canvas, fan, planePoints, layoutContext, imageFor);
   if (tree == null || tree.occurrences.isEmpty) return;
   final hierarchy = _fanOccurrenceHierarchy(fan, tree);
   if (hierarchy == null) return;
@@ -3390,15 +3772,16 @@ void _drawFanLayout(
   );
   if (frame == null) return;
   final segments = _fanSegmentsInFrame(fan, hierarchy, frame);
-  final borderStyle = fan.style;
-  final borderWidth = fan.layoutBorderWidth ?? borderStyle.strokeWidth;
   for (final segment in segments) {
     final node = segment.occurrence.node;
+    final resolvedNode = _resolvedFanNode(segment.occurrence, fan);
+    final config = nodeConfig(resolvedNode);
     final fillColor = NodeComponent.backgroundColor(
       NodeComponent.colorFor(node).resolve(),
       node.slug,
       layoutContext,
       fan,
+      config: config,
     );
     canvas.drawPath(
       segment.path,
@@ -3409,6 +3792,11 @@ void _drawFanLayout(
   }
   _drawFanGrid(canvas, fan, frame);
   for (final segment in segments) {
+    final resolvedNode = _resolvedFanNode(segment.occurrence, fan);
+    final config = nodeConfig(resolvedNode);
+    final borderStyle = config.borderStyle;
+    if (borderStyle == null) continue;
+    final borderWidth = fan.layoutBorderWidth ?? borderStyle.strokeWidth;
     NodeComponent.renderBorder(
       canvas,
       segment.path,
@@ -3419,15 +3807,81 @@ void _drawFanLayout(
   }
   for (final segment in segments) {
     final node = segment.occurrence.node;
+    final resolvedNode = _resolvedFanNode(segment.occurrence, fan);
+    final config = nodeConfig(resolvedNode);
     _paintNodeLabel(
       canvas,
-      _nodePresentation(node, fan, nodeStyle: nodeStyle),
+      _nodePresentation(node, fan, nodeConfig: config),
       segment.labelPoint,
       segment.labelWidth,
-      nodeStyle.labelColor ?? NodeDefaults.labelColor,
-      fan.labelSize,
+      config.labelColor ?? NodeDefaults.labelColor,
+      config.text.fontSize ?? LayoutTextDefaults.rootFontSize,
     );
   }
+}
+
+void _drawFanBackgrounds(
+  Canvas canvas,
+  FanLayout fan,
+  List<Offset> surfacePoints,
+  LayoutContext layoutContext,
+  ui.Image? Function(String assetPath) imageFor,
+) {
+  if (surfacePoints.length < 3) return;
+  final path = _polygonPath(surfacePoints);
+  final backgrounds = [...fan.resolveBackground(layoutContext)]
+    ..sort((left, right) => left.orderPosition.compareTo(right.orderPosition));
+  for (final background in backgrounds) {
+    _drawFanBackground(canvas, path, background, layoutContext, imageFor);
+  }
+}
+
+void _drawFanBackground(
+  Canvas canvas,
+  Path path,
+  LayoutBackground background,
+  LayoutContext layoutContext,
+  ui.Image? Function(String assetPath) imageFor, {
+  double inheritedOpacity = 1,
+}) {
+  final opacity = (inheritedOpacity * background.opacity)
+      .clamp(0, 1)
+      .toDouble();
+  if (opacity == 0) return;
+  if (background is ConditionalLayoutBackground) {
+    if (!background.activeCondition.isActive(layoutContext)) return;
+    _drawFanBackground(
+      canvas,
+      path,
+      background.background,
+      layoutContext,
+      imageFor,
+      inheritedOpacity: opacity,
+    );
+    return;
+  }
+  if (background is LayoutBackgroundColor) {
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = background.color.withValues(
+          alpha: background.color.a * opacity,
+        )
+        ..style = PaintingStyle.fill,
+    );
+    return;
+  }
+  if (background is! LayoutImageBackground) return;
+
+  final image = imageFor(background.assetPath);
+  final bounds = path.getBounds();
+  if (image == null || bounds.isEmpty) return;
+  canvas.save();
+  canvas.clipPath(path);
+  for (final tile in _backgroundImageTiles(bounds, background.repeat)) {
+    _paintBackgroundImage(canvas, tile, image, background, opacity);
+  }
+  canvas.restore();
 }
 
 void _paintNodeLabel(
@@ -4171,7 +4625,7 @@ void _drawFlatGridComposition(
       bottom: child.frame.bottom,
     );
     final layout = child.layout;
-    final childText = text.merge(layout.text);
+    final childText = text.merge(layout.resolveTextConfig(layoutContext));
     if (layout is PanelLayout) {
       _drawPanelLayout(canvas, childPoints, layout, childText);
     } else if (layout is NodeListLayout) {
@@ -4219,7 +4673,7 @@ void _drawFlatFlexComposition(
     layoutContext,
   )) {
     final layout = child.layout;
-    final childText = text.merge(layout.text);
+    final childText = text.merge(layout.resolveTextConfig(layoutContext));
     if (layout is PanelLayout) {
       _drawPanelLayout(canvas, child.points, layout, childText);
     } else if (layout is NodeListLayout) {
@@ -4312,7 +4766,7 @@ _FlexSurfaceRect? _resolveGridPlacementFrame(
       rootFontSize: rootFontSize,
     );
     if (tracks == null) return null;
-    final area = step.grid.areas[step.area];
+    final area = step.grid.slot[step.area];
     if (area == null) return null;
     final areaFrame = _resolveGridAreaFrame(
       area,
@@ -4360,7 +4814,7 @@ _resolveGridChildren(
   for (final entry in _resolvedLayoutChildren(grid, layoutContext)) {
     final layout = entry.value;
     if (!layout.isVisible(layoutContext)) continue;
-    final area = grid.areas[entry.key];
+    final area = grid.slot[entry.key];
     if (area == null) continue;
     final frame = _resolveGridAreaFrame(area, tracks, layout: layout);
     if (frame == null) continue;
@@ -4492,7 +4946,7 @@ void _drawCurvedFlexComposition(
     layoutContext,
   )) {
     final layout = child.layout;
-    final childText = text.merge(layout.text);
+    final childText = text.merge(layout.resolveTextConfig(layoutContext));
     if (layout is PanelLayout) {
       _drawCurvedPanelLayout(
         canvas,
@@ -4554,7 +5008,7 @@ void _drawCurvedGridComposition(
   for (final child in _resolveGridChildren(grid, tracks, layoutContext)) {
     final childFrame = _scaleFlexSurfaceRect(frame, child.frame);
     final layout = child.layout;
-    final childText = text.merge(layout.text);
+    final childText = text.merge(layout.resolveTextConfig(layoutContext));
     if (layout is PanelLayout) {
       _drawCurvedPanelLayout(canvas, projection, childFrame, layout, childText);
     } else if (layout is NodeListLayout) {
@@ -4651,9 +5105,15 @@ _resolveCurvedFlexChildren(
   final mainPixels = vertical
       ? projection.flatSize.height * (frame.bottom - frame.top)
       : projection.flatSize.width * (frame.right - frame.left);
+  final crossPixels = vertical
+      ? projection.flatSize.width * (frame.right - frame.left)
+      : projection.flatSize.height * (frame.bottom - frame.top);
   if (mainPixels <= 0) return;
   final stops = _gridTrackStops(
-    [for (final child in children) child.value.size.primary],
+    [
+      for (final child in children)
+        child.value.resolveSize(layoutContext).primary,
+    ],
     mainPixels,
     rootFontSize: layoutContext.rootFontSize,
   );
@@ -4661,6 +5121,12 @@ _resolveCurvedFlexChildren(
     final entry = children[index];
     final start = stops[index];
     final end = stops[index + 1];
+    final crossRange = _resolveFlexCrossAxisRange(
+      composition,
+      entry.value,
+      crossPixels,
+      layoutContext,
+    );
     yield (
       key: entry.key,
       layout: entry.value,
@@ -4673,9 +5139,9 @@ _resolveCurvedFlexChildren(
             )
           : (
               left: ui.lerpDouble(frame.left, frame.right, start)!,
-              top: frame.top,
+              top: ui.lerpDouble(frame.top, frame.bottom, crossRange.start)!,
               right: ui.lerpDouble(frame.left, frame.right, end)!,
-              bottom: frame.bottom,
+              bottom: ui.lerpDouble(frame.top, frame.bottom, crossRange.end)!,
             ),
     );
   }
@@ -4924,7 +5390,7 @@ _LayoutTapHit? _hitTestCurvedFlexComposition(
         target: LayoutTapTarget(
           key: childPath,
           layout: layout,
-          label: layout.text.value?.resolve(),
+          label: layout.resolveTextConfig(layoutContext).value?.resolve(),
         ),
         nodePath: null,
       );
@@ -5000,6 +5466,7 @@ _LayoutTapHit? _hitTestGridComposition(
       childPoints,
       position,
       childPath,
+      layoutContext,
       nodeListSources,
     );
     if (hit != null) return hit;
@@ -5065,7 +5532,7 @@ _LayoutTapHit? _hitTestCurvedGridComposition(
         target: LayoutTapTarget(
           key: childPath,
           layout: layout,
-          label: layout.text.value?.resolve(),
+          label: layout.resolveTextConfig(layoutContext).value?.resolve(),
         ),
         nodePath: null,
       );
@@ -5075,6 +5542,7 @@ _LayoutTapHit? _hitTestCurvedGridComposition(
       childPoints,
       position,
       childPath,
+      layoutContext,
       nodeListSources,
     );
     if (hit != null) return hit;
@@ -5087,6 +5555,7 @@ _LayoutTapHit? _hitTestGridLeaf(
   List<Offset> points,
   Offset position,
   String path,
+  LayoutContext layoutContext,
   _NodeListSources nodeListSources,
 ) {
   if (layout is NodeListLayout) {
@@ -5111,7 +5580,7 @@ _LayoutTapHit? _hitTestGridLeaf(
       target: LayoutTapTarget(
         key: path,
         layout: layout,
-        label: layout.text.value?.resolve(),
+        label: layout.resolveTextConfig(layoutContext).value?.resolve(),
       ),
       nodePath: null,
     );
@@ -5194,7 +5663,7 @@ _LayoutTapHit? _hitTestFlexComposition(
         target: LayoutTapTarget(
           key: childPath,
           layout: layout,
-          label: layout.text.value?.resolve(),
+          label: layout.resolveTextConfig(layoutContext).value?.resolve(),
         ),
         nodePath: null,
       );
@@ -5221,10 +5690,18 @@ _resolveFlexChildren(
             2
       : ((points[1] - points[0]).distance + (points[2] - points[3]).distance) /
             2;
+  final crossPixels = vertical
+      ? ((points[1] - points[0]).distance + (points[2] - points[3]).distance) /
+            2
+      : ((points[3] - points[0]).distance + (points[2] - points[1]).distance) /
+            2;
   if (mainPixels <= 0) return;
 
   final stops = _gridTrackStops(
-    [for (final child in children) child.value.size.primary],
+    [
+      for (final child in children)
+        child.value.resolveSize(layoutContext).primary,
+    ],
     mainPixels,
     rootFontSize: layoutContext.rootFontSize,
   );
@@ -5232,14 +5709,93 @@ _resolveFlexChildren(
     final entry = children[index];
     final start = stops[index];
     final end = stops[index + 1];
+    final crossRange = _resolveFlexCrossAxisRange(
+      composition,
+      entry.value,
+      crossPixels,
+      layoutContext,
+    );
     yield (
       key: entry.key,
       layout: entry.value,
       points: vertical
           ? _quadrilateralSlice(points, top: start, bottom: end)
-          : _quadrilateralSlice(points, left: start, right: end),
+          : _quadrilateralSlice(
+              points,
+              left: start,
+              right: end,
+              top: crossRange.start,
+              bottom: crossRange.end,
+            ),
     );
   }
+}
+
+({double start, double end}) _resolveFlexCrossAxisRange(
+  Layout composition,
+  Layout child,
+  double availablePixels,
+  LayoutContext layoutContext,
+) {
+  if (composition case RowLayout(crossAxisAlignment: final alignment?)) {
+    if (availablePixels <= 0) return (start: 0, end: 0);
+    final childSize = child.resolveSize(layoutContext).secondary;
+    final extentPixels = childSize == null
+        ? _layoutIntrinsicHeight(
+            child,
+            LayoutTextDefaults.config.merge(
+              composition.resolveTextConfig(layoutContext),
+            ),
+            layoutContext,
+          )
+        : _resolveCrossAxisPixels(
+            childSize.primary,
+            availablePixels,
+            layoutContext.rootFontSize,
+          );
+    final extent = (extentPixels / availablePixels).clamp(0.0, 1.0);
+    final start = (1 - extent) * alignment.fraction;
+    return (start: start, end: start + extent);
+  }
+  return (start: 0, end: 1);
+}
+
+double _resolveCrossAxisPixels(
+  LayoutSize size,
+  double availablePixels,
+  double rootFontSize,
+) => switch (size.unit) {
+  LayoutSizeUnit.pixels => size.value,
+  LayoutSizeUnit.rootEms => size.value * rootFontSize,
+  LayoutSizeUnit.fraction ||
+  LayoutSizeUnit.calculatedFraction => size.value * availablePixels,
+};
+
+double _layoutIntrinsicHeight(
+  Layout layout,
+  LayoutTextConfig inheritedText,
+  LayoutContext layoutContext,
+) {
+  final text = inheritedText.merge(layout.resolveTextConfig(layoutContext));
+  final value = text.value?.resolve();
+  final ownHeight = value == null || value.isEmpty
+      ? layout.layoutPadding * 2
+      : (text.fontSize ?? layoutContext.rootFontSize) * (text.height ?? 1.2) +
+            layout.layoutPadding * 2;
+  final children = _resolvedLayoutChildren(layout, layoutContext)
+      .map((entry) => entry.value)
+      .where((child) => child.isVisible(layoutContext))
+      .toList(growable: false);
+  if (children.isEmpty) return ownHeight;
+  final childHeights = [
+    for (final child in children)
+      _layoutIntrinsicHeight(child, text, layoutContext),
+  ];
+  final childrenHeight = layout is ColumnLayout
+      ? childHeights.fold<double>(0, (sum, height) => sum + height) +
+            layout.layoutGap * math.max(childHeights.length - 1, 0)
+      : childHeights.reduce(math.max);
+  return math.max(ownHeight, childrenHeight + layout.layoutPadding * 2);
 }
 
 List<Offset> _quadrilateralSlice(
@@ -5386,7 +5942,7 @@ void _drawTableLayout(
   required _NodeListSources nodeListSources,
   required LayoutContext layoutContext,
   required PanelConfig panelDefaults,
-  required NodeStyle nodeStyle,
+  required NodeConfig nodeConfig,
   required LabelConfig label,
   required LayoutTextConfig text,
   required double Function(String panelId) panelExpansion,
@@ -5406,7 +5962,7 @@ void _drawTableLayout(
   }
 
   final effectivePanel = panelDefaults
-      .merge(table.panel)
+      .merge(table.resolvePanelConfig(layoutContext))
       .merge(table.tableConfig?.panel ?? const PanelConfig());
   final rows = _tableRowsWithFoldProgress(
     table,
@@ -5619,7 +6175,7 @@ void _drawTableLayout(
           textAlign: TextAlign.center,
           style: TextStyle(
             fontFamily: SevilleTypography.fontFamily,
-            color: nodeStyle.labelColor ?? NodeDefaults.labelColor,
+            color: nodeConfig.labelColor ?? NodeDefaults.labelColor,
             fontSize: table.labelSize,
             fontWeight: FontWeight.w900,
           ),
@@ -5676,8 +6232,8 @@ void _drawTableLayout(
           rowLayout,
           nodeListSources,
           layoutContext,
-          nodeStyle: nodeStyle.merge(
-            rowLayout.resolveNodeConfig(layoutContext).style,
+          nodeConfig: nodeConfig.merge(
+            rowLayout.resolveNodeConfig(layoutContext),
           ),
         );
         for (final entry in _nodeListEntries(
@@ -5694,8 +6250,8 @@ void _drawTableLayout(
               label: _nodePresentation(
                 entry.node,
                 rowLayout,
-                nodeStyle: nodeStyle.merge(
-                  rowLayout.resolveNodeConfig(layoutContext).style,
+                nodeConfig: nodeConfig.merge(
+                  rowLayout.resolveNodeConfig(layoutContext),
                 ),
               ).text,
             ),
@@ -5746,15 +6302,15 @@ void _drawTableLayout(
         columnEnd: columnEnd,
         text: isKeyColumn
             ? row.label
-            : _formatTableRowValue(row.key, row.value, nodeStyle),
+            : _formatTableRowValue(row.key, row.value, nodeConfig),
         maxLines: isKeyColumn ? 2 : 3,
         style: TextStyle(
           fontFamily: isNodeSlugValue ? null : SevilleTypography.fontFamily,
           color: isKeyColumn
-              ? nodeStyle.labelColor ?? NodeDefaults.labelColor
+              ? nodeConfig.labelColor ?? NodeDefaults.labelColor
               : isNodeSlugValue
-              ? nodeStyle.slugColor ?? NodeDefaults.slugColor
-              : nodeStyle.valueColor ?? NodeDefaults.valueColor,
+              ? nodeConfig.slugColor ?? NodeDefaults.slugColor
+              : nodeConfig.valueColor ?? NodeDefaults.valueColor,
           fontSize: isKeyColumn ? table.labelSize : table.valueSize,
           fontWeight: isKeyColumn
               ? FontWeight.w800
@@ -5762,7 +6318,7 @@ void _drawTableLayout(
               ? FontWeight.w700
               : FontWeight.w600,
           fontFeatures: isNodeSlugValue
-              ? (nodeStyle.slugTransform ?? NodeDefaults.slugTransform)
+              ? (nodeConfig.slugTransform ?? NodeDefaults.slugTransform)
                     .fontFeatures
               : null,
           height: isKeyColumn ? null : 1.25,
@@ -6447,17 +7003,17 @@ String _formatTableValue(Object? value) =>
 bool _isNodeSlugField(String? key) =>
     key == 'slug' || key == 'selected_node_slugs';
 
-String _formatTableRowValue(String? key, Object? value, NodeStyle nodeStyle) {
+String _formatTableRowValue(String? key, Object? value, NodeConfig nodeConfig) {
   if (!_isNodeSlugField(key)) return _formatTableValue(value);
   if (value is Iterable) {
     return value
         .map((item) => item.toString().trim())
         .where((slug) => slug.isNotEmpty)
-        .map(nodeStyle.formatSlug)
+        .map(nodeConfig.formatSlug)
         .join(', ');
   }
   final slug = value?.toString().trim() ?? '';
-  return slug.isEmpty ? '—' : nodeStyle.formatSlug(slug);
+  return slug.isEmpty ? '—' : nodeConfig.formatSlug(slug);
 }
 
 void _drawStickmanLayout(
@@ -6715,7 +7271,7 @@ Offset? _resolvePathAreaReference(
   if (path is! LayoutPath) return null;
   final grid = path.children[reference.grid]?.resolve(layoutContext);
   if (grid is! GridLayout) return null;
-  final area = grid.areas[reference.area];
+  final area = grid.slot[reference.area];
   if (area == null) return null;
 
   final points = _resolvedLayoutPathPoints(path, layouts, layoutContext);

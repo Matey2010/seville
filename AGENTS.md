@@ -81,13 +81,19 @@
   Layout configuration sequence. Presets place `label` and `text` between
   `aliases` and `node`.
 - Conditional values use the reusable ordered `LayoutState<T>` container.
-  Every `Layout` exposes `state: LayoutState<Layout>`; each matching Layout
-  specialization resolves recursively at the same stable tree key, and later
-  matching entries replace earlier ones. The resolved Layout remains below its
-  ancestors, so its label, text, Node, panel, background, geometry, and children
-  take priority over inherited parent defaults. `LabelConfig` and `NodeConfig`
-  use the same container with merge semantics. Do not restore parallel raw
-  condition maps or duplicate their traversal loops.
+  Every `Layout` exposes `state: LayoutState<LayoutConfig>`; each matching
+  `LayoutConfig` specializes common configuration at the same stable tree key,
+  and later matching entries override only values they explicitly configure.
+  Conditional visibility belongs exclusively to `LayoutConfig.visible`; do not
+  restore `Layout.visibility`. If any state entry configures visibility, the
+  Layout is hidden until a matching entry resolves `visible: true`, with later
+  matching visibility values taking priority. Declare stable values such as
+  size and text color once on the base Layout. Conditional text, Node, Label,
+  and Panel configuration merges over that base; an explicit conditional
+  background list replaces the base list. State must not replace the Layout's
+  runtime type, children, or tree position. `LabelConfig` and `NodeConfig` use
+  the same ordered merge semantics. Do not restore parallel raw condition maps
+  or duplicate their traversal loops.
 - Every `Layout` exposes `label: LabelConfig`. `LabelConfig.style` owns
   the classification-label `LabelStyle`, while its ordered
   `state: LayoutState<LabelConfig>` resolves and merges like
@@ -123,20 +129,27 @@
   and defaults live in `lib/models/layout/text.dart`. Tables, Node captions,
   and classification labels use `LayoutText.defaultRepresentation` rather than
   owning divergent object-to-text formatters.
-- Every `Layout` exposes `node: NodeConfig`. `NodeConfig.style` owns the
-  immediate `NodeStyle`, including `slugPrefix`, `slugTransform`, and
-  `slugSuffix`, while its ordered
+- Every `Layout` exposes `node: NodeConfig`. `NodeConfig` directly owns Node
+  presentation, including `slugPrefix`, `slugTransform`, and `slugSuffix`,
+  while its ordered
   `state: LayoutState<NodeConfig>` recursively specializes the entire
   Node configuration. Resolve every matching condition in insertion order and
-  merge later non-null style values over earlier values. `NodeConfig`,
-  `NodeStyle`, and `NodeDefaults` live together in
+  merge later non-null values over earlier values. `NodeConfig` and
+  `NodeDefaults` live together in
   `lib/models/layout/node_config.dart`, which remains part of the Layout model
-  library until package extraction is justified. Keep base Node opacity, hover-border,
-  and slug defaults there. LG Ergo declares its shared
-  highlighted-Node border directly at the top of `LandscapeXlLayout`. The older
-  opacity and hover-style fields remain temporarily active until Node renderers
-  are migrated as one dedicated slice; do not create a second renderer path
-  during this staging period.
+  library until package extraction is justified. Keep base Node opacity,
+  state-driven hover border, and slug defaults there. LG Ergo declares its
+  shared highlighted-Node border directly at the top of `LandscapeXlLayout`.
+  The older opacity fields remain temporarily active until Node renderers are
+  migrated as one dedicated slice; do not create a second renderer path during
+  this staging period.
+  `NodeConfig.content` uses `NodeContent.slug()`, `.alias()`, `.emoji()`, or
+  `.title()` to select one exact metadata source. Explicit content suppresses
+  composite emoji-plus-slug rendering and paints nothing when that source is
+  absent. It participates in normal `NodeConfig` state merging. LG Ergo's logo
+  uses `NodeContent.emoji()` so highlight/selection styling never introduces
+  its slug or title. Explicit Node content clamps its font size to the owning
+  surface and must not be rejected by the composite Emoji-plus-slug size guard.
 - Every `Layout` exposes `panel: PanelConfig`. Reusable panel vocabulary lives
   in `lib/models/layout/panel.dart`, not in a table-specific model. LG Ergo declares
   its shared folded panel size immediately after `node` on the root
@@ -147,9 +160,19 @@
   `LayoutSize.fr`, `px`/`pt`, `rem`, or `calculatedFr`; `rem` is a fixed extent
   multiplied by the root Layout's resolved text font size. Do not restore the redundant
   `GridAxisVariable` wrapper or introduce separate flex/extent properties.
+  `RowLayout.crossAxisAlignment` optionally aligns intrinsic-height children
+  through `LayoutCrossAxisAlignment.top()`, `.center()`, or `.bottom()`.
+  Leaving it null preserves full-height stretching. An explicit
+  `LayoutSize.secondary` controls a child's cross-axis extent; otherwise Flame
+  derives it from the child's text, padding, and nested content. Flat paint,
+  curved projection, backgrounds, and hit testing must share that geometry.
   `LayoutSize.twoDimensional(primary: ..., secondary: ...)` is the consolidated
   two-axis form. The owning renderer assigns geometric meaning to those axes;
   scalar consumers use `primary` and ignore an absent `secondary`.
+  Shared panoramic chrome dimensions live in `LayoutDefaultSize`, a part of
+  the Layout model library. Header, left-ribbon, their nested spacer tracks,
+  footer height, and footer intersections reference its typed `LayoutSize`
+  values instead of declaring preset-local constants.
 - Use `Layout.aliases` for extra human/config vocabulary. The layout map key
   remains the stable address; aliases are alternative names, not identity.
 - Do not add legacy axes, role tags, or frame metadata when the concrete layout
@@ -164,7 +187,7 @@
   `LayoutObservable` descriptors and `LayoutDerivativeObserver`.
 - Layout configuration creates conditions only through the `LayoutCondition`
   protocol factories, such as `LayoutCondition.hasActiveNodes()`,
-  `LayoutCondition.nodeHighlighted()`, and
+  `LayoutCondition.nodeHighlighted()`, `LayoutCondition.nodeSelected()`, and
   `LayoutCondition.not(LayoutCondition.hasActiveNodes())`. Concrete condition
   implementations remain private. Use `LayoutCondition.always()` for an
   ordered unconditional baseline, `LayoutCondition.equalsTo(...)` for one
@@ -199,7 +222,10 @@
   `LayoutPathPadding.all(...)` for a uniform inset.
 - Use `FanLayout` for graph-like content that fans from a root point
   instead of a rectangular grid. It must be owned by a `LayoutPath`; its Flame
-  component projects every fan row into that path's resolved polygon. By
+  component projects every fan row into that path's resolved polygon. Fan
+  segments paint their resolved Node color and state overlay without owning an
+  image background. LG Ergo configures the elder-brain artwork once on the
+  `cortex-bush` Fan Layout surface; `time-fan` has no image background. By
   default it grows inward, opposite to its `position` in the owning plane; set
   `growthDirection: LayoutDerivativeReference(...)` only when a specific target
   derivative must override that natural direction. Its final row follows the
@@ -222,8 +248,10 @@
   and Riverpod provider identity, not to the painter. Include entries are
   OR-matched when present, exclude entries are always OR-matched, and a rejected
   occurrence prunes its traversal branch. Configure root discovery separately
-  with `rootNodeFilter`; LG Ergo resolves its shared Fan root with a `slug`
-  contains `cortex` parameter instead of process environment configuration.
+  with `rootNodeFilter`; LG Ergo's top and bottom Fans and its logo
+  `NodeLayout` share one exact Calendar-root filter for
+  `cortex-timeline-calendar-2026-06-fr6h` instead of duplicating query values or
+  using process environment configuration.
   Preserve every matching root as a depth-zero occurrence, capped by
   `maxSectionCount`. Divide the root band equally between matches before
   applying each root's normal child sizing policy; two roots occupy the two
@@ -248,10 +276,12 @@
   the complete inherited `LayoutPath`/Grid projection, and use that same warped
   path for clipping, paint, borders, taps, and hover. Scene Nodes always render
   their wrapped slug. When an Emoji exists,
-  render it above the slug at `emojiFontSizeFactor` times `labelSize`, separated
-  by `emojiSlugGapFactor` times `labelSize`; without an Emoji, center the slug.
-  LG Ergo uses one `lgErgoNodeFontSize` for Fan and Graph Node typography, a
-  `2.0` Emoji factor, and a `0.5` gap factor. Paint and hit-test from the same
+  render it above the slug at `emojiFontSizeFactor` times the resolved
+  `NodeConfig.text.fontSize`, separated by `emojiSlugGapFactor` times that same
+  size; without an Emoji, center the slug. LG Ergo declares the shared 10px Fan
+  and Graph typography once in the root `NodeConfig.text`, with a `2.0` Emoji
+  factor and a `0.5` gap factor. Do not restore renderer-specific `labelSize`
+  fields or a parallel font-size constant. Paint and hit-test from the same
   resolved projected geometry. `GraphLayoutComponent` owns Graph geometry,
   clipping, Node paint, labels, tap handling, and hover hit testing. The
   landscape game may resolve its owning `LayoutPath` and supply state/callbacks,
@@ -277,16 +307,48 @@
   three fractional scene rows and three fractional content columns represent
   top-left through bottom-right, including center; the center content column is
   wider than its side columns. A 4rem header and 2rem bottom ribbon are fixed
-  rows around that core. A 3rem `left-ribbon` column precedes the content
-  columns and its `ColumnLayout` spans every row through `GridSpan.full`. Keep
+  rows around that core. A 4rem `left-ribbon` column precedes the content
+  columns. The outer left-ribbon `GridLayout` spans every row, but reserves its
+  first 4rem row so its nested `ColumnLayout` content starts beneath the header.
+  The header is a direct `RowLayout` spanning the complete top row; do not wrap
+  it in another Grid. A
+  foreground `logo` area owns their header/left-ribbon intersection and
+  renders the aliased `brain-control` `NodeLayout`. It uses the exact shared
+  top/bottom Fan root filter and renders its configured brain Emoji without a
+  separate image background.
+  Header panels remain direct children of
+  that Row; do not restore a separate
+  center-ribbon composition. The `footer` area spans the complete 2rem bottom
+  row, including its left-ribbon intersection. Its `RowLayout` contains a
+  `LayoutDefaultSize.crossAxisRibbonWidth` start spacer, the flexible
+  `bottom-ribbon` Panel, and a
+  matching end spacer. `action-panel` spans only the three scene rows and must
+  stop before this footer track. `info-grid` likewise spans from the first scene
+  row after the header through the last scene row before the footer, including
+  neither chrome row. Keep
   stable `direction-*` aliases in layout configuration;
   directional behavior remains a later interaction-policy concern.
+- Use `NodeLayout` for one filter-backed Node. Its required
+  `NodeSearchFilter filter` is the complete query identity and the provider
+  always requests `limit: 1`; only the first returned Node renders. Its required
+  `storedNode` is a frontend fallback, not a second query source. Activate that
+  fallback only after a successful empty response, never while loading or after
+  an error. Deep-copy it, ensure the `Virtual` Neo4j label and `isVirtual: true`,
+  store it once in `selectedNodesProvider`, and render the same resolved value.
+  A stored Node requires a non-empty slug and defaults its empty path to that
+  slug. `NodeLayoutComponent` fills its complete dedicated projected surface;
+  do not constrain it to GraphLayout's circular Node geometry or add a
+  `nodeExtentFactor`. It owns paint, labels, tap, and hit geometry and delegates
+  shared Node fill, dashed virtual border,
+  emoji/slug presentation, and hover behavior to `NodeComponent`. It inherits
+  the complete curved surface of its owning `LayoutPath` and uses the same
+  projected path for paint and hit testing.
 - Use `GridLayout` for named two-dimensional composition. It may be a
   `LayoutPath.children` entry and follows that path's straight, projective, or
   curved surface. `rowsConfig` and `columnsConfig` must be ordered maps of
   `LayoutSize`; the
   map key owns identity, preventing IDs and measurements from drifting apart.
-  `GridLayout.areas` maps a child identity to `GridArea` geometry; the child
+  `GridLayout.slot` maps a child identity to `GridArea` geometry; the child
   with the same key remains in the ordinary `Layout.children` tree. Areas
   reference named starting tracks and use `GridSpan.full` when they must
   continue through all remaining tracks, including tracks added later. Use
@@ -392,20 +454,20 @@
 - For compact Node labels, render the first assigned non-empty
   `Emoji.character` before textual metadata. Fall back to `Node.slug`; legacy
   title and ID values are only last-resort compatibility labels. When a slug is
-  rendered, wrap it with the owning `NodeConfig.style.slugPrefix` and
+  rendered, wrap it with the owning `NodeConfig.slugPrefix` and
   `slugSuffix`; LG Ergo uses `[[` and `]]`. Search result
   rows deliberately render the wrapped slug even when the Node has an Emoji.
   Render slug references with their stored casing and bold weight; do not use
   the Alegreya Sans SC face for them because its small-cap glyphs visually
   uppercase lowercase syntax. Emoji and ordinary interface captions continue
   to use the shared interface font. Paint every slug with the owning
-  resolved `NodeConfig.style.slugColor`; the default and LG Ergo value are
-  readable gold `#FFD54F`. `NodeStyle.labelColor` and `valueColor` own the
+  resolved `NodeConfig.slugColor`; the default and LG Ergo value are readable
+  gold `#FFD54F`. `NodeConfig.labelColor` and `valueColor` own the
   related Node text colors, and LG Ergo declares all three once on the root
   Layout. Ordinary layout text uses ivory `#FFF8E7`. This applies to
   Node components and plain
   `TableLayout` values whose field keys are `slug` or `selected_node_slugs`;
-  wrap every item through the resolved `NodeStyle` exactly once.
+  wrap every item through the resolved `NodeConfig` exactly once.
   Keep this priority and formatting in the shared Node presentation helper
   rather than implementing different rules in individual Flame components.
   Riverpod-selected
@@ -432,7 +494,12 @@
   projective transform as `TableLayout`, so both image and content follow one
   perspective without separate renderer coordinates. `LayoutBackground.image`
   uses `repeat` as a positive horizontal tile count and normalized `position`
-  inside each tile; fit and ancestor projection apply independently per tile.
+  inside each tile. Its `rotationDegrees` rotates clockwise around each tile's
+  center, while positive `scale` uniformly scales around that same center;
+  fit, transforms, and ancestor projection apply independently per tile.
+  Background traversal must recurse through nested `GridLayout`, `RowLayout`,
+  and `ColumnLayout` compositions so a leaf Panel paints in the exact projected
+  frame used by its content.
 - Use `StickmanLayout` for the simple center-scene human scale reference. Its
   logical body lives in vertical `0..1`, where `1.0` equals `heightCm`
   (currently 200cm), and its visible frame can extend beyond that, e.g.
@@ -455,7 +522,9 @@
   hit identity so pointer movement within the same geometry remains silent.
   The same exact hit geometry feeds `NodeComponent`, which owns ordinary Node
   background/border paint and the additional hover border configured by
-  `LayoutDefaults.nodeHoverBorderStyle`. Keep hover paint in the Node Flame
+  the target hierarchy's `NodeConfig.state` entry for
+  `LayoutCondition.nodeHighlighted()`. Do not restore a parallel
+  `nodeHoverBorderStyle` Layout parameter. Keep hover paint in the Node Flame
   component above ordinary layout content and below explicit HUDs; the game
   host may route pointer identity for sound but must not implement the visual.
 - The macOS game cursor hides the native pointer through Flame's

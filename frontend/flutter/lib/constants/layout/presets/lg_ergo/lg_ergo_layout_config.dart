@@ -1,5 +1,7 @@
 import 'dart:ui';
 
+import 'package:seville_proto/seville_proto.dart' show Emoji, Node;
+
 import '../../../../models/layout/layout.dart';
 import '../../../interface_colors.dart';
 import '../../../typography.dart';
@@ -62,22 +64,19 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
     fontSize: LayoutTextDefaults.rootFontSize,
   ),
   node: const NodeConfig(
-    style: NodeStyle(
-      slugColor: Color(0xFFFFD54F),
-      labelColor: Color(0xFFFFF8E7),
-      valueColor: Color(0xFFFFF8E7),
-      slugPrefix: '[[',
-      slugTransform: TextTransform.capitalCap(),
-      slugSuffix: ']]',
-    ),
+    text: LayoutTextConfig(fontSize: 10),
+    slugColor: Color(0xFFFFD54F),
+    labelColor: Color(0xFFFFF8E7),
+    valueColor: Color(0xFFFFF8E7),
+    slugPrefix: '[[',
+    slugTransform: TextTransform.capitalCap(),
+    slugSuffix: ']]',
     state: LayoutState({
       LayoutCondition.nodeHighlighted(): NodeConfig(
-        style: NodeStyle(
-          borderStyle: GuideStyle(
-            color: Color(0xFF2196F3),
-            strokeWidth: 4,
-            pattern: GuideLinePattern.solid,
-          ),
+        borderStyle: GuideStyle(
+          color: Color(0xFF2196F3),
+          strokeWidth: 4,
+          pattern: GuideLinePattern.solid,
         ),
       ),
     }),
@@ -91,11 +90,6 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
   attributes: [LayoutAttribute.screen, LayoutAttribute.rectangular],
 
   background: [
-    LayoutBackground.image(
-      assetPath: 'assets/wallpapers/daft-punk-helmet.jpg',
-      fit: LayoutBackgroundFit.contain,
-      opacity: 0.54,
-    ),
     LayoutBackground.guides(
       guides: [
         LayoutBackgroundGuide(
@@ -279,30 +273,19 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
         'square-anchors': LayoutObservable(derivatives: {'A', 'B', 'C', 'D'}),
       },
       children: {
+        // TODO: Migrate search layout to 2.3.10
         'search-layout': SearchLayout(
           aliases: ['search-layout', 'search-overlay', 'search-hud'],
           layoutBorderWidth: 1.8,
-          nodeHoverBorderStyle: (GuideStyle(
-            color: Color(0xFF2196F3),
-            strokeWidth: 4,
-            pattern: GuideLinePattern.solid,
-          )),
           node: const NodeConfig(
-            style: NodeStyle(
-              slugPrefix: '[[',
-              slugTransform: TextTransform.capitalCap(),
-              slugSuffix: ']]',
-            ),
+            slugPrefix: '[[',
+            slugTransform: TextTransform.capitalCap(),
+            slugSuffix: ']]',
           ),
           children: {
             SearchLayout.searchResultsLayoutKey: TableLayout(
               aliases: ['search-results', 'search-results-table'],
               layoutBorderWidth: 1.8,
-              nodeHoverBorderStyle: (GuideStyle(
-                color: Color(0xFF2196F3),
-                strokeWidth: 4,
-                pattern: GuideLinePattern.solid,
-              )),
               guideStyle: (GuideStyle(
                 color: Color(0x665F7CFF),
                 strokeWidth: 1,
@@ -350,17 +333,10 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                     pattern: GuideLinePattern.solid,
                   )),
                   layoutBorderWidth: 1.8,
-                  nodeHoverBorderStyle: (GuideStyle(
-                    color: Color(0xFF2196F3),
-                    strokeWidth: 4,
-                    pattern: GuideLinePattern.solid,
-                  )),
                   node: const NodeConfig(
-                    style: NodeStyle(
-                      slugPrefix: '[[',
-                      slugTransform: TextTransform.capitalCap(),
-                      slugSuffix: ']]',
-                    ),
+                    slugPrefix: '[[',
+                    slugTransform: TextTransform.capitalCap(),
+                    slugSuffix: ']]',
                   ),
                 ),
               },
@@ -400,29 +376,32 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                 'top-node-tree',
                 'top-fan',
               ],
-              style: (GuideStyle(
-                color: Color(0xFFFFF7D6),
-                strokeWidth: (1.8),
-                pattern: GuideLinePattern.solid,
-              )),
+              background: [
+                LayoutBackground.image(
+                  assetPath: 'assets/logo/elder-brain.png',
+                  fit: LayoutBackgroundFit.cover,
+                  position: Offset(0.5, 0.30),
+                  scale: 1.5,
+                ),
+              ],
+              node: const NodeConfig(
+                borderStyle: GuideStyle(
+                  color: Color(0xFFFFF7D6),
+                  strokeWidth: 1.8,
+                  pattern: GuideLinePattern.solid,
+                ),
+                state: LayoutState({
+                  LayoutCondition.nodeHighlighted(): NodeConfig(
+                    borderStyle: GuideStyle(
+                      color: Color(0xFF2196F3),
+                      strokeWidth: 4,
+                      pattern: GuideLinePattern.solid,
+                    ),
+                  ),
+                }),
+              ),
               layoutBorderWidth: 1.8,
-              nodeHoverBorderStyle: (GuideStyle(
-                color: Color(0xFF2196F3),
-                strokeWidth: 4,
-                pattern: GuideLinePattern.solid,
-              )),
-              rootNodeFilter: (NodeSearchFilter.allOf([
-                NodeSearchParameter(
-                  parameter: NodeParameter.slug,
-                  value: 'cortex-timeline-calendar-2026-06-fr6h',
-                  operator: NodeMatchOperator.exact,
-                ),
-                NodeSearchParameter(
-                  parameter: NodeParameter.label,
-                  value: 'Calendar',
-                  operator: NodeMatchOperator.contains,
-                ),
-              ])),
+              rootNodeFilter: _lgErgoFanRootNodeFilter,
               traverseBy: GraphTraverseType.partOf,
               nodeFilter: (NodeSearchFilter.anyOf(
                 [
@@ -458,7 +437,6 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               maxSectionCount: 4,
               sectionSizing: FanSectionSizing.directPartsWeighted,
               caption: 'cortex',
-              labelSize: lgErgoNodeFontSize,
               gridStyle: (GuideStyle(
                 color: Color(0x88FFD54F),
                 strokeWidth: 0.9,
@@ -506,29 +484,33 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                 'bottom-fan',
                 'space-tree',
               ],
-              style: (GuideStyle(
-                color: Color(0xFFFFF7D6),
-                strokeWidth: (1.8),
-                pattern: GuideLinePattern.solid,
-              )),
+              background: [
+                LayoutBackground.image(
+                  assetPath: 'assets/backgrounds/brick-wall.jpg',
+                  fit: LayoutBackgroundFit.fill,
+                  position: Offset(0.5, 0.38),
+                  scale: 1,
+                  opacity: 1,
+                ),
+              ],
+              node: const NodeConfig(
+                borderStyle: GuideStyle(
+                  color: Color(0xFFFFF7D6),
+                  strokeWidth: 1.8,
+                  pattern: GuideLinePattern.solid,
+                ),
+                state: LayoutState({
+                  LayoutCondition.nodeHighlighted(): NodeConfig(
+                    borderStyle: GuideStyle(
+                      color: Color(0xFF2196F3),
+                      strokeWidth: 4,
+                      pattern: GuideLinePattern.solid,
+                    ),
+                  ),
+                }),
+              ),
               layoutBorderWidth: 1.8,
-              nodeHoverBorderStyle: (GuideStyle(
-                color: Color(0xFF2196F3),
-                strokeWidth: 4,
-                pattern: GuideLinePattern.solid,
-              )),
-              rootNodeFilter: (NodeSearchFilter.allOf([
-                NodeSearchParameter(
-                  parameter: NodeParameter.slug,
-                  value: 'cortex-timeline-calendar-2026-06-fr6h',
-                  operator: NodeMatchOperator.exact,
-                ),
-                NodeSearchParameter(
-                  parameter: NodeParameter.label,
-                  value: 'Calendar',
-                  operator: NodeMatchOperator.contains,
-                ),
-              ])),
+              rootNodeFilter: _lgErgoFanRootNodeFilter,
               traverseBy: GraphTraverseType.partOf,
               nodeFilter: const NodeSearchFilter.reverseOf(
                 (NodeSearchFilter.anyOf(
@@ -566,7 +548,6 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               maxSectionCount: 4,
               sectionSizing: FanSectionSizing.equal,
               caption: 'space-time',
-              labelSize: lgErgoNodeFontSize,
               gridStyle: (GuideStyle(
                 color: Color(0x88FFD54F),
                 strokeWidth: 0.9,
@@ -579,7 +560,9 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
           },
         ),
         'inner-circle': LayoutBorderGuide(
-          visibility: [LayoutCondition.hasActiveNodes()],
+          state: LayoutState({
+            LayoutCondition.hasActiveNodes(): LayoutConfig(visible: true),
+          }),
           shape: LayoutBorderShape.circle,
           reference: LayoutBorderReference.bounds,
           derivativeAnchors: ['innerCircle.center', 'innerCircle.top'],
@@ -663,36 +646,31 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                 '',
               ],
               rowsConfig: {
-                'header': LayoutSize.rem(4),
+                'header': LayoutDefaultSize.panoramicHeader,
                 'top': LayoutSize.fr(1),
                 'center': LayoutSize.fr(1),
                 'bottom': LayoutSize.fr(1),
-                'bottom-ribbon': LayoutSize.rem(2),
+                'bottom-ribbon': LayoutDefaultSize.panoramicFooter,
               },
               columnsConfig: {
-                'left-ribbon': LayoutSize.rem(3),
+                'left-ribbon': LayoutDefaultSize.crossAxisRibbonWidth,
                 'left': LayoutSize.fr(1),
                 'center': LayoutSize.fr(2),
                 'right': LayoutSize.fr(1),
               },
-              areas: {
+              slot: {
                 'left-ribbon': GridArea(
                   row: 'header',
                   column: 'left-ribbon',
                   rowSpan: GridSpan.full,
                 ),
-                'center-ribbon': GridArea(
+                'logo': GridArea(row: 'header', column: 'left-ribbon'),
+                'header': GridArea(
                   row: 'header',
-                  column: 'center',
-                  initialSpan: GridAreaSpan.content,
-                  maxSpan: GridAreaSpan.track,
+                  column: 'left-ribbon',
+                  columnSpan: GridSpan.full,
                 ),
-                'header': GridArea(row: 'header', column: 'left'),
-                'info-grid': GridArea(
-                  row: 'top',
-                  column: 'left',
-                  rowSpan: GridSpan.full,
-                ),
+                'info-grid': GridArea(row: 'top', column: 'left', rowSpan: 3),
                 'scene-graph': GridArea(
                   row: 'top',
                   column: 'center',
@@ -701,7 +679,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                 'action-panel': GridArea(
                   row: 'top',
                   column: 'right',
-                  rowSpan: GridSpan.full,
+                  rowSpan: 3,
                 ),
                 'top-left': GridArea(row: 'top', column: 'left'),
                 'top-center': GridArea(row: 'top', column: 'center'),
@@ -712,13 +690,20 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                 'bottom-left': GridArea(row: 'bottom', column: 'left'),
                 'bottom-center': GridArea(row: 'bottom', column: 'center'),
                 'bottom-right': GridArea(row: 'bottom', column: 'right'),
-                'bottom-ribbon': GridArea(
+                'footer': GridArea(
                   row: 'bottom-ribbon',
-                  column: 'center',
+                  column: 'left-ribbon',
+                  columnSpan: GridSpan.full,
                 ),
               },
               children: {
-                'left-ribbon': ColumnLayout(
+                'left-ribbon': GridLayout(
+                  rowsConfig: {
+                    'logo': LayoutDefaultSize.panoramicHeader,
+                    'content': LayoutSize.fr(1),
+                  },
+                  columnsConfig: {'ribbon': LayoutSize.fr(1)},
+                  slot: {'content': GridArea(row: 'content', column: 'ribbon')},
                   aliases: [
                     'left-ribbon',
                     'panoramic-left-ribbon',
@@ -730,80 +715,96 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                   ),
                   background: [LayoutBackground.color(Color(0xCC283252))],
                   children: {
-                    'search': PanelLayout(
-                      aliases: ['left-ribbon-search'],
-                      borderStyle: GuideStyle(
-                        color: Color(0xFFFFD54F),
-                        strokeWidth: 1.2,
-                        pattern: GuideLinePattern.solid,
-                      ),
-                      text: LayoutTextConfig(value: LayoutText.value('🔎')),
-                    ),
-                    'folder': PanelLayout(
-                      aliases: ['left-ribbon-folder'],
-                      borderStyle: GuideStyle(
-                        color: Color(0xFFFFD54F),
-                        strokeWidth: 1.2,
-                        pattern: GuideLinePattern.solid,
-                      ),
-                      text: LayoutTextConfig(value: LayoutText.value('📁')),
-                    ),
-                    'bookmarks': PanelLayout(
-                      aliases: ['left-ribbon-bookmarks'],
-                      borderStyle: GuideStyle(
-                        color: Color(0xFFFFD54F),
-                        strokeWidth: 1.2,
-                        pattern: GuideLinePattern.solid,
-                      ),
-                      text: LayoutTextConfig(value: LayoutText.value('🔖')),
-                    ),
-                    'labels': PanelLayout(
-                      aliases: ['left-ribbon-labels'],
-                      borderStyle: GuideStyle(
-                        color: Color(0xFFFFD54F),
-                        strokeWidth: 1.2,
-                        pattern: GuideLinePattern.solid,
-                      ),
-                      text: LayoutTextConfig(value: LayoutText.value('🏷️')),
+                    'content': ColumnLayout(
+                      aliases: ['left-ribbon-content'],
+                      children: {
+                        'folder': PanelLayout(
+                          aliases: ['left-ribbon-folder'],
+                          borderStyle: GuideStyle(
+                            color: Color(0xFFFFD54F),
+                            strokeWidth: 1.2,
+                            pattern: GuideLinePattern.solid,
+                          ),
+                          text: LayoutTextConfig(value: LayoutText.value('📁')),
+                        ),
+                        'bookmarks': PanelLayout(
+                          aliases: ['left-ribbon-bookmarks'],
+                          borderStyle: GuideStyle(
+                            color: Color(0xFFFFD54F),
+                            strokeWidth: 1.2,
+                            pattern: GuideLinePattern.solid,
+                          ),
+                          text: LayoutTextConfig(value: LayoutText.value('🔖')),
+                        ),
+                        'action-queue': PanelLayout(
+                          aliases: ['left-ribbon-action-queue'],
+                          borderStyle: GuideStyle(
+                            color: Color(0xFFFFD54F),
+                            strokeWidth: 1.2,
+                            pattern: GuideLinePattern.solid,
+                          ),
+                          text: LayoutTextConfig(
+                            value: LayoutText.value('📋n'),
+                          ),
+                        ),
+                        'avatar': PanelLayout(
+                          size: LayoutDefaultSize.crossAxisRibbonWidth,
+                          aliases: [
+                            'jarvis',
+                            'footer-spacer-start',
+                            'left-ribbon-footer-intersection',
+                          ],
+                          text: LayoutTextConfig(
+                            value: LayoutText.value('🦹🏼‍♂️'),
+                            fontSize: 18,
+                          ),
+                        ),
+                      },
                     ),
                   },
                 ),
-                'center-ribbon': RowLayout(
-                  aliases: [
-                    'top-ribbon',
-                    'center-ribbon',
-                    'panoramic-center-ribbon',
-                    'scene-center-header',
-                  ],
-                  text: LayoutTextConfig(
-                    color: Color(0xFFFFD54F),
-                    fontSize: 12,
+                'logo': NodeLayout(
+                  node: const NodeConfig(
+                    content: NodeContent.emoji(),
+                    text: LayoutTextConfig(
+                      value: LayoutText.none(),
+                      fontSize: 24,
+                    ),
                   ),
                   background: [
-                    LayoutBackground.color(Color(0xCC283252)),
                     LayoutBackground.image(
-                      assetPath: 'assets/wallpapers/dark-vintage-scheme.jpg',
-                      fit: LayoutBackgroundFit.cover,
-                      opacity: 0.39,
-                      orderPosition: 1,
+                      assetPath: 'assets/logo/elder-brain.png',
+                      fit: LayoutBackgroundFit.fill,
+                      // position: Offset(0.5, 0.30),
+                      // scale: 1.5,
                     ),
                   ],
-                  children: {
-                    'lorem': PanelLayout(
-                      aliases: ['center-ribbon-lorem', 'header-lorem'],
-                      borderStyle: GuideStyle(
-                        color: Color(0xFFFFD54F),
-                        strokeWidth: 1.2,
-                        pattern: GuideLinePattern.solid,
-                      ),
-                      text: LayoutTextConfig(
-                        value: LayoutText.lorem(length: 1),
-                      ),
-                    ),
-                  },
+                  filter: _lgErgoFanRootNodeFilter,
+                  storedNode: Node(
+                    slug: _lgErgoFanRootSlug,
+                    path: _lgErgoFanRootSlug,
+                    title: 'Brain Control',
+                    labels: ['Calendar'],
+                    emojis: [Emoji(character: '🧠', title: 'Brain')],
+                  ),
+                  aliases: [
+                    'logo',
+                    'panoramic-logo',
+                    'scene-logo',
+                    'brain-control',
+                    'cortex-control',
+                  ],
                 ),
                 'header': RowLayout(
-                  aliases: ['header', 'panoramic-header', 'scene-header'],
+                  crossAxisAlignment: LayoutCrossAxisAlignment.top(),
+                  aliases: [
+                    'header',
+                    'panoramic-header',
+                    'scene-header',
+                    'header-content',
+                    'header-lorem',
+                    'top-ribbon',
+                  ],
                   text: LayoutTextConfig(
                     color: Color(0xFFFFD54F),
                     fontSize: 12,
@@ -818,6 +819,11 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                     ),
                   ],
                   children: {
+                    'spacer': PanelLayout(
+                      aliases: ['header-spacer', 'spacer-shortcut'],
+                      size: LayoutSize.fr(0.1),
+                      text: LayoutTextConfig(value: LayoutText.none()),
+                    ),
                     'search': PanelLayout(
                       aliases: ['header-search', 'search-shortcut'],
                       borderStyle: GuideStyle(
@@ -827,28 +833,6 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                       ),
                       text: LayoutTextConfig(
                         value: LayoutText.value('🔎 search'),
-                      ),
-                    ),
-                    'folder': PanelLayout(
-                      aliases: ['header-folder', 'folder-shortcut'],
-                      borderStyle: GuideStyle(
-                        color: Color(0xFFFFD54F),
-                        strokeWidth: 1.2,
-                        pattern: GuideLinePattern.solid,
-                      ),
-                      text: LayoutTextConfig(
-                        value: LayoutText.value('📁 folder'),
-                      ),
-                    ),
-                    'bookmarks': PanelLayout(
-                      aliases: ['header-bookmarks', 'bookmarks-shortcut'],
-                      borderStyle: GuideStyle(
-                        color: Color(0xFFFFD54F),
-                        strokeWidth: 1.2,
-                        pattern: GuideLinePattern.solid,
-                      ),
-                      text: LayoutTextConfig(
-                        value: LayoutText.value('🔖 bookmarks'),
                       ),
                     ),
                     'labels': PanelLayout(
@@ -861,6 +845,47 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                       text: LayoutTextConfig(
                         value: LayoutText.value('🏷️ labels'),
                       ),
+                    ),
+                    'lorem': PanelLayout(
+                      size: LayoutSize.fr(3),
+                      aliases: [
+                        'center-ribbon',
+                        'panoramic-center-ribbon',
+                        'scene-center-header',
+                      ],
+                      state: LayoutState({
+                        LayoutCondition.hasActiveNodes(): LayoutConfig(
+                          text: LayoutTextConfig(
+                            value: LayoutText.lorem(length: 1),
+                          ),
+                        ),
+                      }),
+                      text: LayoutTextConfig(
+                        color: Color.fromARGB(255, 255, 97, 79),
+                        value: LayoutText.value('Choose your NODEs, Player!'),
+                      ),
+                    ),
+
+                    'bookmarks': PanelLayout(
+                      aliases: ['header-bookmarks', 'bookmarks-shortcut'],
+                      borderStyle: GuideStyle(
+                        color: Color(0xFFFFD54F),
+                        strokeWidth: 1.2,
+                        pattern: GuideLinePattern.solid,
+                      ),
+                      text: LayoutTextConfig(
+                        value: LayoutText.value('🔖 bookmarks'),
+                      ),
+                    ),
+                    'view change': PanelLayout(
+                      size: LayoutSize.fr(2),
+                      aliases: ['header-view-change', 'view-change-shortcut'],
+                      borderStyle: GuideStyle(
+                        color: Color(0xFFFFD54F),
+                        strokeWidth: 1.2,
+                        pattern: GuideLinePattern.solid,
+                      ),
+                      text: LayoutTextConfig(value: LayoutText.value('🎥 pov')),
                     ),
                   },
                 ),
@@ -1062,11 +1087,6 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                     ),
                   ],
                   layoutBorderWidth: 1.8,
-                  nodeHoverBorderStyle: GuideStyle(
-                    color: Color(0xFF2196F3),
-                    strokeWidth: 4,
-                    pattern: GuideLinePattern.solid,
-                  ),
                   guideStyle: GuideStyle(
                     color: Color(0x665F7CFF),
                     strokeWidth: 1,
@@ -1246,17 +1266,10 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                         pattern: GuideLinePattern.solid,
                       ),
                       layoutBorderWidth: 1.8,
-                      nodeHoverBorderStyle: GuideStyle(
-                        color: Color(0xFF2196F3),
-                        strokeWidth: 4,
-                        pattern: GuideLinePattern.solid,
-                      ),
                       node: const NodeConfig(
-                        style: NodeStyle(
-                          slugPrefix: '[[',
-                          slugTransform: TextTransform.capitalCap(),
-                          slugSuffix: ']]',
-                        ),
+                        slugPrefix: '[[',
+                        slugTransform: TextTransform.capitalCap(),
+                        slugSuffix: ']]',
                       ),
                       aliases: [
                         'virtual-nodes',
@@ -1268,11 +1281,6 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                 ),
                 'scene-graph': GraphLayout(
                   background: [
-                    LayoutBackground.image(
-                      assetPath: 'assets/wallpapers/dark-vintage-scheme.jpg',
-                      fit: LayoutBackgroundFit.cover,
-                      opacity: 0.12,
-                    ),
                     LayoutBackground.image(
                       assetPath: 'assets/wallpapers/helmet-background.jpg',
                       fit: LayoutBackgroundFit.cover,
@@ -1286,57 +1294,139 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                     'selected-node-pool',
                     'graph-layout',
                   ],
-                  visibility: [LayoutCondition.hasActiveNodes()],
+                  state: LayoutState({
+                    LayoutCondition.hasActiveNodes(): LayoutConfig(
+                      visible: true,
+                    ),
+                  }),
                   style: GuideStyle(
                     color: Color(0xFFFFF7D6),
                     strokeWidth: 1.8,
                     pattern: GuideLinePattern.solid,
                   ),
                   layoutBorderWidth: 1.8,
-                  nodeHoverBorderStyle: GuideStyle(
-                    color: Color(0xFF2196F3),
-                    strokeWidth: 4,
-                    pattern: GuideLinePattern.solid,
-                  ),
                   nodeExtentFactor: 0.5,
-                  labelSize: lgErgoNodeFontSize,
                   emojiFontSizeFactor: 2,
                   emojiSlugGapFactor: 0.5,
                 ),
-                'bottom-ribbon': PanelLayout(
-                  aliases: [
-                    'bottom-ribbon',
-                    'panoramic-bottom-ribbon',
-                    'scene-ribbon',
-                    'teletext-ribbon',
-                    'poloska-teletexta',
-                  ],
-                  text: LayoutTextConfig(
-                    value: LayoutText.value(
-                      'teletext | 🌌 | ☀️ | 🌎 | 🇪🇸 | BCN | 2026 | ⛱️ Jun - Jul - Aug | XX | XX:XX | ↕️ 2REM',
+                'footer': RowLayout(
+                  crossAxisAlignment: LayoutCrossAxisAlignment.bottom(),
+                  aliases: ['footer', 'panoramic-footer', 'scene-footer'],
+                  children: {
+                    'spacer-sshutt': PanelLayout(
+                      size: LayoutDefaultSize.crossAxisRibbonWidth,
+                      aliases: [
+                        'footer-spacer-start',
+                        'left-ribbon-footer-intersection',
+                      ],
                     ),
-                    color: Color(0xFF21ffF3),
-                    fontSize: 12,
-                  ),
-                  background: [
-                    LayoutBackground.image(
-                      assetPath: 'assets/wallpapers/dark-vintage-scheme.jpg',
-                      fit: LayoutBackgroundFit.cover,
+                    'status-button': PanelLayout(
+                      size: LayoutSize.fr(0.33),
+                      aliases: [],
+                      text: LayoutTextConfig(
+                        value: LayoutText.value("Status: Fine 👌"),
+                      ),
                     ),
-                    LayoutBackground.image(
-                      assetPath:
-                          'assets/backgrounds/png-clipart-shenzhen-hong-kong-episode-podcast-learning-skyline-miscellaneous-building.png',
-                      fit: LayoutBackgroundFit.fill,
-                      opacity: 0.39,
-                      repeat: 8,
-                      position: Offset(0.5, 1),
+                    'wallet': PanelLayout(
+                      size: LayoutSize.fr(1),
+                      aliases: ['huita-blya-koshelyok', 'sevicoin-icon'],
+                      text: LayoutTextConfig(
+                        // TODO: Fix hardcoded wallet value to be dynamic based on user data
+                        value: LayoutText.value('🪙 0,000.000,000'),
+                      ),
                     ),
-                  ],
-                  borderStyle: GuideStyle(
-                    color: Color(0xFFFFD54F),
-                    strokeWidth: 1.2,
-                    pattern: GuideLinePattern.solid,
-                  ),
+                    'keyring': PanelLayout(
+                      size: LayoutSize.fr(1),
+                      aliases: ['huita-blya-koshelyok', 'sevicoin-icon'],
+                      text: LayoutTextConfig(
+                        // TODO: Fix hardcoded wallet value to be dynamic based on user data
+                        value: LayoutText.value('K 🔑 Keychain'),
+                      ),
+                    ),
+                    'real-spacer-start': PanelLayout(
+                      size: LayoutSize.fr(1),
+                      aliases: [
+                        'footer-spacer-start',
+                        'left-ribbon-footer-intersection',
+                      ],
+                      text: LayoutTextConfig(value: LayoutText.none()),
+                    ),
+                    'teletext': PanelLayout(
+                      size: LayoutSize.fr(3),
+                      aliases: [
+                        'bottom-ribbon',
+                        'panoramic-bottom-ribbon',
+                        'scene-ribbon',
+                        'teletext-ribbon',
+                        'poloska-teletexta',
+                        'teletext-bottom',
+                      ],
+                      text: LayoutTextConfig(
+                        value: LayoutText.value(
+                          'teletext | 🌌 | ☀️ | 🌎 | 🇪🇸 | BCN | 2026 | ⛱️ Jun - Jul - Aug | XX | XX:XX | ↕️ 2REM',
+                        ),
+                        color: Color(0xFF21ffF3),
+                        fontSize: 12,
+                      ),
+                      borderStyle: GuideStyle(
+                        color: Color(0xFFFFD54F),
+                        strokeWidth: 1.2,
+                        pattern: GuideLinePattern.solid,
+                      ),
+                      background: [
+                        // LayoutBackground.color(Color(0xCC283252)),
+                        LayoutBackground.image(
+                          assetPath:
+                              'assets/wallpapers/dark-vintage-scheme.jpg',
+                          fit: LayoutBackgroundFit.cover,
+                          orderPosition: 1,
+                        ),
+                      ],
+                    ),
+                    'bookmarks': PanelLayout(
+                      aliases: ['bottom-bookmarks', 'bookmarks-shortcut'],
+                      borderStyle: GuideStyle(
+                        color: Color(0xFFFFD54F),
+                        strokeWidth: 1.2,
+                        pattern: GuideLinePattern.solid,
+                      ),
+                      text: LayoutTextConfig(
+                        value: LayoutText.value('B 🔖 bookmarks'),
+                      ),
+                    ),
+                    'spacer-end': PanelLayout(
+                      aliases: [
+                        'footer-spacer-end',
+                        'right-ribbon-footer-intersection',
+                      ],
+                      size: LayoutSize.fr(0.25),
+                      text: LayoutTextConfig(value: LayoutText.none()),
+                    ),
+                    'social': PanelLayout(
+                      size: LayoutSize.fr(0.33),
+                      aliases: [],
+                      text: LayoutTextConfig(
+                        value: LayoutText.value('👩‍❤️‍👩 social graph'),
+                      ),
+                    ),
+                    'geneaology': PanelLayout(
+                      size: LayoutSize.fr(1),
+                      aliases: [],
+                      text: LayoutTextConfig(
+                        value: LayoutText.value('G 🌳 genealogy '),
+                      ),
+                    ),
+                    'quests': PanelLayout(
+                      size: LayoutSize.fr(0.33),
+                      aliases: [],
+                      text: LayoutTextConfig(value: LayoutText.value('Q ⁉️')),
+                    ),
+                    'inventory': PanelLayout(
+                      size: LayoutSize.fr(0.25),
+                      aliases: [],
+                      text: LayoutTextConfig(value: LayoutText.value('I 🎒')),
+                    ),
+                  },
                 ),
               },
             ),
@@ -1347,4 +1437,17 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
   },
 );
 
-const lgErgoNodeFontSize = 10.0;
+const _lgErgoFanRootSlug = 'cortex-timeline-calendar-2026-06-fr6h';
+
+const _lgErgoFanRootNodeFilter = NodeSearchFilter.allOf([
+  NodeSearchParameter(
+    parameter: NodeParameter.slug,
+    value: _lgErgoFanRootSlug,
+    operator: NodeMatchOperator.exact,
+  ),
+  NodeSearchParameter(
+    parameter: NodeParameter.label,
+    value: 'Calendar',
+    operator: NodeMatchOperator.contains,
+  ),
+]);

@@ -123,14 +123,18 @@ and effects. When both contrast colors are present, renderers select dark text
 for a light resolved background and light text for a dark background.
 
 `NodeConfig` is a layout-owned, recursively conditional Node configuration. Its
-`style` contains immediate `NodeStyle` presentation, while its ordered
-`LayoutCondition` to `NodeConfig` state map can specialize style and future Node
-configuration without owning renderer logic. It is not Node data and is never
+presentation and typography fields live directly on the configuration, while
+its ordered `LayoutCondition` to `NodeConfig` state map can specialize any of
+those fields without owning renderer logic. It is not Node data and is never
 stored in Neo4j. `NodeDefaults` is the frontend's canonical fallback vocabulary
-for Node opacity, hover borders, and slug presentation. `NodeConfig`,
-`NodeStyle`, and `NodeDefaults` live in
+for Node opacity, hover borders, and slug presentation. `NodeConfig` and
+`NodeDefaults` live in
 `frontend/flutter/lib/models/layout/node_config.dart` until a separate package has a
 real consumer boundary.
+
+`NodeContent` is `NodeConfig`'s exact compact-content selector. Its `slug`,
+`alias`, `emoji`, and `title` constructors select only that Node metadata source;
+an absent selected value paints nothing rather than changing representation.
 
 `PanelConfig` is reusable Layout configuration in
 `frontend/flutter/lib/models/layout/panel.dart`. A root Layout may provide shared panel

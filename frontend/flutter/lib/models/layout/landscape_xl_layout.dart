@@ -9,7 +9,6 @@ class LandscapeXlLayout extends Layout {
     super.derivatives,
     super.derivativeSnapshot,
     super.observables,
-    super.visibility,
     super.inputSources,
     super.layoutPadding,
     super.layoutGap,
@@ -22,7 +21,6 @@ class LandscapeXlLayout extends Layout {
     super.node,
     super.panel,
     super.state,
-    super.nodeHoverBorderStyle,
   }) : super();
 }
 
@@ -38,7 +36,6 @@ class SafeAreaLayout extends LandscapeXlLayout {
     super.derivatives,
     super.derivativeSnapshot,
     super.observables,
-    super.visibility,
     super.inputSources,
     super.layoutPadding,
     super.layoutGap,
@@ -51,6 +48,5 @@ class SafeAreaLayout extends LandscapeXlLayout {
     super.node,
     super.panel,
     super.state,
-    super.nodeHoverBorderStyle,
   });
 }

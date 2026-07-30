@@ -142,6 +142,38 @@ class _LandscapeXlLayoutScreenState
         nodeTrees[fan] = value;
       }
     }
+    final nodeLayoutNodes = <NodeLayout, ResolvedVaultNode>{};
+    for (final nodeLayout in _nodeLayouts(layout)) {
+      final provider = nodeLayoutProvider(NodeLayoutRequest(nodeLayout.filter));
+      ref.listen(provider, (_, next) {
+        if (next case AsyncData(value: null)) {
+          ref
+              .read(selectedNodesProvider.notifier)
+              .storeVirtualNode(nodeLayout.storedNode);
+        } else if (next case AsyncError(:final error)) {
+          CommonUtilities.log(
+            '[NodeLayout] lookup failed for ${nodeLayout.aliases.firstOrNull}: $error',
+          );
+        }
+      });
+      final state = ref.watch(provider);
+      if (state case AsyncData(:final value)) {
+        if (value != null) {
+          nodeLayoutNodes[nodeLayout] = ResolvedVaultNode(
+            path: value.path.trim().isEmpty ? value.slug : value.path,
+            node: value,
+            resolvedStatus: LayoutHttpStatus.ok,
+          );
+          continue;
+        }
+        final slug = nodeLayout.storedNode.slug.trim();
+        final stored = selectedNodes.where(
+          (candidate) => candidate.node?.slug.trim() == slug,
+        );
+        nodeLayoutNodes[nodeLayout] =
+            stored.firstOrNull ?? _resolvedStoredNode(nodeLayout.storedNode);
+      }
+    }
     return Scaffold(
       body: LandscapeXlLayoutView(
         layout: layout,
@@ -149,6 +181,7 @@ class _LandscapeXlLayoutScreenState
         vaultNodeResolver: resolver,
         systemInfo: systemInfo,
         nodeTrees: nodeTrees,
+        nodeLayoutNodes: nodeLayoutNodes,
         queryNodes: queryNodes,
         highlightedNodes: highlightedNodes,
         selectedNodes: selectedNodes,
@@ -169,6 +202,26 @@ class _LandscapeXlLayoutScreenState
       if (child is FanLayout) yield child;
       yield* _fanLayouts(child);
     }
+  }
+
+  Iterable<NodeLayout> _nodeLayouts(Layout layout) sync* {
+    for (final child in layout.children.values) {
+      if (child is NodeLayout) yield child;
+      yield* _nodeLayouts(child);
+    }
+  }
+
+  ResolvedVaultNode _resolvedStoredNode(Node storedNode) {
+    final node = storedNode.deepCopy();
+    final slug = node.slug.trim();
+    if (!node.labels.contains('Virtual')) node.labels.add('Virtual');
+    if (node.path.trim().isEmpty) node.path = slug;
+    return ResolvedVaultNode(
+      path: node.path,
+      node: node,
+      resolvedStatus: LayoutHttpStatus.noContent,
+      isVirtual: true,
+    );
   }
 
   Iterable<VaultNode> _configuredVaultNodes(Layout layout) sync* {

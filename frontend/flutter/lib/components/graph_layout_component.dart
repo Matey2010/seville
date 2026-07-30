@@ -5,8 +5,6 @@ import 'package:flame/events.dart';
 import 'package:flutter/painting.dart';
 import 'package:seville_proto/seville_proto.dart';
 
-import '../constants/typography.dart';
-import '../domain/node.dart';
 import '../models/layout/layout.dart';
 import 'node_component.dart';
 
@@ -19,12 +17,6 @@ typedef GraphLayoutNodeHit = ({
   Path path,
 });
 
-typedef GraphLayoutSurface = ({
-  Size logicalSize,
-  Path clipPath,
-  Offset Function(double u, double v) project,
-});
-
 /// Flame-owned renderer, geometry, and interaction cycle for [GraphLayout].
 class GraphLayoutComponent extends PositionComponent with TapCallbacks {
   GraphLayoutComponent({
@@ -33,7 +25,7 @@ class GraphLayoutComponent extends PositionComponent with TapCallbacks {
     required this.isLayoutVisible,
     required this.selectedNodes,
     required this.layoutContext,
-    required this.nodeStyle,
+    required this.nodeConfig,
     required this.surface,
     required this.isTapEnabled,
     required this.onNodeTap,
@@ -44,8 +36,8 @@ class GraphLayoutComponent extends PositionComponent with TapCallbacks {
   final bool Function() isLayoutVisible;
   final List<ResolvedVaultNode> Function() selectedNodes;
   final LayoutContext Function() layoutContext;
-  final NodeStyle Function() nodeStyle;
-  final GraphLayoutSurface? Function() surface;
+  final NodeConfig Function(ResolvedVaultNode node) nodeConfig;
+  final LayoutNodeSurface? Function() surface;
   final bool Function() isTapEnabled;
   final void Function(GraphLayoutNodeHit hit) onNodeTap;
 
@@ -63,12 +55,13 @@ class GraphLayoutComponent extends PositionComponent with TapCallbacks {
     final nodes = _nodesInFrame(selectedNodes(), resolvedSurface);
     if (nodes.isEmpty) return;
 
-    final borderStyle = layout.style;
-    final borderWidth = layout.layoutBorderWidth ?? borderStyle.strokeWidth;
     final context = layoutContext();
     canvas.save();
     canvas.clipPath(resolvedSurface.clipPath);
     for (final graphNode in nodes) {
+      final config = nodeConfig(graphNode.resolvedNode);
+      final borderStyle = config.borderStyle ?? layout.style;
+      final borderWidth = layout.layoutBorderWidth ?? borderStyle.strokeWidth;
       canvas.drawPath(
         graphNode.path,
         Paint()
@@ -78,6 +71,7 @@ class GraphLayoutComponent extends PositionComponent with TapCallbacks {
             context,
             layout,
             isVirtual: graphNode.resolvedNode.isVirtual,
+            config: config,
           )
           ..style = PaintingStyle.fill,
       );
@@ -88,7 +82,15 @@ class GraphLayoutComponent extends PositionComponent with TapCallbacks {
         borderWidth,
         isVirtual: graphNode.resolvedNode.isVirtual,
       );
-      _paintNodeLabels(canvas, graphNode.node, graphNode.circleBounds);
+      NodeComponent.paintLabels(
+        canvas,
+        graphNode.node,
+        graphNode.circleBounds,
+        config: config,
+        text: config.text,
+        emojiFontSizeFactor: layout.emojiFontSizeFactor,
+        emojiSlugGapFactor: layout.emojiSlugGapFactor,
+      );
     }
     canvas.restore();
   }
@@ -121,7 +123,7 @@ class GraphLayoutComponent extends PositionComponent with TapCallbacks {
         key: '$layoutKey/${graphNode.node.slug}',
         resolvedNode: graphNode.resolvedNode,
         node: graphNode.node,
-        label: nodeLabel(graphNode.node),
+        label: nodeLabel(graphNode.resolvedNode, graphNode.node),
         circleBounds: graphNode.circleBounds,
         path: graphNode.path,
       );
@@ -129,14 +131,13 @@ class GraphLayoutComponent extends PositionComponent with TapCallbacks {
     return null;
   }
 
-  String nodeLabel(Node node) {
-    final slug = node.slug.trim();
-    return slug.isNotEmpty ? nodeStyle().formatSlug(slug) : node.displayLabel;
+  String nodeLabel(ResolvedVaultNode resolvedNode, Node node) {
+    return NodeComponent.presentationLabel(node, nodeConfig(resolvedNode));
   }
 
   List<_GraphNodeFrame> _nodesInFrame(
     List<ResolvedVaultNode> selected,
-    GraphLayoutSurface surface,
+    LayoutNodeSurface surface,
   ) {
     final resolvedNodes = [
       for (final resolvedNode in selected)
@@ -212,52 +213,6 @@ class GraphLayoutComponent extends PositionComponent with TapCallbacks {
       path: path,
     );
   }
-
-  void _paintNodeLabels(Canvas canvas, Node node, Rect bounds) {
-    final resolvedNodeStyle = nodeStyle();
-    final maxWidth = bounds.width * 0.8;
-    if (maxWidth < layout.labelSize * 2) return;
-    final slugPainter = _textPainter(
-      nodeLabel(node),
-      isSlug: true,
-      maxWidth: maxWidth,
-      color: resolvedNodeStyle.slugColor ?? NodeDefaults.slugColor,
-      fontSize: layout.labelSize,
-      fontFeatures:
-          (resolvedNodeStyle.slugTransform ?? NodeDefaults.slugTransform)
-              .fontFeatures,
-    );
-    final emoji = node.primaryEmojiCharacter;
-    if (emoji == null) {
-      slugPainter.paint(
-        canvas,
-        bounds.center - Offset(slugPainter.width / 2, slugPainter.height / 2),
-      );
-      return;
-    }
-
-    final emojiPainter = _textPainter(
-      emoji,
-      isSlug: false,
-      maxWidth: maxWidth,
-      color: resolvedNodeStyle.labelColor ?? NodeDefaults.labelColor,
-      fontSize: layout.labelSize * layout.emojiFontSizeFactor,
-    );
-    final gap = layout.labelSize * layout.emojiSlugGapFactor;
-    final contentHeight = emojiPainter.height + gap + slugPainter.height;
-    final top = bounds.center.dy - contentHeight / 2;
-    emojiPainter.paint(
-      canvas,
-      Offset(bounds.center.dx - emojiPainter.width / 2, top),
-    );
-    slugPainter.paint(
-      canvas,
-      Offset(
-        bounds.center.dx - slugPainter.width / 2,
-        top + emojiPainter.height + gap,
-      ),
-    );
-  }
 }
 
 typedef _GraphNodeFrame = ({
@@ -266,27 +221,3 @@ typedef _GraphNodeFrame = ({
   Rect circleBounds,
   Path path,
 });
-
-TextPainter _textPainter(
-  String text, {
-  required bool isSlug,
-  required double maxWidth,
-  required Color color,
-  required double fontSize,
-  List<FontFeature>? fontFeatures,
-}) => TextPainter(
-  text: TextSpan(
-    text: LayoutText.defaultRepresentation(text),
-    style: TextStyle(
-      fontFamily: isSlug ? null : SevilleTypography.fontFamily,
-      color: color,
-      fontSize: fontSize,
-      fontWeight: isSlug ? FontWeight.w700 : FontWeight.w600,
-      fontFeatures: fontFeatures,
-    ),
-  ),
-  maxLines: 1,
-  ellipsis: '…',
-  textDirection: TextDirection.ltr,
-  textAlign: TextAlign.center,
-)..layout(maxWidth: maxWidth);

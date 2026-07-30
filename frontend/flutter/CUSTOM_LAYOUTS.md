@@ -133,20 +133,38 @@ state protocol used by Label and Node configuration:
 
 ```dart
 PanelLayout(
-  text: LayoutTextConfig(value: LayoutText.value('🔎 search')),
+  size: LayoutSize.fr(3),
+  text: LayoutTextConfig(
+    color: Color(0xFFFF614F),
+    value: LayoutText.value('SELECT A NODE'),
+  ),
   state: LayoutState({
-    LayoutCondition.hasActiveNodes(): PanelLayout(
-      text: LayoutTextConfig(value: LayoutText.value('✕ close')),
+    LayoutCondition.hasActiveNodes(): LayoutConfig(
+      text: LayoutTextConfig(value: LayoutText.lorem(length: 1)),
     ),
   }),
 )
 ```
 
-Matching Layout values resolve recursively at the same child map key. Later
-matching entries win, and the resulting Layout participates in the normal
-ancestor-to-child configuration hierarchy after parent defaults. A Layout
-state value is a complete replacement, while `LayoutState<LabelConfig>` and
-`LayoutState<NodeConfig>` merge their matching configurations.
+Matching `LayoutConfig` values resolve recursively at the same child map key.
+The base Layout resolves first, then matching entries overlay only explicitly
+configured common properties in insertion order. In this example the size and
+red text color remain defined once; the active state changes only the text
+value. Conditional text, Label, Node, and Panel configuration merges, while an
+explicit conditional background list replaces the current list. Layout state
+does not replace the concrete Layout, its children, or its tree identity.
+
+Visibility uses the same state rather than a parallel condition list:
+
+```dart
+state: LayoutState({
+  LayoutCondition.hasActiveNodes(): LayoutConfig(visible: true),
+}),
+```
+
+Once any state entry configures visibility, the Layout is hidden until a
+matching configuration makes it visible. Later matching entries may override
+that value. Layouts without a visibility state remain visible.
 
 Neo4j `Node.labels` values in a `TableLayout` are rendered independently
 through `ClassificationLabelComponent`. Each string becomes a colored
@@ -280,6 +298,8 @@ LayoutPath(
       opacity: 0.34,
       repeat: 3,
       position: Offset(0.5, 1),
+      rotationDegrees: 180,
+      scale: 1.25,
     ),
   ],
   points: panelPoints,
@@ -294,15 +314,18 @@ placing a screen-facing image behind distorted content.
 applies `fit` independently inside each tile. `position` is normalized image
 placement within every tile: `(0, 0)` is top-left, `(0.5, 0.5)` is centered,
 and `(0.5, 1)` is bottom-centered. Repeated tiles use the same curved projection
-as a single background.
+as a single background. `rotationDegrees` rotates each fitted tile clockwise
+around its center. `scale` uniformly scales around that same center: values
+above `1` zoom in and values between `0` and `1` shrink. Both transforms are
+preserved through flat, projective, curved, and Fan surfaces.
 
 An empty `background` list paints no background for that layout. Background
 configuration is always owned directly by the layout whose geometry it fills.
 
-## 6. Compose named grid areas
+## 6. Compose named grid slots
 
 Use `GridLayout` for CSS-like two-dimensional composition. Rows and columns are
-ordered track maps, `areas` maps stable child identities to track geometry, and
+ordered track maps, `slot` maps stable child identities to track geometry, and
 the matching entries in `children` provide the rendered layouts:
 
 ```dart
@@ -322,7 +345,7 @@ LayoutPath(
         'center': LayoutSize.fr(2),
         'right': LayoutSize.fr(1),
       },
-      areas: {
+      slot: {
         'top-left': GridArea(row: 'top', column: 'left'),
         'center': GridArea(row: 'center', column: 'center'),
         'footer': GridArea(
@@ -375,6 +398,13 @@ coupling them to nested font overrides.
 `LayoutSize.calculatedFr` is a Vue-like calculated track: it behaves like its
 fallback fraction today, and its `derivative` names the future layout/context
 value that should drive it.
+
+`RowLayout.crossAxisAlignment` accepts `LayoutCrossAxisAlignment.top()`,
+`.center()`, or `.bottom()`. With alignment enabled, an explicit
+`LayoutSize.secondary` controls the child's height; otherwise Flame derives an
+intrinsic height from resolved text, padding, and nested content. Omit the
+property to preserve full-height stretching. Flat paint, curved projection,
+backgrounds, and hit testing consume the same aligned child frame.
 
 On a curved owning `LayoutPath`, `PanelLayout` captions resolve through the
 same projected surface as the panel fill and border. Glyph position, tangent,
@@ -436,11 +466,16 @@ LandscapeXlLayout(
   node: const NodeConfig(
     state: LayoutState({
       LayoutCondition.nodeHighlighted(): NodeConfig(
-        style: NodeStyle(
-          borderStyle: GuideStyle(
-            color: Color(0xFF2196F3),
-            strokeWidth: 4,
-          ),
+        borderStyle: GuideStyle(
+          color: Color(0xFF2196F3),
+          strokeWidth: 4,
+        ),
+      ),
+      LayoutCondition.nodeSelected(): NodeConfig(
+        backgroundOpacity: 1,
+        borderStyle: GuideStyle(
+          color: Color(0xFFFFD54F),
+          strokeWidth: 3,
         ),
       ),
     }),
@@ -448,15 +483,29 @@ LandscapeXlLayout(
 )
 ```
 
-`NodeConfig.style` owns immediate presentation. Every matching condition points
-to another `NodeConfig`, resolves recursively, and contributes in map insertion
-order. Later declarations override only the non-null style values they provide.
-The recursive shape leaves room for future Node behavior beside style without
-flattening it into the renderer. Legacy Node paint fields remain active until
-the planned renderer-wide migration.
+`NodeConfig` directly owns Node presentation and typography. Every matching
+condition points to another `NodeConfig`, resolves recursively, and contributes
+in map insertion order. Later declarations override only the non-null values
+they provide.
+Set `NodeConfig.content` when a Node must render one exact metadata source:
+`NodeContent.slug()`, `NodeContent.alias()`, `NodeContent.emoji()`, or
+`NodeContent.title()`. Explicit content suppresses the normal composite
+emoji-plus-slug presentation. If the selected source is absent, the Node paints
+no content rather than silently switching to another source. Because `content`
+merges with the rest of `NodeConfig`, conditional states may override it.
+`LayoutCondition.nodeSelected()` evaluates the Node currently being painted,
+matching its normalized path first and its slug as the virtual-Node fallback.
+Pass `nodePath:` only when a condition intentionally targets one fixed Node.
+`FanLayout`, `GraphLayout`, and `NodeLayout` resolve this state independently
+for every rendered Node rather than once for their complete surface.
+`NodeConfig.text` owns inherited Node typography. Fan and Graph labels resolve
+their font size and other text metrics from it rather than declaring local
+`labelSize` properties.
+The recursive shape leaves room for future Node behavior without splitting
+configuration into renderer-specific wrappers.
 
-`NodeConfig`, `NodeStyle`, and the canonical `NodeDefaults` are kept together
-in `lib/models/layout/node_config.dart`. Update that file for global Node fallbacks;
+`NodeConfig` and the canonical `NodeDefaults` are kept together in
+`lib/models/layout/node_config.dart`. Update that file for global Node fallbacks;
 use layout configuration for preset-specific conditional configuration.
 
 The LG Ergo bottom plane no longer owns the earlier hour/day/week perspective
@@ -475,6 +524,10 @@ sibling widths. `FanSectionSizing.directPartsWeighted` assigns each occurrence
 limits. Internal bands keep a regular radius while the final band adapts the
 same cumulative fractions to the owning `LayoutPath` boundary by path length,
 preventing triangle or trapezoid perspective from adding unintended edge width.
+Fan segments paint their resolved Node color and state overlay without owning
+an image background. LG Ergo configures the elder-brain artwork once on the
+`cortex-bush` Fan Layout surface, so it does not repeat per Node. `time-fan`
+has no image background.
 For a two-point curved Fan plane, Flame uses the midpoint of the structural
 edge as the root and samples the configured curve as the outer boundary. Both
 curve endpoints close directly back to that root, so no opposing plane edge or
@@ -519,7 +572,7 @@ inherited curved surface, so paint and hit testing use the same projected path.
 It does not fetch a `NodeTree` or infer graph
 connections yet. Selection membership and active fill state use the Node's
 unique slug. Fan and Graph compact labels render emoji first and wrap the slug
-fallback with `NodeConfig.style.slugPrefix` and `slugSuffix`. LG Ergo's
+fallback with `NodeConfig.slugPrefix` and `slugSuffix`. LG Ergo's
 Node defaults use `[[` and `]]`, producing `[[slug]]` without changing stored
 Node identity. `GraphLayoutComponent` owns all GraphLayout drawing and hit
 geometry; screen/layout hosts provide only the resolved projected surface,
@@ -531,6 +584,29 @@ Updates/Added field owns the virtual source, which reads the
 `isVirtual` subset of Riverpod-selected Nodes, retains dashed borders, uses
 `LayoutDefaults.virtualNodeBackgroundOpacity` (50% by default), and keeps the
 normal Node tap/toggle target.
+
+Use `NodeLayout` when a layout intentionally owns one filtered Node:
+
+```dart
+NodeLayout(
+  filter: NodeSearchFilter.allOf([
+    NodeSearchParameter(
+      parameter: NodeParameter.slug,
+      value: 'cortex',
+    ),
+  ]),
+  storedNode: Node(slug: 'cortex', title: 'Cortex'),
+)
+```
+
+The query always requests one result and only its first Node renders. After a
+successful empty response, `storedNode` is deep-copied, marked with the
+`Virtual` label and virtual renderer status, inserted once into the selected
+Node store, and rendered instead. Loading and error states do not create the
+fallback. `NodeLayoutComponent` uses `NodeComponent` for shared fill, border,
+emoji, slug, hover, and tap behavior, including inherited curved projection.
+The Node fills the complete slot assigned to `NodeLayout`; it does not use
+GraphLayout's circular `nodeExtentFactor` geometry.
 
 `TableLayout.includeUnconfiguredFields` combines declarative ordering with
 data-dependent rows. `unconfiguredFieldPanelId` places populated unconfigured
@@ -615,14 +691,24 @@ consumes Enter to submit the query or select the highlighted Node instead.
 The right plane keeps Copy and Share in its second action row. Me has moved to
 the left info table as a visible group; its previous exact-slug player action
 is intentionally not connected until the group receives global functionality.
-The panoramic scene contains a three-by-three directional core whose areas
+The panoramic scene contains a three-by-three directional core whose slots
 represent top-left, top-center,
 top-right, center-left, center, center-right, bottom-left, bottom-center, and
 bottom-right. A fixed 4rem header and 2rem bottom ribbon surround those rows,
-while a fixed 3rem left-ribbon column spans every row before the three content
-columns. Its center content column is wider than its side columns. These controls
+while a fixed 4rem left-ribbon area spans the complete column. Its nested
+content skips the first 4rem header row. The header is a direct `RowLayout`
+spanning all four columns. A
+foreground logo area owns their first-cell intersection and uses `NodeLayout`
+to load the same exact Calendar root as the top and bottom Fans, while
+preserving its `brain-control` aliases and brain Emoji. The elder-brain image
+is configured once on `cortex-bush`, not on the logo. The center
+content column is wider than its side columns. Header panels are direct children of its
+single RowLayout. These controls
 expose stable `direction-*` aliases but remain
 declarative interaction placeholders for now.
+The full-width bottom track is owned by `footer: RowLayout`. It crosses the
+left-ribbon column explicitly and orders a fixed ribbon-width start spacer, the
+flexible teletext `bottom-ribbon` panel, and a matching end spacer.
 
 The top-row Today action formats the local calendar date as `DD-MM-YYYY` and
 performs an exact-slug `QUERY /api/v1/node/search`. A returned canonical Node is
@@ -642,12 +728,18 @@ outer circle remains the scene boundary for anchors and shape framing.
 
 The `direction-pad` is the panoramic reference grid: three fractional scene
 rows plus fixed header and bottom-ribbon rows, and three fractional content
-columns preceded by the fixed 3rem `left-ribbon`. `info-grid` spans its
-projected left content column, `scene-graph` spans
+columns preceded by the fixed 4rem `left-ribbon`. `info-grid` spans its
+projected left content column across the three scene rows between header and
+footer, `scene-graph` spans
 its projected center column, and `action-panel` directly owns the projected
-right column as a `ColumnLayout`. The left-ribbon is also a `ColumnLayout` and
-uses `GridSpan.full` from the header through the bottom ribbon. The directional
-areas remain reserved for controls. Its center track is
+right column as a `ColumnLayout` across the three scene rows, stopping before
+the footer. The left-ribbon content is also a
+`ColumnLayout`, nested in a full-height Grid area whose first row is reserved
+for the logo. The header is a direct full-width Row. `logo` separately owns the
+header/left-ribbon intersection. Its shared-root `NodeLayout` and brain Emoji
+paint above both outer ribbon surfaces without a separate image background.
+The directional
+slots remain reserved for controls. Its center track is
 wider than its side tracks, demonstrating that grid tracks remain independent
 from child `Layout.size` values.
 

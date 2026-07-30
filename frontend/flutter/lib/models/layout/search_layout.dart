@@ -20,7 +20,6 @@ class SearchLayout extends Layout {
     super.node,
     super.panel,
     super.state,
-    super.nodeHoverBorderStyle,
     super.children = const {
       searchResultsLayoutKey: TableLayout(
         guideStyle: GuideStyle(color: Color(0xFF3F51B5)),
@@ -50,7 +49,6 @@ class SearchLayout extends Layout {
         },
       ),
     },
-    super.visibility,
     super.inputSources,
   }) : assert(padding >= 0),
        assert(maxWidth > 0),

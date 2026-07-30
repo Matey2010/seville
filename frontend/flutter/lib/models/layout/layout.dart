@@ -5,6 +5,7 @@ import 'package:seville_proto/seville_proto.dart'
     hide NodeSearchFilter, NodeSearchParameter;
 
 part 'graph_traverse_type.dart';
+part 'default_size.dart';
 part 'label.dart';
 part 'landscape_xl_layout.dart';
 part 'layout_condition.dart';
@@ -19,7 +20,7 @@ part 'text.dart';
 
 abstract class Layout {
   const Layout({
-    this.size = const LayoutSize.fr(1),
+    LayoutSize? size,
     this.aliases = const [],
     this.label = LabelDefaults.config,
     this.text = const LayoutTextConfig(),
@@ -32,7 +33,6 @@ abstract class Layout {
     this.derivatives = const {},
     this.derivativeSnapshot,
     this.observables = const {},
-    this.visibility = const [],
     this.inputSources = LayoutInputSource.values,
     this.layoutPadding = 0,
     this.layoutGap = 0,
@@ -40,8 +40,8 @@ abstract class Layout {
     this.inactiveNodeBackgroundOpacity = NodeDefaults.inactiveBackgroundOpacity,
     this.activeNodeBackgroundOpacity = NodeDefaults.activeBackgroundOpacity,
     this.virtualNodeBackgroundOpacity = NodeDefaults.virtualBackgroundOpacity,
-    this.nodeHoverBorderStyle = NodeDefaults.hoverBorderStyle,
-  }) : assert(layoutPadding >= 0),
+  }) : _configuredSize = size,
+       assert(layoutPadding >= 0),
        assert(layoutGap >= 0),
        assert(layoutBorderWidth == null || layoutBorderWidth >= 0),
        assert(
@@ -60,13 +60,15 @@ abstract class Layout {
   /// Row and column composition use the primary dimension as their main-axis
   /// track. Renderers that support two-dimensional items may additionally use
   /// [LayoutSize.secondary].
-  final LayoutSize size;
+  final LayoutSize? _configuredSize;
+  LayoutSize get size =>
+      LayoutDefaultSize.mergeWith(const LayoutSize.fr(1), _configuredSize);
   final List<String> aliases;
   final LabelConfig label;
   final LayoutTextConfig text;
   final NodeConfig node;
   final PanelConfig panel;
-  final LayoutState<Layout> state;
+  final LayoutState<LayoutConfig> state;
   final List<LayoutAttribute> attributes;
   final List<LayoutBackground> background;
 
@@ -76,10 +78,6 @@ abstract class Layout {
   final String? derivativeSnapshot;
   final Map<String, LayoutObservable> observables;
 
-  /// Conditions that must all be active for this layout to be visible.
-  /// An empty list is visible because every configured condition is satisfied.
-  final List<LayoutCondition> visibility;
-
   /// Input channels allowed to originate interactions with this layout.
   final List<LayoutInputSource> inputSources;
   final double layoutPadding;
@@ -88,29 +86,73 @@ abstract class Layout {
   final double inactiveNodeBackgroundOpacity;
   final double activeNodeBackgroundOpacity;
   final double virtualNodeBackgroundOpacity;
-  final GuideStyle nodeHoverBorderStyle;
 
   bool supportsInputSource(LayoutInputSource source) =>
       inputSources.contains(source);
 
-  /// Resolves conditional Layout replacements in insertion order.
-  ///
-  /// A matching state value replaces the current Layout at the same stable tree
-  /// address. Later matching values have priority and may themselves own state.
-  Layout resolve(LayoutContext context) => state.resolve(
-    context,
-    base: this,
-    merge: (_, overlay) => overlay,
-    resolveValue: (value, stateContext) => value.resolve(stateContext),
-  );
+  /// Layout state specializes configuration without replacing tree structure.
+  Layout resolve(LayoutContext context) => this;
 
-  NodeConfig resolveNodeConfig(LayoutContext context) => node.resolve(context);
-  NodeStyle get nodeStyle => node.style;
-  Color get slugColor => nodeStyle.slugColor ?? NodeDefaults.slugColor;
-  Color get labelColor => nodeStyle.labelColor ?? NodeDefaults.labelColor;
-  Color get valueColor => nodeStyle.valueColor ?? NodeDefaults.valueColor;
-  LabelConfig resolveLabelConfig(LayoutContext context) =>
-      label.resolveWithDefaults(context);
+  Iterable<LayoutConfig> _activeStateOverlays(LayoutContext context) sync* {
+    for (final entry in state.values.entries) {
+      if (!entry.key.isActive(context)) continue;
+      yield entry.value;
+      yield* entry.value.activeStateOverlays(context);
+    }
+  }
+
+  LayoutSize resolveSize(LayoutContext context) {
+    var resolved = size;
+    for (final overlay in _activeStateOverlays(context)) {
+      resolved = LayoutDefaultSize.mergeWith(resolved, overlay.size);
+    }
+    return resolved;
+  }
+
+  LayoutTextConfig resolveTextConfig(LayoutContext context) {
+    var resolved = text;
+    for (final overlay in _activeStateOverlays(context)) {
+      if (overlay.text case final text?) resolved = resolved.merge(text);
+    }
+    return resolved;
+  }
+
+  List<LayoutBackground> resolveBackground(LayoutContext context) {
+    var resolved = background;
+    for (final overlay in _activeStateOverlays(context)) {
+      resolved = overlay.background ?? resolved;
+    }
+    return resolved;
+  }
+
+  NodeConfig resolveNodeConfig(LayoutContext context) {
+    var resolved = node.resolve(context);
+    for (final overlay in _activeStateOverlays(context)) {
+      if (overlay.node case final node?) {
+        resolved = resolved.merge(node.resolve(context));
+      }
+    }
+    return resolved;
+  }
+
+  Color get slugColor => node.slugColor ?? NodeDefaults.slugColor;
+  Color get labelColor => node.labelColor ?? NodeDefaults.labelColor;
+  Color get valueColor => node.valueColor ?? NodeDefaults.valueColor;
+  LabelConfig resolveLabelConfig(LayoutContext context) {
+    var resolved = label;
+    for (final overlay in _activeStateOverlays(context)) {
+      if (overlay.label case final label?) resolved = resolved.merge(label);
+    }
+    return resolved.resolve(context);
+  }
+
+  PanelConfig resolvePanelConfig(LayoutContext context) {
+    var resolved = panel;
+    for (final overlay in _activeStateOverlays(context)) {
+      if (overlay.panel case final panel?) resolved = resolved.merge(panel);
+    }
+    return resolved;
+  }
 
   Offset get center => const Offset(0.5, 0.5);
 
@@ -160,10 +202,19 @@ abstract class Layout {
     return requestedInset.clamp(0, size.shortestSide / 2).toDouble();
   }
 
-  bool isVisible(LayoutContext context) =>
-      visibility.every((condition) => condition.isActive(context));
+  bool isVisible(LayoutContext context) {
+    final hasVisibilityState = state.values.values.any(
+      (config) => config.hasVisibilityState,
+    );
+    if (!hasVisibilityState) return true;
+    var visible = false;
+    for (final overlay in _activeStateOverlays(context)) {
+      visible = overlay.visible ?? visible;
+    }
+    return visible;
+  }
 
-  String formatNodeSlug(String slug) => nodeStyle.formatSlug(slug);
+  String formatNodeSlug(String slug) => node.formatSlug(slug);
 
   LayoutDerivativeSnapshot getDerivatives([
     String? snapshot,
@@ -190,6 +241,41 @@ abstract class Layout {
       for (final entry in getDerivatives(snapshot, context).values.entries)
         entry.key: entry.value.resolve(this, size, context),
     };
+  }
+}
+
+/// Conditional configuration overlaid onto a Layout at its stable tree key.
+class LayoutConfig {
+  const LayoutConfig({
+    this.visible,
+    this.size,
+    this.label,
+    this.text,
+    this.node,
+    this.panel,
+    this.background,
+    this.state = const LayoutState(),
+  });
+
+  final bool? visible;
+  final LayoutSize? size;
+  final LabelConfig? label;
+  final LayoutTextConfig? text;
+  final NodeConfig? node;
+  final PanelConfig? panel;
+  final List<LayoutBackground>? background;
+  final LayoutState<LayoutConfig> state;
+
+  bool get hasVisibilityState =>
+      visible != null ||
+      state.values.values.any((value) => value.hasVisibilityState);
+
+  Iterable<LayoutConfig> activeStateOverlays(LayoutContext context) sync* {
+    for (final entry in state.values.entries) {
+      if (!entry.key.isActive(context)) continue;
+      yield entry.value;
+      yield* entry.value.activeStateOverlays(context);
+    }
   }
 }
 
@@ -221,6 +307,7 @@ class LayoutContext {
     this.labelHighlighted = false,
     this.currentLabel,
     this.currentNodePath,
+    this.currentNodeSlug,
     this.activeNodeSlugs = const [],
     this.activeNodePaths = const [],
     this.layoutPath = const [],
@@ -237,6 +324,7 @@ class LayoutContext {
   final bool labelHighlighted;
   final String? currentLabel;
   final String? currentNodePath;
+  final String? currentNodeSlug;
   final List<String> activeNodeSlugs;
   final List<String> activeNodePaths;
   final List<String> layoutPath;
@@ -257,6 +345,7 @@ class LayoutContext {
       labelHighlighted: labelHighlighted,
       currentLabel: currentLabel,
       currentNodePath: path,
+      currentNodeSlug: currentNodeSlug,
       activeNodeSlugs: activeNodeSlugs,
       activeNodePaths: activeNodePaths,
       layoutPath: layoutPath,
@@ -273,6 +362,7 @@ class LayoutContext {
       labelHighlighted: value,
       currentLabel: currentLabel,
       currentNodePath: currentNodePath,
+      currentNodeSlug: currentNodeSlug,
       activeNodeSlugs: activeNodeSlugs,
       activeNodePaths: activeNodePaths,
       layoutPath: layoutPath,
@@ -289,6 +379,41 @@ class LayoutContext {
       labelHighlighted: labelHighlighted,
       currentLabel: label,
       currentNodePath: currentNodePath,
+      currentNodeSlug: currentNodeSlug,
+      activeNodeSlugs: activeNodeSlugs,
+      activeNodePaths: activeNodePaths,
+      layoutPath: layoutPath,
+      rootFontSize: rootFontSize,
+    );
+  }
+
+  LayoutContext withCurrentNode({String? path, String? slug}) {
+    return LayoutContext(
+      inputSource: inputSource,
+      selectedNodePath: selectedNodePath,
+      selectedNodePaths: selectedNodePaths,
+      highlightedNodePaths: highlightedNodePaths,
+      labelHighlighted: labelHighlighted,
+      currentLabel: currentLabel,
+      currentNodePath: path,
+      currentNodeSlug: slug,
+      activeNodeSlugs: activeNodeSlugs,
+      activeNodePaths: activeNodePaths,
+      layoutPath: layoutPath,
+      rootFontSize: rootFontSize,
+    );
+  }
+
+  LayoutContext withHighlightedNodePath(String path) {
+    return LayoutContext(
+      inputSource: inputSource,
+      selectedNodePath: selectedNodePath,
+      selectedNodePaths: selectedNodePaths,
+      highlightedNodePaths: [...highlightedNodePaths, path],
+      labelHighlighted: labelHighlighted,
+      currentLabel: currentLabel,
+      currentNodePath: currentNodePath,
+      currentNodeSlug: currentNodeSlug,
       activeNodeSlugs: activeNodeSlugs,
       activeNodePaths: activeNodePaths,
       layoutPath: layoutPath,
@@ -648,8 +773,6 @@ abstract class LayoutGuide extends Layout {
     super.node,
     super.panel,
     super.state,
-    super.nodeHoverBorderStyle,
-    super.visibility,
     super.inputSources,
   }) : super();
 
@@ -678,8 +801,6 @@ class CirleLayout extends LayoutGuide {
     super.node,
     super.panel,
     super.state,
-    super.nodeHoverBorderStyle,
-    super.visibility,
     super.inputSources,
   });
 
@@ -1015,6 +1136,8 @@ abstract class LayoutBackground {
     LayoutBackgroundFit fit,
     int repeat,
     Offset position,
+    double rotationDegrees,
+    double scale,
   }) = LayoutImageBackground;
 
   const factory LayoutBackground.guides({
@@ -1070,7 +1193,10 @@ class LayoutImageBackground extends LayoutBackground {
     this.fit = LayoutBackgroundFit.cover,
     this.repeat = 1,
     this.position = const Offset(0.5, 0.5),
-  }) : assert(repeat > 0);
+    this.rotationDegrees = 0,
+    this.scale = 1,
+  }) : assert(repeat > 0),
+       assert(scale > 0);
 
   final String assetPath;
   final LayoutBackgroundFit fit;
@@ -1080,6 +1206,12 @@ class LayoutImageBackground extends LayoutBackground {
 
   /// Normalized image placement inside each repeated tile.
   final Offset position;
+
+  /// Clockwise rotation around the center of each image tile.
+  final double rotationDegrees;
+
+  /// Uniform scale around the center of each image tile.
+  final double scale;
 }
 
 class LayoutGuidingBackground extends LayoutBackground {
@@ -1285,14 +1417,14 @@ class GridArea {
   final GridAreaSpan maxSpan;
 }
 
-/// CSS-like two-dimensional composition using named tracks and areas.
+/// CSS-like two-dimensional composition using named tracks and slots.
 ///
-/// Each entry in [areas] positions the child with the same key in [children].
+/// Each entry in [slot] positions the child with the same key in [children].
 class GridLayout extends Layout {
   const GridLayout({
     required this.rowsConfig,
     required this.columnsConfig,
-    this.areas = const {},
+    this.slot = const {},
     this.guideStyle,
     super.children,
     super.size,
@@ -1310,14 +1442,12 @@ class GridLayout extends Layout {
     super.node,
     super.panel,
     super.state,
-    super.nodeHoverBorderStyle,
-    super.visibility,
     super.inputSources,
   }) : super();
 
   final Map<String, LayoutSize> rowsConfig;
   final Map<String, LayoutSize> columnsConfig;
-  final Map<String, GridArea> areas;
+  final Map<String, GridArea> slot;
   final GuideStyle? guideStyle;
 }
 
@@ -1339,8 +1469,6 @@ class ColumnLayout extends Layout {
     super.node,
     super.panel,
     super.state,
-    super.nodeHoverBorderStyle,
-    super.visibility,
     super.inputSources,
   }) : super(attributes: const [LayoutAttribute.rectangular]);
 }
@@ -1348,6 +1476,7 @@ class ColumnLayout extends Layout {
 /// Horizontal composition whose children retain their identity in [children].
 class RowLayout extends Layout {
   const RowLayout({
+    this.crossAxisAlignment,
     super.children,
     super.size,
     super.aliases,
@@ -1363,10 +1492,23 @@ class RowLayout extends Layout {
     super.node,
     super.panel,
     super.state,
-    super.nodeHoverBorderStyle,
-    super.visibility,
     super.inputSources,
   }) : super(attributes: const [LayoutAttribute.rectangular]);
+
+  /// Places intrinsic-height children vertically within this row.
+  ///
+  /// Null preserves the original behavior where children stretch through the
+  /// row's complete cross axis.
+  final LayoutCrossAxisAlignment? crossAxisAlignment;
+}
+
+/// Vertical placement of intrinsic-height children inside a [RowLayout].
+class LayoutCrossAxisAlignment {
+  const LayoutCrossAxisAlignment.top() : fraction = 0;
+  const LayoutCrossAxisAlignment.center() : fraction = 0.5;
+  const LayoutCrossAxisAlignment.bottom() : fraction = 1;
+
+  final double fraction;
 }
 
 /// Paintable leaf used inside row/column composition.
@@ -1387,8 +1529,6 @@ class PanelLayout extends Layout {
     super.node,
     super.panel,
     super.state,
-    super.nodeHoverBorderStyle,
-    super.visibility,
     super.inputSources,
   }) : super(attributes: const [LayoutAttribute.rectangular]);
   final GuideStyle? borderStyle;
@@ -1406,7 +1546,6 @@ class LayoutPath extends Layout {
     super.derivatives,
     super.derivativeSnapshot,
     super.observables,
-    super.visibility,
     super.inputSources,
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
@@ -1422,7 +1561,6 @@ class LayoutPath extends Layout {
     super.node,
     super.panel,
     super.state,
-    super.nodeHoverBorderStyle,
   }) : super();
 
   final List<LayoutDerivativeReference> points;
@@ -1451,7 +1589,6 @@ class LayoutPathCurve {
 
 class FanLayout extends Layout with TableLayoutMixin {
   const FanLayout({
-    required this.style,
     this.rootNodeId,
     this.rootNodePointer,
     this.rootNodeFilter,
@@ -1462,7 +1599,6 @@ class FanLayout extends Layout with TableLayoutMixin {
     this.maxSectionCount = 6,
     this.sectionSizing = FanSectionSizing.equal,
     this.caption,
-    this.labelSize = 12,
     this.position = LayoutRelativePosition.top,
     this.growthDirection,
     this.gridStyle,
@@ -1480,8 +1616,6 @@ class FanLayout extends Layout with TableLayoutMixin {
     super.node,
     super.panel,
     super.state,
-    super.nodeHoverBorderStyle,
-    super.visibility,
     super.inputSources,
   }) : assert(
          (rootNodeId == null ? 0 : 1) +
@@ -1510,11 +1644,9 @@ class FanLayout extends Layout with TableLayoutMixin {
   final int maxDepth;
   final int maxSectionCount;
   final FanSectionSizing sectionSizing;
-  final double labelSize;
   final LayoutRelativePosition position;
   final LayoutDerivativeReference? growthDirection;
   final GuideStyle? gridStyle;
-  final GuideStyle style;
 
   String? resolveRootNodeId({required Node? selectedNode}) {
     final pointer = rootNodePointer;
@@ -1562,7 +1694,6 @@ class GraphLayout extends Layout {
   const GraphLayout({
     required this.style,
     this.nodeExtentFactor = 0.5,
-    this.labelSize = 12,
     this.emojiFontSizeFactor = 2,
     this.emojiSlugGapFactor = 0.5,
     super.aliases,
@@ -1579,18 +1710,14 @@ class GraphLayout extends Layout {
     super.node,
     super.panel,
     super.state,
-    super.nodeHoverBorderStyle,
-    super.visibility,
     super.inputSources,
   }) : assert(nodeExtentFactor > 0 && nodeExtentFactor <= 1),
-       assert(labelSize > 0),
        assert(emojiFontSizeFactor > 0),
        assert(emojiSlugGapFactor >= 0),
        super();
 
   /// Diameter of a rendered Node relative to its equal-sized pool cell.
   final double nodeExtentFactor;
-  final double labelSize;
   final double emojiFontSizeFactor;
   final double emojiSlugGapFactor;
   final GuideStyle style;
@@ -1616,8 +1743,6 @@ class NodeListLayout extends Layout {
     super.node,
     super.panel,
     super.state,
-    super.nodeHoverBorderStyle,
-    super.visibility,
     super.inputSources,
   }) : super();
 
@@ -1627,6 +1752,46 @@ class NodeListLayout extends Layout {
 }
 
 enum NodeListDataSource { virtualNodes, searchResults }
+
+/// Single Node resolved from the first result of [filter].
+class NodeLayout extends Layout {
+  const NodeLayout({
+    required this.filter,
+    required this.storedNode,
+    this.emojiFontSizeFactor = 2,
+    this.emojiSlugGapFactor = 0.5,
+    this.style = const GuideStyle(
+      color: NodeDefaults.labelColor,
+      strokeWidth: 1.5,
+    ),
+    super.size,
+    super.aliases,
+    super.attributes = const [LayoutAttribute.rectangular],
+    super.background,
+    super.layoutPadding,
+    super.layoutGap,
+    super.layoutBorderWidth,
+    super.inactiveNodeBackgroundOpacity,
+    super.activeNodeBackgroundOpacity,
+    super.virtualNodeBackgroundOpacity,
+    super.label,
+    super.text,
+    super.node,
+    super.panel,
+    super.state,
+    super.inputSources,
+  }) : assert(emojiFontSizeFactor > 0),
+       assert(emojiSlugGapFactor >= 0),
+       super();
+
+  final NodeSearchFilter filter;
+
+  /// Frontend fallback rendered and stored as Virtual after an empty lookup.
+  final Node storedNode;
+  final double emojiFontSizeFactor;
+  final double emojiSlugGapFactor;
+  final GuideStyle style;
+}
 
 abstract class LayoutNodePointer {
   const LayoutNodePointer._();
@@ -1687,8 +1852,6 @@ class LayoutAreaRayLayout extends LayoutGuide {
     super.node,
     super.panel,
     super.state,
-    super.nodeHoverBorderStyle,
-    super.visibility,
     super.inputSources,
   });
 
@@ -1720,8 +1883,6 @@ class LayoutAreaToDerivativeRayLayout extends LayoutGuide {
     super.node,
     super.panel,
     super.state,
-    super.nodeHoverBorderStyle,
-    super.visibility,
     super.inputSources,
   });
 
@@ -1760,8 +1921,6 @@ class StickmanLayout extends Layout {
     super.node,
     super.panel,
     super.state,
-    super.nodeHoverBorderStyle,
-    super.visibility,
     super.inputSources,
   }) : super();
 
@@ -1812,7 +1971,6 @@ class PlaneLayout extends Layout {
     super.derivatives,
     super.derivativeSnapshot,
     super.observables,
-    super.visibility,
     super.inputSources,
     super.layoutPadding,
     super.layoutGap,
@@ -1825,7 +1983,6 @@ class PlaneLayout extends Layout {
     super.node,
     super.panel,
     super.state,
-    super.nodeHoverBorderStyle,
   }) : super();
 
   final VaultNode? vaultNode;
@@ -1883,9 +2040,7 @@ class SubjectNodeLayout extends PlaneLayout {
     super.node,
     super.panel,
     super.state,
-    super.nodeHoverBorderStyle,
     super.shape,
-    super.visibility,
     super.inputSources,
   });
 }
@@ -1921,8 +2076,6 @@ class LayoutBorderGuide extends LayoutGuide {
     super.node,
     super.panel,
     super.state,
-    super.nodeHoverBorderStyle,
-    super.visibility,
     super.inputSources,
   });
 

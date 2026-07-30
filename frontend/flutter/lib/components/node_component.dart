@@ -4,7 +4,15 @@ import 'package:flame/components.dart';
 import 'package:flutter/painting.dart';
 import 'package:seville_proto/seville_proto.dart';
 
+import '../constants/typography.dart';
+import '../domain/node.dart';
 import '../models/layout/layout.dart';
+
+typedef LayoutNodeSurface = ({
+  Size logicalSize,
+  Path clipPath,
+  Offset Function(double u, double v) project,
+});
 
 /// Shared Flame renderer for Node paint state and hover decoration.
 class NodeComponent extends PositionComponent {
@@ -64,17 +72,20 @@ class NodeComponent extends PositionComponent {
     LayoutContext layoutContext,
     Layout layout, {
     bool isVirtual = false,
+    NodeConfig? config,
   }) {
     final normalizedNodeSlug = nodeSlug.trim();
     final active =
         normalizedNodeSlug.isNotEmpty &&
         layoutContext.activeNodeSlugs.contains(normalizedNodeSlug);
-    final opacity = isVirtual
-        ? layout.virtualNodeBackgroundOpacity
-        : active
-        ? layout.activeNodeBackgroundOpacity
-        : layout.inactiveNodeBackgroundOpacity;
-    return color.withValues(alpha: opacity);
+    final opacity =
+        config?.backgroundOpacity ??
+        (isVirtual
+            ? layout.virtualNodeBackgroundOpacity
+            : active
+            ? layout.activeNodeBackgroundOpacity
+            : layout.inactiveNodeBackgroundOpacity);
+    return (config?.backgroundColor ?? color).withValues(alpha: opacity);
   }
 
   static void renderBorder(
@@ -106,6 +117,95 @@ class NodeComponent extends PositionComponent {
     }
   }
 
+  static String presentationLabel(Node node, NodeConfig config) {
+    final content = config.content;
+    if (content != null) return content.resolve(node, config);
+    final slug = node.slug.trim();
+    return slug.isNotEmpty ? config.formatSlug(slug) : node.displayLabel;
+  }
+
+  static void paintLabels(
+    Canvas canvas,
+    Node node,
+    Rect bounds, {
+    required NodeConfig config,
+    required LayoutTextConfig text,
+    required double emojiFontSizeFactor,
+    required double emojiSlugGapFactor,
+  }) {
+    final labelSize = text.fontSize ?? LayoutTextDefaults.rootFontSize;
+    final maxWidth = bounds.width * 0.8;
+    final content = config.content;
+    if (content != null) {
+      final value = content.resolve(node, config);
+      if (value.isEmpty) return;
+      final requestedFontSize = content.isEmoji
+          ? labelSize * emojiFontSizeFactor
+          : labelSize;
+      final availableFontSize = math.min(maxWidth, bounds.height * 0.8);
+      if (availableFontSize <= 0) return;
+      final painter = _nodeTextPainter(
+        value,
+        isSlug: content.isSlug,
+        maxWidth: maxWidth,
+        color: content.isSlug
+            ? config.slugColor ?? NodeDefaults.slugColor
+            : config.labelColor ?? NodeDefaults.labelColor,
+        fontSize: math.min(requestedFontSize, availableFontSize),
+        textConfig: text,
+        fontFeatures: content.isSlug
+            ? (config.slugTransform ?? NodeDefaults.slugTransform).fontFeatures
+            : null,
+      );
+      painter.paint(
+        canvas,
+        bounds.center - Offset(painter.width / 2, painter.height / 2),
+      );
+      return;
+    }
+    if (maxWidth < labelSize * 2) return;
+    final slugPainter = _nodeTextPainter(
+      presentationLabel(node, config),
+      isSlug: true,
+      maxWidth: maxWidth,
+      color: config.slugColor ?? NodeDefaults.slugColor,
+      fontSize: labelSize,
+      textConfig: text,
+      fontFeatures:
+          (config.slugTransform ?? NodeDefaults.slugTransform).fontFeatures,
+    );
+    final emoji = node.primaryEmojiCharacter;
+    if (emoji == null) {
+      slugPainter.paint(
+        canvas,
+        bounds.center - Offset(slugPainter.width / 2, slugPainter.height / 2),
+      );
+      return;
+    }
+    final emojiPainter = _nodeTextPainter(
+      emoji,
+      isSlug: false,
+      maxWidth: maxWidth,
+      color: config.labelColor ?? NodeDefaults.labelColor,
+      fontSize: labelSize * emojiFontSizeFactor,
+      textConfig: text,
+    );
+    final gap = labelSize * emojiSlugGapFactor;
+    final contentHeight = emojiPainter.height + gap + slugPainter.height;
+    final top = bounds.center.dy - contentHeight / 2;
+    emojiPainter.paint(
+      canvas,
+      Offset(bounds.center.dx - emojiPainter.width / 2, top),
+    );
+    slugPainter.paint(
+      canvas,
+      Offset(
+        bounds.center.dx - slugPainter.width / 2,
+        top + emojiPainter.height + gap,
+      ),
+    );
+  }
+
   @override
   void render(Canvas canvas) {
     final path = _hoverPath;
@@ -123,3 +223,37 @@ class NodeComponent extends PositionComponent {
     renderBorder(canvas, path, style, style.strokeWidth, isVirtual: false);
   }
 }
+
+TextPainter _nodeTextPainter(
+  String text, {
+  required bool isSlug,
+  required double maxWidth,
+  required Color color,
+  required double fontSize,
+  required LayoutTextConfig textConfig,
+  List<FontFeature>? fontFeatures,
+}) => TextPainter(
+  text: TextSpan(
+    text: LayoutText.defaultRepresentation(text),
+    style: TextStyle(
+      fontFamily: isSlug
+          ? null
+          : textConfig.fontFamily ?? SevilleTypography.fontFamily,
+      color: color,
+      fontSize: fontSize,
+      fontWeight: isSlug
+          ? FontWeight.w700
+          : textConfig.fontWeight ?? FontWeight.w600,
+      fontStyle: textConfig.fontStyle,
+      letterSpacing: textConfig.letterSpacing,
+      wordSpacing: textConfig.wordSpacing,
+      height: textConfig.height,
+      shadows: textConfig.effects,
+      fontFeatures: fontFeatures,
+    ),
+  ),
+  maxLines: 1,
+  ellipsis: '…',
+  textDirection: TextDirection.ltr,
+  textAlign: TextAlign.center,
+)..layout(maxWidth: maxWidth);

@@ -97,6 +97,29 @@ final nodeBySlugProvider = FutureProvider.family<Node?, String>((
   return null;
 });
 
+class NodeLayoutRequest {
+  const NodeLayoutRequest(this.filter);
+
+  final NodeSearchFilter filter;
+
+  @override
+  bool operator ==(Object other) =>
+      other is NodeLayoutRequest && filter == other.filter;
+
+  @override
+  int get hashCode => filter.hashCode;
+}
+
+final nodeLayoutProvider = FutureProvider.family<Node?, NodeLayoutRequest>((
+  ref,
+  request,
+) async {
+  final result = await ref
+      .watch(sevilleApiProvider)
+      .queryNodes(nodeFilter: request.filter, limit: 1);
+  return result.nodes.firstOrNull;
+});
+
 final systemInfoProvider = FutureProvider<SystemInfo>((ref) async {
   final api = ref.watch(sevilleApiProvider);
   return api.systemInfo();
@@ -214,6 +237,33 @@ class SelectedNodesNotifier extends Notifier<List<ResolvedVaultNode>> {
     );
     final resolvedNode = ResolvedVaultNode(
       path: slug,
+      node: node,
+      resolvedStatus: LayoutHttpStatus.noContent,
+      isVirtual: true,
+    );
+    state = List.unmodifiable([...state, resolvedNode]);
+    return resolvedNode;
+  }
+
+  ResolvedVaultNode storeVirtualNode(Node storedNode) {
+    final node = storedNode.deepCopy();
+    final slug = node.slug.trim();
+    if (slug.isEmpty) {
+      throw ArgumentError.value(storedNode, 'storedNode', 'slug is required');
+    }
+    final existing = state.firstWhere(
+      (candidate) => candidate.node?.slug.trim() == slug,
+      orElse: () => ResolvedVaultNode(
+        path: '',
+        node: null,
+        resolvedStatus: LayoutHttpStatus.notFound,
+      ),
+    );
+    if (existing.node != null) return existing;
+    if (!node.labels.contains('Virtual')) node.labels.add('Virtual');
+    if (node.path.trim().isEmpty) node.path = slug;
+    final resolvedNode = ResolvedVaultNode(
+      path: node.path,
       node: node,
       resolvedStatus: LayoutHttpStatus.noContent,
       isVirtual: true,

@@ -44,13 +44,21 @@ same ancestor projection used by the panel fill and border.
 
 ## Layout parameters
 
-Every `Layout` accepts `visibility: List<LayoutCondition>`. A layout is visible
-only when every configured condition is active for the current `LayoutContext`.
-The default empty list is visible because there are no failed conditions. Use
-`visibility` for direct show/hide configuration such as no-Node-selected or
-has-active-Nodes UI. Use `ConditionalDerivative` when geometry must select
-between alternatives. Compose these condition-bearing primitives directly;
-layouts do not introduce an intermediate mode or named condition-group layer.
+Every `Layout` accepts `state: LayoutState<LayoutConfig>`. Conditional
+visibility is a `LayoutConfig.visible` value under its owning condition:
+
+```dart
+state: LayoutState({
+  LayoutCondition.hasActiveNodes(): LayoutConfig(visible: true),
+}),
+```
+
+When any state entry configures visibility, the Layout is hidden until a
+matching entry resolves `visible: true`; later matching entries have priority.
+A Layout with no visibility state remains visible. Use `ConditionalDerivative`
+when geometry must select between alternatives. Compose these condition-bearing
+primitives directly; layouts do not introduce an intermediate mode or named
+condition-group layer.
 Layout configuration constructs conditions only through `LayoutCondition`
 factories. Use `LayoutCondition.not(...)` to negate another condition instead
 of addressing concrete condition implementation classes.
@@ -132,10 +140,15 @@ owned by the layout whose geometry it fills. Each background declares its
 `LayoutBackground.color`, `image`, `guides`, or `conditional`; these factories
 retain typed concrete variants for renderer dispatch. Color backgrounds declare
 a direct color, while image backgrounds additionally declare the asset, fit,
-horizontal repeat count, and normalized per-tile position. Repetition divides
-the owning surface into equal horizontal tiles and applies fit independently;
+horizontal repeat count, normalized per-tile position, and clockwise
+`rotationDegrees`. Rotation and uniform `scale` use the center of each tile;
+values above `1` zoom in and values below `1` shrink. Repetition divides the
+owning surface into equal horizontal tiles and applies fit independently;
 every tile follows the same ancestor projection. Panel fills belong in this
 shared list rather than a parallel `PanelLayout.fillColor` property.
+Background resolution recursively follows Grid, Row, and Column children; a
+Panel nested inside a flex composition therefore paints in its resolved curved
+surface instead of silently losing its configured background.
 
 An empty `background` list paints no background for that layout. There is no
 ancestor fallback or separate background-default property.
@@ -217,7 +230,8 @@ panoramic Grid's inherited curved projection, and its resulting path is shared
 by paint and hit testing. Every circle shows its wrapped slug; an
 assigned Emoji appears above it at twice the configured base Node font size,
 with a half-font-size vertical gap. LG Ergo's Fan and Graph renderers share
-`lgErgoNodeFontSize` as that typography source. It is visible only when
+the root `NodeConfig.text.fontSize` as that typography source; the renderers do
+not own parallel `labelSize` fields or a font-size constant. It is visible only when
 `LayoutCondition.hasActiveNodes()` is active and does not
 request a `NodeTree`; connections and graph-distance placement remain future
 extensions. `GraphLayoutComponent` is the single Flame owner of its geometry,
@@ -232,6 +246,13 @@ Use `ColumnLayout` and `RowLayout` when content has semantic interface order
 that must remain independent from a `GridLayout`'s named axes. Their
 children remain in `Map<String, Layout> children`, where each map key is the
 child's stable identity.
+
+`RowLayout.crossAxisAlignment` accepts `LayoutCrossAxisAlignment.top()`,
+`.center()`, or `.bottom()`. When configured, each child uses its explicit
+`LayoutSize.secondary` as height or derives an intrinsic height from its text,
+padding, and nested content. The child is then placed along the row's vertical
+cross axis. Omit the property to retain full-height stretching. The same
+resolved frame drives flat and curved paint, backgrounds, and hit testing.
 
 Every `Layout` owns a `LayoutSize size` directly. A row resolves its primary
 dimension along the horizontal main axis; a column resolves it along the
@@ -258,16 +279,25 @@ Nested row children use their own `size` values for button proportions.
 
 ## Conditional Node styles
 
-Every `Layout` accepts `node: NodeConfig`. Its immediate presentation lives in
-`NodeConfig.style`; its `state` is an ordered
+Every `Layout` accepts `node: NodeConfig`. It directly owns immediate Node
+presentation and typography; its `state` is an ordered
 `Map<LayoutCondition, NodeConfig>` rather than renderer-specific branches.
+`NodeConfig.content` optionally selects one exact rendered source through
+`NodeContent.slug()`, `.alias()`, `.emoji()`, or `.title()`. An explicit source
+does not fall back to another source when empty and replaces the normal
+composite Node caption.
 Resolution evaluates every condition against the current `LayoutContext`,
 resolves matching configurations recursively, and merges them in insertion
-order. Later non-null style values specialize earlier broad rules, while future
-Node configuration can grow beside `style`.
+order. Later non-null values specialize earlier broad rules.
 
-The related models and canonical fallbacks live together in
-`lib/models/layout/node_config.dart`: `NodeConfig`, `NodeStyle`, and `NodeDefaults`.
+Use `LayoutCondition.nodeSelected()` for presentation that belongs to the
+currently rendered selected Node. It compares normalized Node paths and falls
+back to slug identity for frontend-only virtual Nodes. The optional `nodePath:`
+targets one explicit Node instead. Fan, Graph, and singular Node layouts resolve
+the condition separately for each Node they paint.
+
+The related model and canonical fallbacks live together in
+`lib/models/layout/node_config.dart`: `NodeConfig` and `NodeDefaults`.
 The file is part of the Layout library because conditional
 resolution currently depends on `LayoutCondition`, `LayoutContext`,
 `GuideStyle`, and `TextTransform`; it is not a separate package yet. Base Node
@@ -289,12 +319,13 @@ cursor highlighting resolves through `LayoutCondition.labelHighlighted()`.
 
 Conditional configuration uses `LayoutState<T>`, an ordered map wrapper shared
 by `Layout`, `LabelConfig`, and `NodeConfig`. A Layout declares
-`LayoutState<Layout>` values under its `state` property. Every matching value is
-resolved recursively at the same tree identity; the last matching Layout wins.
-Because the resolved specialization remains at the child's position in the
-hierarchy, its configuration takes priority over inherited parent defaults.
-Label and Node state use the same traversal while merging their specialized
-styles in insertion order.
+`LayoutState<LayoutConfig>` values under its `state` property. The base Layout
+resolves first and every matching configuration overlays its explicitly
+configured common properties at the same tree identity. Later matching values
+have priority, but omitted size, text, Label, Node, Panel, background, and
+visibility values continue to inherit. Layout state never replaces the concrete
+Layout or its children. Label and Node state use the same traversal and merge
+their specialized styles in insertion order.
 
 `LayoutTextConfig` lives in `lib/models/layout/text.dart` and owns an optional
 typed `LayoutText` value, color, dark/light contrast colors, font family and
@@ -443,7 +474,7 @@ The normalized value is stored in `interfaceOverlayStateProvider`, and
 Flame-native Node option components rendered directly beneath the HUD input.
 Arrow keys move the highlighted option; Enter or a tap selects it through the
 same slug-based selected-node state and selection-sound path. LG Ergo configures
-`NodeConfig.style.slugPrefix` and
+`NodeConfig.slugPrefix` and
 `slugSuffix` as `[[` and `]]`; Fan and Graph apply them only to their slug
 fallback, while search rows always expose the wrapped slug.
 
@@ -452,6 +483,17 @@ selected Nodes whose `ResolvedVaultNode.isVirtual` flag is true. These Nodes use
 the shared paint and hit-test cycle, including 50% virtual background opacity,
 dashed draft borders, slug-based selection toggling, and selection audio. The
 opacity is owned by `LayoutDefaults.virtualNodeBackgroundOpacity`.
+
+`NodeLayout` intentionally renders exactly one Node through the shared Flame
+Node presentation cycle. Configure its complete lookup with `filter`; the
+Riverpod request always uses a limit of one and renders only the first result.
+Configure `storedNode` as its frontend fallback. A successful empty lookup
+deep-copies that Node, ensures its `Virtual` label and `isVirtual` status, stores
+it once in `selectedNodesProvider`, and renders it. Loading and failed requests
+must not create virtual Nodes. Its Flame component uses the owning
+`LayoutPath` projection and fills the complete dedicated slot with the same
+paint, hover, and tap geometry. Circular pool geometry remains specific to
+`GraphLayout`.
 
 The left info panel contains one `TableLayout`, never separate Node and System
 tables. Its `TableConfig` composes shared `panel`, ordered `panels`, `rowConfig`,
@@ -518,8 +560,8 @@ they preserve their stored case in a bold normal-case face because Alegreya
 Sans SC would visually convert lowercase wikilink-like syntax into small caps.
 The same rule applies to the left info table's `slug` and
 `selected_node_slugs` fields, including configured slug wrappers. Every slug
-uses the resolved `NodeConfig.style.slugColor`; the default LG Ergo syntax
-color is gold `#FFD54F`. `NodeStyle.labelColor` and `valueColor` provide the
+uses the resolved `NodeConfig.slugColor`; the default LG Ergo syntax color is
+gold `#FFD54F`. `NodeConfig.labelColor` and `valueColor` provide the
 corresponding Node label and value colors. LG Ergo declares all three once on
 the root Layout's `NodeConfig`, and descendants inherit them. Ordinary layout
 text uses ivory `#FFF8E7` instead of hard white, keeping wrapped Node references
@@ -536,9 +578,10 @@ selection data but does not own audio playback.
 
 The cursor-hovered Node receives a second border from `NodeComponent`. It
 reuses the renderer's exact Fan segment, Graph circle, or Node-list polygon and
-reads its style from `LayoutDefaults.nodeHoverBorderStyle`. Node background,
-solid/dashed border, and hover paint therefore remain owned by the Node Flame
-component; the game host only routes the hovered identity to pooled audio.
+resolves its style from the target hierarchy's `NodeConfig.state` entry for
+`LayoutCondition.nodeHighlighted()`. Node background, solid/dashed border, and
+hover paint therefore remain owned by the Node Flame component; the game host
+only routes the hovered identity to pooled audio.
 
 ## Game cursor
 
@@ -565,15 +608,22 @@ is retained as a comment beside the new group, ready for a later global action
 contract; the current group does not dispatch the player query yet.
 Direction controls use a three-by-three fractional core, ordered from top-left
 through bottom-right with center included. Fixed header and bottom-ribbon rows
-surround it. A fixed 3rem left-ribbon track precedes the content columns and its
-`ColumnLayout` spans every row through `GridSpan.full`. The center content
-column remains wider than the side columns. Their `direction-*` aliases are configuration-level
+surround it. A fixed 4rem left-ribbon track precedes the content columns and its
+outer Grid area spans every row; its nested `ColumnLayout` skips the first 4rem
+header row. The header itself is a direct `RowLayout` spanning every column in
+the complete top row. A foreground `logo` area owns their intersection and
+renders the 🧠 `brain-control` `NodeLayout`. Its filter is the same exact
+Calendar-root filter used by both Fans, while the elder-brain image is
+configured once on `cortex-bush`. The center content column remains wider than
+the side columns. Their `direction-*` aliases are configuration-level
 interaction vocabulary; concrete movement behavior is not implied by their
 rendering.
-The center header ribbon reuses the existing header row and center column. Its
-Grid area starts with `GridAreaSpan.content` and is capped by
-`GridAreaSpan.track`, so intrinsic one-line content remains smaller than the
-4rem header while every renderer uses the same possible maximum track.
+The `footer` Grid area spans the entire fixed bottom row, including the
+left-ribbon intersection. Its Row content is a fixed ribbon-width start spacer,
+the flexible teletext `bottom-ribbon` Panel, and a matching end spacer.
+The spanning header is one flat `RowLayout` whose panels are direct children.
+There is no nested header or center-ribbon Grid
+area.
 
 The right-plane Today action performs an exact-slug Node query for the local
 `DD-MM-YYYY` value. A returned canonical Node is slug-upserted into

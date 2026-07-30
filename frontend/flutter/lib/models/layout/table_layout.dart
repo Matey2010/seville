@@ -31,8 +31,6 @@ class TableLayout extends Layout
     super.node,
     super.panel,
     super.state,
-    super.nodeHoverBorderStyle,
-    super.visibility,
     super.inputSources,
   }) : assert(panelGap >= 0),
        assert(panelFoldDuration > 0),
