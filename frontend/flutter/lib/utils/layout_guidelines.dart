@@ -14,7 +14,10 @@ void drawLayoutGuidelines(
 ]) {
   if (size.isEmpty) return;
 
-  for (final guide in layout.children.values.whereType<LayoutGuide>()) {
+  for (final guide
+      in layout.children.values
+          .map((child) => child.resolve(context))
+          .whereType<LayoutGuide>()) {
     if (!guide.visible || !guide.isVisible(context)) continue;
     if (guide is CirleLayout) {
       _drawCircleGuide(canvas, size, layout, guide);

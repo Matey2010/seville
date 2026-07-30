@@ -30,6 +30,7 @@ class TableLayout extends Layout
     super.text,
     super.node,
     super.panel,
+    super.state,
     super.nodeHoverBorderStyle,
     super.visibility,
     super.inputSources,

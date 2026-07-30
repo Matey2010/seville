@@ -19,6 +19,12 @@ typedef GraphLayoutNodeHit = ({
   Path path,
 });
 
+typedef GraphLayoutSurface = ({
+  Size logicalSize,
+  Path clipPath,
+  Offset Function(double u, double v) project,
+});
+
 /// Flame-owned renderer, geometry, and interaction cycle for [GraphLayout].
 class GraphLayoutComponent extends PositionComponent with TapCallbacks {
   GraphLayoutComponent({
@@ -28,7 +34,7 @@ class GraphLayoutComponent extends PositionComponent with TapCallbacks {
     required this.selectedNodes,
     required this.layoutContext,
     required this.nodeStyle,
-    required this.planePoints,
+    required this.surface,
     required this.isTapEnabled,
     required this.onNodeTap,
   });
@@ -39,7 +45,7 @@ class GraphLayoutComponent extends PositionComponent with TapCallbacks {
   final List<ResolvedVaultNode> Function() selectedNodes;
   final LayoutContext Function() layoutContext;
   final NodeStyle Function() nodeStyle;
-  final List<Offset>? Function() planePoints;
+  final GraphLayoutSurface? Function() surface;
   final bool Function() isTapEnabled;
   final void Function(GraphLayoutNodeHit hit) onNodeTap;
 
@@ -52,21 +58,19 @@ class GraphLayoutComponent extends PositionComponent with TapCallbacks {
   @override
   void render(Canvas canvas) {
     if (!isLayoutVisible()) return;
-    final points = planePoints();
-    if (points == null) return;
-    final nodes = _nodesInFrame(selectedNodes(), points);
+    final resolvedSurface = surface();
+    if (resolvedSurface == null) return;
+    final nodes = _nodesInFrame(selectedNodes(), resolvedSurface);
     if (nodes.isEmpty) return;
 
-    final clipPath = _polygonPath(points);
     final borderStyle = layout.style;
     final borderWidth = layout.layoutBorderWidth ?? borderStyle.strokeWidth;
     final context = layoutContext();
     canvas.save();
-    canvas.clipPath(clipPath);
+    canvas.clipPath(resolvedSurface.clipPath);
     for (final graphNode in nodes) {
-      final nodePath = Path()..addOval(graphNode.circleBounds);
       canvas.drawPath(
-        nodePath,
+        graphNode.path,
         Paint()
           ..color = NodeComponent.backgroundColor(
             NodeComponent.colorFor(graphNode.node).resolve(),
@@ -79,7 +83,7 @@ class GraphLayoutComponent extends PositionComponent with TapCallbacks {
       );
       NodeComponent.renderBorder(
         canvas,
-        nodePath,
+        graphNode.path,
         borderStyle,
         borderWidth,
         isVirtual: graphNode.resolvedNode.isVirtual,
@@ -106,18 +110,20 @@ class GraphLayoutComponent extends PositionComponent with TapCallbacks {
 
   GraphLayoutNodeHit? hitTest(Offset position) {
     if (!isLayoutVisible()) return null;
-    final points = planePoints();
-    if (points == null) return null;
-    for (final graphNode in _nodesInFrame(selectedNodes(), points).reversed) {
-      final path = Path()..addOval(graphNode.circleBounds);
-      if (!path.contains(position)) continue;
+    final resolvedSurface = surface();
+    if (resolvedSurface == null) return null;
+    for (final graphNode in _nodesInFrame(
+      selectedNodes(),
+      resolvedSurface,
+    ).reversed) {
+      if (!graphNode.path.contains(position)) continue;
       return (
         key: '$layoutKey/${graphNode.node.slug}',
         resolvedNode: graphNode.resolvedNode,
         node: graphNode.node,
         label: nodeLabel(graphNode.node),
         circleBounds: graphNode.circleBounds,
-        path: path,
+        path: graphNode.path,
       );
     }
     return null;
@@ -130,25 +136,23 @@ class GraphLayoutComponent extends PositionComponent with TapCallbacks {
 
   List<_GraphNodeFrame> _nodesInFrame(
     List<ResolvedVaultNode> selected,
-    List<Offset> points,
+    GraphLayoutSurface surface,
   ) {
     final resolvedNodes = [
       for (final resolvedNode in selected)
         if (resolvedNode.node case final node?)
           (resolvedNode: resolvedNode, node: node),
     ];
-    if (resolvedNodes.isEmpty || points.length < 3) return const [];
-
-    final bounds = _boundsForPoints(points);
-    if (bounds.isEmpty) return const [];
-    final aspectRatio = bounds.width / bounds.height;
+    final logicalSize = surface.logicalSize;
+    if (resolvedNodes.isEmpty || logicalSize.isEmpty) return const [];
+    final aspectRatio = logicalSize.width / logicalSize.height;
     final columnCount = math.min(
       resolvedNodes.length,
       math.max(1, math.sqrt(resolvedNodes.length * aspectRatio).ceil()),
     );
     final rowCount = (resolvedNodes.length / columnCount).ceil();
-    final cellWidth = bounds.width / columnCount;
-    final cellHeight = bounds.height / rowCount;
+    final cellWidth = logicalSize.width / columnCount;
+    final cellHeight = logicalSize.height / rowCount;
     final diameter = math.min(cellWidth, cellHeight) * layout.nodeExtentFactor;
     return [
       for (var index = 0; index < resolvedNodes.length; index += 1)
@@ -159,7 +163,8 @@ class GraphLayoutComponent extends PositionComponent with TapCallbacks {
           cellWidth,
           cellHeight,
           diameter,
-          bounds,
+          logicalSize,
+          surface.project,
         ),
     ];
   }
@@ -171,21 +176,40 @@ class GraphLayoutComponent extends PositionComponent with TapCallbacks {
     double cellWidth,
     double cellHeight,
     double diameter,
-    Rect bounds,
+    Size logicalSize,
+    Offset Function(double u, double v) project,
   ) {
     final row = index ~/ columnCount;
     final column = index % columnCount;
     final rowStart = row * columnCount;
     final rowNodeCount = math.min(columnCount, nodes.length - rowStart);
-    final rowLeft = bounds.center.dx - rowNodeCount * cellWidth / 2;
+    final rowLeft = (logicalSize.width - rowNodeCount * cellWidth) / 2;
     final center = Offset(
-      rowLeft + (column + 0.5) * cellWidth,
-      bounds.top + (row + 0.5) * cellHeight,
+      (rowLeft + (column + 0.5) * cellWidth) / logicalSize.width,
+      ((row + 0.5) * cellHeight) / logicalSize.height,
     );
+    final radiusU = diameter / (2 * logicalSize.width);
+    final radiusV = diameter / (2 * logicalSize.height);
+    const sampleCount = 40;
+    final path = Path();
+    for (var sample = 0; sample <= sampleCount; sample += 1) {
+      final theta = math.pi * 2 * sample / sampleCount;
+      final point = project(
+        center.dx + math.cos(theta) * radiusU,
+        center.dy + math.sin(theta) * radiusV,
+      );
+      if (sample == 0) {
+        path.moveTo(point.dx, point.dy);
+      } else {
+        path.lineTo(point.dx, point.dy);
+      }
+    }
+    path.close();
     return (
       resolvedNode: nodes[index].resolvedNode,
       node: nodes[index].node,
-      circleBounds: Rect.fromCircle(center: center, radius: diameter / 2),
+      circleBounds: path.getBounds(),
+      path: path,
     );
   }
 
@@ -240,6 +264,7 @@ typedef _GraphNodeFrame = ({
   ResolvedVaultNode resolvedNode,
   Node node,
   Rect circleBounds,
+  Path path,
 });
 
 TextPainter _textPainter(
@@ -251,7 +276,7 @@ TextPainter _textPainter(
   List<FontFeature>? fontFeatures,
 }) => TextPainter(
   text: TextSpan(
-    text: text,
+    text: LayoutText.defaultRepresentation(text),
     style: TextStyle(
       fontFamily: isSlug ? null : SevilleTypography.fontFamily,
       color: color,
@@ -265,22 +290,3 @@ TextPainter _textPainter(
   textDirection: TextDirection.ltr,
   textAlign: TextAlign.center,
 )..layout(maxWidth: maxWidth);
-
-Path _polygonPath(List<Offset> points) {
-  final path = Path()..moveTo(points.first.dx, points.first.dy);
-  for (final point in points.skip(1)) {
-    path.lineTo(point.dx, point.dy);
-  }
-  return path..close();
-}
-
-Rect _boundsForPoints(List<Offset> points) {
-  final xs = points.map((point) => point.dx);
-  final ys = points.map((point) => point.dy);
-  return Rect.fromLTRB(
-    xs.reduce(math.min),
-    ys.reduce(math.min),
-    xs.reduce(math.max),
-    ys.reduce(math.max),
-  );
-}

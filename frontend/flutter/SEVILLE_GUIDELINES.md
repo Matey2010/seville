@@ -38,6 +38,9 @@ content, Flame resolves descendants in normalized surface coordinates. Grid
 rows and nested horizontal boundaries follow the path curves, while paint and
 hit testing use the same sampled paths. Curving is inherited through nested
 grid and flex layouts rather than approximated by clipping flat content.
+Curved `PanelLayout` captions use the surface's local projected basis for each
+glyph, so their position, tangent, scale, and shear remain aligned with the
+same ancestor projection used by the panel fill and border.
 
 ## Layout parameters
 
@@ -125,13 +128,19 @@ copying the entire characteristic set.
 Every `Layout` exposes an ordered `background` list. Concrete layout
 constructors forward this base property so a background remains declarative and
 owned by the layout whose geometry it fills. Each background declares its
-`orderPosition` and opacity; image backgrounds additionally declare the asset,
-fit, and normalized alignment.
+`orderPosition` and opacity. Configuration constructs them through
+`LayoutBackground.color`, `image`, `guides`, or `conditional`; these factories
+retain typed concrete variants for renderer dispatch. Color backgrounds declare
+a direct color, while image backgrounds additionally declare the asset, fit,
+horizontal repeat count, and normalized per-tile position. Repetition divides
+the owning surface into equal horizontal tiles and applies fit independently;
+every tile follows the same ancestor projection. Panel fills belong in this
+shared list rather than a parallel `PanelLayout.fillColor` property.
 
 An empty `background` list paints no background for that layout. There is no
 ancestor fallback or separate background-default property.
 
-`LayoutPath` paints image backgrounds behind its fill, guides, and content,
+`LayoutPath` paints color and image backgrounds behind its guides and content,
 clips them to the resolved polygon, and projects quadrilateral images through
 the same rectangle-to-quad transform used by `TableLayout`. This means
 the image content itself obeys trapezoidal perspective instead of remaining a
@@ -203,7 +212,9 @@ center 2fr column between 1fr side columns. Its three 1fr rows inherit the
 owning curved `LayoutPath` projection. The
 Graph renders the complete Riverpod-selected Node pool in equal centered cells, with
 each circular Node occupying half of its cell by default. More selected Nodes
-therefore produce smaller circles. Every circle shows its wrapped slug; an
+therefore produce smaller circles. Each logical circle is sampled through the
+panoramic Grid's inherited curved projection, and its resulting path is shared
+by paint and hit testing. Every circle shows its wrapped slug; an
 assigned Emoji appears above it at twice the configured base Node font size,
 with a half-font-size vertical gap. LG Ergo's Fan and Graph renderers share
 `lgErgoNodeFontSize` as that typography source. It is visible only when
@@ -211,7 +222,7 @@ with a half-font-size vertical gap. LG Ergo's Fan and Graph renderers share
 request a `NodeTree`; connections and graph-distance placement remain future
 extensions. `GraphLayoutComponent` is the single Flame owner of its geometry,
 clipping, Node painting, labels, tap handling, and hover hit testing.
-`LandscapeXlLayoutView` only supplies the resolved plane, current state, and
+`LandscapeXlLayoutView` only supplies the resolved surface, current state, and
 application callback boundary.
 
 
@@ -227,7 +238,9 @@ dimension along the horizontal main axis; a column resolves it along the
 vertical main axis. Use the same track vocabulary used elsewhere:
 
 - `LayoutSize.fr(value)` consumes a weighted share of remaining space;
-- `LayoutSize.px(value)` (or `pt`) consumes a fixed visual extent; and
+- `LayoutSize.px(value)` (or `pt`) consumes a fixed visual extent;
+- `LayoutSize.rem(value)` consumes the root Layout text size multiplied by
+  `value`; and
 - `LayoutSize.calculatedFr(...)` keeps computed fractional sizing available.
 
 `LayoutSize` is the global sizing entity formerly wrapped by
@@ -274,11 +287,35 @@ and hash-based assignment are prohibited. Conditional
 specializations use the same recursive state-map protocol as `NodeConfig`;
 cursor highlighting resolves through `LayoutCondition.labelHighlighted()`.
 
-`LayoutTextConfig` lives in `lib/models/layout/text.dart` and owns text color,
-dark/light contrast colors, font family and metrics, font features, and shadow
-effects. Classification-label captions resolve it against their semantic fill:
+Conditional configuration uses `LayoutState<T>`, an ordered map wrapper shared
+by `Layout`, `LabelConfig`, and `NodeConfig`. A Layout declares
+`LayoutState<Layout>` values under its `state` property. Every matching value is
+resolved recursively at the same tree identity; the last matching Layout wins.
+Because the resolved specialization remains at the child's position in the
+hierarchy, its configuration takes priority over inherited parent defaults.
+Label and Node state use the same traversal while merging their specialized
+styles in insertion order.
+
+`LayoutTextConfig` lives in `lib/models/layout/text.dart` and owns an optional
+typed `LayoutText` value, color, dark/light contrast colors, font family and
+metrics, font features, and shadow effects. Use `LayoutText.none()` to suppress
+inherited text, `LayoutText.lorem(length:)` for generated placeholder copy,
+`LayoutText.value(...)` for a literal, `LayoutText.format(...)` for
+`{parameter}` interpolation, and `LayoutText.comment(...)` for a literal whose
+future comment presentation is intentionally not defined yet. An empty format
+template renders its parameter map through the shared default representation.
+Tables, Nodes, and classification labels use that same representation.
+
+Panel text resolves in ancestor-to-child order; later non-null child values
+override inherited values, including replacing an ancestor's
+`LayoutText.none()`. `PanelLayout` does not carry parallel caption, label-color,
+or label-size fields. Classification-label captions resolve text configuration
+against their semantic fill:
 light backgrounds select `darkColor`, while dark backgrounds select
 `lightColor`.
+The base `Layout.text` value is empty so an unspecified child cannot overwrite
+its parent with defaults. Renderers seed `LayoutTextDefaults.config` once before
+merging the root and descendants.
 
 Use `LayoutCondition.always()` as the first state entry when baseline behavior
 should participate in ordered condition resolution. Use
@@ -526,11 +563,17 @@ Copy and Share occupy the second right-plane action row. Me is now a visible
 shared-width group in the left info table. Its former right-plane implementation
 is retained as a comment beside the new group, ready for a later global action
 contract; the current group does not dispatch the player query yet.
-Direction controls use a three-by-three named-area `GridLayout`, ordered from
-top-left through bottom-right with center included. Its center column is wider
-than the side columns. Their `direction-*` aliases are configuration-level
+Direction controls use a three-by-three fractional core, ordered from top-left
+through bottom-right with center included. Fixed header and bottom-ribbon rows
+surround it. A fixed 3rem left-ribbon track precedes the content columns and its
+`ColumnLayout` spans every row through `GridSpan.full`. The center content
+column remains wider than the side columns. Their `direction-*` aliases are configuration-level
 interaction vocabulary; concrete movement behavior is not implied by their
 rendering.
+The center header ribbon reuses the existing header row and center column. Its
+Grid area starts with `GridAreaSpan.content` and is capped by
+`GridAreaSpan.track`, so intrinsic one-line content remains smaller than the
+4rem header while every renderer uses the same possible maximum track.
 
 The right-plane Today action performs an exact-slug Node query for the local
 `DD-MM-YYYY` value. A returned canonical Node is slug-upserted into

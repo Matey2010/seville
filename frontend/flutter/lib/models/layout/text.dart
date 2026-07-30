@@ -1,16 +1,9 @@
 part of 'layout.dart';
 
-abstract final class LayoutTextDefaults {
-  static const config = LayoutTextConfig(
-    color: Color(0xFFFFF8E7),
-    darkColor: Color(0xFF27251F),
-    lightColor: Color(0xFFFFF8E7),
-  );
-}
-
 /// Renderer-independent typography and contrast policy for a [Layout].
 class LayoutTextConfig {
   const LayoutTextConfig({
+    this.value,
     this.color,
     this.darkColor,
     this.lightColor,
@@ -25,6 +18,7 @@ class LayoutTextConfig {
     this.fontFeatures,
   });
 
+  final LayoutText? value;
   final Color? color;
   final Color? darkColor;
   final Color? lightColor;
@@ -48,6 +42,7 @@ class LayoutTextConfig {
   }
 
   LayoutTextConfig merge(LayoutTextConfig overlay) => LayoutTextConfig(
+    value: overlay.value ?? value,
     color: overlay.color ?? color,
     darkColor: overlay.darkColor ?? darkColor,
     lightColor: overlay.lightColor ?? lightColor,
@@ -60,5 +55,113 @@ class LayoutTextConfig {
     height: overlay.height ?? height,
     effects: overlay.effects ?? effects,
     fontFeatures: overlay.fontFeatures ?? fontFeatures,
+  );
+}
+
+/// Declarative text content resolved independently from its visual style.
+class LayoutText {
+  const LayoutText.none()
+    : _kind = _LayoutTextKind.none,
+      _source = '',
+      _length = 0,
+      _parameters = const {};
+
+  const LayoutText.lorem({required int length})
+    : assert(length >= 0),
+      _kind = _LayoutTextKind.lorem,
+      _source = '',
+      _length = length,
+      _parameters = const {};
+
+  const LayoutText.value(String value)
+    : _kind = _LayoutTextKind.value,
+      _source = value,
+      _length = 0,
+      _parameters = const {};
+
+  const LayoutText.format(String value, LayoutTextFormatParameters parameters)
+    : _kind = _LayoutTextKind.format,
+      _source = value,
+      _length = 0,
+      _parameters = parameters;
+
+  const LayoutText.comment(String value)
+    : _kind = _LayoutTextKind.comment,
+      _source = value,
+      _length = 0,
+      _parameters = const {};
+
+  static const _loremSentence =
+      'Lorem ipsum dolor sit amet, consectetur adipiscing elit.';
+
+  final _LayoutTextKind _kind;
+  final String _source;
+  final int _length;
+  final LayoutTextFormatParameters _parameters;
+
+  /// Null means that this text is explicitly suppressed.
+  String? resolve() => switch (_kind) {
+    _LayoutTextKind.none => null,
+    _LayoutTextKind.lorem => List.filled(_length, _loremSentence).join(' '),
+    _LayoutTextKind.value || _LayoutTextKind.comment => _source,
+    _LayoutTextKind.format => _format(_source, _parameters),
+  };
+
+  static String _format(
+    String template,
+    LayoutTextFormatParameters parameters,
+  ) {
+    if (template.isEmpty) return defaultRepresentation(parameters);
+    return template.replaceAllMapped(RegExp(r'\{([A-Za-z0-9_.-]+)\}'), (match) {
+      final key = match.group(1)!;
+      return parameters.containsKey(key)
+          ? defaultRepresentation(parameters[key])
+          : match.group(0)!;
+    });
+  }
+
+  /// Canonical plain-text representation shared by every renderer.
+  static String defaultRepresentation(Object? value) {
+    if (value == null) return '—';
+    if (value is LayoutText) return value.resolve() ?? '';
+    if (value is VaultNode) {
+      final label = value.label?.trim();
+      return label == null || label.isEmpty
+          ? value.path
+          : '$label (${value.path})';
+    }
+    if (value is Iterable) {
+      final formatted = value
+          .map(defaultRepresentation)
+          .where((item) => item != '—')
+          .join(', ');
+      return formatted.isEmpty ? '—' : formatted;
+    }
+    if (value is Map) {
+      if (value.isEmpty) return '—';
+      return value.entries
+          .map(
+            (entry) =>
+                '${defaultRepresentation(entry.key)}: '
+                '${defaultRepresentation(entry.value)}',
+          )
+          .join(', ');
+    }
+    final string = value.toString().trim();
+    return string.isEmpty ? '—' : string;
+  }
+}
+
+typedef LayoutTextFormatParameters = Map<String, dynamic>;
+
+enum _LayoutTextKind { none, lorem, value, format, comment }
+
+abstract final class LayoutTextDefaults {
+  static const rootFontSize = 12.0;
+
+  static const config = LayoutTextConfig(
+    color: Color(0xFFFFF8E7),
+    darkColor: Color(0xFF27251F),
+    lightColor: Color(0xFFFFF8E7),
   );
 }

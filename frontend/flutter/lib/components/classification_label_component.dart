@@ -63,7 +63,7 @@ class ClassificationLabelComponent extends PositionComponent {
           .toDouble();
       final textPainter = TextPainter(
         text: TextSpan(
-          text: label,
+          text: LayoutText.defaultRepresentation(label),
           style: TextStyle(
             fontFamily: textConfig.fontFamily ?? SevilleTypography.fontFamily,
             color: textConfig.resolveColor(style.color!),

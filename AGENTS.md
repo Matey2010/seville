@@ -80,9 +80,17 @@
 - Treat `aliases`, `label`, `text`, `node`, and `panel` as the standard global
   Layout configuration sequence. Presets place `label` and `text` between
   `aliases` and `node`.
+- Conditional values use the reusable ordered `LayoutState<T>` container.
+  Every `Layout` exposes `state: LayoutState<Layout>`; each matching Layout
+  specialization resolves recursively at the same stable tree key, and later
+  matching entries replace earlier ones. The resolved Layout remains below its
+  ancestors, so its label, text, Node, panel, background, geometry, and children
+  take priority over inherited parent defaults. `LabelConfig` and `NodeConfig`
+  use the same container with merge semantics. Do not restore parallel raw
+  condition maps or duplicate their traversal loops.
 - Every `Layout` exposes `label: LabelConfig`. `LabelConfig.style` owns
   the classification-label `LabelStyle`, while its ordered
-  `state: Map<LayoutCondition, LabelConfig>` resolves and merges like
+  `state: LayoutState<LabelConfig>` resolves and merges like
   `NodeConfig`. Label hover uses `LayoutCondition.labelHighlighted()` and a
   conditional border style. Semantic label colors use
   `LayoutCondition.equalsTo(...)` state entries; `LabelStyle.color` is only the
@@ -95,17 +103,30 @@
   `LabelConfig`, `LabelStyle`, and `LabelDefaults` live together in
   `lib/models/layout/label.dart`. LG Ergo declares its complete global label
   policy once on the root `LandscapeXlLayout`.
-- Every `Layout` exposes `text: LayoutTextConfig`. It owns general text color,
-  dark/light contrast colors, font family and metrics, font features, and
-  shadow effects. When both contrast colors exist, renderers choose dark text
+- Every `Layout` exposes `text: LayoutTextConfig`. Its optional `value` is a
+  typed `LayoutText`: use `none()` for inherited suppression, `lorem(length:)`
+  for generated placeholder copy, `value(...)` for exact text,
+  `format(..., parameters)` for `{parameter}` interpolation through the shared
+  default representation, and `comment(...)` for exact text whose distinct
+  presentation is reserved for later. General text color, dark/light contrast
+  colors, font family and metrics, font features, and shadow effects remain in
+  `LayoutTextConfig`. Panel text resolves from root through every ancestor to
+  child; later non-null values override inherited values, so a child may
+  replace an inherited `none()`.
+  `PanelLayout` must not restore parallel `caption`, `labelColor`, or
+  `labelSize` fields. Base `Layout.text` is empty; renderers seed
+  `LayoutTextDefaults.config` once before merging the hierarchy so an
+  unspecified child never resets its parent. When both contrast colors exist, renderers choose dark text
   for a light resolved background and light text for a dark background. Label
   captions use their resolved `LabelStyle.color` as that background and must
   not restore `LabelStyle.textColor` or painter-local contrast colors. The model
-  and defaults live in `lib/models/layout/text.dart`.
+  and defaults live in `lib/models/layout/text.dart`. Tables, Node captions,
+  and classification labels use `LayoutText.defaultRepresentation` rather than
+  owning divergent object-to-text formatters.
 - Every `Layout` exposes `node: NodeConfig`. `NodeConfig.style` owns the
   immediate `NodeStyle`, including `slugPrefix`, `slugTransform`, and
   `slugSuffix`, while its ordered
-  `state: Map<LayoutCondition, NodeConfig>` recursively specializes the entire
+  `state: LayoutState<NodeConfig>` recursively specializes the entire
   Node configuration. Resolve every matching condition in insertion order and
   merge later non-null style values over earlier values. `NodeConfig`,
   `NodeStyle`, and `NodeDefaults` live together in
@@ -123,7 +144,8 @@
   `TableConfig.panel` and may specialize it with their own `PanelConfig`.
 - Every `Layout` owns a `LayoutSize size` directly. `ColumnLayout` and
   `RowLayout` resolve its primary dimension along their main axis using
-  `LayoutSize.fr`, `px`/`pt`, or `calculatedFr`; do not restore the redundant
+  `LayoutSize.fr`, `px`/`pt`, `rem`, or `calculatedFr`; `rem` is a fixed extent
+  multiplied by the root Layout's resolved text font size. Do not restore the redundant
   `GridAxisVariable` wrapper or introduce separate flex/extent properties.
   `LayoutSize.twoDimensional(primary: ..., secondary: ...)` is the consolidated
   two-axis form. The owning renderer assigns geometric meaning to those axes;
@@ -169,7 +191,9 @@
   for grids and other structural consumers. Curved `GridLayout`, `RowLayout`,
   and `ColumnLayout` descendants resolve on the same normalized surface, and
   paint and hit testing must use the same curved paths rather than clipping a
-  flat composition.
+  flat composition. Curved `PanelLayout` captions project each glyph through
+  the surface's local horizontal and vertical basis so text follows the same
+  position, tangent, scale, and shear as its owning panel.
 - Every `LayoutPath.padding` is a `LayoutPathPadding`. Configure its `left`,
   `top`, `right`, and `bottom` values independently, or use
   `LayoutPathPadding.all(...)` for a uniform inset.
@@ -220,12 +244,15 @@
   It renders every Riverpod-selected Node through one Flame component. Arrange
   Nodes in equal centered cells, render each Node as a circle whose diameter is
   `nodeExtentFactor` of its cell, and shrink the cells as the selected set
-  grows. Scene Nodes always render their wrapped slug. When an Emoji exists,
+  grows. Treat those as logical surface circles: sample each Node path through
+  the complete inherited `LayoutPath`/Grid projection, and use that same warped
+  path for clipping, paint, borders, taps, and hover. Scene Nodes always render
+  their wrapped slug. When an Emoji exists,
   render it above the slug at `emojiFontSizeFactor` times `labelSize`, separated
   by `emojiSlugGapFactor` times `labelSize`; without an Emoji, center the slug.
   LG Ergo uses one `lgErgoNodeFontSize` for Fan and Graph Node typography, a
   `2.0` Emoji factor, and a `0.5` gap factor. Paint and hit-test from the same
-  resolved circle geometry. `GraphLayoutComponent` owns Graph geometry,
+  resolved projected geometry. `GraphLayoutComponent` owns Graph geometry,
   clipping, Node paint, labels, tap handling, and hover hit testing. The
   landscape game may resolve its owning `LayoutPath` and supply state/callbacks,
   but must not restore `_drawGraphLayout`, Graph geometry helpers, or Graph
@@ -247,9 +274,12 @@
   former right-plane `PanelLayout` commented beside that panel as the reference
   for its future global action; do not restore a live right-plane Me button.
   Direction controls belong to `panoramic-scene-plane/direction-pad`. Its
-  three named rows and three named columns represent top-left through
-  bottom-right, including center; the center column is wider than the side
-  columns. Keep their stable `direction-*` aliases in layout configuration;
+  three fractional scene rows and three fractional content columns represent
+  top-left through bottom-right, including center; the center content column is
+  wider than its side columns. A 4rem header and 2rem bottom ribbon are fixed
+  rows around that core. A 3rem `left-ribbon` column precedes the content
+  columns and its `ColumnLayout` spans every row through `GridSpan.full`. Keep
+  stable `direction-*` aliases in layout configuration;
   directional behavior remains a later interaction-policy concern.
 - Use `GridLayout` for named two-dimensional composition. It may be a
   `LayoutPath.children` entry and follows that path's straight, projective, or
@@ -261,7 +291,10 @@
   reference named starting tracks and use `GridSpan.full` when they must
   continue through all remaining tracks, including tracks added later. Use
   `columnOffset`/`rowOffset` plus fractional spans when an area must consume
-  part of a track. Do not restore `PerspectiveGridLayout`,
+  part of a track. Use `initialSpan: GridAreaSpan.content` with
+  `maxSpan: GridAreaSpan.track` when an area's initial vertical geometry should
+  follow intrinsic content but remain capped by its named row; paint,
+  backgrounds, and hit testing must share that resolved frame. Do not restore `PerspectiveGridLayout`,
   `PerspectiveGridArea`, or `LayoutPath.grid`.
   Use `LayoutSize.fr` for flexible space, `LayoutSize.pt` (`px` alias)
   for fixed gaps, and `LayoutSize.calculatedFr` when a track is a computed
@@ -390,10 +423,16 @@
 - Every `Layout` exposes its own ordered `background` list. Concrete layout
   constructors must forward that base property. `orderPosition` is frontend
   stacking metadata: lower values paint first, while guides and content stay
-  above background elements. `LayoutPath` image backgrounds are clipped to the
-  path's resolved polygon; quadrilateral image backgrounds use the same
+  above background elements. Configuration uses the `LayoutBackground.color`,
+  `image`, `guides`, and `conditional` factories, which retain typed concrete
+  variants for renderer dispatch. Use the color factory for solid or
+  translucent layout fills instead of concrete-layout `fillColor` properties.
+  `LayoutPath` color and image backgrounds are clipped to the path's resolved
+  polygon; quadrilateral image backgrounds use the same
   projective transform as `TableLayout`, so both image and content follow one
-  perspective without separate renderer coordinates.
+  perspective without separate renderer coordinates. `LayoutBackground.image`
+  uses `repeat` as a positive horizontal tile count and normalized `position`
+  inside each tile; fit and ancestor projection apply independently per tile.
 - Use `StickmanLayout` for the simple center-scene human scale reference. Its
   logical body lives in vertical `0..1`, where `1.0` equals `heightCm`
   (currently 200cm), and its visible frame can extend beyond that, e.g.

@@ -21,6 +21,7 @@ class LandscapeXlLayout extends Layout {
     super.text,
     super.node,
     super.panel,
+    super.state,
     super.nodeHoverBorderStyle,
   }) : super();
 }
@@ -49,6 +50,7 @@ class SafeAreaLayout extends LandscapeXlLayout {
     super.text,
     super.node,
     super.panel,
+    super.state,
     super.nodeHoverBorderStyle,
   });
 }

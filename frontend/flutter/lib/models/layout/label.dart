@@ -3,7 +3,7 @@ part of 'layout.dart';
 /// Canonical fallback values for classification-label presentation.
 abstract final class LabelDefaults {
   static const config = LabelConfig(
-    state: {
+    state: LayoutState({
       LayoutCondition.always(): LabelConfig(
         style: LabelStyle(
           color: Color(0xFFF5EDD6),
@@ -16,32 +16,34 @@ abstract final class LabelDefaults {
           borderStyle: GuideStyle(color: Color(0xFFFFD54F), strokeWidth: 4),
         ),
       ),
-    },
+    }),
   );
 }
 
 /// Extensible label configuration selected by Layout state.
 class LabelConfig {
-  const LabelConfig({this.style = const LabelStyle(), this.state = const {}});
+  const LabelConfig({
+    this.style = const LabelStyle(),
+    this.state = const LayoutState(),
+  });
 
   final LabelStyle style;
-  final Map<LayoutCondition, LabelConfig> state;
+  final LayoutState<LabelConfig> state;
 
-  LabelConfig resolve(LayoutContext context) {
-    var resolved = LabelConfig(style: style);
-    for (final entry in state.entries) {
-      if (entry.key.isActive(context)) {
-        resolved = resolved.merge(entry.value.resolve(context));
-      }
-    }
-    return resolved;
-  }
+  LabelConfig resolve(LayoutContext context) => state.resolve(
+    context,
+    base: LabelConfig(style: style),
+    merge: (current, overlay) => current.merge(overlay),
+    resolveValue: (value, stateContext) => value.resolve(stateContext),
+  );
 
   LabelConfig resolveWithDefaults(LayoutContext context) =>
       LabelDefaults.config.resolve(context).merge(resolve(context));
 
-  LabelConfig merge(LabelConfig overlay) =>
-      LabelConfig(style: style.merge(overlay.style));
+  LabelConfig merge(LabelConfig overlay) => LabelConfig(
+    style: style.merge(overlay.style),
+    state: state.merge(overlay.state),
+  );
 }
 
 /// Renderer-independent visual values owned by [LabelConfig].

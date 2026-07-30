@@ -8,6 +8,7 @@ part 'graph_traverse_type.dart';
 part 'label.dart';
 part 'landscape_xl_layout.dart';
 part 'layout_condition.dart';
+part 'layout_state.dart';
 part 'node_config.dart';
 part 'node_search.dart';
 part 'panel.dart';
@@ -21,9 +22,10 @@ abstract class Layout {
     this.size = const LayoutSize.fr(1),
     this.aliases = const [],
     this.label = LabelDefaults.config,
-    this.text = LayoutTextDefaults.config,
+    this.text = const LayoutTextConfig(),
     this.node = const NodeConfig(),
     this.panel = const PanelConfig(),
+    this.state = const LayoutState(),
     this.attributes = const [],
     this.background = const [],
     this.children = const {},
@@ -64,6 +66,7 @@ abstract class Layout {
   final LayoutTextConfig text;
   final NodeConfig node;
   final PanelConfig panel;
+  final LayoutState<Layout> state;
   final List<LayoutAttribute> attributes;
   final List<LayoutBackground> background;
 
@@ -89,6 +92,17 @@ abstract class Layout {
 
   bool supportsInputSource(LayoutInputSource source) =>
       inputSources.contains(source);
+
+  /// Resolves conditional Layout replacements in insertion order.
+  ///
+  /// A matching state value replaces the current Layout at the same stable tree
+  /// address. Later matching values have priority and may themselves own state.
+  Layout resolve(LayoutContext context) => state.resolve(
+    context,
+    base: this,
+    merge: (_, overlay) => overlay,
+    resolveValue: (value, stateContext) => value.resolve(stateContext),
+  );
 
   NodeConfig resolveNodeConfig(LayoutContext context) => node.resolve(context);
   NodeStyle get nodeStyle => node.style;
@@ -210,6 +224,7 @@ class LayoutContext {
     this.activeNodeSlugs = const [],
     this.activeNodePaths = const [],
     this.layoutPath = const [],
+    this.rootFontSize = LayoutTextDefaults.rootFontSize,
   });
 
   static const empty = LayoutContext();
@@ -225,6 +240,7 @@ class LayoutContext {
   final List<String> activeNodeSlugs;
   final List<String> activeNodePaths;
   final List<String> layoutPath;
+  final double rootFontSize;
 
   List<String> get resolvedActiveNodePaths {
     if (activeNodePaths.isNotEmpty) return activeNodePaths;
@@ -244,6 +260,7 @@ class LayoutContext {
       activeNodeSlugs: activeNodeSlugs,
       activeNodePaths: activeNodePaths,
       layoutPath: layoutPath,
+      rootFontSize: rootFontSize,
     );
   }
 
@@ -259,6 +276,7 @@ class LayoutContext {
       activeNodeSlugs: activeNodeSlugs,
       activeNodePaths: activeNodePaths,
       layoutPath: layoutPath,
+      rootFontSize: rootFontSize,
     );
   }
 
@@ -274,6 +292,7 @@ class LayoutContext {
       activeNodeSlugs: activeNodeSlugs,
       activeNodePaths: activeNodePaths,
       layoutPath: layoutPath,
+      rootFontSize: rootFontSize,
     );
   }
 }
@@ -628,6 +647,7 @@ abstract class LayoutGuide extends Layout {
     super.text,
     super.node,
     super.panel,
+    super.state,
     super.nodeHoverBorderStyle,
     super.visibility,
     super.inputSources,
@@ -657,6 +677,7 @@ class CirleLayout extends LayoutGuide {
     super.text,
     super.node,
     super.panel,
+    super.state,
     super.nodeHoverBorderStyle,
     super.visibility,
     super.inputSources,
@@ -978,8 +999,36 @@ class LayoutObservable {
 
 enum LayoutBackgroundFit { cover, contain, fill }
 
-class LayoutBackground {
+abstract class LayoutBackground {
   const LayoutBackground({this.orderPosition = 0, this.opacity = 1});
+
+  const factory LayoutBackground.color(
+    Color color, {
+    int orderPosition,
+    double opacity,
+  }) = LayoutBackgroundColor;
+
+  const factory LayoutBackground.image({
+    required String assetPath,
+    int orderPosition,
+    double opacity,
+    LayoutBackgroundFit fit,
+    int repeat,
+    Offset position,
+  }) = LayoutImageBackground;
+
+  const factory LayoutBackground.guides({
+    required List<LayoutBackgroundGuide> guides,
+    int orderPosition,
+    double opacity,
+  }) = LayoutGuidingBackground;
+
+  const factory LayoutBackground.conditional({
+    required LayoutCondition activeCondition,
+    required LayoutBackground background,
+    int orderPosition,
+    double opacity,
+  }) = ConditionalLayoutBackground;
 
   final int orderPosition;
   final double opacity;
@@ -1007,18 +1056,30 @@ class LayoutBorderBackground extends LayoutBackground {
   final GuideStyle style;
 }
 
+class LayoutBackgroundColor extends LayoutBackground {
+  const LayoutBackgroundColor(this.color, {super.orderPosition, super.opacity});
+
+  final Color color;
+}
+
 class LayoutImageBackground extends LayoutBackground {
   const LayoutImageBackground({
     required this.assetPath,
     super.orderPosition,
     super.opacity,
     this.fit = LayoutBackgroundFit.cover,
-    this.alignment = const Offset(0.5, 0.5),
-  });
+    this.repeat = 1,
+    this.position = const Offset(0.5, 0.5),
+  }) : assert(repeat > 0);
 
   final String assetPath;
   final LayoutBackgroundFit fit;
-  final Offset alignment;
+
+  /// Number of equal horizontal tiles painted across the owning surface.
+  final int repeat;
+
+  /// Normalized image placement inside each repeated tile.
+  final Offset position;
 }
 
 class LayoutGuidingBackground extends LayoutBackground {
@@ -1114,7 +1175,7 @@ class LayoutPathPadding {
   bool get isEmpty => left <= 0 && top <= 0 && right <= 0 && bottom <= 0;
 }
 
-enum LayoutSizeUnit { fraction, pixels, calculatedFraction }
+enum LayoutSizeUnit { fraction, pixels, rootEms, calculatedFraction }
 
 class LayoutSize {
   const LayoutSize.fr(double value)
@@ -1134,6 +1195,14 @@ class LayoutSize {
   const LayoutSize.pt(double value)
     : _value = value,
       _unit = LayoutSizeUnit.pixels,
+      _derivative = null,
+      _primary = null,
+      _secondary = null;
+
+  /// A fixed size relative to the root Layout's configured font size.
+  const LayoutSize.rem(double value)
+    : _value = value,
+      _unit = LayoutSizeUnit.rootEms,
       _derivative = null,
       _primary = null,
       _secondary = null;
@@ -1192,6 +1261,8 @@ abstract final class GridSpan {
   static const full = double.infinity;
 }
 
+enum GridAreaSpan { content, track }
+
 class GridArea {
   const GridArea({
     required this.row,
@@ -1200,6 +1271,8 @@ class GridArea {
     this.columnOffset = 0,
     this.rowSpan = 1,
     this.columnSpan = 1,
+    this.initialSpan = GridAreaSpan.track,
+    this.maxSpan = GridAreaSpan.track,
   });
 
   final String row;
@@ -1208,6 +1281,8 @@ class GridArea {
   final double columnOffset;
   final double rowSpan;
   final double columnSpan;
+  final GridAreaSpan initialSpan;
+  final GridAreaSpan maxSpan;
 }
 
 /// CSS-like two-dimensional composition using named tracks and areas.
@@ -1234,6 +1309,7 @@ class GridLayout extends Layout {
     super.text,
     super.node,
     super.panel,
+    super.state,
     super.nodeHoverBorderStyle,
     super.visibility,
     super.inputSources,
@@ -1262,6 +1338,7 @@ class ColumnLayout extends Layout {
     super.text,
     super.node,
     super.panel,
+    super.state,
     super.nodeHoverBorderStyle,
     super.visibility,
     super.inputSources,
@@ -1285,6 +1362,7 @@ class RowLayout extends Layout {
     super.text,
     super.node,
     super.panel,
+    super.state,
     super.nodeHoverBorderStyle,
     super.visibility,
     super.inputSources,
@@ -1295,11 +1373,7 @@ class RowLayout extends Layout {
 class PanelLayout extends Layout {
   const PanelLayout({
     super.size,
-    this.fillColor,
     this.borderStyle,
-    this.caption,
-    this.labelColor = const Color(0xFFFFF8E7),
-    this.labelSize = 12,
     super.aliases,
     super.background,
     super.layoutPadding,
@@ -1312,16 +1386,12 @@ class PanelLayout extends Layout {
     super.text,
     super.node,
     super.panel,
+    super.state,
     super.nodeHoverBorderStyle,
     super.visibility,
     super.inputSources,
   }) : super(attributes: const [LayoutAttribute.rectangular]);
-  final Color? fillColor;
   final GuideStyle? borderStyle;
-  final String? caption;
-  @override
-  final Color labelColor;
-  final double labelSize;
 }
 
 class LayoutPath extends Layout {
@@ -1351,6 +1421,7 @@ class LayoutPath extends Layout {
     super.text,
     super.node,
     super.panel,
+    super.state,
     super.nodeHoverBorderStyle,
   }) : super();
 
@@ -1408,6 +1479,7 @@ class FanLayout extends Layout with TableLayoutMixin {
     super.text,
     super.node,
     super.panel,
+    super.state,
     super.nodeHoverBorderStyle,
     super.visibility,
     super.inputSources,
@@ -1506,6 +1578,7 @@ class GraphLayout extends Layout {
     super.text,
     super.node,
     super.panel,
+    super.state,
     super.nodeHoverBorderStyle,
     super.visibility,
     super.inputSources,
@@ -1542,6 +1615,7 @@ class NodeListLayout extends Layout {
     super.text,
     super.node,
     super.panel,
+    super.state,
     super.nodeHoverBorderStyle,
     super.visibility,
     super.inputSources,
@@ -1612,6 +1686,7 @@ class LayoutAreaRayLayout extends LayoutGuide {
     super.text,
     super.node,
     super.panel,
+    super.state,
     super.nodeHoverBorderStyle,
     super.visibility,
     super.inputSources,
@@ -1644,6 +1719,7 @@ class LayoutAreaToDerivativeRayLayout extends LayoutGuide {
     super.text,
     super.node,
     super.panel,
+    super.state,
     super.nodeHoverBorderStyle,
     super.visibility,
     super.inputSources,
@@ -1683,6 +1759,7 @@ class StickmanLayout extends Layout {
     super.text,
     super.node,
     super.panel,
+    super.state,
     super.nodeHoverBorderStyle,
     super.visibility,
     super.inputSources,
@@ -1747,6 +1824,7 @@ class PlaneLayout extends Layout {
     super.text,
     super.node,
     super.panel,
+    super.state,
     super.nodeHoverBorderStyle,
   }) : super();
 
@@ -1804,6 +1882,7 @@ class SubjectNodeLayout extends PlaneLayout {
     super.text,
     super.node,
     super.panel,
+    super.state,
     super.nodeHoverBorderStyle,
     super.shape,
     super.visibility,
@@ -1841,6 +1920,7 @@ class LayoutBorderGuide extends LayoutGuide {
     super.text,
     super.node,
     super.panel,
+    super.state,
     super.nodeHoverBorderStyle,
     super.visibility,
     super.inputSources,

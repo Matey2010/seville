@@ -7,7 +7,7 @@ import '../../../typography.dart';
 final lgErgoLayoutConfig = LandscapeXlLayout(
   aliases: ['screen', 'root', 'reality', 'user-space', 'user-reality'],
   label: const LabelConfig(
-    state: {
+    state: LayoutState({
       LayoutCondition.always(): LabelConfig(
         style: LabelStyle(
           color: Color(0xFFF5EDD6),
@@ -52,13 +52,14 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
           ),
         ),
       ),
-    },
+    }),
   ),
   text: const LayoutTextConfig(
     color: Color(0xFFFFF8E7),
     darkColor: Color(0xFF27251F),
     lightColor: Color(0xFFFFF8E7),
     fontFamily: SevilleTypography.fontFamily,
+    fontSize: LayoutTextDefaults.rootFontSize,
   ),
   node: const NodeConfig(
     style: NodeStyle(
@@ -69,7 +70,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
       slugTransform: TextTransform.capitalCap(),
       slugSuffix: ']]',
     ),
-    state: {
+    state: LayoutState({
       LayoutCondition.nodeHighlighted(): NodeConfig(
         style: NodeStyle(
           borderStyle: GuideStyle(
@@ -79,7 +80,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
           ),
         ),
       ),
-    },
+    }),
   ),
   panel: const PanelConfig(
     foldedPanelSize: LayoutSize.twoDimensional(
@@ -90,16 +91,12 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
   attributes: [LayoutAttribute.screen, LayoutAttribute.rectangular],
 
   background: [
-    LayoutImageBackground(
-      assetPath: 'assets/wallpapers/dark-vintage-scheme.jpg',
-      fit: LayoutBackgroundFit.cover,
-    ),
-    LayoutImageBackground(
+    LayoutBackground.image(
       assetPath: 'assets/wallpapers/daft-punk-helmet.jpg',
       fit: LayoutBackgroundFit.contain,
-      opacity: 0.34,
+      opacity: 0.54,
     ),
-    LayoutGuidingBackground(
+    LayoutBackground.guides(
       guides: [
         LayoutBackgroundGuide(
           start: Offset(0, 0.5),
@@ -476,7 +473,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
         'bottom-plane': LayoutPath(
           aliases: ['bottom-plane', 'time-plane', 'x-axis-plane'],
           curves: [
-                        LayoutPathCurve(
+            LayoutPathCurve(
               from: LayoutDerivativeReference(derivative: 'D'),
               through: LayoutDerivativeReference(
                 layoutPath: ['safe-area'],
@@ -616,7 +613,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
             'curved-scene-plane',
           ],
           background: [
-            LayoutImageBackground(
+            LayoutBackground.image(
               assetPath: 'assets/wallpapers/sims-4-interface.png',
               opacity: 0.78,
               fit: LayoutBackgroundFit.fill,
@@ -656,17 +653,41 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
           ),
           children: {
             'direction-pad': GridLayout(
+              aliases: [
+                'panoramic-grid',
+                'panoramic-layout',
+                'direction-pad',
+                'node-direction-controls',
+                'spatial-navigation',
+                'panorama',
+                '',
+              ],
               rowsConfig: {
+                'header': LayoutSize.rem(4),
                 'top': LayoutSize.fr(1),
                 'center': LayoutSize.fr(1),
                 'bottom': LayoutSize.fr(1),
+                'bottom-ribbon': LayoutSize.rem(2),
               },
               columnsConfig: {
+                'left-ribbon': LayoutSize.rem(3),
                 'left': LayoutSize.fr(1),
                 'center': LayoutSize.fr(2),
                 'right': LayoutSize.fr(1),
               },
               areas: {
+                'left-ribbon': GridArea(
+                  row: 'header',
+                  column: 'left-ribbon',
+                  rowSpan: GridSpan.full,
+                ),
+                'center-ribbon': GridArea(
+                  row: 'header',
+                  column: 'center',
+                  initialSpan: GridAreaSpan.content,
+                  maxSpan: GridAreaSpan.track,
+                ),
+                'header': GridArea(row: 'header', column: 'left'),
                 'info-grid': GridArea(
                   row: 'top',
                   column: 'left',
@@ -675,7 +696,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                 'scene-graph': GridArea(
                   row: 'top',
                   column: 'center',
-                  rowSpan: GridSpan.full,
+                  rowSpan: 3,
                 ),
                 'action-panel': GridArea(
                   row: 'top',
@@ -691,14 +712,158 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                 'bottom-left': GridArea(row: 'bottom', column: 'left'),
                 'bottom-center': GridArea(row: 'bottom', column: 'center'),
                 'bottom-right': GridArea(row: 'bottom', column: 'right'),
+                'bottom-ribbon': GridArea(
+                  row: 'bottom-ribbon',
+                  column: 'center',
+                ),
               },
-              aliases: [
-                'panoramic-grid',
-                'direction-pad',
-                'node-direction-controls',
-                'spatial-navigation',
-              ],
               children: {
+                'left-ribbon': ColumnLayout(
+                  aliases: [
+                    'left-ribbon',
+                    'panoramic-left-ribbon',
+                    'scene-left-ribbon',
+                  ],
+                  text: LayoutTextConfig(
+                    color: Color(0xFFFFD54F),
+                    fontSize: 10,
+                  ),
+                  background: [LayoutBackground.color(Color(0xCC283252))],
+                  children: {
+                    'search': PanelLayout(
+                      aliases: ['left-ribbon-search'],
+                      borderStyle: GuideStyle(
+                        color: Color(0xFFFFD54F),
+                        strokeWidth: 1.2,
+                        pattern: GuideLinePattern.solid,
+                      ),
+                      text: LayoutTextConfig(value: LayoutText.value('🔎')),
+                    ),
+                    'folder': PanelLayout(
+                      aliases: ['left-ribbon-folder'],
+                      borderStyle: GuideStyle(
+                        color: Color(0xFFFFD54F),
+                        strokeWidth: 1.2,
+                        pattern: GuideLinePattern.solid,
+                      ),
+                      text: LayoutTextConfig(value: LayoutText.value('📁')),
+                    ),
+                    'bookmarks': PanelLayout(
+                      aliases: ['left-ribbon-bookmarks'],
+                      borderStyle: GuideStyle(
+                        color: Color(0xFFFFD54F),
+                        strokeWidth: 1.2,
+                        pattern: GuideLinePattern.solid,
+                      ),
+                      text: LayoutTextConfig(value: LayoutText.value('🔖')),
+                    ),
+                    'labels': PanelLayout(
+                      aliases: ['left-ribbon-labels'],
+                      borderStyle: GuideStyle(
+                        color: Color(0xFFFFD54F),
+                        strokeWidth: 1.2,
+                        pattern: GuideLinePattern.solid,
+                      ),
+                      text: LayoutTextConfig(value: LayoutText.value('🏷️')),
+                    ),
+                  },
+                ),
+                'center-ribbon': RowLayout(
+                  aliases: [
+                    'top-ribbon',
+                    'center-ribbon',
+                    'panoramic-center-ribbon',
+                    'scene-center-header',
+                  ],
+                  text: LayoutTextConfig(
+                    color: Color(0xFFFFD54F),
+                    fontSize: 12,
+                  ),
+                  background: [
+                    LayoutBackground.color(Color(0xCC283252)),
+                    LayoutBackground.image(
+                      assetPath: 'assets/wallpapers/dark-vintage-scheme.jpg',
+                      fit: LayoutBackgroundFit.cover,
+                      opacity: 0.39,
+                      orderPosition: 1,
+                    ),
+                  ],
+                  children: {
+                    'lorem': PanelLayout(
+                      aliases: ['center-ribbon-lorem', 'header-lorem'],
+                      borderStyle: GuideStyle(
+                        color: Color(0xFFFFD54F),
+                        strokeWidth: 1.2,
+                        pattern: GuideLinePattern.solid,
+                      ),
+                      text: LayoutTextConfig(
+                        value: LayoutText.lorem(length: 1),
+                      ),
+                    ),
+                  },
+                ),
+                'header': RowLayout(
+                  aliases: ['header', 'panoramic-header', 'scene-header'],
+                  text: LayoutTextConfig(
+                    color: Color(0xFFFFD54F),
+                    fontSize: 12,
+                  ),
+                  background: [
+                    LayoutBackground.color(Color(0xCC283252)),
+                    LayoutBackground.image(
+                      assetPath: 'assets/wallpapers/dark-vintage-scheme.jpg',
+                      fit: LayoutBackgroundFit.cover,
+                      opacity: 0.39,
+                      orderPosition: 1,
+                    ),
+                  ],
+                  children: {
+                    'search': PanelLayout(
+                      aliases: ['header-search', 'search-shortcut'],
+                      borderStyle: GuideStyle(
+                        color: Color(0xFFFFD54F),
+                        strokeWidth: 1.2,
+                        pattern: GuideLinePattern.solid,
+                      ),
+                      text: LayoutTextConfig(
+                        value: LayoutText.value('🔎 search'),
+                      ),
+                    ),
+                    'folder': PanelLayout(
+                      aliases: ['header-folder', 'folder-shortcut'],
+                      borderStyle: GuideStyle(
+                        color: Color(0xFFFFD54F),
+                        strokeWidth: 1.2,
+                        pattern: GuideLinePattern.solid,
+                      ),
+                      text: LayoutTextConfig(
+                        value: LayoutText.value('📁 folder'),
+                      ),
+                    ),
+                    'bookmarks': PanelLayout(
+                      aliases: ['header-bookmarks', 'bookmarks-shortcut'],
+                      borderStyle: GuideStyle(
+                        color: Color(0xFFFFD54F),
+                        strokeWidth: 1.2,
+                        pattern: GuideLinePattern.solid,
+                      ),
+                      text: LayoutTextConfig(
+                        value: LayoutText.value('🔖 bookmarks'),
+                      ),
+                    ),
+                    'labels': PanelLayout(
+                      aliases: ['header-labels', 'labels-shortcut'],
+                      borderStyle: GuideStyle(
+                        color: Color(0xFFFFD54F),
+                        strokeWidth: 1.2,
+                        pattern: GuideLinePattern.solid,
+                      ),
+                      text: LayoutTextConfig(
+                        value: LayoutText.value('🏷️ labels'),
+                      ),
+                    ),
+                  },
+                ),
                 'action-panel': ColumnLayout(
                   layoutPadding: 20,
                   aliases: [
@@ -726,15 +891,16 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                             'refresh-action',
                             'refresh-fan-data',
                           ],
-                          fillColor: (Color(0x553F51B5)),
                           borderStyle: (GuideStyle(
                             color: Color(0xCCB7C2FF),
                             strokeWidth: 1,
                             pattern: GuideLinePattern.solid,
                           )),
-                          caption: '🔄',
-                          labelColor: ((Color(0xFFFFF8E7))),
-                          labelSize: 18,
+                          text: LayoutTextConfig(
+                            value: LayoutText.value('🔄'),
+                            color: Color(0xFFFFF8E7),
+                            fontSize: 18,
+                          ),
                         ),
                         'search': PanelLayout(
                           size: LayoutSize.fr(1),
@@ -743,15 +909,16 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                             'search-action',
                             'open-search-hud',
                           ],
-                          fillColor: (Color(0x553F51B5)),
                           borderStyle: (GuideStyle(
                             color: Color(0xCCB7C2FF),
                             strokeWidth: 1,
                             pattern: GuideLinePattern.solid,
                           )),
-                          caption: '🔍',
-                          labelColor: ((Color(0xFFFFF8E7))),
-                          labelSize: 18,
+                          text: LayoutTextConfig(
+                            value: LayoutText.value('🔍'),
+                            color: Color(0xFFFFF8E7),
+                            fontSize: 18,
+                          ),
                         ),
                         'add-node': PanelLayout(
                           size: LayoutSize.fr(1),
@@ -760,15 +927,16 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                             'add-action',
                             'create-virtual-node',
                           ],
-                          fillColor: (Color(0x6652A66B)),
                           borderStyle: (GuideStyle(
                             color: Color(0xCCB7C2FF),
                             strokeWidth: 1,
                             pattern: GuideLinePattern.solid,
                           )),
-                          caption: 'Add',
-                          labelColor: ((Color(0xFFFFF8E7))),
-                          labelSize: 12,
+                          text: LayoutTextConfig(
+                            value: LayoutText.value('Add'),
+                            color: Color(0xFFFFF8E7),
+                            fontSize: 12,
+                          ),
                         ),
                         'today': PanelLayout(
                           size: LayoutSize.fr(1),
@@ -777,15 +945,16 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                             'today-action',
                             'resolve-today-node',
                           ],
-                          fillColor: (Color(0x553F51B5)),
                           borderStyle: (GuideStyle(
                             color: Color(0xCCB7C2FF),
                             strokeWidth: 1,
                             pattern: GuideLinePattern.solid,
                           )),
-                          caption: 'Today',
-                          labelColor: ((Color(0xFFFFF8E7))),
-                          labelSize: 12,
+                          text: LayoutTextConfig(
+                            value: LayoutText.value('Today'),
+                            color: Color(0xFFFFF8E7),
+                            fontSize: 12,
+                          ),
                         ),
                         'confirm': PanelLayout(
                           size: LayoutSize.fr(1),
@@ -795,15 +964,16 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                             'submit-action',
                             'create-first-virtual-node',
                           ],
-                          fillColor: (Color(0x6652A66B)),
                           borderStyle: (GuideStyle(
                             color: Color(0xCCB7C2FF),
                             strokeWidth: 1,
                             pattern: GuideLinePattern.solid,
                           )),
-                          caption: '✅',
-                          labelColor: ((Color(0xFFFFF8E7))),
-                          labelSize: 18,
+                          text: LayoutTextConfig(
+                            value: LayoutText.value('✅'),
+                            color: Color(0xFFFFF8E7),
+                            fontSize: 18,
+                          ),
                         ),
                         'close-selection': PanelLayout(
                           size: LayoutSize.fr(1),
@@ -813,15 +983,16 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                             'cancel-interface-action',
                             'clear-selection-action',
                           ],
-                          fillColor: (Color(0x668F3E4B)),
                           borderStyle: (GuideStyle(
                             color: Color(0xCCB7C2FF),
                             strokeWidth: 1,
                             pattern: GuideLinePattern.solid,
                           )),
-                          caption: '×',
-                          labelColor: ((Color(0xFFFFF8E7))),
-                          labelSize: 18,
+                          text: LayoutTextConfig(
+                            value: LayoutText.value('×'),
+                            color: Color(0xFFFFF8E7),
+                            fontSize: 18,
+                          ),
                         ),
                       },
                     ),
@@ -837,15 +1008,16 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                             'copy-action',
                             'copy-selected-node-slug',
                           ],
-                          fillColor: (Color(0x553F51B5)),
                           borderStyle: (GuideStyle(
                             color: Color(0xCCB7C2FF),
                             strokeWidth: 1,
                             pattern: GuideLinePattern.solid,
                           )),
-                          caption: '📋',
-                          labelColor: ((Color(0xFFFFF8E7))),
-                          labelSize: 18,
+                          text: LayoutTextConfig(
+                            value: LayoutText.value('📋'),
+                            color: Color(0xFFFFF8E7),
+                            fontSize: 18,
+                          ),
                         ),
                         'share': PanelLayout(
                           size: LayoutSize.fr(1),
@@ -854,15 +1026,16 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                             'selected-node-action',
                             'share-action',
                           ],
-                          fillColor: (Color(0x553F51B5)),
                           borderStyle: (GuideStyle(
                             color: Color(0xCCB7C2FF),
                             strokeWidth: 1,
                             pattern: GuideLinePattern.solid,
                           )),
-                          caption: '📤',
-                          labelColor: ((Color(0xFFFFF8E7))),
-                          labelSize: 18,
+                          text: LayoutTextConfig(
+                            value: LayoutText.value('📤'),
+                            color: Color(0xFFFFF8E7),
+                            fontSize: 18,
+                          ),
                         ),
                       },
                     ),
@@ -882,7 +1055,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                     'system-info',
                   ],
                   background: [
-                    LayoutImageBackground(
+                    LayoutBackground.image(
                       assetPath: 'assets/wallpapers/daft-punk-suit.jpg',
                       fit: LayoutBackgroundFit.contain,
                       opacity: 0.34,
@@ -954,15 +1127,16 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                           'player-action',
                           'resolve-player-node',
                         ],
-                        fillColor: Color(0x553F51B5),
                         borderStyle: GuideStyle(
                           color: Color(0xCCB7C2FF),
                           strokeWidth: 1,
                           pattern: GuideLinePattern.solid,
                         ),
-                        caption: 'Me',
-                        labelColor: Color(0xFFFFF8E7),
-                        labelSize: 12,
+                        text: LayoutTextConfig(
+                          value: LayoutText.value('Me'),
+                          color: Color(0xFFFFF8E7),
+                          fontSize: 12,
+                        ),
                       ),
                       */
                     },
@@ -1094,15 +1268,15 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                 ),
                 'scene-graph': GraphLayout(
                   background: [
-                    LayoutImageBackground(
+                    LayoutBackground.image(
                       assetPath: 'assets/wallpapers/dark-vintage-scheme.jpg',
                       fit: LayoutBackgroundFit.cover,
-                      opacity: 0.78,
+                      opacity: 0.12,
                     ),
-                    LayoutImageBackground(
+                    LayoutBackground.image(
                       assetPath: 'assets/wallpapers/helmet-background.jpg',
                       fit: LayoutBackgroundFit.cover,
-                      opacity: 0.50,
+                      opacity: 0.12,
                     ),
                   ],
                   aliases: [
@@ -1128,6 +1302,41 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                   labelSize: lgErgoNodeFontSize,
                   emojiFontSizeFactor: 2,
                   emojiSlugGapFactor: 0.5,
+                ),
+                'bottom-ribbon': PanelLayout(
+                  aliases: [
+                    'bottom-ribbon',
+                    'panoramic-bottom-ribbon',
+                    'scene-ribbon',
+                    'teletext-ribbon',
+                    'poloska-teletexta',
+                  ],
+                  text: LayoutTextConfig(
+                    value: LayoutText.value(
+                      'teletext | 🌌 | ☀️ | 🌎 | 🇪🇸 | BCN | 2026 | ⛱️ Jun - Jul - Aug | XX | XX:XX | ↕️ 2REM',
+                    ),
+                    color: Color(0xFF21ffF3),
+                    fontSize: 12,
+                  ),
+                  background: [
+                    LayoutBackground.image(
+                      assetPath: 'assets/wallpapers/dark-vintage-scheme.jpg',
+                      fit: LayoutBackgroundFit.cover,
+                    ),
+                    LayoutBackground.image(
+                      assetPath:
+                          'assets/backgrounds/png-clipart-shenzhen-hong-kong-episode-podcast-learning-skyline-miscellaneous-building.png',
+                      fit: LayoutBackgroundFit.fill,
+                      opacity: 0.39,
+                      repeat: 8,
+                      position: Offset(0.5, 1),
+                    ),
+                  ],
+                  borderStyle: GuideStyle(
+                    color: Color(0xFFFFD54F),
+                    strokeWidth: 1.2,
+                    pattern: GuideLinePattern.solid,
+                  ),
                 ),
               },
             ),

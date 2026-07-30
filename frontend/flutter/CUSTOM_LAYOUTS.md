@@ -128,6 +128,26 @@ Registry lookup uses the layout's exact runtime type. Every new concrete layout
 type needs one registration. Registered layouts work as children of the active
 layout hierarchy.
 
+Every Layout may conditionally specialize itself through the same ordered
+state protocol used by Label and Node configuration:
+
+```dart
+PanelLayout(
+  text: LayoutTextConfig(value: LayoutText.value('🔎 search')),
+  state: LayoutState({
+    LayoutCondition.hasActiveNodes(): PanelLayout(
+      text: LayoutTextConfig(value: LayoutText.value('✕ close')),
+    ),
+  }),
+)
+```
+
+Matching Layout values resolve recursively at the same child map key. Later
+matching entries win, and the resulting Layout participates in the normal
+ancestor-to-child configuration hierarchy after parent defaults. A Layout
+state value is a complete replacement, while `LayoutState<LabelConfig>` and
+`LayoutState<NodeConfig>` merge their matching configurations.
+
 Neo4j `Node.labels` values in a `TableLayout` are rendered independently
 through `ClassificationLabelComponent`. Each string becomes a colored
 shopping tag instead of part of a comma-separated value. Configure that
@@ -135,7 +155,7 @@ presentation once through the root Layout's `label`:
 
 ```dart
 label: const LabelConfig(
-  state: {
+  state: LayoutState({
     LayoutCondition.always(): LabelConfig(
       style: LabelStyle(
         color: Color(0xFFF5EDD6),
@@ -157,7 +177,7 @@ label: const LabelConfig(
         ),
       ),
     ),
-  },
+  }),
 );
 
 text: const LayoutTextConfig(
@@ -244,26 +264,37 @@ resolved point changing.
 
 Every concrete `Layout` constructor accepts the base `background` list. Lower
 `orderPosition` values paint first; guides and content remain above the owning
-layout's background elements. For example, a path can own an image without
-adding a parallel renderer or child layout:
+layout's background elements. Use the `LayoutBackground.color`, `image`,
+`guides`, and `conditional` factories so configuration has one discoverable
+entry point while retaining typed concrete background variants. For example, a
+path can own a color and image without adding a parallel renderer or child
+layout:
 
 ```dart
 LayoutPath(
   background: const [
-    LayoutImageBackground(
+    LayoutBackground.color(Color(0xCC283252)),
+    LayoutBackground.image(
       assetPath: 'assets/wallpapers/helmet-background.jpg',
       fit: LayoutBackgroundFit.cover,
       opacity: 0.34,
+      repeat: 3,
+      position: Offset(0.5, 1),
     ),
   ],
   points: panelPoints,
 )
 ```
 
-The renderer clips a `LayoutPath` image background to its resolved polygon. For
-a quadrilateral it also uses the same projective transform as
+The renderer clips color and image backgrounds to the owning resolved polygon.
+For a quadrilateral it also uses the same projective transform as
 `TableLayout`, so the image and table obey one perspective rather than
 placing a screen-facing image behind distorted content.
+`repeat` divides the owning surface into that many equal horizontal tiles and
+applies `fit` independently inside each tile. `position` is normalized image
+placement within every tile: `(0, 0)` is top-left, `(0.5, 0.5)` is centered,
+and `(0.5, 1)` is bottom-centered. Repeated tiles use the same curved projection
+as a single background.
 
 An empty `background` list paints no background for that layout. Background
 configuration is always owned directly by the layout whose geometry it fills.
@@ -284,6 +315,7 @@ LayoutPath(
         'top': LayoutSize.fr(1),
         'center': LayoutSize.fr(1),
         'bottom': LayoutSize.fr(1),
+        'ribbon': LayoutSize.rem(2),
       },
       columnsConfig: {
         'left': LayoutSize.fr(1),
@@ -294,14 +326,18 @@ LayoutPath(
         'top-left': GridArea(row: 'top', column: 'left'),
         'center': GridArea(row: 'center', column: 'center'),
         'footer': GridArea(
-          row: 'bottom',
+          row: 'ribbon',
           column: 'left',
           columnSpan: GridSpan.full,
         ),
       },
       children: {
-        'top-left': PanelLayout(caption: '↖'),
-        'center': PanelLayout(caption: '•'),
+        'top-left': PanelLayout(
+          text: LayoutTextConfig(value: LayoutText.value('↖')),
+        ),
+        'center': PanelLayout(
+          text: LayoutTextConfig(value: LayoutText.value('•')),
+        ),
         'footer': RowLayout(children: {...}),
       },
     ),
@@ -312,17 +348,53 @@ LayoutPath(
 `rowsConfig` and `columnsConfig` are ordered maps of `LayoutSize`. The map key
 is the track identity, so identity and measurement cannot drift apart as they
 could with parallel ID and fraction lists.
+
+Text content is typed independently from typography:
+
+```dart
+text: LayoutTextConfig(value: LayoutText.lorem(length: 1))
+text: LayoutTextConfig(value: LayoutText.value('Exact caption'))
+text: LayoutTextConfig(value: LayoutText.none())
+text: LayoutTextConfig(
+  value: LayoutText.format('{place}: {year}', {
+    'place': 'BCN',
+    'year': 2026,
+  }),
+)
+```
+
+`none()` suppresses inherited text until a descendant supplies another typed
+value. `comment(...)` currently paints exactly like `value(...)`, leaving its
+future visual treatment open. Format parameters use the same default textual
+representation as tables, Nodes, and classification labels.
 `LayoutSize.fr` divides remaining space, while `LayoutSize.px` preserves a
 fixed logical-pixel width; `LayoutSize.pt` is its readable alias.
+`LayoutSize.rem` is also fixed, but multiplies its value by the root Layout's
+resolved text font size, making typography-relative tracks configurable without
+coupling them to nested font overrides.
 `LayoutSize.calculatedFr` is a Vue-like calculated track: it behaves like its
 fallback fraction today, and its `derivative` names the future layout/context
 value that should drive it.
+
+On a curved owning `LayoutPath`, `PanelLayout` captions resolve through the
+same projected surface as the panel fill and border. Glyph position, tangent,
+scale, and shear therefore follow the ancestor projection instead of remaining
+screen-aligned.
+Panel content is `LayoutTextConfig.value`; `PanelLayout` has no parallel
+`caption`, `labelColor`, or `labelSize` fields. Text configuration resolves from
+root to owning path to nested composition to child, with each child overriding
+only its non-null values.
 
 An area's key is also its child identity. `row` and `column` select named
 starting tracks; `rowSpan`, `columnSpan`, `rowOffset`, and `columnOffset`
 extend or fractionally adjust that placement. `GridSpan.full` continues through
 all remaining tracks. Areas may contain `PanelLayout`, `NodeListLayout`,
 `TableLayout`, `RowLayout`, `ColumnLayout`, or another `GridLayout`.
+`initialSpan: GridAreaSpan.content` starts an area's vertical frame at its
+resolved text/content height. `maxSpan: GridAreaSpan.track` caps that frame at
+the complete named row, preserving room for future expansion without adding a
+second track or overlay. Backgrounds, projected content, and hit testing all
+consume the same intrinsic frame.
 `TableLayout` painting and interaction geometry both resolve from its named
 area, so folding, Node hits, labels, and actions remain aligned after nesting.
 
@@ -362,7 +434,7 @@ Declare common Node configuration through the owning layout's `node` property:
 ```dart
 LandscapeXlLayout(
   node: const NodeConfig(
-    state: {
+    state: LayoutState({
       LayoutCondition.nodeHighlighted(): NodeConfig(
         style: NodeStyle(
           borderStyle: GuideStyle(
@@ -371,7 +443,7 @@ LandscapeXlLayout(
           ),
         ),
       ),
-    },
+    }),
   ),
 )
 ```
@@ -442,13 +514,16 @@ curved grid's complete center column and supplies the projected Graph frame. It
 reads the complete Riverpod-selected Node
 collection and gives every Node an equal centered cell. `nodeExtentFactor` controls the circular
 Node diameter relative to that cell and defaults to `0.5`. The pool becomes
-denser as selection grows; it does not fetch a `NodeTree` or infer graph
+denser as selection grows. Logical Node circles are sampled through the full
+inherited curved surface, so paint and hit testing use the same projected path.
+It does not fetch a `NodeTree` or infer graph
 connections yet. Selection membership and active fill state use the Node's
 unique slug. Fan and Graph compact labels render emoji first and wrap the slug
 fallback with `NodeConfig.style.slugPrefix` and `slugSuffix`. LG Ergo's
 Node defaults use `[[` and `]]`, producing `[[slug]]` without changing stored
 Node identity. `GraphLayoutComponent` owns all GraphLayout drawing and hit
-geometry; screen/layout hosts provide only resolved grid-area geometry, state, and action
+geometry; screen/layout hosts provide only the resolved projected surface,
+state, and action
 callbacks.
 `NodeListLayout` renders a dynamic Node collection as equal rows inside a
 row/column composition or a TableLayout value cell. The info table's
@@ -540,10 +615,12 @@ consumes Enter to submit the query or select the highlighted Node instead.
 The right plane keeps Copy and Share in its second action row. Me has moved to
 the left info table as a visible group; its previous exact-slug player action
 is intentionally not connected until the group receives global functionality.
-The panoramic scene contains a three-by-three `direction-pad` whose areas
+The panoramic scene contains a three-by-three directional core whose areas
 represent top-left, top-center,
 top-right, center-left, center, center-right, bottom-left, bottom-center, and
-bottom-right. Its center column is wider than its side columns. These controls
+bottom-right. A fixed 4rem header and 2rem bottom ribbon surround those rows,
+while a fixed 3rem left-ribbon column spans every row before the three content
+columns. Its center content column is wider than its side columns. These controls
 expose stable `direction-*` aliases but remain
 declarative interaction placeholders for now.
 
@@ -563,11 +640,14 @@ grid contains only the real space rows, not fake padding tracks. The scene inner
 circle uses the owning layout's `padding + borderWidth` as an inset, while the
 outer circle remains the scene boundary for anchors and shape framing.
 
-The `direction-pad` is the panoramic reference grid: three named rows and three
-named columns. `info-grid` spans its projected left column, `scene-graph` spans
+The `direction-pad` is the panoramic reference grid: three fractional scene
+rows plus fixed header and bottom-ribbon rows, and three fractional content
+columns preceded by the fixed 3rem `left-ribbon`. `info-grid` spans its
+projected left content column, `scene-graph` spans
 its projected center column, and `action-panel` directly owns the projected
-right column as a `ColumnLayout`. The directional areas remain reserved for
-controls. Its center track is
+right column as a `ColumnLayout`. The left-ribbon is also a `ColumnLayout` and
+uses `GridSpan.full` from the header through the bottom ribbon. The directional
+areas remain reserved for controls. Its center track is
 wider than its side tracks, demonstrating that grid tracks remain independent
 from child `Layout.size` values.
 

@@ -29,7 +29,10 @@ abstract final class NodeDefaults {
 
 /// Extensible Node configuration selected by Layout state.
 class NodeConfig {
-  const NodeConfig({this.style = const NodeStyle(), this.state = const {}});
+  const NodeConfig({
+    this.style = const NodeStyle(),
+    this.state = const LayoutState(),
+  });
 
   final NodeStyle style;
 
@@ -38,17 +41,14 @@ class NodeConfig {
   /// Matching child configurations resolve recursively and merge in insertion
   /// order. This permits nested state without coupling future Node behavior to
   /// the renderer or flattening every concern into [NodeStyle].
-  final Map<LayoutCondition, NodeConfig> state;
+  final LayoutState<NodeConfig> state;
 
-  NodeConfig resolve(LayoutContext context) {
-    var resolved = NodeConfig(style: style);
-    for (final entry in state.entries) {
-      if (entry.key.isActive(context)) {
-        resolved = resolved.merge(entry.value.resolve(context));
-      }
-    }
-    return resolved;
-  }
+  NodeConfig resolve(LayoutContext context) => state.resolve(
+    context,
+    base: NodeConfig(style: style),
+    merge: (current, overlay) => current.merge(overlay),
+    resolveValue: (value, stateContext) => value.resolve(stateContext),
+  );
 
   NodeConfig merge(NodeConfig overlay) =>
       NodeConfig(style: style.merge(overlay.style));

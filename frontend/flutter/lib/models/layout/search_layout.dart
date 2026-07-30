@@ -19,6 +19,7 @@ class SearchLayout extends Layout {
     super.text,
     super.node,
     super.panel,
+    super.state,
     super.nodeHoverBorderStyle,
     super.children = const {
       searchResultsLayoutKey: TableLayout(
