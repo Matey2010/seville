@@ -102,6 +102,16 @@ panels, Nodes, labels, searches, and screen-specific Layout models behind that
 single import boundary. This grouping keeps the configuration layer coherent
 if it is later represented through protobuf, YAML, or another serialization.
 
+`GridLayout.slots` is the authored placement map. Each `GridSlot` selects named
+row and column tracks, while a child declares the area it occupies through
+`Layout.slot`. The child's map key remains its stable identity and does not
+need to match the slot name. When the parent grid contains the requested slot,
+the renderer places the child directly in that area and ignores the child's
+`Layout.size`; a missing or undeclared slot does not participate in the grid.
+The renderer resolves that slot into an area on the current flat, projective,
+or curved surface; configuration operates on slots, while an area is derived
+interface geometry rather than a second configured entity.
+
 `LabelConfig` is the global Layout-owned policy for classification-label
 presentation. Its `LabelStyle` owns a fallback fill color, border, and hole;
 its ordered `LayoutCondition` to `LabelConfig` state map specializes the same

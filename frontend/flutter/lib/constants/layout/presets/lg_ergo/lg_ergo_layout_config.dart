@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:flutter/material.dart' hide TableRow;
 import 'package:seville_proto/seville_proto.dart' show Emoji, Node;
 
 import '../../../../models/layout/layout.dart';
@@ -273,76 +274,6 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
         'square-anchors': LayoutObservable(derivatives: {'A', 'B', 'C', 'D'}),
       },
       children: {
-        // TODO: Migrate search layout to 2.3.10
-        'search-layout': SearchLayout(
-          aliases: ['search-layout', 'search-overlay', 'search-hud'],
-          layoutBorderWidth: 1.8,
-          node: const NodeConfig(
-            slugPrefix: '[[',
-            slugTransform: TextTransform.capitalCap(),
-            slugSuffix: ']]',
-          ),
-          children: {
-            SearchLayout.searchResultsLayoutKey: TableLayout(
-              aliases: ['search-results', 'search-results-table'],
-              layoutBorderWidth: 1.8,
-              guideStyle: (GuideStyle(
-                color: Color(0x665F7CFF),
-                strokeWidth: 1,
-                pattern: GuideLinePattern.solid,
-              )),
-              cellHighlight: TableCellHighlightConfig(
-                rows: true,
-                color: (Color(0x66374A9B)),
-              ),
-              panelGap: (12.0),
-              panelBorderStyle: (GuideStyle(
-                color: Color(0xAA5F7CFF),
-                strokeWidth: 1.4,
-                pattern: GuideLinePattern.solid,
-              )),
-              tableConfig: TableConfig(
-                panels: {
-                  'search_results': PanelConfig(
-                    size: LayoutSize.fr(1),
-                    title: 'Search Results',
-                  ),
-                },
-                rowConfig: TableRowConfig(
-                  rows: {
-                    'search_results': TableRow(
-                      label: 'Results',
-                      panelId: 'search_results',
-                      size: LayoutSize.fr(1),
-                    ),
-                  },
-                ),
-                columnConfig: TableColumnConfig(
-                  columns: {
-                    'key': TableColumn(size: LayoutSize.fr(1)),
-                    'value': TableColumn(size: LayoutSize.fr(3)),
-                  },
-                ),
-              ),
-              children: {
-                'search_results': NodeListLayout(
-                  dataSource: NodeListDataSource.searchResults,
-                  style: (GuideStyle(
-                    color: Color(0xFFFFF7D6),
-                    strokeWidth: (1.8),
-                    pattern: GuideLinePattern.solid,
-                  )),
-                  layoutBorderWidth: 1.8,
-                  node: const NodeConfig(
-                    slugPrefix: '[[',
-                    slugTransform: TextTransform.capitalCap(),
-                    slugSuffix: ']]',
-                  ),
-                ),
-              },
-            ),
-          },
-        ),
         'top-plane': LayoutPath(
           aliases: ['top-plane', 'control-plane', 'north-plane'],
           points: [
@@ -377,11 +308,13 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                 'top-fan',
               ],
               background: [
+                LayoutBackground.color(Color(0x00000000)),
                 LayoutBackground.image(
-                  assetPath: 'assets/logo/elder-brain.png',
-                  fit: LayoutBackgroundFit.cover,
-                  position: Offset(0.5, 0.30),
-                  scale: 1.5,
+                  assetPath: 'assets/backgrounds/chinese-fan.png',
+                  fit: LayoutBackgroundFit.fill,
+                  rotationDegrees: 180,
+                  // position: Offset(0.5, 0.30),
+                  // scale: 1,
                 ),
               ],
               node: const NodeConfig(
@@ -651,6 +584,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                 'center': LayoutSize.fr(1),
                 'bottom': LayoutSize.fr(1),
                 'bottom-ribbon': LayoutDefaultSize.panoramicFooter,
+                'teletext-ribbon': LayoutDefaultSize.panoramicFooter,
               },
               columnsConfig: {
                 'left-ribbon': LayoutDefaultSize.crossAxisRibbonWidth,
@@ -658,52 +592,65 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                 'center': LayoutSize.fr(2),
                 'right': LayoutSize.fr(1),
               },
-              slot: {
-                'left-ribbon': GridArea(
+              slots: {
+                'left-ribbon': GridSlot(
                   row: 'header',
                   column: 'left-ribbon',
                   rowSpan: GridSpan.full,
                 ),
-                'logo': GridArea(row: 'header', column: 'left-ribbon'),
-                'header': GridArea(
+                'logo': GridSlot(row: 'header', column: 'left-ribbon'),
+                'header': GridSlot(
                   row: 'header',
                   column: 'left-ribbon',
                   columnSpan: GridSpan.full,
                 ),
-                'info-grid': GridArea(row: 'top', column: 'left', rowSpan: 3),
-                'scene-graph': GridArea(
+                'info-grid': GridSlot(row: 'top', column: 'left', rowSpan: 3),
+                'search-layout': GridSlot(
+                  row: 'top',
+                  column: 'left',
+                  rowSpan: 3,
+                ),
+                'scene-graph': GridSlot(
                   row: 'top',
                   column: 'center',
                   rowSpan: 3,
                 ),
-                'action-panel': GridArea(
+                'action-panel': GridSlot(
                   row: 'top',
                   column: 'right',
                   rowSpan: 3,
                 ),
-                'top-left': GridArea(row: 'top', column: 'left'),
-                'top-center': GridArea(row: 'top', column: 'center'),
-                'top-right': GridArea(row: 'top', column: 'right'),
-                'center-left': GridArea(row: 'center', column: 'left'),
-                'center': GridArea(row: 'center', column: 'center'),
-                'center-right': GridArea(row: 'center', column: 'right'),
-                'bottom-left': GridArea(row: 'bottom', column: 'left'),
-                'bottom-center': GridArea(row: 'bottom', column: 'center'),
-                'bottom-right': GridArea(row: 'bottom', column: 'right'),
-                'footer': GridArea(
+                'top-left': GridSlot(row: 'top', column: 'left'),
+                'top-center': GridSlot(row: 'top', column: 'center'),
+                'top-right': GridSlot(row: 'top', column: 'right'),
+                'center-left': GridSlot(row: 'center', column: 'left'),
+                'center': GridSlot(row: 'center', column: 'center'),
+                'center-right': GridSlot(row: 'center', column: 'right'),
+                'bottom-left': GridSlot(row: 'bottom', column: 'left'),
+                'bottom-center': GridSlot(row: 'bottom', column: 'center'),
+                'bottom-right': GridSlot(row: 'bottom', column: 'right'),
+                'footer': GridSlot(
                   row: 'bottom-ribbon',
                   column: 'left-ribbon',
                   columnSpan: GridSpan.full,
                 ),
+                'teletext': GridSlot(
+                  row: 'teletext-ribbon',
+                  column: 'center',
+                  columnSpan: 1,
+                ),
               },
               children: {
                 'left-ribbon': GridLayout(
+                  slot: 'left-ribbon',
                   rowsConfig: {
                     'logo': LayoutDefaultSize.panoramicHeader,
                     'content': LayoutSize.fr(1),
                   },
                   columnsConfig: {'ribbon': LayoutSize.fr(1)},
-                  slot: {'content': GridArea(row: 'content', column: 'ribbon')},
+                  slots: {
+                    'content': GridSlot(row: 'content', column: 'ribbon'),
+                  },
                   aliases: [
                     'left-ribbon',
                     'panoramic-left-ribbon',
@@ -716,6 +663,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                   background: [LayoutBackground.color(Color(0xCC283252))],
                   children: {
                     'content': ColumnLayout(
+                      slot: 'content',
                       aliases: ['left-ribbon-content'],
                       children: {
                         'folder': PanelLayout(
@@ -747,6 +695,39 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                             value: LayoutText.value('📋n'),
                           ),
                         ),
+                        'avatar-pro': NodeLayout(
+                          slot: 'logo',
+                          node: const NodeConfig(
+                            content: NodeContent.emoji(),
+                            text: LayoutTextConfig(
+                              value: LayoutText.none(),
+                              fontSize: 24,
+                            ),
+                          ),
+                          background: [
+                            LayoutBackground.image(
+                              assetPath: 'assets/logo/elder-brain.png',
+                              fit: LayoutBackgroundFit.fill,
+                              // position: Offset(0.5, 0.30),
+                              // scale: 1.5,
+                            ),
+                          ],
+                          filter: _lgErgoFanRootNodeFilter,
+                          storedNode: Node(
+                            slug: _lgErgoFanRootSlug,
+                            path: _lgErgoFanRootSlug,
+                            title: 'Brain Control',
+                            labels: ['Calendar'],
+                            emojis: [Emoji(character: '🧠', title: 'Brain')],
+                          ),
+                          aliases: [
+                            'logo',
+                            'panoramic-logo',
+                            'scene-logo',
+                            'brain-control',
+                            'cortex-control',
+                          ],
+                        ),
                         'avatar': PanelLayout(
                           size: LayoutDefaultSize.crossAxisRibbonWidth,
                           aliases: [
@@ -764,7 +745,13 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                   },
                 ),
                 'logo': NodeLayout(
+                  slot: 'logo',
                   node: const NodeConfig(
+                    borderStyle: GuideStyle(
+                      color: Color(0xFFFFF7D6),
+                      strokeWidth: 4,
+                      pattern: GuideLinePattern.solid,
+                    ),
                     content: NodeContent.emoji(),
                     text: LayoutTextConfig(
                       value: LayoutText.none(),
@@ -796,7 +783,8 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                   ],
                 ),
                 'header': RowLayout(
-                  crossAxisAlignment: LayoutCrossAxisAlignment.top(),
+                  slot: 'header',
+                  crossAxisAlignment: LayoutCrossAxisAlignment.stretch(),
                   aliases: [
                     'header',
                     'panoramic-header',
@@ -821,11 +809,12 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                   children: {
                     'spacer': PanelLayout(
                       aliases: ['header-spacer', 'spacer-shortcut'],
-                      size: LayoutSize.fr(0.1),
+                      size: LayoutDefaultSize.crossAxisRibbonWidth,
                       text: LayoutTextConfig(value: LayoutText.none()),
                     ),
                     'search': PanelLayout(
                       aliases: ['header-search', 'search-shortcut'],
+                      onTap: LayoutTapAction.searchOpenned(),
                       borderStyle: GuideStyle(
                         color: Color(0xFFFFD54F),
                         strokeWidth: 1.2,
@@ -890,6 +879,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                   },
                 ),
                 'action-panel': ColumnLayout(
+                  slot: 'action-panel',
                   layoutPadding: 20,
                   aliases: [
                     'action-panel',
@@ -923,24 +913,6 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                           )),
                           text: LayoutTextConfig(
                             value: LayoutText.value('🔄'),
-                            color: Color(0xFFFFF8E7),
-                            fontSize: 18,
-                          ),
-                        ),
-                        'search': PanelLayout(
-                          size: LayoutSize.fr(1),
-                          aliases: [
-                            'action-button',
-                            'search-action',
-                            'open-search-hud',
-                          ],
-                          borderStyle: (GuideStyle(
-                            color: Color(0xCCB7C2FF),
-                            strokeWidth: 1,
-                            pattern: GuideLinePattern.solid,
-                          )),
-                          text: LayoutTextConfig(
-                            value: LayoutText.value('🔍'),
                             color: Color(0xFFFFF8E7),
                             fontSize: 18,
                           ),
@@ -1067,6 +1039,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                   },
                 ),
                 'info-grid': TableLayout(
+                  slot: 'info-grid',
                   aliases: [
                     'info-grid',
                     'info-table',
@@ -1122,11 +1095,6 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                         title: 'Selected Nodes',
                         foldable: true,
                       ),
-                      'me': PanelConfig(
-                        orderPosition: 4,
-                        title: 'Me',
-                        showEmpty: true,
-                      ),
                       'settings': PanelConfig(
                         orderPosition: 5,
                         title: 'Settings',
@@ -1138,27 +1106,6 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                         foldable: true,
                         initiallyFolded: true,
                       ),
-                      /* Previous right action-plane implementation, retained here for
-                         the next global Panel action migration:
-                      'me': PanelLayout(
-                        size: LayoutSize.fr(1),
-                        aliases: [
-                          'action-button',
-                          'player-action',
-                          'resolve-player-node',
-                        ],
-                        borderStyle: GuideStyle(
-                          color: Color(0xCCB7C2FF),
-                          strokeWidth: 1,
-                          pattern: GuideLinePattern.solid,
-                        ),
-                        text: LayoutTextConfig(
-                          value: LayoutText.value('Me'),
-                          color: Color(0xFFFFF8E7),
-                          fontSize: 12,
-                        ),
-                      ),
-                      */
                     },
                     rowConfig: TableRowConfig(
                       rows: {
@@ -1279,7 +1226,41 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                     ),
                   },
                 ),
+                'search-layout': SearchLayout(
+                  slot: 'search-layout',
+                  aliases: ['search-layout', 'search-hud'],
+                  background: [LayoutBackground.color(Color(0xF2283252))],
+                  layoutBorderWidth: 1.8,
+                  state: LayoutState({
+                    LayoutCondition.searchOpenned(): LayoutConfig(
+                      visible: true,
+                    ),
+                  }),
+                  children: {
+                    SearchLayout.searchResultsLayoutKey: ColumnLayout(
+                      slot: SearchLayout.searchResultsLayoutKey,
+                      aliases: ['search-results', 'search-results-column'],
+                      children: {
+                        'search_results': NodeListLayout(
+                          dataSource: NodeListDataSource.searchResults,
+                          style: GuideStyle(
+                            color: Color(0xFFFFF7D6),
+                            strokeWidth: 1.8,
+                            pattern: GuideLinePattern.solid,
+                          ),
+                          layoutBorderWidth: 1.8,
+                          node: const NodeConfig(
+                            slugPrefix: '[[',
+                            slugTransform: TextTransform.capitalCap(),
+                            slugSuffix: ']]',
+                          ),
+                        ),
+                      },
+                    ),
+                  },
+                ),
                 'scene-graph': GraphLayout(
+                  slot: 'scene-graph',
                   background: [
                     LayoutBackground.image(
                       assetPath: 'assets/wallpapers/helmet-background.jpg',
@@ -1310,6 +1291,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                   emojiSlugGapFactor: 0.5,
                 ),
                 'footer': RowLayout(
+                  slot: 'footer',
                   crossAxisAlignment: LayoutCrossAxisAlignment.bottom(),
                   aliases: ['footer', 'panoramic-footer', 'scene-footer'],
                   children: {
@@ -1321,10 +1303,14 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                       ],
                     ),
                     'status-button': PanelLayout(
-                      size: LayoutSize.fr(0.33),
                       aliases: [],
+                      background: [
+                        LayoutBackground.color(
+                          Color.fromARGB(255, 93, 154, 143),
+                        ),
+                      ],
                       text: LayoutTextConfig(
-                        value: LayoutText.value("Status: Fine 👌"),
+                        value: LayoutText.value("Status: Placid 🧘"),
                       ),
                     ),
                     'wallet': PanelLayout(
@@ -1344,44 +1330,12 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                       ),
                     ),
                     'real-spacer-start': PanelLayout(
-                      size: LayoutSize.fr(1),
+                      size: LayoutDefaultSize.crossAxisRibbonWidth,
                       aliases: [
                         'footer-spacer-start',
                         'left-ribbon-footer-intersection',
                       ],
                       text: LayoutTextConfig(value: LayoutText.none()),
-                    ),
-                    'teletext': PanelLayout(
-                      size: LayoutSize.fr(3),
-                      aliases: [
-                        'bottom-ribbon',
-                        'panoramic-bottom-ribbon',
-                        'scene-ribbon',
-                        'teletext-ribbon',
-                        'poloska-teletexta',
-                        'teletext-bottom',
-                      ],
-                      text: LayoutTextConfig(
-                        value: LayoutText.value(
-                          'teletext | 🌌 | ☀️ | 🌎 | 🇪🇸 | BCN | 2026 | ⛱️ Jun - Jul - Aug | XX | XX:XX | ↕️ 2REM',
-                        ),
-                        color: Color(0xFF21ffF3),
-                        fontSize: 12,
-                      ),
-                      borderStyle: GuideStyle(
-                        color: Color(0xFFFFD54F),
-                        strokeWidth: 1.2,
-                        pattern: GuideLinePattern.solid,
-                      ),
-                      background: [
-                        // LayoutBackground.color(Color(0xCC283252)),
-                        LayoutBackground.image(
-                          assetPath:
-                              'assets/wallpapers/dark-vintage-scheme.jpg',
-                          fit: LayoutBackgroundFit.cover,
-                          orderPosition: 1,
-                        ),
-                      ],
                     ),
                     'bookmarks': PanelLayout(
                       aliases: ['bottom-bookmarks', 'bookmarks-shortcut'],
@@ -1427,6 +1381,37 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                       text: LayoutTextConfig(value: LayoutText.value('I 🎒')),
                     ),
                   },
+                ),
+                'teletext': PanelLayout(
+                  slot: 'teletext',
+                  aliases: [
+                    'bottom-ribbon',
+                    'panoramic-bottom-ribbon',
+                    'scene-ribbon',
+                    'teletext-ribbon',
+                    'poloska-teletexta',
+                    'teletext-bottom',
+                  ],
+                  text: LayoutTextConfig(
+                    value: LayoutText.value(
+                      'teletext | 🌌 | ☀️ | 🌎 | 🇪🇸 | BCN | 2026 | ⛱️ Jun - Jul - Aug | XX | XX:XX | ↕️ 2REM',
+                    ),
+                    color: Color(0xFF21FFF3),
+                    fontSize: 12,
+                  ),
+                  borderStyle: GuideStyle(
+                    color: Color(0xFFFFD54F),
+                    strokeWidth: 1.2,
+                    pattern: GuideLinePattern.solid,
+                  ),
+                  background: [
+                    // LayoutBackground.color(Color(0xCC283252)),
+                    LayoutBackground.image(
+                      assetPath: 'assets/wallpapers/dark-vintage-scheme.jpg',
+                      fit: LayoutBackgroundFit.cover,
+                      orderPosition: 1,
+                    ),
+                  ],
                 ),
               },
             ),

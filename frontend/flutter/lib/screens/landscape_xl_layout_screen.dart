@@ -11,6 +11,7 @@ import '../data/runtime_config.dart';
 import '../models/layout/layout.dart';
 import '../state/node_store.dart';
 import '../state/overlay_store.dart';
+import '../state/search_store.dart';
 import '../utils/common_utilities.dart';
 import '../utils/vault_node_resolver.dart';
 import '../widgets/landscape_xl_layout_view.dart';
@@ -67,7 +68,7 @@ class _LandscapeXlLayoutScreenState
     final highlightedNodes = ref.watch(highlightedNodesProvider);
     final selectedNodes = ref.watch(selectedNodesProvider);
     final searchValue = ref.watch(
-      interfaceOverlayStateProvider.select((state) => state.searchValue),
+      searchStateProvider.select((state) => state.value),
     );
     final searchState = ref.watch(nodeSearchProvider(searchValue));
     final vaultNodeLookup = VaultNodeLookupRequest(
@@ -325,7 +326,7 @@ class _LandscapeXlLayoutScreenState
   }
 
   void _submitSearch(String value) {
-    ref.read(interfaceOverlayStateProvider.notifier).submitSearch(value);
+    ref.read(searchStateProvider.notifier).submit(value);
     CommonUtilities.log('[interface] submitted Search HUD query');
   }
 
@@ -587,10 +588,10 @@ class _LandscapeXlLayoutScreenState
 
   void _cancelInterface() {
     ref.read(selectedNodesProvider.notifier).clear();
-    ref.read(interfaceOverlayStateProvider.notifier).cancel();
+    ref.read(searchStateProvider.notifier).clear();
     ref.invalidate(nodeSearchProvider);
     CommonUtilities.log(
-      '[interface] cancelled selection, virtual Nodes, search results, and overlays',
+      '[interface] cancelled selection, virtual Nodes, and search results',
     );
   }
 

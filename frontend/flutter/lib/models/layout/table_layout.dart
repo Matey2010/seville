@@ -16,6 +16,7 @@ class TableLayout extends Layout
     this.cellHighlight,
     this.labelSize = 11,
     this.valueSize = 11,
+    super.slot,
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
     super.background,

@@ -238,8 +238,12 @@ class LandscapeXlLayoutGame extends FlameGame
   final List<GraphLayoutComponent> _graphLayoutComponents = [];
   final List<NodeLayoutComponent> _nodeLayoutComponents = [];
 
-  LayoutContext get layoutContext =>
-      _layoutContext(layout, highlightedNodes, selectedNodes);
+  LayoutContext get layoutContext => _layoutContext(
+    layout,
+    highlightedNodes,
+    selectedNodes,
+    searchOpenned: _searchHud.isOpen,
+  );
 
   EdgeInsets get safePadding => _safePadding;
 
@@ -369,7 +373,6 @@ class LandscapeXlLayoutGame extends FlameGame
       );
     }
     add(_searchHud..priority = 1000);
-    add(_SearchSuggestionsComponent()..priority = 990);
     add(_nodeComponent..priority = 1100);
     add(_classificationLabelComponent..priority = 910);
     add(_gameCursor..priority = 2000);
@@ -388,6 +391,7 @@ class LandscapeXlLayoutGame extends FlameGame
   }
 
   void _selectSearchNode(ResolvedVaultNode resolvedNode) {
+    _searchHud.close();
     final slug = resolvedNode.node?.slug.trim() ?? '';
     final isSelectingNode =
         slug.isNotEmpty &&
@@ -538,6 +542,13 @@ class LandscapeXlLayoutGame extends FlameGame
 
   void closeSearchHud() => _searchHud.close();
 
+  void performLayoutTapAction(LayoutTapAction action) {
+    switch (action) {
+      case SearchOpennedLayoutTapAction():
+        openSearchHud();
+    }
+  }
+
   void updateConfiguration({
     required LandscapeXlLayout layout,
     required LayoutComponentRegistry componentRegistry,
@@ -593,17 +604,20 @@ class LandscapeXlLayoutGame extends FlameGame
     if (viewportSize == null || viewportSize.x <= 0 || viewportSize.y <= 0) {
       return;
     }
-    final resolvedLayouts = _resolveLayouts(
+    for (final placement in _pathLayoutPlacements<SearchLayout>(
       layout,
-      Size(viewportSize.x, viewportSize.y),
-      safePadding,
       layoutContext,
-    );
-    for (final resolved in resolvedLayouts.values) {
-      if (resolved.layout case final SearchLayout searchLayout) {
-        _searchHud.updateLayout(searchLayout, resolved.bounds);
-        return;
-      }
+    )) {
+      final surface = _resolveNodePlacementSurface(placement);
+      if (surface == null) continue;
+      final bounds = _boundsForPoints([
+        surface.project(0, 0),
+        surface.project(1, 0),
+        surface.project(1, 1),
+        surface.project(0, 1),
+      ]);
+      _searchHud.updateLayout(placement.layout, bounds);
+      return;
     }
   }
 }
@@ -827,7 +841,7 @@ typedef _PathLayoutPlacement<T extends Layout> = ({
   LayoutPath plane,
   T layout,
   List<Layout> hierarchy,
-  List<({GridLayout grid, String area})> gridSteps,
+  List<({GridLayout grid, String slot, Layout layout})> gridSteps,
 });
 
 NodeConfig _resolvedNodeConfig(
@@ -944,13 +958,15 @@ Iterable<_PathLayoutPlacement<T>> _gridPathLayoutPlacements<T extends Layout>(
   List<String> gridPath,
   List<Layout> hierarchy, [
   LayoutContext context = LayoutContext.empty,
-  List<({GridLayout grid, String area})> gridSteps = const [],
+  List<({GridLayout grid, String slot, Layout layout})> gridSteps = const [],
 ]) sync* {
   for (final entry in grid.children.entries) {
     final child = entry.value.resolve(context);
+    final slot = child.slot;
+    if (slot == null || !grid.slots.containsKey(slot)) continue;
     final childPath = [...gridPath, entry.key];
     final childHierarchy = [...hierarchy, child];
-    final childSteps = [...gridSteps, (grid: grid, area: entry.key)];
+    final childSteps = [...gridSteps, (grid: grid, slot: slot, layout: child)];
     if (child is T) {
       yield (
         key: childPath.join('/'),
@@ -1435,15 +1451,13 @@ class _LandscapeXlSceneComponent extends PositionComponent
     final safePadding = game.safePadding;
     final vaultNodeResolver = game.vaultNodeResolver;
     final systemInfo = game.systemInfo;
-    final highlightedNodes = game.highlightedNodes;
     final selectedNodes = game.selectedNodes;
-    final nodeListSources = _nodeListSources(selectedNodes);
-    final selectedNode = selectedNodes.lastOrNull;
-    final layoutContext = _layoutContext(
-      layout,
-      highlightedNodes,
+    final nodeListSources = _nodeListSources(
       selectedNodes,
+      searchResults: game._searchHud.showsResults ? game.queryNodes : const [],
     );
+    final selectedNode = selectedNodes.lastOrNull;
+    final layoutContext = game.layoutContext;
     final resolvedLayouts = _resolveLayouts(
       layout,
       viewport,
@@ -1547,14 +1561,14 @@ class _LandscapeXlSceneComponent extends PositionComponent
       for (final ray in _resolvedLayoutChildren(
         resolved.layout,
         layoutContext,
-      ).map((entry) => entry.value).whereType<LayoutAreaRayLayout>()) {
+      ).map((entry) => entry.value).whereType<LayoutSlotRayLayout>()) {
         if (!ray.visible || !ray.isVisible(layoutContext)) continue;
         final start = _resolveReference(
           ray.start,
           resolvedLayouts,
           layoutContext,
         );
-        final target = _resolvePathAreaReference(
+        final target = _resolvePathSlotReference(
           ray.towards,
           resolvedLayouts,
           layoutContext,
@@ -1562,15 +1576,15 @@ class _LandscapeXlSceneComponent extends PositionComponent
         if (start == null || target == null) continue;
         drawGuideLine(canvas, start, target, ray.style);
         if (ray.showArrow) {
-          _drawAreaRayArrow(canvas, start, target, ray);
+          _drawSlotRayArrow(canvas, start, target, ray);
         }
       }
       for (final ray
           in _resolvedLayoutChildren(resolved.layout, layoutContext)
               .map((entry) => entry.value)
-              .whereType<LayoutAreaToDerivativeRayLayout>()) {
+              .whereType<LayoutSlotToDerivativeRayLayout>()) {
         if (!ray.visible || !ray.isVisible(layoutContext)) continue;
-        final start = _resolvePathAreaReference(
+        final start = _resolvePathSlotReference(
           ray.start,
           resolvedLayouts,
           layoutContext,
@@ -1583,7 +1597,7 @@ class _LandscapeXlSceneComponent extends PositionComponent
         if (start == null || target == null) continue;
         drawGuideLine(canvas, start, target, ray.style);
         if (ray.showArrow) {
-          _drawAreaToDerivativeRayArrow(canvas, start, target, ray);
+          _drawSlotToDerivativeRayArrow(canvas, start, target, ray);
         }
       }
       for (final stickman in _resolvedLayoutChildren(
@@ -1736,6 +1750,8 @@ class _LandscapeXlSceneComponent extends PositionComponent
       game.vaultNodeResolver,
       game.highlightedNodes,
       game.selectedNodes,
+      searchResults: game._searchHud.showsResults ? game.queryNodes : const [],
+      searchOpenned: game._searchHud.isOpen,
     );
     final nodePath = hit?.nodePath;
     if (hit?.target.resolvedNode?.node == null || nodePath == null) return null;
@@ -1791,10 +1807,18 @@ class _LandscapeXlSceneComponent extends PositionComponent
       game.vaultNodeResolver,
       game.highlightedNodes,
       game.selectedNodes,
+      searchResults: game._searchHud.showsResults ? game.queryNodes : const [],
+      searchOpenned: game._searchHud.isOpen,
     );
     if (target == null) return;
-    if (target.layout.aliases.contains('open-search-hud')) {
-      game.openSearchHud();
+    if (target.layout case final NodeListLayout nodeList
+        when nodeList.dataSource == NodeListDataSource.searchResults) {
+      final node = target.resolvedNode;
+      if (node != null) game._selectSearchNode(node);
+      return;
+    }
+    if (target.layout case PanelLayout(onTap: final action?)) {
+      game.performLayoutTapAction(action);
       return;
     }
     if (target.layout.aliases.contains('cancel-interface-action') ||
@@ -1985,182 +2009,16 @@ class _FanComponent extends PositionComponent
   }
 }
 
-class _SearchSuggestionsComponent extends PositionComponent
-    with
-        HasGameReference<LandscapeXlLayoutGame>,
-        flame_events.TapCallbacks,
-        flame_events.HoverCallbacks {
-  final List<_SearchTableNodeHit> _nodeHits = [];
-  Offset? _hoverPosition;
-
-  SearchHudComponent get _hud => game._searchHud;
-  TableLayout? get _table => _hud.layout.searchResultsLayout;
-
-  bool get _isVisible =>
-      _hud.showsResults &&
-      _table != null &&
-      _hud.suggestionsBounds.width > 0 &&
-      _hud.suggestionsBounds.height > 0;
-
-  @override
-  void update(double dt) {
-    position = _hud.position;
-    size = _hud.size;
-    super.update(dt);
-  }
-
-  @override
-  bool containsLocalPoint(Vector2 point) =>
-      _isVisible && _hud.suggestionsBounds.contains(point.toOffset());
-
-  @override
-  void render(Canvas canvas) {
-    _nodeHits.clear();
-    final table = _table;
-    if (!_isVisible || table == null) return;
-    final bounds = _hud.suggestionsBounds;
-    _drawTableLayout(
-      canvas,
-      _rectPoints(bounds),
-      table,
-      TableData({'search_results': _hud.visibleResults}),
-      _hoverPosition,
-      game._classificationLabelComponent,
-      nodeListSources: _nodeListSources(
-        game.selectedNodes,
-        searchResults: _hud.visibleResults,
-      ),
-      layoutContext: game.layoutContext,
-      panelDefaults: game.layout
-          .resolvePanelConfig(game.layoutContext)
-          .merge(_hud.layout.resolvePanelConfig(game.layoutContext)),
-      nodeConfig: _resolvedNodeConfig([
-        game.layout,
-        _hud.layout,
-        table,
-      ], game.layoutContext),
-      label: _resolvedLabelConfig([
-        game.layout,
-        _hud.layout,
-        table,
-      ], game.layoutContext),
-      text: _resolvedTextConfig([
-        game.layout,
-        _hud.layout,
-        table,
-      ], game.layoutContext),
-      panelExpansion: (_) => 1,
-      onPanelHeader: (_, _) {},
-      onNode: (target, path) {
-        _nodeHits.add((target: target, path: path));
-      },
-      onAction: (_, _, _, _) {},
-      onClassificationLabel: (_, _) {},
-    );
-
-    final highlightedIndex = _hud.highlightedIndex;
-    if (highlightedIndex < 0 || highlightedIndex >= _nodeHits.length) return;
-    final hit = _nodeHits[highlightedIndex];
-    final style = _resolvedNodeHighlightBorderStyle(
-      game.layout,
-      hit.target.layout,
-      hit.target.resolvedNode,
-      game.layoutContext,
-    );
-    if (style == null) return;
-    NodeComponent.renderBorder(
-      canvas,
-      hit.path,
-      style,
-      style.strokeWidth,
-      isVirtual: false,
-    );
-  }
-
-  @override
-  void onTapUp(flame_events.TapUpEvent event) {
-    final hit = _hitAt(event.localPosition.toOffset());
-    if (hit == null) return;
-    final resultIndex = _resultIndex(hit.target.resolvedNode);
-    if (resultIndex == null) return;
-    _hud.selectResult(resultIndex);
-    game.updateHoveredNode(null);
-    event.continuePropagation = false;
-  }
-
-  @override
-  void onPointerMove(flame_events.PointerMoveEvent event) {
-    final localPosition = event.localPosition.toOffset();
-    final globalPosition = localPosition + position.toOffset();
-    _hoverPosition = localPosition;
-    game.updateCursorPosition(globalPosition);
-    final hit = _hitAt(localPosition);
-    final resultIndex = _resultIndex(hit?.target.resolvedNode);
-    if (hit == null || resultIndex == null) {
-      game.updateHoveredNode(null);
-    } else {
-      _hud.highlightResult(resultIndex);
-      final style = _resolvedNodeHighlightBorderStyle(
-        game.layout,
-        hit.target.layout,
-        hit.target.resolvedNode,
-        game.layoutContext,
-      );
-      game.updateHoveredNode(
-        'search/${hit.target.resolvedNode?.node?.slug ?? resultIndex}',
-        path: hit.path.shift(position.toOffset()),
-        style: style,
-      );
-    }
-    super.onPointerMove(event);
-  }
-
-  @override
-  void onPointerMoveStop(flame_events.PointerMoveEvent event) {
-    _hoverPosition = null;
-    game.updateHoveredNode(null);
-    super.onPointerMoveStop(event);
-  }
-
-  _SearchTableNodeHit? _hitAt(Offset localPosition) {
-    for (final hit in _nodeHits.reversed) {
-      if (hit.path.contains(localPosition)) return hit;
-    }
-    return null;
-  }
-
-  int? _resultIndex(ResolvedVaultNode? node) {
-    if (node == null) return null;
-    final results = _hud.visibleResults;
-    for (var index = 0; index < results.length; index += 1) {
-      if (identical(results[index], node)) return index;
-    }
-    final slug = node.node?.slug.trim();
-    if (slug == null || slug.isEmpty) return null;
-    for (var index = 0; index < results.length; index += 1) {
-      if (results[index].node?.slug.trim() == slug) return index;
-    }
-    return null;
-  }
-}
-
-typedef _SearchTableNodeHit = ({LayoutTapTarget target, Path path});
-
-List<Offset> _rectPoints(Rect rect) => [
-  rect.topLeft,
-  rect.topRight,
-  rect.bottomRight,
-  rect.bottomLeft,
-];
-
 LayoutContext _layoutContext(
   Layout root,
   List<ResolvedVaultNode> highlightedNodes,
-  List<ResolvedVaultNode> selectedNodes,
-) {
+  List<ResolvedVaultNode> selectedNodes, {
+  bool searchOpenned = false,
+}) {
   final selectedPath = selectedNodes.lastOrNull?.path;
   final selectedPaths = [for (final node in selectedNodes) node.path];
   final nodeContext = LayoutContext(
+    searchOpenned: searchOpenned,
     selectedNodePath: selectedPath,
     selectedNodePaths: selectedPaths,
     highlightedNodePaths: [for (final node in highlightedNodes) node.path],
@@ -2196,7 +2054,7 @@ LayoutContext _nodeLayoutContext(
 }
 
 SearchLayout _searchLayoutConfig(Layout root) =>
-    _searchLayoutConfigOrNull(root) ?? const SearchLayout();
+    _searchLayoutConfigOrNull(root) ?? SearchLayout();
 
 SearchLayout? _searchLayoutConfigOrNull(Layout root) {
   if (root is SearchLayout) return root;
@@ -4370,6 +4228,10 @@ double _cross2d(Offset left, Offset right) =>
 
 typedef _LayoutTapHit = ({LayoutTapTarget target, Path? nodePath});
 
+bool _isTappablePanel(Layout layout) =>
+    layout is PanelLayout &&
+    (layout.onTap != null || layout.aliases.contains('action-button'));
+
 LayoutTapTarget? _hitTestLayoutTapTarget(
   LandscapeXlLayout root,
   Size size,
@@ -4377,8 +4239,10 @@ LayoutTapTarget? _hitTestLayoutTapTarget(
   Offset position,
   VaultNodeResolver? vaultNodeResolver,
   List<ResolvedVaultNode> highlightedNodes,
-  List<ResolvedVaultNode> selectedNodes,
-) => _hitTestLayoutTap(
+  List<ResolvedVaultNode> selectedNodes, {
+  List<ResolvedVaultNode> searchResults = const [],
+  bool searchOpenned = false,
+}) => _hitTestLayoutTap(
   root,
   size,
   safePadding,
@@ -4386,6 +4250,8 @@ LayoutTapTarget? _hitTestLayoutTapTarget(
   vaultNodeResolver,
   highlightedNodes,
   selectedNodes,
+  searchResults: searchResults,
+  searchOpenned: searchOpenned,
 )?.target;
 
 _LayoutTapHit? _hitTestLayoutTap(
@@ -4395,10 +4261,20 @@ _LayoutTapHit? _hitTestLayoutTap(
   Offset position,
   VaultNodeResolver? vaultNodeResolver,
   List<ResolvedVaultNode> highlightedNodes,
-  List<ResolvedVaultNode> selectedNodes,
-) {
-  final layoutContext = _layoutContext(root, highlightedNodes, selectedNodes);
-  final nodeListSources = _nodeListSources(selectedNodes);
+  List<ResolvedVaultNode> selectedNodes, {
+  List<ResolvedVaultNode> searchResults = const [],
+  bool searchOpenned = false,
+}) {
+  final layoutContext = _layoutContext(
+    root,
+    highlightedNodes,
+    selectedNodes,
+    searchOpenned: searchOpenned,
+  );
+  final nodeListSources = _nodeListSources(
+    selectedNodes,
+    searchResults: searchResults,
+  );
   final resolvedLayouts = _resolveLayouts(
     root,
     size,
@@ -4725,7 +4601,7 @@ typedef _ResolvedGridTracks = ({
 List<Offset>? _resolveGridPlacementPoints(
   List<Offset> points,
   _LayoutPathProjection? projection,
-  List<({GridLayout grid, String area})> gridSteps,
+  List<({GridLayout grid, String slot, Layout layout})> gridSteps,
   LayoutContext layoutContext,
 ) {
   if (gridSteps.isEmpty) return points;
@@ -4752,7 +4628,7 @@ List<Offset>? _resolveGridPlacementPoints(
 
 _FlexSurfaceRect? _resolveGridPlacementFrame(
   Size flatSize,
-  List<({GridLayout grid, String area})> gridSteps, {
+  List<({GridLayout grid, String slot, Layout layout})> gridSteps, {
   double rootFontSize = LayoutTextDefaults.rootFontSize,
 }) {
   var frame = const (left: 0.0, top: 0.0, right: 1.0, bottom: 1.0);
@@ -4766,13 +4642,9 @@ _FlexSurfaceRect? _resolveGridPlacementFrame(
       rootFontSize: rootFontSize,
     );
     if (tracks == null) return null;
-    final area = step.grid.slot[step.area];
-    if (area == null) return null;
-    final areaFrame = _resolveGridAreaFrame(
-      area,
-      tracks,
-      layout: step.grid.children[step.area],
-    );
+    final slot = step.grid.slots[step.slot];
+    if (slot == null) return null;
+    final areaFrame = _resolveGridSlotFrame(slot, tracks, layout: step.layout);
     if (areaFrame == null) return null;
     frame = _scaleFlexSurfaceRect(frame, areaFrame);
   }
@@ -4814,32 +4686,34 @@ _resolveGridChildren(
   for (final entry in _resolvedLayoutChildren(grid, layoutContext)) {
     final layout = entry.value;
     if (!layout.isVisible(layoutContext)) continue;
-    final area = grid.slot[entry.key];
-    if (area == null) continue;
-    final frame = _resolveGridAreaFrame(area, tracks, layout: layout);
+    final slotName = layout.slot;
+    if (slotName == null) continue;
+    final slot = grid.slots[slotName];
+    if (slot == null) continue;
+    final frame = _resolveGridSlotFrame(slot, tracks, layout: layout);
     if (frame == null) continue;
     yield (key: entry.key, layout: layout, frame: frame);
   }
 }
 
-_FlexSurfaceRect? _resolveGridAreaFrame(
-  GridArea area,
+_FlexSurfaceRect? _resolveGridSlotFrame(
+  GridSlot slot,
   _ResolvedGridTracks tracks, {
   Layout? layout,
 }) {
-  final rowIndex = tracks.rowKeys.indexOf(area.row);
-  final columnIndex = tracks.columnKeys.indexOf(area.column);
+  final rowIndex = tracks.rowKeys.indexOf(slot.row);
+  final columnIndex = tracks.columnKeys.indexOf(slot.column);
   if (rowIndex < 0 || columnIndex < 0) return null;
-  final rowStartIndex = rowIndex + area.rowOffset;
-  final columnStartIndex = columnIndex + area.columnOffset;
+  final rowStartIndex = rowIndex + slot.rowOffset;
+  final columnStartIndex = columnIndex + slot.columnOffset;
   final rowEndIndex = _gridAreaEnd(
     rowStartIndex,
-    area.rowSpan,
+    slot.rowSpan,
     tracks.rowKeys.length,
   );
   final columnEndIndex = _gridAreaEnd(
     columnStartIndex,
-    area.columnSpan,
+    slot.columnSpan,
     tracks.columnKeys.length,
   );
   if (rowStartIndex < 0 ||
@@ -4856,7 +4730,7 @@ _FlexSurfaceRect? _resolveGridAreaFrame(
     right: _gridStopAt(tracks.columnStops, columnEndIndex),
     bottom: _gridStopAt(tracks.rowStops, rowEndIndex),
   );
-  if (area.initialSpan != GridAreaSpan.content || layout == null) return frame;
+  if (slot.initialSpan != GridSlotSpan.content || layout == null) return frame;
   final contentHeight = _gridAreaContentHeight(
     layout,
     LayoutTextDefaults.config,
@@ -4865,7 +4739,7 @@ _FlexSurfaceRect? _resolveGridAreaFrame(
   final contentSpan = tracks.size.height <= 0
       ? 0.0
       : contentHeight / tracks.size.height;
-  final maxBottom = area.maxSpan == GridAreaSpan.track
+  final maxBottom = slot.maxSpan == GridSlotSpan.track
       ? frame.bottom
       : math.min(frame.top + contentSpan, frame.bottom);
   return (
@@ -5383,8 +5257,7 @@ _LayoutTapHit? _hitTestCurvedFlexComposition(
         );
       }
     }
-    if (layout is PanelLayout &&
-        layout.aliases.contains('action-button') &&
+    if (_isTappablePanel(layout) &&
         _curvedSurfacePath(projection, child.frame).contains(position)) {
       return (
         target: LayoutTapTarget(
@@ -5525,8 +5398,7 @@ _LayoutTapHit? _hitTestCurvedGridComposition(
       if (nested != null) return nested;
     }
     final childPoints = _curvedSurfaceCorners(projection, childFrame);
-    if (layout is PanelLayout &&
-        layout.aliases.contains('action-button') &&
+    if (_isTappablePanel(layout) &&
         _curvedSurfacePath(projection, childFrame).contains(position)) {
       return (
         target: LayoutTapTarget(
@@ -5573,9 +5445,7 @@ _LayoutTapHit? _hitTestGridLeaf(
       );
     }
   }
-  if (layout is PanelLayout &&
-      layout.aliases.contains('action-button') &&
-      _polygonContains(points, position)) {
+  if (_isTappablePanel(layout) && _polygonContains(points, position)) {
     return (
       target: LayoutTapTarget(
         key: path,
@@ -5656,9 +5526,7 @@ _LayoutTapHit? _hitTestFlexComposition(
         );
       }
     }
-    if (layout is PanelLayout &&
-        layout.aliases.contains('action-button') &&
-        _polygonContains(child.points, position)) {
+    if (_isTappablePanel(layout) && _polygonContains(child.points, position)) {
       return (
         target: LayoutTapTarget(
           key: childPath,
@@ -5739,6 +5607,7 @@ _resolveFlexChildren(
 ) {
   if (composition case RowLayout(crossAxisAlignment: final alignment?)) {
     if (availablePixels <= 0) return (start: 0, end: 0);
+    if (alignment.stretches) return (start: 0, end: 1);
     final childSize = child.resolveSize(layoutContext).secondary;
     final extentPixels = childSize == null
         ? _layoutIntrinsicHeight(
@@ -7260,8 +7129,8 @@ Offset? _resolveReference(
       derivative.resolve(resolved.layout, resolved.bounds.size, layoutContext);
 }
 
-Offset? _resolvePathAreaReference(
-  LayoutPathAreaReference reference,
+Offset? _resolvePathSlotReference(
+  LayoutPathSlotReference reference,
   Map<String, _ResolvedLayout> layouts, [
   LayoutContext layoutContext = LayoutContext.empty,
 ]) {
@@ -7271,8 +7140,8 @@ Offset? _resolvePathAreaReference(
   if (path is! LayoutPath) return null;
   final grid = path.children[reference.grid]?.resolve(layoutContext);
   if (grid is! GridLayout) return null;
-  final area = grid.slot[reference.area];
-  if (area == null) return null;
+  final slot = grid.slots[reference.slot];
+  if (slot == null) return null;
 
   final points = _resolvedLayoutPathPoints(path, layouts, layoutContext);
   if (points == null || points.length != 4) return null;
@@ -7290,10 +7159,10 @@ Offset? _resolvePathAreaReference(
     rootFontSize: layoutContext.rootFontSize,
   );
   if (tracks == null) return null;
-  final frame = _resolveGridAreaFrame(
-    area,
+  final frame = _resolveGridSlotFrame(
+    slot,
     tracks,
-    layout: grid.children[reference.area]?.resolve(layoutContext),
+    layout: _gridChildForSlot(grid, reference.slot, layoutContext),
   );
   if (frame == null) return null;
   final corners = projection?.canProjectBackground ?? false
@@ -7308,11 +7177,23 @@ Offset? _resolvePathAreaReference(
   return reference.position.resolve(_boundsForPoints(corners));
 }
 
-void _drawAreaRayArrow(
+Layout? _gridChildForSlot(
+  GridLayout grid,
+  String slot,
+  LayoutContext layoutContext,
+) {
+  for (final child in grid.children.values) {
+    final resolved = child.resolve(layoutContext);
+    if (resolved.slot == slot) return resolved;
+  }
+  return null;
+}
+
+void _drawSlotRayArrow(
   Canvas canvas,
   Offset start,
   Offset target,
-  LayoutAreaRayLayout ray,
+  LayoutSlotRayLayout ray,
 ) {
   final delta = target - start;
   final distance = delta.distance;
@@ -7329,11 +7210,11 @@ void _drawAreaRayArrow(
   canvas.drawLine(target, base - perpendicular * ray.arrowSize * 0.5, paint);
 }
 
-void _drawAreaToDerivativeRayArrow(
+void _drawSlotToDerivativeRayArrow(
   Canvas canvas,
   Offset start,
   Offset target,
-  LayoutAreaToDerivativeRayLayout ray,
+  LayoutSlotToDerivativeRayLayout ray,
 ) {
   final delta = target - start;
   final distance = delta.distance;

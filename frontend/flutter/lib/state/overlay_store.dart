@@ -51,31 +51,3 @@ class ToastNotifier extends Notifier<List<ToastEvent>> {
     );
   }
 }
-
-class InterfaceOverlayState {
-  const InterfaceOverlayState({this.searchValue = ''});
-
-  final String searchValue;
-
-  InterfaceOverlayState copyWith({String? searchValue}) =>
-      InterfaceOverlayState(searchValue: searchValue ?? this.searchValue);
-}
-
-final interfaceOverlayStateProvider =
-    NotifierProvider<InterfaceOverlayNotifier, InterfaceOverlayState>(
-      InterfaceOverlayNotifier.new,
-    );
-
-class InterfaceOverlayNotifier extends Notifier<InterfaceOverlayState> {
-  @override
-  InterfaceOverlayState build() => const InterfaceOverlayState();
-
-  void submitSearch(String value) {
-    final normalizedValue = value.trim();
-    state = state.copyWith(searchValue: normalizedValue);
-  }
-
-  void cancel() {
-    state = const InterfaceOverlayState();
-  }
-}

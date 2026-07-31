@@ -197,14 +197,14 @@
   emoji pinned to points along a specific guide line. Use this for line-local
   points such as a diagonal guide's center; do not confuse those with the
   owning layout's center derivative.
-- Use `LayoutAreaRayLayout` when a ray should target a named
-  `GridArea` position instead of a layout derivative; for example,
+- Use `LayoutSlotRayLayout` when a ray should target a named
+  `GridSlot` position instead of a layout derivative; for example,
   target `position: LayoutRelativePosition.bottom` or
-  `position: LayoutRelativePosition.d(90)` for the bottom of a grid area.
-  `LayoutPathAreaReference.path`, `grid`, and `area` address the owning path,
-  its `GridLayout` child, and the named area directly.
-- Use `LayoutAreaToDerivativeRayLayout` for the reverse direction: starting at
-  a named `GridArea` anchor and pointing toward a layout derivative.
+  `position: LayoutRelativePosition.d(90)` for the bottom of a grid slot's
+  resolved area. `LayoutPathSlotReference.path`, `grid`, and `slot` address the
+  owning path, its `GridLayout` child, and the named slot directly.
+- Use `LayoutSlotToDerivativeRayLayout` for the reverse direction: starting at
+  a named `GridSlot` anchor and pointing toward a layout derivative.
 - Use `LayoutPath` for filled/vector-like planes and polygons. Its points
   should be `LayoutDerivativeReference` values, so SVG-like path structures stay
   configurable instead of becoming painter-only geometry.
@@ -312,13 +312,13 @@
   first 4rem row so its nested `ColumnLayout` content starts beneath the header.
   The header is a direct `RowLayout` spanning the complete top row; do not wrap
   it in another Grid. A
-  foreground `logo` area owns their header/left-ribbon intersection and
+  foreground `logo` slot owns their header/left-ribbon intersection and
   renders the aliased `brain-control` `NodeLayout`. It uses the exact shared
   top/bottom Fan root filter and renders its configured brain Emoji without a
   separate image background.
   Header panels remain direct children of
   that Row; do not restore a separate
-  center-ribbon composition. The `footer` area spans the complete 2rem bottom
+  center-ribbon composition. The `footer` slot spans the complete 2rem bottom
   row, including its left-ribbon intersection. Its `RowLayout` contains a
   `LayoutDefaultSize.crossAxisRibbonWidth` start spacer, the flexible
   `bottom-ribbon` Panel, and a
@@ -348,16 +348,18 @@
   curved surface. `rowsConfig` and `columnsConfig` must be ordered maps of
   `LayoutSize`; the
   map key owns identity, preventing IDs and measurements from drifting apart.
-  `GridLayout.slot` maps a child identity to `GridArea` geometry; the child
-  with the same key remains in the ordinary `Layout.children` tree. Areas
-  reference named starting tracks and use `GridSpan.full` when they must
+  `GridLayout.slots` maps an area name to `GridSlot` geometry; each child
+  requests an area through `Layout.slot`, while its `Layout.children` map key
+  remains stable identity. A matching slot overrides the child's `size` for
+  placement. Slots reference named starting tracks and use `GridSpan.full` when they must
   continue through all remaining tracks, including tracks added later. Use
-  `columnOffset`/`rowOffset` plus fractional spans when an area must consume
-  part of a track. Use `initialSpan: GridAreaSpan.content` with
-  `maxSpan: GridAreaSpan.track` when an area's initial vertical geometry should
+  `columnOffset`/`rowOffset` plus fractional spans when a slot must consume
+  part of a track. Use `initialSpan: GridSlotSpan.content` with
+  `maxSpan: GridSlotSpan.track` when a slot's initial vertical geometry should
   follow intrinsic content but remain capped by its named row; paint,
-  backgrounds, and hit testing must share that resolved frame. Do not restore `PerspectiveGridLayout`,
-  `PerspectiveGridArea`, or `LayoutPath.grid`.
+  backgrounds, and hit testing must share the area resolved from that slot. Do
+  not restore `PerspectiveGridLayout`, `PerspectiveGridArea`, or
+  `LayoutPath.grid`.
   Use `LayoutSize.fr` for flexible space, `LayoutSize.pt` (`px` alias)
   for fixed gaps, and `LayoutSize.calculatedFr` when a track is a computed
   fraction with a fallback value. Do not pad root screen or safe-area anchors

@@ -21,6 +21,7 @@ part 'text.dart';
 abstract class Layout {
   const Layout({
     LayoutSize? size,
+    this.slot,
     this.aliases = const [],
     this.label = LabelDefaults.config,
     this.text = const LayoutTextConfig(),
@@ -41,6 +42,7 @@ abstract class Layout {
     this.activeNodeBackgroundOpacity = NodeDefaults.activeBackgroundOpacity,
     this.virtualNodeBackgroundOpacity = NodeDefaults.virtualBackgroundOpacity,
   }) : _configuredSize = size,
+       assert(slot == null || slot != ''),
        assert(layoutPadding >= 0),
        assert(layoutGap >= 0),
        assert(layoutBorderWidth == null || layoutBorderWidth >= 0),
@@ -63,6 +65,12 @@ abstract class Layout {
   final LayoutSize? _configuredSize;
   LayoutSize get size =>
       LayoutDefaultSize.mergeWith(const LayoutSize.fr(1), _configuredSize);
+
+  /// Named area requested from the parent [GridLayout].
+  ///
+  /// When the parent defines this name in [GridLayout.slots], the grid places
+  /// this layout in that area and does not use [size] for placement.
+  final String? slot;
   final List<String> aliases;
   final LabelConfig label;
   final LayoutTextConfig text;
@@ -301,6 +309,7 @@ class LayoutDerivativeSnapshot {
 class LayoutContext {
   const LayoutContext({
     this.inputSource,
+    this.searchOpenned = false,
     this.selectedNodePath,
     this.selectedNodePaths = const [],
     this.highlightedNodePaths = const [],
@@ -318,6 +327,7 @@ class LayoutContext {
 
   /// Source of the interaction currently being evaluated, when applicable.
   final LayoutInputSource? inputSource;
+  final bool searchOpenned;
   final String? selectedNodePath;
   final List<String> selectedNodePaths;
   final List<String> highlightedNodePaths;
@@ -339,6 +349,7 @@ class LayoutContext {
   LayoutContext withCurrentNodePath(String? path) {
     return LayoutContext(
       inputSource: inputSource,
+      searchOpenned: searchOpenned,
       selectedNodePath: selectedNodePath,
       selectedNodePaths: selectedNodePaths,
       highlightedNodePaths: highlightedNodePaths,
@@ -356,6 +367,7 @@ class LayoutContext {
   LayoutContext withLabelHighlighted(bool value) {
     return LayoutContext(
       inputSource: inputSource,
+      searchOpenned: searchOpenned,
       selectedNodePath: selectedNodePath,
       selectedNodePaths: selectedNodePaths,
       highlightedNodePaths: highlightedNodePaths,
@@ -373,6 +385,7 @@ class LayoutContext {
   LayoutContext withCurrentLabel(String? label) {
     return LayoutContext(
       inputSource: inputSource,
+      searchOpenned: searchOpenned,
       selectedNodePath: selectedNodePath,
       selectedNodePaths: selectedNodePaths,
       highlightedNodePaths: highlightedNodePaths,
@@ -390,6 +403,7 @@ class LayoutContext {
   LayoutContext withCurrentNode({String? path, String? slug}) {
     return LayoutContext(
       inputSource: inputSource,
+      searchOpenned: searchOpenned,
       selectedNodePath: selectedNodePath,
       selectedNodePaths: selectedNodePaths,
       highlightedNodePaths: highlightedNodePaths,
@@ -407,6 +421,7 @@ class LayoutContext {
   LayoutContext withHighlightedNodePath(String path) {
     return LayoutContext(
       inputSource: inputSource,
+      searchOpenned: searchOpenned,
       selectedNodePath: selectedNodePath,
       selectedNodePaths: selectedNodePaths,
       highlightedNodePaths: [...highlightedNodePaths, path],
@@ -759,6 +774,7 @@ abstract class LayoutGuide extends Layout {
   const LayoutGuide({
     required this.style,
     this.visible = true,
+    super.slot,
     super.aliases,
     super.attributes,
     super.background,
@@ -787,6 +803,7 @@ class CirleLayout extends LayoutGuide {
     required this.boundary,
     required super.style,
     super.visible,
+    super.slot,
     super.aliases,
     super.attributes = const [LayoutAttribute.circular],
     super.background,
@@ -1393,18 +1410,18 @@ abstract final class GridSpan {
   static const full = double.infinity;
 }
 
-enum GridAreaSpan { content, track }
+enum GridSlotSpan { content, track }
 
-class GridArea {
-  const GridArea({
+class GridSlot {
+  const GridSlot({
     required this.row,
     required this.column,
     this.rowOffset = 0,
     this.columnOffset = 0,
     this.rowSpan = 1,
     this.columnSpan = 1,
-    this.initialSpan = GridAreaSpan.track,
-    this.maxSpan = GridAreaSpan.track,
+    this.initialSpan = GridSlotSpan.track,
+    this.maxSpan = GridSlotSpan.track,
   });
 
   final String row;
@@ -1413,21 +1430,23 @@ class GridArea {
   final double columnOffset;
   final double rowSpan;
   final double columnSpan;
-  final GridAreaSpan initialSpan;
-  final GridAreaSpan maxSpan;
+  final GridSlotSpan initialSpan;
+  final GridSlotSpan maxSpan;
 }
 
 /// CSS-like two-dimensional composition using named tracks and slots.
 ///
-/// Each entry in [slot] positions the child with the same key in [children].
+/// A child selects an entry in [slots] through [Layout.slot]. Its key in
+/// [Layout.children] remains independent layout identity.
 class GridLayout extends Layout {
   const GridLayout({
     required this.rowsConfig,
     required this.columnsConfig,
-    this.slot = const {},
+    this.slots = const {},
     this.guideStyle,
     super.children,
     super.size,
+    super.slot,
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
     super.background,
@@ -1447,7 +1466,7 @@ class GridLayout extends Layout {
 
   final Map<String, LayoutSize> rowsConfig;
   final Map<String, LayoutSize> columnsConfig;
-  final Map<String, GridArea> slot;
+  final Map<String, GridSlot> slots;
   final GuideStyle? guideStyle;
 }
 
@@ -1456,6 +1475,7 @@ class ColumnLayout extends Layout {
   const ColumnLayout({
     super.children,
     super.size,
+    super.slot,
     super.aliases,
     super.background,
     super.layoutPadding,
@@ -1479,6 +1499,7 @@ class RowLayout extends Layout {
     this.crossAxisAlignment,
     super.children,
     super.size,
+    super.slot,
     super.aliases,
     super.background,
     super.layoutPadding,
@@ -1504,18 +1525,32 @@ class RowLayout extends Layout {
 
 /// Vertical placement of intrinsic-height children inside a [RowLayout].
 class LayoutCrossAxisAlignment {
-  const LayoutCrossAxisAlignment.top() : fraction = 0;
-  const LayoutCrossAxisAlignment.center() : fraction = 0.5;
-  const LayoutCrossAxisAlignment.bottom() : fraction = 1;
+  const LayoutCrossAxisAlignment.stretch() : fraction = 0, stretches = true;
+  const LayoutCrossAxisAlignment.top() : fraction = 0, stretches = false;
+  const LayoutCrossAxisAlignment.center() : fraction = 0.5, stretches = false;
+  const LayoutCrossAxisAlignment.bottom() : fraction = 1, stretches = false;
 
   final double fraction;
+  final bool stretches;
+}
+
+abstract class LayoutTapAction {
+  const LayoutTapAction._();
+
+  const factory LayoutTapAction.searchOpenned() = SearchOpennedLayoutTapAction;
+}
+
+class SearchOpennedLayoutTapAction extends LayoutTapAction {
+  const SearchOpennedLayoutTapAction() : super._();
 }
 
 /// Paintable leaf used inside row/column composition.
 class PanelLayout extends Layout {
   const PanelLayout({
     super.size,
+    super.slot,
     this.borderStyle,
+    this.onTap,
     super.aliases,
     super.background,
     super.layoutPadding,
@@ -1532,6 +1567,7 @@ class PanelLayout extends Layout {
     super.inputSources,
   }) : super(attributes: const [LayoutAttribute.rectangular]);
   final GuideStyle? borderStyle;
+  final LayoutTapAction? onTap;
 }
 
 class LayoutPath extends Layout {
@@ -1547,6 +1583,7 @@ class LayoutPath extends Layout {
     super.derivativeSnapshot,
     super.observables,
     super.inputSources,
+    super.slot,
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
     super.background,
@@ -1602,6 +1639,7 @@ class FanLayout extends Layout with TableLayoutMixin {
     this.position = LayoutRelativePosition.top,
     this.growthDirection,
     this.gridStyle,
+    super.slot,
     super.aliases,
     super.attributes = const [LayoutAttribute.circular],
     super.background,
@@ -1696,6 +1734,7 @@ class GraphLayout extends Layout {
     this.nodeExtentFactor = 0.5,
     this.emojiFontSizeFactor = 2,
     this.emojiSlugGapFactor = 0.5,
+    super.slot,
     super.aliases,
     super.attributes = const [LayoutAttribute.circular],
     super.background,
@@ -1729,6 +1768,7 @@ class NodeListLayout extends Layout {
     required this.style,
     this.labelSize = 12,
     super.size,
+    super.slot,
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
     super.background,
@@ -1765,6 +1805,7 @@ class NodeLayout extends Layout {
       strokeWidth: 1.5,
     ),
     super.size,
+    super.slot,
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
     super.background,
@@ -1812,32 +1853,33 @@ final class _SelectedNodeLayoutNodePointer extends LayoutNodePointer {
   }
 }
 
-class LayoutPathAreaReference {
-  const LayoutPathAreaReference({
+class LayoutPathSlotReference {
+  const LayoutPathSlotReference({
     this.layoutPath = const [],
     required this.path,
     required this.grid,
-    required this.area,
+    required this.slot,
     this.position = LayoutRelativePosition.center,
   });
 
   final List<String> layoutPath;
   final String path;
   final String grid;
-  final String area;
+  final String slot;
 
-  /// Position relative to the resolved target area.
+  /// Position relative to the area resolved from the target slot.
   final LayoutRelativePosition position;
 }
 
-class LayoutAreaRayLayout extends LayoutGuide {
-  const LayoutAreaRayLayout({
+class LayoutSlotRayLayout extends LayoutGuide {
+  const LayoutSlotRayLayout({
     required this.start,
     required this.towards,
     required super.style,
     this.showArrow = true,
     this.arrowSize = 10,
     super.visible,
+    super.slot,
     super.aliases,
     super.attributes = const [LayoutAttribute.linear],
     super.background,
@@ -1856,19 +1898,20 @@ class LayoutAreaRayLayout extends LayoutGuide {
   });
 
   final LayoutDerivativeReference start;
-  final LayoutPathAreaReference towards;
+  final LayoutPathSlotReference towards;
   final bool showArrow;
   final double arrowSize;
 }
 
-class LayoutAreaToDerivativeRayLayout extends LayoutGuide {
-  const LayoutAreaToDerivativeRayLayout({
+class LayoutSlotToDerivativeRayLayout extends LayoutGuide {
+  const LayoutSlotToDerivativeRayLayout({
     required this.start,
     required this.towards,
     required super.style,
     this.showArrow = true,
     this.arrowSize = 10,
     super.visible,
+    super.slot,
     super.aliases,
     super.attributes = const [LayoutAttribute.linear],
     super.background,
@@ -1886,7 +1929,7 @@ class LayoutAreaToDerivativeRayLayout extends LayoutGuide {
     super.inputSources,
   });
 
-  final LayoutPathAreaReference start;
+  final LayoutPathSlotReference start;
   final LayoutDerivativeReference towards;
   final bool showArrow;
   final double arrowSize;
@@ -1907,6 +1950,7 @@ class StickmanLayout extends Layout {
     this.shoulderHalfWidth = 0.14,
     this.handHalfWidth = 0.24,
     this.footHalfWidth = 0.16,
+    super.slot,
     super.aliases,
     super.attributes = const [LayoutAttribute.linear],
     super.background,
@@ -1964,6 +2008,7 @@ class PlaneLayout extends Layout {
       dashInterval: 4,
     ),
     this.ringGuides = const [],
+    super.slot,
     super.aliases,
     super.attributes = const [LayoutAttribute.circular],
     super.background,
@@ -2013,6 +2058,7 @@ class PlaneRingGuide {
 
 class SubjectNodeLayout extends PlaneLayout {
   const SubjectNodeLayout({
+    super.slot,
     super.vaultNode,
     super.position,
     super.radiusFraction,
@@ -2062,6 +2108,7 @@ class LayoutBorderGuide extends LayoutGuide {
     this.anchorDirectionLength = 14,
     this.useLayoutStyle = false,
     super.visible,
+    super.slot,
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
     super.background,

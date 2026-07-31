@@ -2,6 +2,7 @@ part of 'layout.dart';
 
 class LandscapeXlLayout extends Layout {
   const LandscapeXlLayout({
+    super.slot,
     super.aliases,
     super.attributes = const [LayoutAttribute.rectangular],
     super.background,
@@ -26,6 +27,7 @@ class LandscapeXlLayout extends Layout {
 
 class SafeAreaLayout extends LandscapeXlLayout {
   const SafeAreaLayout({
+    super.slot,
     super.aliases,
     super.attributes = const [
       LayoutAttribute.safeArea,

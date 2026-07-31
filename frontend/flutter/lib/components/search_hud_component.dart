@@ -39,18 +39,6 @@ class SearchHudComponent extends PositionComponent with KeyboardHandler {
   bool get isOpen => _isOpen;
   bool get showsResults =>
       _isOpen && _draft.trim() == searchValue.trim() && results.isNotEmpty;
-  int get highlightedIndex => _highlightedIndex;
-  List<ResolvedVaultNode> get visibleResults => results;
-
-  Rect get suggestionsBounds {
-    final input = _inputBounds;
-    return Rect.fromLTRB(
-      layout.padding,
-      input.bottom + layout.inputToSuggestionsGap,
-      size.x - layout.padding,
-      size.y - layout.padding,
-    );
-  }
 
   void updateLayout(SearchLayout layout, Rect bounds) {
     this.layout = layout;
@@ -76,7 +64,7 @@ class SearchHudComponent extends PositionComponent with KeyboardHandler {
       _highlightedIndex = -1;
     } else if (resultsChanged ||
         _highlightedIndex < 0 ||
-        _highlightedIndex >= visibleResults.length) {
+        _highlightedIndex >= results.length) {
       _highlightedIndex = 0;
     }
   }
@@ -93,7 +81,6 @@ class SearchHudComponent extends PositionComponent with KeyboardHandler {
     if (_isOpen) {
       if (action == SevilleKeymapAction.cancel) {
         close();
-        onCancel();
         return false;
       }
       if (action == SevilleKeymapAction.submit) {
@@ -201,7 +188,7 @@ class SearchHudComponent extends PositionComponent with KeyboardHandler {
 
   void _moveHighlight(int delta) {
     if (!showsResults) return;
-    final resultCount = visibleResults.length;
+    final resultCount = results.length;
     _highlightedIndex =
         (_highlightedIndex < 0
                 ? delta > 0
@@ -211,15 +198,9 @@ class SearchHudComponent extends PositionComponent with KeyboardHandler {
             .clamp(0, resultCount - 1);
   }
 
-  void highlightResult(int index) {
-    if (!showsResults || index < 0 || index >= visibleResults.length) return;
-    _highlightedIndex = index;
-  }
-
   void selectResult(int index) {
-    final visible = visibleResults;
-    if (index < 0 || index >= visible.length) return;
-    final node = visible[index];
+    if (index < 0 || index >= results.length) return;
+    final node = results[index];
     if (node.node == null) return;
     close();
     onNodeSelected(node);

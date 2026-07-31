@@ -40,6 +40,8 @@ abstract class LayoutCondition {
   const factory LayoutCondition.inputSource(LayoutInputSource source) =
       _LayoutInputSourceCondition;
 
+  const factory LayoutCondition.searchOpenned() = _LayoutSearchOpennedCondition;
+
   final Set<String> exclude;
 
   Set<String> get normalizedExclude => {
@@ -89,6 +91,13 @@ class _LayoutInputSourceCondition extends LayoutCondition {
 
   @override
   bool isActive(LayoutContext context) => context.inputSource == source;
+}
+
+class _LayoutSearchOpennedCondition extends LayoutCondition {
+  const _LayoutSearchOpennedCondition() : super._();
+
+  @override
+  bool isActive(LayoutContext context) => context.searchOpenned;
 }
 
 class _LayoutNodeHighlightedCondition extends LayoutCondition {

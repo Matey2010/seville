@@ -325,8 +325,8 @@ configuration is always owned directly by the layout whose geometry it fills.
 ## 6. Compose named grid slots
 
 Use `GridLayout` for CSS-like two-dimensional composition. Rows and columns are
-ordered track maps, `slot` maps stable child identities to track geometry, and
-the matching entries in `children` provide the rendered layouts:
+ordered track maps, `slots` maps area names to track geometry, and each layout
+in `children` requests its area through `Layout.slot`:
 
 ```dart
 LayoutPath(
@@ -345,23 +345,25 @@ LayoutPath(
         'center': LayoutSize.fr(2),
         'right': LayoutSize.fr(1),
       },
-      slot: {
-        'top-left': GridArea(row: 'top', column: 'left'),
-        'center': GridArea(row: 'center', column: 'center'),
-        'footer': GridArea(
+      slots: {
+        'top-left': GridSlot(row: 'top', column: 'left'),
+        'center': GridSlot(row: 'center', column: 'center'),
+        'footer': GridSlot(
           row: 'ribbon',
           column: 'left',
           columnSpan: GridSpan.full,
         ),
       },
       children: {
-        'top-left': PanelLayout(
+        'back-button': PanelLayout(
+          slot: 'top-left',
           text: LayoutTextConfig(value: LayoutText.value('↖')),
         ),
-        'center': PanelLayout(
+        'focus-indicator': PanelLayout(
+          slot: 'center',
           text: LayoutTextConfig(value: LayoutText.value('•')),
         ),
-        'footer': RowLayout(children: {...}),
+        'status-controls': RowLayout(slot: 'footer', children: {...}),
       },
     ),
   },
@@ -415,18 +417,23 @@ Panel content is `LayoutTextConfig.value`; `PanelLayout` has no parallel
 root to owning path to nested composition to child, with each child overriding
 only its non-null values.
 
-An area's key is also its child identity. `row` and `column` select named
-starting tracks; `rowSpan`, `columnSpan`, `rowOffset`, and `columnOffset`
-extend or fractionally adjust that placement. `GridSpan.full` continues through
-all remaining tracks. Areas may contain `PanelLayout`, `NodeListLayout`,
-`TableLayout`, `RowLayout`, `ColumnLayout`, or another `GridLayout`.
-`initialSpan: GridAreaSpan.content` starts an area's vertical frame at its
-resolved text/content height. `maxSpan: GridAreaSpan.track` caps that frame at
+A slot's key is an area name independent of child identity. Every `Layout`
+accepts an optional `slot`; when its parent is a `GridLayout` containing that
+name, the layout fills the resolved area and its own `size` is ignored. A child
+without a matching declared slot does not participate in that grid. `row` and
+`column` select named starting tracks; `rowSpan`, `columnSpan`, `rowOffset`, and
+`columnOffset` extend or fractionally adjust that placement. `GridSpan.full`
+continues through all remaining tracks. Slots may contain `PanelLayout`,
+`NodeListLayout`, `TableLayout`, `RowLayout`, `ColumnLayout`, or another
+`GridLayout`.
+`initialSpan: GridSlotSpan.content` starts a slot's resolved area at its
+resolved text/content height. `maxSpan: GridSlotSpan.track` caps that frame at
 the complete named row, preserving room for future expansion without adding a
 second track or overlay. Backgrounds, projected content, and hit testing all
 consume the same intrinsic frame.
-`TableLayout` painting and interaction geometry both resolve from its named
-area, so folding, Node hits, labels, and actions remain aligned after nesting.
+`TableLayout` painting and interaction geometry both consume the area resolved
+from its named slot, so folding, Node hits, labels, and actions remain aligned
+after nesting.
 
 ### Curved paths
 
@@ -562,8 +569,8 @@ cortex root and reverses that complete child filter, keeping the two planes as
 derived complementary partitions. The top uses direct-parts-weighted sizing;
 the bottom uses equal sizing.
 `GraphLayout` is the selected Node pool used by the center scene. It is nested
-at `panoramic-scene-plane/direction-pad/scene-graph`; its named area spans the
-curved grid's complete center column and supplies the projected Graph frame. It
+at `panoramic-scene-plane/direction-pad/scene-graph`; its named slot spans the
+curved grid's complete center column and resolves the projected Graph area. It
 reads the complete Riverpod-selected Node
 collection and gives every Node an equal centered cell. `nodeExtentFactor` controls the circular
 Node diameter relative to that cell and defaults to `0.5`. The pool becomes
@@ -695,10 +702,10 @@ The panoramic scene contains a three-by-three directional core whose slots
 represent top-left, top-center,
 top-right, center-left, center, center-right, bottom-left, bottom-center, and
 bottom-right. A fixed 4rem header and 2rem bottom ribbon surround those rows,
-while a fixed 4rem left-ribbon area spans the complete column. Its nested
+while a fixed 4rem left-ribbon slot spans the complete column. Its nested
 content skips the first 4rem header row. The header is a direct `RowLayout`
 spanning all four columns. A
-foreground logo area owns their first-cell intersection and uses `NodeLayout`
+foreground logo slot owns their first-cell intersection and uses `NodeLayout`
 to load the same exact Calendar root as the top and bottom Fans, while
 preserving its `brain-control` aliases and brain Emoji. The elder-brain image
 is configured once on `cortex-bush`, not on the logo. The center
@@ -734,7 +741,7 @@ footer, `scene-graph` spans
 its projected center column, and `action-panel` directly owns the projected
 right column as a `ColumnLayout` across the three scene rows, stopping before
 the footer. The left-ribbon content is also a
-`ColumnLayout`, nested in a full-height Grid area whose first row is reserved
+`ColumnLayout`, nested in a full-height Grid slot whose first row is reserved
 for the logo. The header is a direct full-width Row. `logo` separately owns the
 header/left-ribbon intersection. Its shared-root `NodeLayout` and brain Emoji
 paint above both outer ribbon surfaces without a separate image background.

@@ -10,8 +10,8 @@ scaling, and animation.
   `Layout` and nests every child under a stable key in `Layout.children`.
 - `SafeAreaLayout`, `PlaneLayout`, `LayoutPath`, `GridLayout`, `ColumnLayout`,
   and `RowLayout` describe the active screen's structural composition.
-- `GridLayout` combines ordered row and column tracks with named `GridArea`
-  placements. Area keys address the same children in the ordinary
+- `GridLayout` combines ordered row and column tracks with named `GridSlot`
+  placements. Slot keys address the same children in the ordinary
   `Layout.children` tree.
 - `FanLayout` renders graph trees in radial bands, while `GraphLayout`
   renders the selected Node pool in equal centered cells.
@@ -609,21 +609,20 @@ contract; the current group does not dispatch the player query yet.
 Direction controls use a three-by-three fractional core, ordered from top-left
 through bottom-right with center included. Fixed header and bottom-ribbon rows
 surround it. A fixed 4rem left-ribbon track precedes the content columns and its
-outer Grid area spans every row; its nested `ColumnLayout` skips the first 4rem
+outer Grid slot spans every row; its nested `ColumnLayout` skips the first 4rem
 header row. The header itself is a direct `RowLayout` spanning every column in
-the complete top row. A foreground `logo` area owns their intersection and
+the complete top row. A foreground `logo` slot owns their intersection and
 renders the 🧠 `brain-control` `NodeLayout`. Its filter is the same exact
 Calendar-root filter used by both Fans, while the elder-brain image is
 configured once on `cortex-bush`. The center content column remains wider than
 the side columns. Their `direction-*` aliases are configuration-level
 interaction vocabulary; concrete movement behavior is not implied by their
 rendering.
-The `footer` Grid area spans the entire fixed bottom row, including the
+The `footer` Grid slot spans the entire fixed bottom row, including the
 left-ribbon intersection. Its Row content is a fixed ribbon-width start spacer,
 the flexible teletext `bottom-ribbon` Panel, and a matching end spacer.
 The spanning header is one flat `RowLayout` whose panels are direct children.
-There is no nested header or center-ribbon Grid
-area.
+There is no nested header or center-ribbon Grid slot.
 
 The right-plane Today action performs an exact-slug Node query for the local
 `DD-MM-YYYY` value. A returned canonical Node is slug-upserted into
