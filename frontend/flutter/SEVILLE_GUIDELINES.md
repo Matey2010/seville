@@ -632,5 +632,5 @@ create a draft that could duplicate unavailable canonical data.
 
 `SEVILLE_PLAYER_SLUG` is the local player Node identity used before
 authentication provides one. Configure it in the ignored `.env`; the macOS
-`scripts/seville-interface` launcher exports it and supplies the corresponding
+`make -C scripts interface` target exports it and supplies the corresponding
 Dart define to Flutter. It is identity configuration, not an API secret.

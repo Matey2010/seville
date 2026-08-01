@@ -25,7 +25,7 @@ source of terminology.
 Regenerate all contracts from the repository root:
 
 ```sh
-./scripts/generate-proto
+make -C scripts proto
 ```
 
 The backend imports the generated module through the root `go.work` workspace.

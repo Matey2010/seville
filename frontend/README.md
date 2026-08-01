@@ -7,12 +7,12 @@ such as a CLI, can live beside it without becoming part of the Flutter project.
 With the backend running, launch the client from the repository root:
 
 ```sh
-./scripts/seville-interface
+make -C scripts interface
 ```
 
-The launcher targets the supported macOS application, reads `SEVILLE_BASE_URL`,
-`SEVILLE_TOKEN`, and `SEVILLE_PLAYER_SLUG` from `.env`, and passes them to
-Flutter. Other Flutter targets are not currently implemented.
+The Make target launches the supported macOS application, reads
+`SEVILLE_BASE_URL`, `SEVILLE_TOKEN`, and `SEVILLE_PLAYER_SLUG` from `.env`, and
+passes them to Flutter. Other Flutter targets are not currently implemented.
 
 All current interface rendering and interaction belongs to Flame components.
 Flutter widgets are limited to application composition and the `GameWidget`

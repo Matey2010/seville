@@ -40,8 +40,8 @@ From the repository root:
 
 ```sh
 cp .env.example .env
-./scripts/seville start
-./scripts/seville status
+make -C scripts start
+make -C scripts status
 ```
 
 Normal startup connects only to Neo4j and starts the API. It does not inspect

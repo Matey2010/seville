@@ -14,10 +14,10 @@ local source -> Go ingestion -> Neo4j -> authenticated API -> Seville client
 
 ## Normal macOS workflow
 
-Configure `.env`, then use the single supported launcher:
+Configure `.env`, then use the single supported Make target:
 
 ```sh
-./scripts/seville-interface
+make -C scripts interface
 ```
 
 It verifies Docker for a local Neo4j URI, starts the Neo4j container, starts
@@ -27,9 +27,9 @@ owner performs final runtime verification.
 Backend-only controls are:
 
 ```sh
-./scripts/seville start
-./scripts/seville status
-./scripts/seville stop
+make -C scripts start
+make -C scripts status
+make -C scripts stop
 ```
 
 ## Inspect the graph
@@ -69,7 +69,7 @@ LIMIT 100;
 
 ## Legacy migration semantics
 
-The manual tool at `scripts/migrations/obsidian/import-vault-to-neo4j`
+The manual `make -C scripts migrate-obsidian` target
 discovers source state but is not a destructive mirror operation:
 
 - new stable IDs are imported;

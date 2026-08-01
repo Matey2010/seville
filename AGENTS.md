@@ -15,9 +15,9 @@
 - Seville currently runs in production on macOS only.
 - Treat web, Chrome, iOS, Android, Linux, and Windows as unimplemented unless
   the project owner explicitly says otherwise.
-- When giving run or process-control instructions, use the macOS launcher:
-  `./scripts/seville-interface`.
-- Do not suggest `./scripts/seville-interface chrome` or other Flutter targets.
+- When giving run or process-control instructions, use the macOS Make target:
+  `make -C scripts interface`.
+- Do not suggest other Flutter targets.
 
 ## HTTP methods
 
@@ -351,7 +351,9 @@
   `GridLayout.slots` maps an area name to `GridSlot` geometry; each child
   requests an area through `Layout.slot`, while its `Layout.children` map key
   remains stable identity. A matching slot overrides the child's `size` for
-  placement. Slots reference named starting tracks and use `GridSpan.full` when they must
+  placement. `GridSlot.aliases` provides alternative area names; exact map-key
+  matches take priority, then aliases resolve in slot map order. Slots reference
+  named starting tracks and use `GridSpan.full` when they must
   continue through all remaining tracks, including tracks added later. Use
   `columnOffset`/`rowOffset` plus fractional spans when a slot must consume
   part of a track. Use `initialSpan: GridSlotSpan.content` with

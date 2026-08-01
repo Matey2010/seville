@@ -10,12 +10,12 @@ First back up the target Neo4j database and configure the source and database
 connection in the repository-root `.env`. Then, from the repository root, run:
 
 ```sh
-./scripts/migrations/obsidian/import-vault-to-neo4j
+make -C scripts migrate-obsidian
 ```
 
-The script loads only the relevant source and Neo4j variables from `.env`, then
-runs the Go migration command. It does not start Seville, Docker, or the macOS
-client. The target Neo4j service must already be reachable.
+The Make target exports the relevant source and Neo4j variables from `.env`,
+then runs the Go migration command. It does not start Seville, Docker, or the
+macOS client. The target Neo4j service must already be reachable.
 
 ## Source contract
 

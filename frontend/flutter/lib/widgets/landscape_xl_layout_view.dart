@@ -283,12 +283,18 @@ class LandscapeXlLayoutGame extends FlameGame
       ...resolvedRoot.background,
     ]..sort((left, right) => left.orderPosition.compareTo(right.orderPosition));
     for (final background in orderedBackground) {
-      if (background is LayoutBackgroundColor) {
-        add(_LayoutColorBackgroundComponent(background));
-      } else if (background is LayoutImageBackground) {
-        add(_LayoutImageBackgroundComponent(background));
-      } else if (background is LayoutGuidingBackground) {
-        add(_LayoutGuidingBackgroundComponent(background));
+      for (final resolved in _activeLayoutBackgrounds(
+        background,
+        layoutContext,
+      )) {
+        final background = resolved.background;
+        if (background is LayoutBackgroundColor) {
+          add(_LayoutColorBackgroundComponent(background, resolved.opacity));
+        } else if (background is LayoutImageBackground) {
+          add(_LayoutImageBackgroundComponent(background, resolved.opacity));
+        } else if (background is LayoutGuidingBackground) {
+          add(_LayoutGuidingBackgroundComponent(background, resolved.opacity));
+        }
       }
     }
     add(_LandscapeXlSceneComponent()..priority = 100);
@@ -776,9 +782,53 @@ Iterable<String> _layoutConfigImageAssetPaths(LayoutConfig config) sync* {
 Iterable<String> _backgroundImageAssetPaths(LayoutBackground background) sync* {
   if (background is LayoutImageBackground) {
     yield background.assetPath;
+  } else if (background is RandomLayoutBackground) {
+    for (final option in background.backgrounds) {
+      yield* _backgroundImageAssetPaths(option);
+    }
   } else if (background is ConditionalLayoutBackground) {
     yield* _backgroundImageAssetPaths(background.background);
   }
+}
+
+final math.Random _layoutBackgroundRandom = math.Random();
+final Expando<LayoutBackground> _randomLayoutBackgroundSelections = Expando();
+
+LayoutBackground _selectRandomLayoutBackground(
+  RandomLayoutBackground background,
+) => _randomLayoutBackgroundSelections[background] ??=
+    background.backgrounds[_layoutBackgroundRandom.nextInt(
+      background.backgrounds.length,
+    )];
+
+Iterable<({LayoutBackground background, double opacity})>
+_activeLayoutBackgrounds(
+  LayoutBackground background,
+  LayoutContext context, {
+  double inheritedOpacity = 1,
+}) sync* {
+  final opacity = (inheritedOpacity * background.opacity)
+      .clamp(0, 1)
+      .toDouble();
+  if (opacity == 0) return;
+  if (background is RandomLayoutBackground) {
+    yield* _activeLayoutBackgrounds(
+      _selectRandomLayoutBackground(background),
+      context,
+      inheritedOpacity: opacity,
+    );
+    return;
+  }
+  if (background is ConditionalLayoutBackground) {
+    if (!background.activeCondition.isActive(context)) return;
+    yield* _activeLayoutBackgrounds(
+      background.background,
+      context,
+      inheritedOpacity: opacity,
+    );
+    return;
+  }
+  yield (background: background, opacity: opacity);
 }
 
 typedef _RegisteredLayoutComponent = ({
@@ -962,11 +1012,16 @@ Iterable<_PathLayoutPlacement<T>> _gridPathLayoutPlacements<T extends Layout>(
 ]) sync* {
   for (final entry in grid.children.entries) {
     final child = entry.value.resolve(context);
-    final slot = child.slot;
-    if (slot == null || !grid.slots.containsKey(slot)) continue;
+    final requestedSlot = child.slot;
+    if (requestedSlot == null) continue;
+    final resolvedSlot = _resolveGridSlot(grid, requestedSlot);
+    if (resolvedSlot == null) continue;
     final childPath = [...gridPath, entry.key];
     final childHierarchy = [...hierarchy, child];
-    final childSteps = [...gridSteps, (grid: grid, slot: slot, layout: child)];
+    final childSteps = [
+      ...gridSteps,
+      (grid: grid, slot: resolvedSlot.key, layout: child),
+    ];
     if (child is T) {
       yield (
         key: childPath.join('/'),
@@ -991,9 +1046,10 @@ Iterable<_PathLayoutPlacement<T>> _gridPathLayoutPlacements<T extends Layout>(
 
 class _LayoutImageBackgroundComponent extends PositionComponent
     with HasGameReference<LandscapeXlLayoutGame> {
-  _LayoutImageBackgroundComponent(this.background);
+  _LayoutImageBackgroundComponent(this.background, this.opacity);
 
   final LayoutImageBackground background;
+  final double opacity;
   ui.Image? _image;
 
   @override
@@ -1015,21 +1071,16 @@ class _LayoutImageBackgroundComponent extends PositionComponent
       Rect.fromLTWH(0, 0, size.x, size.y),
       background.repeat,
     )) {
-      _paintBackgroundImage(
-        canvas,
-        tile,
-        image,
-        background,
-        background.opacity.clamp(0, 1).toDouble(),
-      );
+      _paintBackgroundImage(canvas, tile, image, background, opacity);
     }
   }
 }
 
 class _LayoutColorBackgroundComponent extends PositionComponent {
-  _LayoutColorBackgroundComponent(this.background);
+  _LayoutColorBackgroundComponent(this.background, this.opacity);
 
   final LayoutBackgroundColor background;
+  final double opacity;
 
   @override
   void onGameResize(Vector2 gameSize) {
@@ -1044,7 +1095,7 @@ class _LayoutColorBackgroundComponent extends PositionComponent {
       Rect.fromLTWH(0, 0, size.x, size.y),
       Paint()
         ..color = background.color.withValues(
-          alpha: background.color.a * background.opacity.clamp(0, 1).toDouble(),
+          alpha: background.color.a * opacity,
         ),
     );
   }
@@ -1052,9 +1103,10 @@ class _LayoutColorBackgroundComponent extends PositionComponent {
 
 class _LayoutGuidingBackgroundComponent extends PositionComponent
     with HasGameReference<LandscapeXlLayoutGame> {
-  _LayoutGuidingBackgroundComponent(this.background);
+  _LayoutGuidingBackgroundComponent(this.background, this.opacity);
 
   final LayoutGuidingBackground background;
+  final double opacity;
 
   @override
   void onGameResize(Vector2 gameSize) {
@@ -1064,6 +1116,12 @@ class _LayoutGuidingBackgroundComponent extends PositionComponent
 
   @override
   void render(Canvas canvas) {
+    if (opacity < 1) {
+      canvas.saveLayer(
+        Rect.fromLTWH(0, 0, size.x, size.y),
+        Paint()..color = const Color(0xFFFFFFFF).withValues(alpha: opacity),
+      );
+    }
     for (final guide in background.guides) {
       drawGuideLine(
         canvas,
@@ -1072,6 +1130,7 @@ class _LayoutGuidingBackgroundComponent extends PositionComponent
         guide.style,
       );
     }
+    if (opacity < 1) canvas.restore();
   }
 }
 
@@ -2578,6 +2637,22 @@ void _drawLayoutPathBackground(
       .clamp(0, 1)
       .toDouble();
   if (opacity == 0) return;
+  if (background is RandomLayoutBackground) {
+    _drawLayoutPathBackground(
+      canvas,
+      path,
+      points,
+      _selectRandomLayoutBackground(background),
+      layoutContext,
+      imageFor,
+      layoutPath: layoutPath,
+      projection: projection,
+      curvedImageMeshes: curvedImageMeshes,
+      inheritedOpacity: opacity,
+      surfaceFrame: surfaceFrame,
+    );
+    return;
+  }
   if (background is ConditionalLayoutBackground) {
     if (!background.activeCondition.isActive(layoutContext)) return;
     _drawLayoutPathBackground(
@@ -3706,6 +3781,17 @@ void _drawFanBackground(
       .clamp(0, 1)
       .toDouble();
   if (opacity == 0) return;
+  if (background is RandomLayoutBackground) {
+    _drawFanBackground(
+      canvas,
+      path,
+      _selectRandomLayoutBackground(background),
+      layoutContext,
+      imageFor,
+      inheritedOpacity: opacity,
+    );
+    return;
+  }
   if (background is ConditionalLayoutBackground) {
     if (!background.activeCondition.isActive(layoutContext)) return;
     _drawFanBackground(
@@ -4598,6 +4684,21 @@ typedef _ResolvedGridTracks = ({
   double rootFontSize,
 });
 
+typedef _ResolvedGridSlot = ({String key, GridSlot slot});
+
+/// Resolves exact slot identity before aliases. Duplicate aliases resolve to
+/// the first slot in the authored map order.
+_ResolvedGridSlot? _resolveGridSlot(GridLayout grid, String name) {
+  final exact = grid.slots[name];
+  if (exact != null) return (key: name, slot: exact);
+  for (final entry in grid.slots.entries) {
+    if (entry.value.aliases.contains(name)) {
+      return (key: entry.key, slot: entry.value);
+    }
+  }
+  return null;
+}
+
 List<Offset>? _resolveGridPlacementPoints(
   List<Offset> points,
   _LayoutPathProjection? projection,
@@ -4642,9 +4743,13 @@ _FlexSurfaceRect? _resolveGridPlacementFrame(
       rootFontSize: rootFontSize,
     );
     if (tracks == null) return null;
-    final slot = step.grid.slots[step.slot];
-    if (slot == null) return null;
-    final areaFrame = _resolveGridSlotFrame(slot, tracks, layout: step.layout);
+    final resolvedSlot = _resolveGridSlot(step.grid, step.slot);
+    if (resolvedSlot == null) return null;
+    final areaFrame = _resolveGridSlotFrame(
+      resolvedSlot.slot,
+      tracks,
+      layout: step.layout,
+    );
     if (areaFrame == null) return null;
     frame = _scaleFlexSurfaceRect(frame, areaFrame);
   }
@@ -4688,9 +4793,13 @@ _resolveGridChildren(
     if (!layout.isVisible(layoutContext)) continue;
     final slotName = layout.slot;
     if (slotName == null) continue;
-    final slot = grid.slots[slotName];
-    if (slot == null) continue;
-    final frame = _resolveGridSlotFrame(slot, tracks, layout: layout);
+    final resolvedSlot = _resolveGridSlot(grid, slotName);
+    if (resolvedSlot == null) continue;
+    final frame = _resolveGridSlotFrame(
+      resolvedSlot.slot,
+      tracks,
+      layout: layout,
+    );
     if (frame == null) continue;
     yield (key: entry.key, layout: layout, frame: frame);
   }
@@ -7140,8 +7249,8 @@ Offset? _resolvePathSlotReference(
   if (path is! LayoutPath) return null;
   final grid = path.children[reference.grid]?.resolve(layoutContext);
   if (grid is! GridLayout) return null;
-  final slot = grid.slots[reference.slot];
-  if (slot == null) return null;
+  final resolvedSlot = _resolveGridSlot(grid, reference.slot);
+  if (resolvedSlot == null) return null;
 
   final points = _resolvedLayoutPathPoints(path, layouts, layoutContext);
   if (points == null || points.length != 4) return null;
@@ -7160,7 +7269,7 @@ Offset? _resolvePathSlotReference(
   );
   if (tracks == null) return null;
   final frame = _resolveGridSlotFrame(
-    slot,
+    resolvedSlot.slot,
     tracks,
     layout: _gridChildForSlot(grid, reference.slot, layoutContext),
   );
@@ -7182,9 +7291,14 @@ Layout? _gridChildForSlot(
   String slot,
   LayoutContext layoutContext,
 ) {
+  final targetSlot = _resolveGridSlot(grid, slot);
+  if (targetSlot == null) return null;
   for (final child in grid.children.values) {
     final resolved = child.resolve(layoutContext);
-    if (resolved.slot == slot) return resolved;
+    final requestedSlot = resolved.slot;
+    if (requestedSlot == null) continue;
+    final childSlot = _resolveGridSlot(grid, requestedSlot);
+    if (childSlot?.key == targetSlot.key) return resolved;
   }
   return null;
 }

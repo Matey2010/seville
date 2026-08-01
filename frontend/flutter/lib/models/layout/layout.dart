@@ -1163,6 +1163,12 @@ abstract class LayoutBackground {
     double opacity,
   }) = LayoutGuidingBackground;
 
+  const factory LayoutBackground.random(
+    List<LayoutBackground> backgrounds, {
+    int orderPosition,
+    double opacity,
+  }) = RandomLayoutBackground;
+
   const factory LayoutBackground.conditional({
     required LayoutCondition activeCondition,
     required LayoutBackground background,
@@ -1172,6 +1178,16 @@ abstract class LayoutBackground {
 
   final int orderPosition;
   final double opacity;
+}
+
+class RandomLayoutBackground extends LayoutBackground {
+  const RandomLayoutBackground(
+    this.backgrounds, {
+    super.orderPosition,
+    super.opacity,
+  }) : assert(backgrounds.length > 0);
+
+  final List<LayoutBackground> backgrounds;
 }
 
 class ConditionalLayoutBackground extends LayoutBackground {
@@ -1416,6 +1432,7 @@ class GridSlot {
   const GridSlot({
     required this.row,
     required this.column,
+    this.aliases = const [],
     this.rowOffset = 0,
     this.columnOffset = 0,
     this.rowSpan = 1,
@@ -1426,6 +1443,9 @@ class GridSlot {
 
   final String row;
   final String column;
+
+  /// Alternative names that a child may use in [Layout.slot].
+  final List<String> aliases;
   final double rowOffset;
   final double columnOffset;
   final double rowSpan;

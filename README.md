@@ -62,8 +62,8 @@ for the current boundary and staged roadmap.
 
 ```sh
 cp .env.example .env
-./scripts/seville start
-./scripts/seville status
+make -C scripts start
+make -C scripts status
 ```
 
 Backend details and configuration live in [`backend/README.md`](backend/README.md).
@@ -71,7 +71,7 @@ Backend details and configuration live in [`backend/README.md`](backend/README.m
 To start the complete local dependency chain and macOS client:
 
 ```sh
-./scripts/seville-interface
+make -C scripts interface
 ```
 
 The short recovery runbook and graph-rule guide live in

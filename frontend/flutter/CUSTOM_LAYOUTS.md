@@ -351,6 +351,7 @@ LayoutPath(
         'footer': GridSlot(
           row: 'ribbon',
           column: 'left',
+          aliases: ['status-bar'],
           columnSpan: GridSpan.full,
         ),
       },
@@ -417,9 +418,11 @@ Panel content is `LayoutTextConfig.value`; `PanelLayout` has no parallel
 root to owning path to nested composition to child, with each child overriding
 only its non-null values.
 
-A slot's key is an area name independent of child identity. Every `Layout`
-accepts an optional `slot`; when its parent is a `GridLayout` containing that
-name, the layout fills the resolved area and its own `size` is ignored. A child
+A slot's key is an area name independent of child identity. `GridSlot.aliases`
+adds alternative names for that same area. Exact map-key matches take priority;
+when aliases overlap, the first declared slot wins. Every `Layout` accepts an
+optional `slot`; when its parent is a `GridLayout` containing that name or
+alias, the layout fills the resolved area and its own `size` is ignored. A child
 without a matching declared slot does not participate in that grid. `row` and
 `column` select named starting tracks; `rowSpan`, `columnSpan`, `rowOffset`, and
 `columnOffset` extend or fractionally adjust that placement. `GridSpan.full`

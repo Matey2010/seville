@@ -529,10 +529,20 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
             'curved-scene-plane',
           ],
           background: [
+            LayoutBackground.random([
+              // LayoutBackground.color(Color(0xFF22D54F)),
+              LayoutBackground.color(Color(0xFF000000)),
+              LayoutBackground.color(Color(0xFFffffff)),
+            ]),
+            LayoutBackground.conditional(
+              activeCondition: LayoutCondition.hasActiveNodes(),
+              background: LayoutBackground.color(Color(0xFF0000FF)),
+            ),
             LayoutBackground.image(
               assetPath: 'assets/wallpapers/sims-4-interface.png',
               opacity: 0.78,
               fit: LayoutBackgroundFit.fill,
+              orderPosition: 1,
             ),
           ],
           points: [
@@ -576,7 +586,6 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                 'node-direction-controls',
                 'spatial-navigation',
                 'panorama',
-                '',
               ],
               rowsConfig: {
                 'header': LayoutDefaultSize.panoramicHeader,
@@ -588,11 +597,24 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               },
               columnsConfig: {
                 'left-ribbon': LayoutDefaultSize.crossAxisRibbonWidth,
-                'left': LayoutSize.fr(1),
-                'center': LayoutSize.fr(2),
-                'right': LayoutSize.fr(1),
+                'status': LayoutSize.fr(0.5),
+                'family-tree': LayoutSize.fr(0.5),
+                'center': LayoutSize.fr(3),
+                'right': LayoutSize.fr(0.75),
               },
               slots: {
+                'geneaology': GridSlot(
+                  row: 'bottom-ribbon',
+                  column: 'family-tree',
+                  rowSpan: 2,
+                ),
+                'info': GridSlot(
+                  row: 'top',
+                  column: 'status',
+                  aliases: ['info-grid'],
+                  columnSpan: 2,
+                  rowSpan: 3,
+                ),
                 'left-ribbon': GridSlot(
                   row: 'header',
                   column: 'left-ribbon',
@@ -604,10 +626,10 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                   column: 'left-ribbon',
                   columnSpan: GridSpan.full,
                 ),
-                'info-grid': GridSlot(row: 'top', column: 'left', rowSpan: 3),
                 'search-layout': GridSlot(
                   row: 'top',
-                  column: 'left',
+                  column: 'status',
+                  columnSpan: 2,
                   rowSpan: 3,
                 ),
                 'scene-graph': GridSlot(
@@ -634,6 +656,13 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                   column: 'left-ribbon',
                   columnSpan: GridSpan.full,
                 ),
+                'possessions': GridSlot(
+                  row: 'bottom',
+                  column: 'right',
+                  columnSpan: 1,
+                  rowSpan: 3,
+                ), 
+                'status': GridSlot(row: 'teletext-ribbon', column: 'status'),
                 'teletext': GridSlot(
                   row: 'teletext-ribbon',
                   column: 'center',
@@ -798,7 +827,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                     fontSize: 12,
                   ),
                   background: [
-                    LayoutBackground.color(Color(0xCC283252)),
+                    LayoutBackground.color(Color(0x44283252)),
                     LayoutBackground.image(
                       assetPath: 'assets/wallpapers/dark-vintage-scheme.jpg',
                       fit: LayoutBackgroundFit.cover,
@@ -812,7 +841,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                       size: LayoutDefaultSize.crossAxisRibbonWidth,
                       text: LayoutTextConfig(value: LayoutText.none()),
                     ),
-                    'search': PanelLayout(
+                    'find': PanelLayout(
                       aliases: ['header-search', 'search-shortcut'],
                       onTap: LayoutTapAction.searchOpenned(),
                       borderStyle: GuideStyle(
@@ -821,7 +850,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                         pattern: GuideLinePattern.solid,
                       ),
                       text: LayoutTextConfig(
-                        value: LayoutText.value('🔎 search'),
+                        value: LayoutText.value('F 🔎 find'),
                       ),
                     ),
                     'labels': PanelLayout(
@@ -866,16 +895,41 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                         value: LayoutText.value('🔖 bookmarks'),
                       ),
                     ),
-                    'view change': PanelLayout(
+                    'degeneracy-panel': RowLayout(
                       size: LayoutSize.fr(2),
-                      aliases: ['header-view-change', 'view-change-shortcut'],
-                      borderStyle: GuideStyle(
-                        color: Color(0xFFFFD54F),
-                        strokeWidth: 1.2,
-                        pattern: GuideLinePattern.solid,
-                      ),
-                      text: LayoutTextConfig(value: LayoutText.value('🎥 pov')),
-                    ),
+                      children: {
+                        'pov': PanelLayout(
+                          aliases: ['header-view-change', 'view-change-shortcut'],
+                          borderStyle: GuideStyle(
+                            color: Color(0xFFFFD54F),
+                            strokeWidth: 1.2,
+                            pattern: GuideLinePattern.solid,
+                          ),
+                          text: LayoutTextConfig(
+                            value: LayoutText.value('🎥 pov | p')),
+                        ),
+                        'map': PanelLayout(
+                          aliases: ['header-map', 'map-shortcut'],
+                          borderStyle: GuideStyle(
+                            color: Color(0xFFFFD54F),
+                            strokeWidth: 1.2,
+                            pattern: GuideLinePattern.solid,
+                          ),
+                          text: LayoutTextConfig(
+                            value: LayoutText.value('🗺️ map | m')),
+                        ),
+                        'settings': PanelLayout(
+                          aliases: ['header-settings', 'settings-shortcut'],
+                          borderStyle: GuideStyle(
+                            color: Color(0xFFFFD54F),
+                            strokeWidth: 1.2,
+                            pattern: GuideLinePattern.solid,
+                          ),
+                          text: LayoutTextConfig(
+                            value: LayoutText.value('⚙️ settings | Esc')),
+                        ),
+                      }
+                    )
                   },
                 ),
                 'action-panel': ColumnLayout(
@@ -993,53 +1047,10 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                         ),
                       },
                     ),
-                    'node-actions-row': RowLayout(
-                      size: LayoutSize.px(48),
-                      aliases: ['node-actions', 'node-actions-row'],
-                      children: {
-                        'copy': PanelLayout(
-                          size: LayoutSize.fr(1),
-                          aliases: [
-                            'action-button',
-                            'selected-node-action',
-                            'copy-action',
-                            'copy-selected-node-slug',
-                          ],
-                          borderStyle: (GuideStyle(
-                            color: Color(0xCCB7C2FF),
-                            strokeWidth: 1,
-                            pattern: GuideLinePattern.solid,
-                          )),
-                          text: LayoutTextConfig(
-                            value: LayoutText.value('📋'),
-                            color: Color(0xFFFFF8E7),
-                            fontSize: 18,
-                          ),
-                        ),
-                        'share': PanelLayout(
-                          size: LayoutSize.fr(1),
-                          aliases: [
-                            'action-button',
-                            'selected-node-action',
-                            'share-action',
-                          ],
-                          borderStyle: (GuideStyle(
-                            color: Color(0xCCB7C2FF),
-                            strokeWidth: 1,
-                            pattern: GuideLinePattern.solid,
-                          )),
-                          text: LayoutTextConfig(
-                            value: LayoutText.value('📤'),
-                            color: Color(0xFFFFF8E7),
-                            fontSize: 18,
-                          ),
-                        ),
-                      },
-                    ),
                   },
                 ),
                 'info-grid': TableLayout(
-                  slot: 'info-grid',
+                  slot: 'info',
                   aliases: [
                     'info-grid',
                     'info-table',
@@ -1094,11 +1105,6 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                         orderPosition: 3,
                         title: 'Selected Nodes',
                         foldable: true,
-                      ),
-                      'settings': PanelConfig(
-                        orderPosition: 5,
-                        title: 'Settings',
-                        showEmpty: true,
                       ),
                       'system': PanelConfig(
                         orderPosition: 6,
@@ -1290,31 +1296,13 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                   emojiFontSizeFactor: 2,
                   emojiSlugGapFactor: 0.5,
                 ),
-                'footer': RowLayout(
-                  slot: 'footer',
-                  crossAxisAlignment: LayoutCrossAxisAlignment.bottom(),
-                  aliases: ['footer', 'panoramic-footer', 'scene-footer'],
+                'possessions': ColumnLayout(
+                  slot: 'possessions',
+                  // crossAxisAlignment: LayoutCrossAxisAlignment.bottom(),
+                  aliases: ['possessions', 'panoramic-footer', 'scene-footer'],
                   children: {
-                    'spacer-sshutt': PanelLayout(
-                      size: LayoutDefaultSize.crossAxisRibbonWidth,
-                      aliases: [
-                        'footer-spacer-start',
-                        'left-ribbon-footer-intersection',
-                      ],
-                    ),
-                    'status-button': PanelLayout(
-                      aliases: [],
-                      background: [
-                        LayoutBackground.color(
-                          Color.fromARGB(255, 93, 154, 143),
-                        ),
-                      ],
-                      text: LayoutTextConfig(
-                        value: LayoutText.value("Status: Placid 🧘"),
-                      ),
-                    ),
                     'wallet': PanelLayout(
-                      size: LayoutSize.fr(1),
+                      // size: LayoutSize.fr(1),
                       aliases: ['huita-blya-koshelyok', 'sevicoin-icon'],
                       text: LayoutTextConfig(
                         // TODO: Fix hardcoded wallet value to be dynamic based on user data
@@ -1322,59 +1310,36 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                       ),
                     ),
                     'keyring': PanelLayout(
-                      size: LayoutSize.fr(1),
+                      // size: LayoutSize.fr(1),
                       aliases: ['huita-blya-koshelyok', 'sevicoin-icon'],
                       text: LayoutTextConfig(
                         // TODO: Fix hardcoded wallet value to be dynamic based on user data
                         value: LayoutText.value('K 🔑 Keychain'),
                       ),
                     ),
-                    'real-spacer-start': PanelLayout(
-                      size: LayoutDefaultSize.crossAxisRibbonWidth,
-                      aliases: [
-                        'footer-spacer-start',
-                        'left-ribbon-footer-intersection',
-                      ],
-                      text: LayoutTextConfig(value: LayoutText.none()),
-                    ),
-                    'bookmarks': PanelLayout(
-                      aliases: ['bottom-bookmarks', 'bookmarks-shortcut'],
-                      borderStyle: GuideStyle(
-                        color: Color(0xFFFFD54F),
-                        strokeWidth: 1.2,
-                        pattern: GuideLinePattern.solid,
-                      ),
-                      text: LayoutTextConfig(
-                        value: LayoutText.value('B 🔖 bookmarks'),
-                      ),
-                    ),
-                    'spacer-end': PanelLayout(
-                      aliases: [
-                        'footer-spacer-end',
-                        'right-ribbon-footer-intersection',
-                      ],
-                      size: LayoutSize.fr(0.25),
-                      text: LayoutTextConfig(value: LayoutText.none()),
-                    ),
-                    'social': PanelLayout(
-                      size: LayoutSize.fr(0.33),
-                      aliases: [],
-                      text: LayoutTextConfig(
-                        value: LayoutText.value('👩‍❤️‍👩 social graph'),
-                      ),
-                    ),
-                    'geneaology': PanelLayout(
-                      size: LayoutSize.fr(1),
-                      aliases: [],
-                      text: LayoutTextConfig(
-                        value: LayoutText.value('G 🌳 genealogy '),
-                      ),
-                    ),
-                    'quests': PanelLayout(
-                      size: LayoutSize.fr(0.33),
-                      aliases: [],
-                      text: LayoutTextConfig(value: LayoutText.value('Q ⁉️')),
-                    ),
+                    // 'bookmarks': PanelLayout(
+                    //   aliases: ['bottom-bookmarks', 'bookmarks-shortcut'],
+                    //   borderStyle: GuideStyle(
+                    //     color: Color(0xFFFFD54F),
+                    //     strokeWidth: 1.2,
+                    //     pattern: GuideLinePattern.solid,
+                    //   ),
+                    //   text: LayoutTextConfig(
+                    //     value: LayoutText.value('B 🔖 bookmarks'),
+                    //   ),
+                    // ),
+                    // 'social': PanelLayout(
+                    //   size: LayoutSize.fr(0.33),
+                    //   aliases: [],
+                    //   text: LayoutTextConfig(
+                    //     value: LayoutText.value('👩‍❤️‍👩 social graph'),
+                    //   ),
+                    // ),
+                    // 'quests': PanelLayout(
+                    //   size: LayoutSize.fr(0.33),
+                    //   aliases: [],
+                    //   text: LayoutTextConfig(value: LayoutText.value('Q ⁉️')),
+                    // ),
                     'inventory': PanelLayout(
                       size: LayoutSize.fr(0.25),
                       aliases: [],
@@ -1412,6 +1377,27 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                       orderPosition: 1,
                     ),
                   ],
+                ),
+                'geneaology': PanelLayout(
+                  background: [
+                    LayoutBackground.color(Color.fromARGB(255, 20, 202, 123)),
+                  ],
+                  slot: 'geneaology',
+                  size: LayoutSize.fr(1),
+                  aliases: [],
+                  text: LayoutTextConfig(
+                    value: LayoutText.value('G 🌳 genealogy '),
+                  ),
+                ),
+                'status-button': PanelLayout(
+                  slot: 'status',
+                  aliases: [],
+                  background: [
+                    LayoutBackground.color(Color.fromARGB(255, 198, 145, 79)),
+                  ],
+                  text: LayoutTextConfig(
+                    value: LayoutText.value("S 🤤 Hungry "),
+                  ),
                 ),
               },
             ),
