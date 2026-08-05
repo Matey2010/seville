@@ -1,0 +1,3 @@
+seville_macos_launcher_icons:
+  debug_image_path: "assets/icons/vector/proto-icon.svg"
+  production_image_path: "assets/icons/vector/proto-icon.svg"

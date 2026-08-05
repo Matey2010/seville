@@ -67,6 +67,19 @@ Flutter does not retain a `NodeSnapshot` in Riverpod state. Fans fetch their
 own depth-limited trees, search fetches its own query results, and configured
 Node references use focused lookup requests.
 
+`LayoutSnapshot` is distinct from `NodeSnapshot`: it is the immutable frontend
+address index captured from the active declarative Layout tree. Riverpod uses
+it to discover each filter-backed Layout and configured `VaultNode` before
+issuing the appropriate focused Node query or tree traversal. Each snapshot
+entry retains the stable map-key path of the Layout that owns the request.
+
+Every Node placed in frontend state is represented by `ResolvedVaultNode` and
+has a required `ResolvedNodeOrigin`. The origin records whether the Node came
+from the canonical server or from Layout-owned static fallback data, together
+with the stable Layout path that triggered its resolution. A tree response
+shares one server origin through `ResolvedNodeTree`, and each rendered tree
+occurrence receives that same origin when it becomes a `ResolvedVaultNode`.
+
 ## Virtual Node
 
 A virtual Node is a frontend draft represented by `ResolvedVaultNode` with
@@ -96,7 +109,7 @@ one- or two-dimensional renderer-owned composition; the redundant
 `GridAxisVariable` wrapper is not part of the model.
 
 The complete declarative Layout layer is one Dart library at
-`frontend/flutter/lib/models/layout/layout.dart`. Its sibling part files group
+`frontend/seville7/lib/models/layout/layout.dart`. Its sibling part files group
 Layout variants, conditions, sizes, Fan traversal configuration, tables,
 panels, Nodes, labels, searches, and screen-specific Layout models behind that
 single import boundary. This grouping keeps the configuration layer coherent
@@ -127,22 +140,37 @@ values. Dart reserves the shorter words `default` and `in`. Classification label
 frontend-styled folders for knowledge; their names come from Neo4j, but their
 colors are explicit Layout semantics rather than hash-assigned palette values.
 These models live in
-`frontend/flutter/lib/models/layout/label.dart` and are configured once by LG Ergo's
+`frontend/seville7/lib/models/layout/label.dart` and are configured once by LG Ergo's
 root Layout rather than repeated by individual layouts.
 
 `LayoutTextConfig` is the Layout-owned typography and contrast policy. It owns
 the ordinary color, dark/light colors, font family and metrics, font features,
-and effects. When both contrast colors are present, renderers select dark text
+effects, and `LayoutTextFlow`. Flow is distinct from Flutter's bidi text
+direction: it selects horizontal or vertical layout, vertical progression, and
+rotated or upright glyph orientation. Flat and panoramic Flame renderers apply
+the same flow to intrinsic measurement and painting. When both contrast colors
+are present, renderers select dark text
 for a light resolved background and light text for a dark background.
 
+`LayoutBackground.svg(...)` is the vector-source counterpart to
+`LayoutBackground.image(...)`. Flame loads it through `flame_svg`, rasterizes
+it once at a maximum 1024-pixel side while preserving its authored viewBox
+aspect ratio, and then paints it through the same flat, projective, or curved
+Layout surface mesh as raster backgrounds.
+
 `NodeConfig` is a layout-owned, recursively conditional Node configuration. Its
-presentation and typography fields live directly on the configuration, while
-its ordered `LayoutCondition` to `NodeConfig` state map can specialize any of
+presentation and typography fields live directly on the configuration. Its
+ordered `background` list paints over the owning Layout background and Node
+fill, but beneath the Node border and caption; this lets the root Layout map
+classification labels to shared icon artwork without replacing scene imagery.
+`LayoutCondition.hasLabelsInCurrentNode(...)` resolves those rules against the
+Node currently being painted. Its ordered `LayoutCondition` to `NodeConfig`
+state map can specialize any of
 those fields without owning renderer logic. It is not Node data and is never
 stored in Neo4j. `NodeDefaults` is the frontend's canonical fallback vocabulary
 for Node opacity, hover borders, and slug presentation. `NodeConfig` and
 `NodeDefaults` live in
-`frontend/flutter/lib/models/layout/node_config.dart` until a separate package has a
+`frontend/seville7/lib/models/layout/node_config.dart` until a separate package has a
 real consumer boundary.
 
 `NodeContent` is `NodeConfig`'s exact compact-content selector. Its `slug`,
@@ -150,12 +178,12 @@ real consumer boundary.
 an absent selected value paints nothing rather than changing representation.
 
 `PanelConfig` is reusable Layout configuration in
-`frontend/flutter/lib/models/layout/panel.dart`. A root Layout may provide shared panel
+`frontend/seville7/lib/models/layout/panel.dart`. A root Layout may provide shared panel
 defaults, while `TableConfig.panel` specializes them and its ordered `panels`
 map declares concrete table panels.
 
 `TableConfig` is native Layout configuration in
-`frontend/flutter/lib/models/layout/table_config.dart`. It uses `LayoutSize` directly
+`frontend/seville7/lib/models/layout/table_config.dart`. It uses `LayoutSize` directly
 and composes panels, rows, and columns. `TableLayout` inherits
 the common `node: NodeConfig`; tables do not introduce a parallel Node styling
 or state protocol.
@@ -170,10 +198,11 @@ presentation and Riverpod owns the active notification queue.
 ## Node search
 
 Node search is a flat, structured query returning complete Nodes rather than a
-relationship traversal. `SearchHudComponent` captures and submits the query,
-Riverpod owns its asynchronous state, and `NodeListLayout` renders the result
-inside the configured Flame layout tree. Selecting a search result changes the
-same slug-identified active Node set used by Fan and Graph layouts.
+relationship traversal. `FindLayout` places a native editable input on its
+Flame-resolved projected surface and submits the query, Riverpod owns its
+asynchronous state, and `NodeListLayout` renders the result inside the
+configured Flame layout tree. Selecting a result changes the same
+slug-identified active Node set used by Fan and Graph layouts.
 
 ## HTTP graph operations
 

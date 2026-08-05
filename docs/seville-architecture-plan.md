@@ -80,7 +80,7 @@ docs/             Cross-workspace architecture and operational documentation
 compose.yaml      Local Neo4j service wiring
 ```
 
-The product is named Seville. `frontend/flutter` is one client implementation,
+The product is named Seville. `frontend/seville7` is one client implementation,
 not the identity of the whole project.
 
 ## Knowledge sources

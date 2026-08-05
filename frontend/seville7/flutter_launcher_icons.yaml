@@ -1,0 +1,7 @@
+flutter_launcher_icons:
+  image_path: "macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_1024.png"
+  android: "launcher_icon"
+  ios: true
+  remove_alpha_ios: true
+  macos:
+    generate: false

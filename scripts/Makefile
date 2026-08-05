@@ -1,11 +1,12 @@
 SHELL := /bin/sh
 
-ROOT := $(abspath $(CURDIR)/..)
+SCRIPTS_DIR := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
+ROOT := $(abspath $(SCRIPTS_DIR)/..)
 LOCAL_DIR := $(ROOT)/.local
 PID_FILE := $(LOCAL_DIR)/seville.pid
 LOG_FILE := $(LOCAL_DIR)/seville.log
 BACKEND_BINARY := $(LOCAL_DIR)/seville-backend
-FLUTTER_DIR := $(ROOT)/frontend/flutter
+FLUTTER_DIR := $(ROOT)/frontend/seville7
 
 SEVILLE_ADDR ?= 127.0.0.1:8787
 SEVILLE_BASE_URL ?= http://127.0.0.1:8787
@@ -28,7 +29,8 @@ export SEVILLE_GIT_VAULT_SUBPATH
 .DEFAULT_GOAL := help
 
 .PHONY: help interface start build serve serve-built stop restart status logs
-.PHONY: proto migrate-obsidian
+.PHONY: proto migrate-obsidian set-default-icon setDefaultIcon
+.PHONY: generate-macos-icons generate-platform-icons
 
 help:
 	@echo "Seville commands"
@@ -40,6 +42,12 @@ help:
 	@echo "  make -C scripts logs               Follow the API log"
 	@echo "  make -C scripts proto              Regenerate protobuf code"
 	@echo "  make -C scripts migrate-obsidian   Run the manual vault migration"
+	@echo "  make -C scripts setDefaultIcon path=PATH"
+	@echo "                                      Set Debug and production macOS icons"
+	@echo "    or: debug_path=PATH production_path=PATH"
+	@echo "                                      Set distinct macOS build icons"
+	@echo "  make -C scripts generate-platform-icons"
+	@echo "                                      Refresh future Android and iOS icons"
 
 build:
 	@mkdir -p "$(LOCAL_DIR)"
@@ -55,7 +63,7 @@ start:
 				-type f \( -name '*.go' -o -name 'go.mod' -o -name 'go.sum' \) \
 				-newer "$(BACKEND_BINARY)" -print -quit | grep -q .; then \
 			echo "Backend sources changed; rebuilding Seville."; \
-			$(MAKE) --no-print-directory stop; \
+			$(MAKE) --no-print-directory -C "$(SCRIPTS_DIR)" stop; \
 		else \
 			echo "Seville is already running (PID $$(cat "$(PID_FILE)"))."; \
 			exit 0; \
@@ -88,7 +96,7 @@ start:
 			cd "$(ROOT)" && docker compose up --detach neo4j; \
 			;; \
 	esac; \
-	$(MAKE) --no-print-directory build; \
+	$(MAKE) --no-print-directory -C "$(SCRIPTS_DIR)" build; \
 	nohup "$(BACKEND_BINARY)" >>"$(LOG_FILE)" 2>&1 & \
 	echo $$! >"$(PID_FILE)"; \
 	attempts=0; \
@@ -132,8 +140,8 @@ stop:
 	echo "Seville stopped."
 
 restart:
-	@$(MAKE) --no-print-directory stop
-	@$(MAKE) --no-print-directory start
+	@$(MAKE) --no-print-directory -C "$(SCRIPTS_DIR)" stop
+	@$(MAKE) --no-print-directory -C "$(SCRIPTS_DIR)" start
 
 status:
 	@set -eu; \
@@ -155,6 +163,7 @@ logs:
 	@tail -n 80 -f "$(LOG_FILE)"
 
 interface: start
+	@$(MAKE) --no-print-directory -C "$(SCRIPTS_DIR)" generate-macos-icons
 	@set -eu; \
 	tail_pid=''; \
 	cleanup() { if [ -n "$$tail_pid" ]; then kill "$$tail_pid" 2>/dev/null || true; fi; }; \
@@ -164,27 +173,145 @@ interface: start
 		tail_pid=$$!; \
 	fi; \
 	cd "$(FLUTTER_DIR)"; \
-	expected_bundle_id='io.github.matey2010.seville'; \
 	stale_macos_bundle=false; \
-	for built_info_plist in \
-		build/macos/Build/Products/Debug/seville.app/Contents/Info.plist \
-		build/macos/Build/Products/Release/seville.app/Contents/Info.plist; do \
-		if [ -f "$$built_info_plist" ] && \
-			[ "$$(plutil -extract CFBundleIdentifier raw -o - "$$built_info_plist")" != "$$expected_bundle_id" ]; then \
-			stale_macos_bundle=true; \
-		fi; \
-	done; \
-	if [ "$$stale_macos_bundle" = true ]; then flutter clean; fi; \
-	icon_config='flutter_launcher_icons.yaml'; \
-	icon_source='assets/icons/macos/first-seville-icon.png'; \
-	icon_output='macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_1024.png'; \
-	if [ ! -f "$$icon_output" ] || [ "$$icon_config" -nt "$$icon_output" ] || [ "$$icon_source" -nt "$$icon_output" ]; then \
-		dart run flutter_launcher_icons -f "$$icon_config"; \
+	debug_info_plist='build/macos/Build/Products/Debug/seville.app/Contents/Info.plist'; \
+	release_info_plist='build/macos/Build/Products/Release/seville.app/Contents/Info.plist'; \
+	if [ -f "$$debug_info_plist" ] && \
+		[ "$$(plutil -extract CFBundleIdentifier raw -o - "$$debug_info_plist")" != 'io.github.matey2010.seville.debug' ]; then \
+		stale_macos_bundle=true; \
 	fi; \
+	if [ -f "$$release_info_plist" ] && \
+		[ "$$(plutil -extract CFBundleIdentifier raw -o - "$$release_info_plist")" != 'io.github.matey2010.seville' ]; then \
+		stale_macos_bundle=true; \
+	fi; \
+	if [ "$$stale_macos_bundle" = true ]; then flutter clean; fi; \
 	flutter run -d macos \
 		--dart-define="SEVILLE_BASE_URL=$(SEVILLE_BASE_URL)" \
 		--dart-define="SEVILLE_TOKEN=$(SEVILLE_TOKEN)" \
 		--dart-define="SEVILLE_PLAYER_SLUG=$(SEVILLE_PLAYER_SLUG)"
+
+setDefaultIcon: set-default-icon
+
+set-default-icon:
+	@set -eu; \
+	icon_path='$(if $(path),$(path),$(ICON_PATH))'; \
+	debug_path='$(debug_path)'; \
+	production_path='$(production_path)'; \
+	if [ -n "$$icon_path" ]; then \
+		debug_path="$$icon_path"; \
+		production_path="$$icon_path"; \
+	elif [ -z "$$debug_path" ] || [ -z "$$production_path" ]; then \
+		echo "Usage: make -C scripts setDefaultIcon path=./frontend/seville7/assets/legal/mascot-ska.png" >&2; \
+		echo "   or: make -C scripts setDefaultIcon debug_path=PATH production_path=PATH" >&2; \
+		exit 64; \
+	fi; \
+	flutter_root=$$(cd "$(FLUTTER_DIR)" && pwd -P); \
+	resolve_source() { \
+		requested=$$1; \
+		case "$$requested" in \
+			*\"*|*\\*) \
+				echo "Icon source paths cannot contain quotes or backslashes: $$requested" >&2; \
+				return 65; \
+				;; \
+		esac; \
+		case "$$requested" in \
+			/*) candidate="$$requested" ;; \
+			*) \
+				if [ -f "$$flutter_root/$$requested" ]; then \
+					candidate="$$flutter_root/$$requested"; \
+				else \
+					candidate="$(ROOT)/$$requested"; \
+				fi \
+				;; \
+		esac; \
+		if [ ! -f "$$candidate" ]; then \
+			echo "Icon source does not exist: $$requested" >&2; \
+			return 66; \
+		fi; \
+		resolved_dir=$$(cd "$$(dirname "$$candidate")" && pwd -P); \
+		resolved="$$resolved_dir/$$(basename "$$candidate")"; \
+		case "$$resolved" in \
+			"$$flutter_root"/*) printf '%s\n' "$${resolved#"$$flutter_root"/}" ;; \
+			*) \
+				echo "Icon source must be inside the Flutter project: $$flutter_root" >&2; \
+				return 65; \
+				;; \
+		esac; \
+	}; \
+	debug_source=$$(resolve_source "$$debug_path"); \
+	production_source=$$(resolve_source "$$production_path"); \
+	config="$$flutter_root/macos_launcher_icons.yaml"; \
+	config_tmp=$$(mktemp "$$config.tmp.XXXXXX"); \
+	trap 'rm -f "$$config_tmp"' EXIT HUP INT TERM; \
+	awk -v debug="$$debug_source" -v production="$$production_source" ' \
+		/^  debug_image_path:/ { print "  debug_image_path: \"" debug "\""; found_debug = 1; next } \
+		/^  production_image_path:/ { print "  production_image_path: \"" production "\""; found_production = 1; next } \
+		{ print } \
+		END { if (!found_debug || !found_production) exit 65 } \
+	' "$$config" >"$$config_tmp"; \
+	if cmp -s "$$config_tmp" "$$config"; then \
+		rm -f "$$config_tmp"; \
+	else \
+		mv "$$config_tmp" "$$config"; \
+	fi; \
+	trap - EXIT HUP INT TERM; \
+	echo "Debug macOS icon source: $$debug_source"; \
+	echo "Production macOS icon source: $$production_source"
+	@$(MAKE) --no-print-directory -C "$(SCRIPTS_DIR)" generate-macos-icons
+
+generate-macos-icons:
+	@set -eu; \
+	cd "$(FLUTTER_DIR)"; \
+	config='macos_launcher_icons.yaml'; \
+	tool='tool/generate_macos_icons.swift'; \
+	debug_source=$$(awk -F '"' '/^  debug_image_path:/ { print $$2; exit }' "$$config"); \
+	production_source=$$(awk -F '"' '/^  production_image_path:/ { print $$2; exit }' "$$config"); \
+	if [ -z "$$debug_source" ] || [ ! -f "$$debug_source" ]; then \
+		echo "Configured Debug macOS icon does not exist: $$debug_source" >&2; \
+		exit 66; \
+	fi; \
+	if [ -z "$$production_source" ] || [ ! -f "$$production_source" ]; then \
+		echo "Configured production macOS icon does not exist: $$production_source" >&2; \
+		exit 66; \
+	fi; \
+	debug_output='macos/Runner/Assets.xcassets/AppIcon-Debug.appiconset'; \
+	production_output='macos/Runner/Assets.xcassets/AppIcon.appiconset'; \
+	debug_master="$$debug_output/app_icon_1024.png"; \
+	production_master="$$production_output/app_icon_1024.png"; \
+	debug_changed=false; \
+	production_changed=false; \
+	if [ ! -f "$$debug_master" ] || [ "$$config" -nt "$$debug_master" ] || [ "$$tool" -nt "$$debug_master" ] || [ "$$debug_source" -nt "$$debug_master" ]; then \
+		swift "$$tool" --source "$$debug_source" --output "$$debug_output"; \
+		debug_changed=true; \
+	fi; \
+	if [ ! -f "$$production_master" ] || [ "$$config" -nt "$$production_master" ] || [ "$$tool" -nt "$$production_master" ] || [ "$$production_source" -nt "$$production_master" ]; then \
+		swift "$$tool" --source "$$production_source" --output "$$production_output"; \
+		production_changed=true; \
+	fi; \
+	if [ "$$debug_changed" = true ]; then \
+		debug_bundle='build/macos/Build/Products/Debug/seville.app'; \
+		if [ -d "$$debug_bundle" ]; then \
+			rm -R "$$debug_bundle"; \
+			echo "Removed stale generated Debug bundle: $$debug_bundle"; \
+		fi; \
+	fi; \
+	if [ "$$production_changed" = true ]; then \
+		for production_bundle in \
+			build/macos/Build/Products/Profile/seville.app \
+			build/macos/Build/Products/Release/seville.app; do \
+			if [ -d "$$production_bundle" ]; then \
+				rm -R "$$production_bundle"; \
+				echo "Removed stale generated production bundle: $$production_bundle"; \
+			fi; \
+		done; \
+	fi
+
+generate-platform-icons: generate-macos-icons
+	@set -eu; \
+	cd "$(FLUTTER_DIR)"; \
+	dart run flutter_launcher_icons -f flutter_launcher_icons.yaml; \
+	sed -i.bak 's/ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = AppIcon;/ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;/g' ios/Runner.xcodeproj/project.pbxproj; \
+	rm -f ios/Runner.xcodeproj/project.pbxproj.bak
 
 proto:
 	@cd "$(ROOT)" && protoc \

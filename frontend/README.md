@@ -30,7 +30,7 @@ in the application layer.
 For direct development commands:
 
 ```sh
-cd frontend/flutter
+cd frontend/seville7
 flutter analyze
 flutter build macos
 ```

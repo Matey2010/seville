@@ -116,8 +116,17 @@
   default representation, and `comment(...)` for exact text whose distinct
   presentation is reserved for later. General text color, dark/light contrast
   colors, font family and metrics, font features, and shadow effects remain in
-  `LayoutTextConfig`. Panel text resolves from root through every ancestor to
-  child; later non-null values override inherited values, so a child may
+  `LayoutTextConfig`. `LayoutTextConfig.flow` owns renderer-independent text
+  orientation through `LayoutTextFlow.horizontal()` or `.vertical(...)`.
+  Vertical flow defaults to top-to-bottom rotated glyphs for shaped Latin
+  captions and may request upright stacked glyphs explicitly. Do not use
+  Flutter's bidi `TextDirection` as Layout orientation. Flat and projected
+  Flame panel renderers must use the same flow for intrinsic measurement and
+  paint; projected vertical text advances along the surface's vertical basis.
+  LG Ergo declares vertical flow on every `ColumnLayout` and explicitly resets
+  every `RowLayout` to horizontal flow, so a Row nested beneath a Column keeps
+  normal horizontal captions. Panel text resolves from root through every
+  ancestor to child; later non-null values override inherited values, so a child may
   replace an inherited `none()`.
   `PanelLayout` must not restore parallel `caption`, `labelColor`, or
   `labelSize` fields. Base `Layout.text` is empty; renderers seed
@@ -130,8 +139,14 @@
   and classification labels use `LayoutText.defaultRepresentation` rather than
   owning divergent object-to-text formatters.
 - Every `Layout` exposes `node: NodeConfig`. `NodeConfig` directly owns Node
-  presentation, including `slugPrefix`, `slugTransform`, and `slugSuffix`,
-  while its ordered
+  presentation, including `background`, `slugPrefix`, `slugTransform`, and
+  `slugSuffix`. Node backgrounds paint over Layout backgrounds and the Node
+  fill, then the Node border and caption paint over them. A non-null background
+  list replaces the inherited list during normal configuration merging; an
+  empty list explicitly suppresses inherited Node artwork. Use
+  `LayoutCondition.hasLabelsInCurrentNode(...)` in the root Node state to map
+  each rendered Node's Neo4j labels to icon backgrounds. LG Ergo maps Science
+  to `assets/icons/vector/proto-icon.svg` there. Its ordered
   `state: LayoutState<NodeConfig>` recursively specializes the entire
   Node configuration. Resolve every matching condition in insertion order and
   merge later non-null values over earlier values. `NodeConfig` and
@@ -166,6 +181,13 @@
   `LayoutSize.secondary` controls a child's cross-axis extent; otherwise Flame
   derives it from the child's text, padding, and nested content. Flat paint,
   curved projection, backgrounds, and hit testing must share that geometry.
+  Direct `RowLayout` and `ColumnLayout` children of a `LayoutPath` run the same
+  recursive surface-background pass as flex compositions nested in a Grid, and
+  that pass paints before their content. Shared SVG backgrounds cache curved
+  image meshes by owning path, background, and resolved child surface frame.
+  SVG rasterization preserves the authored viewBox aspect ratio at a maximum
+  1024-pixel side, and runtime Layout configuration updates rerun background
+  asset discovery instead of relying only on the Flame game's initial load.
   `LayoutSize.twoDimensional(primary: ..., secondary: ...)` is the consolidated
   two-axis form. The owning renderer assigns geometric meaning to those axes;
   scalar consumers use `primary` and ignore an absent `secondary`.
@@ -331,11 +353,11 @@
 - Use `NodeLayout` for one filter-backed Node. Its required
   `NodeSearchFilter filter` is the complete query identity and the provider
   always requests `limit: 1`; only the first returned Node renders. Its required
-  `storedNode` is a frontend fallback, not a second query source. Activate that
+  `fallbackNode` is a frontend fallback, not a second query source. Activate that
   fallback only after a successful empty response, never while loading or after
   an error. Deep-copy it, ensure the `Virtual` Neo4j label and `isVirtual: true`,
   store it once in `selectedNodesProvider`, and render the same resolved value.
-  A stored Node requires a non-empty slug and defaults its empty path to that
+  A fallback Node requires a non-empty slug and defaults its empty path to that
   slug. `NodeLayoutComponent` fills its complete dedicated projected surface;
   do not constrain it to GraphLayout's circular Node geometry or add a
   `nodeExtentFactor`. It owns paint, labels, tap, and hit geometry and delegates
@@ -536,7 +558,7 @@
   position. Keep its position, animation, and lifecycle inside the game; do not
   add a cursor plugin or cursor-following Flutter overlay.
 - Alegreya Sans SC is the shared interface font. Keep its OFL-licensed files in
-  `frontend/flutter/assets/fonts/alegreya_sans_sc/`, register weights in
+  `frontend/seville7/assets/fonts/alegreya_sans_sc/`, register weights in
   `pubspec.yaml`, and preload them through `SevilleTypography.ensureLoaded()`
   before `runApp`. Material widgets inherit the family from the application
   theme; every raw Flame/canvas `TextStyle` must set
