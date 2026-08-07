@@ -315,6 +315,7 @@ class LayoutContext {
     this.selectedNodePaths = const [],
     this.highlightedNodePaths = const [],
     this.labelHighlighted = false,
+    this.panelFocused = false,
     this.currentLabel,
     this.currentNodePath,
     this.currentNodeSlug,
@@ -335,6 +336,7 @@ class LayoutContext {
   final List<String> selectedNodePaths;
   final List<String> highlightedNodePaths;
   final bool labelHighlighted;
+  final bool panelFocused;
   final String? currentLabel;
   final String? currentNodePath;
   final String? currentNodeSlug;
@@ -359,6 +361,7 @@ class LayoutContext {
       selectedNodePaths: selectedNodePaths,
       highlightedNodePaths: highlightedNodePaths,
       labelHighlighted: labelHighlighted,
+      panelFocused: panelFocused,
       currentLabel: currentLabel,
       currentNodePath: path,
       currentNodeSlug: currentNodeSlug,
@@ -379,6 +382,7 @@ class LayoutContext {
       selectedNodePaths: selectedNodePaths,
       highlightedNodePaths: highlightedNodePaths,
       labelHighlighted: value,
+      panelFocused: panelFocused,
       currentLabel: currentLabel,
       currentNodePath: currentNodePath,
       currentNodeSlug: currentNodeSlug,
@@ -399,6 +403,7 @@ class LayoutContext {
       selectedNodePaths: selectedNodePaths,
       highlightedNodePaths: highlightedNodePaths,
       labelHighlighted: labelHighlighted,
+      panelFocused: panelFocused,
       currentLabel: label,
       currentNodePath: currentNodePath,
       currentNodeSlug: currentNodeSlug,
@@ -423,6 +428,7 @@ class LayoutContext {
       selectedNodePaths: selectedNodePaths,
       highlightedNodePaths: highlightedNodePaths,
       labelHighlighted: labelHighlighted,
+      panelFocused: panelFocused,
       currentLabel: currentLabel,
       currentNodePath: path,
       currentNodeSlug: slug,
@@ -443,6 +449,28 @@ class LayoutContext {
       selectedNodePaths: selectedNodePaths,
       highlightedNodePaths: [...highlightedNodePaths, path],
       labelHighlighted: labelHighlighted,
+      panelFocused: panelFocused,
+      currentLabel: currentLabel,
+      currentNodePath: currentNodePath,
+      currentNodeSlug: currentNodeSlug,
+      currentNodeLabels: currentNodeLabels,
+      activeNodeSlugs: activeNodeSlugs,
+      activeNodePaths: activeNodePaths,
+      activeNodeLabels: activeNodeLabels,
+      layoutPath: layoutPath,
+      rootFontSize: rootFontSize,
+    );
+  }
+
+  LayoutContext withPanelFocused(bool value) {
+    return LayoutContext(
+      inputSource: inputSource,
+      findOpened: findOpened,
+      selectedNodePath: selectedNodePath,
+      selectedNodePaths: selectedNodePaths,
+      highlightedNodePaths: highlightedNodePaths,
+      labelHighlighted: labelHighlighted,
+      panelFocused: value,
       currentLabel: currentLabel,
       currentNodePath: currentNodePath,
       currentNodeSlug: currentNodeSlug,

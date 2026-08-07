@@ -37,6 +37,8 @@ abstract class LayoutCondition {
   const factory LayoutCondition.labelHighlighted() =
       _LayoutLabelHighlightedCondition;
 
+  const factory LayoutCondition.panelFocused() = _LayoutPanelFocusedCondition;
+
   const factory LayoutCondition.equalsTo(String value) =
       _LayoutEqualsToCondition;
 
@@ -153,6 +155,13 @@ class _LayoutLabelHighlightedCondition extends LayoutCondition {
 
   @override
   bool isActive(LayoutContext context) => context.labelHighlighted;
+}
+
+class _LayoutPanelFocusedCondition extends LayoutCondition {
+  const _LayoutPanelFocusedCondition() : super._();
+
+  @override
+  bool isActive(LayoutContext context) => context.panelFocused;
 }
 
 class _LayoutEqualsToCondition extends LayoutCondition {

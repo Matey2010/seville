@@ -614,16 +614,20 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                 'top': LayoutSize.fr(1),
                 'center': LayoutSize.fr(1),
                 'bottom': LayoutSize.fr(1),
-                'bottom-ribbon': LayoutDefaultSize.panoramicFooter,
                 'teletext-ribbon': LayoutDefaultSize.panoramicFooter,
               },
               columnsConfig: {
                 'left-ribbon': LayoutDefaultSize.crossAxisRibbonWidth,
                 'left': LayoutSize.fr(1),
-                'center': LayoutSize.fr(3),
-                'right': LayoutSize.fr(0.75),
+                'center': LayoutSize.fr(2),
+                'right': LayoutSize.fr(1),
               },
               slots: {
+                'navigation-column': GridSlot(
+                  row: 'top',
+                  column: 'left',
+                  rowSpan: 2,
+                ),
                 'bottom-left-area': GridSlot(row: 'bottom', column: 'left'),
                 // TODO: Remove those slots after 2027
                 'geneaology': GridSlot(row: 'bottom-ribbon', column: 'left'),
@@ -631,7 +635,6 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                   row: 'top',
                   column: 'left',
                   aliases: ['info-grid'],
-                  // columnSpan: 2,
                   rowSpan: 1,
                   rowOffset: 1,
                 ),
@@ -648,9 +651,16 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                 ),
                 'find-layout': GridSlot(
                   row: 'top',
-                  column: 'left',
+                  column: 'center',
                   columnSpan: 1,
                   rowSpan: 3,
+                ),
+                'info-table-slot': GridSlot(
+                  row: 'top',
+                  column: 'right',
+                  columnOffset: -0.8,
+                  columnSpan: 2,
+                  rowSpan: 2,
                 ),
                 'scene-graph': GridSlot(
                   row: 'top',
@@ -680,15 +690,11 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                   row: 'bottom',
                   column: 'right',
                   columnSpan: 1,
-                  rowSpan: 3,
+                  rowSpan: 2,
                 ),
-                'status': GridSlot(
-                  row: 'bottom-ribbon',
-                  column: 'left',
-                  rowOffset: 1,
-                ),
+                'status': GridSlot(row: 'bottom', column: 'left', rowOffset: 1),
                 'teletext': GridSlot(
-                  row: 'bottom-ribbon',
+                  row: 'teletext-ribbon',
                   rowSpan: 1,
                   rowOffset: 1,
                   column: 'center',
@@ -718,7 +724,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                   node: NodeConfig(backgroundOpacity: 0),
                   background: [
                     LayoutBackground.svg(
-                      assetPath: 'assets/icons/vector/proto-character.svg',
+                      assetPath: 'assets/icons/vector/bbob.svg',
                       fit: LayoutBackgroundFit.contain,
                     ),
                   ],
@@ -932,7 +938,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                   },
                 ),
                 'info-grid': TableLayout(
-                  slot: 'info',
+                  slot: 'info-table-slot',
                   aliases: [
                     'info-grid',
                     'info-table',
@@ -1101,11 +1107,6 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                         pattern: GuideLinePattern.solid,
                       ),
                       layoutBorderWidth: 1.8,
-                      node: const NodeConfig(
-                        slugPrefix: '[[',
-                        slugTransform: TextTransform.capitalCap(),
-                        slugSuffix: ']]',
-                      ),
                       aliases: [
                         'virtual-nodes',
                         'draft-nodes',
@@ -1195,12 +1196,12 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                     LayoutBackground.image(
                       assetPath: 'assets/wallpapers/dark-vintage-scheme.jpg',
                       fit: LayoutBackgroundFit.cover,
-                      opacity: 0.50,
+                      opacity: 0.75,
                       orderPosition: 1,
                     ),
                   ],
                   layoutPadding: 20,
-                  slot: 'top-left',
+                  slot: 'navigation-column',
                   aliases: [
                     'action-panel',
                     'action-pane',
@@ -1351,7 +1352,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                       text: LayoutTextConfig(
                         value: LayoutText.value('🥋 Perks | P'),
                       ),
-                      background: _lgErgoPossessionPanelBackground,
+                      state: _lgErgoPossessionPanelState,
                     ),
                     'map': PanelLayout(
                       aliases: ['header-map', 'map-shortcut'],
@@ -1363,50 +1364,50 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                       text: LayoutTextConfig(
                         value: LayoutText.value('🗺️ Map | M'),
                       ),
-                      background: _lgErgoPossessionPanelBackground,
+                      state: _lgErgoPossessionPanelState,
                     ),
                     'snippets': PanelLayout(
                       aliases: [],
                       text: LayoutTextConfig(
                         value: LayoutText.value('🗒️ Snippets | S'),
                       ),
-                      background: _lgErgoPossessionPanelBackground,
+                      state: _lgErgoPossessionPanelState,
                     ),
                     'achievements': PanelLayout(
                       aliases: [],
                       text: LayoutTextConfig(
                         value: LayoutText.value('🏆 Achievements | A'),
                       ),
-                      background: _lgErgoPossessionPanelBackground,
+                      state: _lgErgoPossessionPanelState,
                     ),
                     'social': PanelLayout(
                       aliases: [],
                       text: LayoutTextConfig(
                         value: LayoutText.value('👩‍❤️‍👩 Social Graph | G'),
                       ),
-                      background: _lgErgoPossessionPanelBackground,
+                      state: _lgErgoPossessionPanelState,
                     ),
                     'quests': PanelLayout(
                       aliases: [],
                       text: LayoutTextConfig(
                         value: LayoutText.value('⁉️ Quests | Q'),
                       ),
-                      background: _lgErgoPossessionPanelBackground,
+                      state: _lgErgoPossessionPanelState,
                     ),
                     'inventory': PanelLayout(
                       aliases: [],
                       text: LayoutTextConfig(
                         value: LayoutText.value('🎒 Inventory | I'),
                       ),
-                      background: _lgErgoPossessionPanelBackground,
+                      state: _lgErgoPossessionPanelState,
                     ),
                     'wallet': PanelLayout(
                       aliases: ['huita-blya-koshelyok', 'sevicoin-icon'],
                       text: LayoutTextConfig(
                         // TODO: Fix hardcoded wallet value to be dynamic based on user data
-                        value: LayoutText.value('🪙 Ballance ( 0️⃣ S) | B'),
+                        value: LayoutText.value('🪙 Ballance | B'),
                       ),
-                      background: _lgErgoPossessionPanelBackground,
+                      state: _lgErgoPossessionPanelState,
                     ),
                     'keyring': PanelLayout(
                       aliases: [
@@ -1417,7 +1418,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                       text: LayoutTextConfig(
                         value: LayoutText.value('🔑 Keychain | K'),
                       ),
-                      background: _lgErgoPossessionPanelBackground,
+                      state: _lgErgoPossessionPanelState,
                     ),
                   },
                 ),
@@ -1483,12 +1484,22 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
   },
 );
 
-const _lgErgoPossessionPanelBackground = [
-  LayoutBackground.svg(
-    assetPath: 'assets/icons/vector/modular-sword.svg',
-    fit: LayoutBackgroundFit.contain,
+final _lgErgoPossessionPanelState = LayoutState<LayoutConfig>({
+  LayoutCondition.panelFocused(): LayoutConfig(
+    background: [
+      LayoutBackground.random([
+        LayoutBackground.svg(
+          assetPath: 'assets/icons/vector/modular-sword.svg',
+          fit: LayoutBackgroundFit.contain,
+        ),
+        LayoutBackground.svg(
+          assetPath: 'assets/icons/vector/shiv.svg',
+          fit: LayoutBackgroundFit.contain,
+        ),
+      ]),
+    ],
   ),
-];
+});
 
 const _lgErgoFanRootSlug = 'cortex-timeline-calendar-2026-06-fr6h';
 

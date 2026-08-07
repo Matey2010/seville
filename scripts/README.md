@@ -110,6 +110,51 @@ make -C scripts setDefaultIcon \
 Do not edit generated catalog files by hand; change their configured source
 through Make instead.
 
+## Application display name
+
+Set one user-facing name for Debug, Profile, and Release from the repository
+root with:
+
+```sh
+make -C scripts setAppName name='Seville 7'
+```
+
+To distinguish the development application, pass both names instead:
+
+```sh
+make -C scripts setAppName \
+  debug_name='Seville 7 Dev' \
+  production_name='Seville 7'
+```
+
+`set-app-name` is the equivalent kebab-case target, and `APP_NAME` is an
+equivalent shared-name variable. The transaction is:
+
+```text
+scripts/Makefile: setAppName(name=...)
+  ├─ validates and persists Debug/production names
+  │    in macos_app_names.yaml
+  ├─ invokes rename_app's mac compatibility command
+  └─ generates macos/Runner/Configs/AppName.xcconfig
+       ├─ Debug resolves SEVILLE_DEBUG_APP_NAME
+       └─ Profile/Release resolve SEVILLE_PRODUCTION_APP_NAME
+```
+
+`rename_app` is retained as the standard Flutter renaming dependency and CLI,
+but version 1.6.6 does not yet wire its advertised `mac` argument to a macOS
+project edit. The Make transaction therefore completes that missing macOS step
+explicitly. `CFBundleDisplayName` and `CFBundleName` consume the generated build
+setting; the native runner applies it to the application menu and main window.
+The stable Xcode product remains `seville.app`, so name changes do not break the
+existing scheme, bundle checks, or icon transaction.
+
+`make -C scripts interface` refreshes the generated name configuration before
+launch. A changed Debug name removes only the disposable Debug application
+bundle; a changed production name removes only Profile and Release bundles.
+Flutter recreates the affected bundle on the next owner-run launch. Names may
+contain spaces but not quotes, backslashes, `#`, or `$`, because those
+characters have special meaning in YAML or Xcode configuration files.
+
 `flutter_launcher_icons` remains installed for future non-macOS asset work, but
 its `macos.generate` setting is deliberately disabled. Its input is the
 Make-generated production 1024px PNG, so PDF input never leaks into a package

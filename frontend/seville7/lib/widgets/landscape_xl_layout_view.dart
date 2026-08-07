@@ -926,11 +926,36 @@ final math.Random _layoutBackgroundRandom = math.Random();
 final Expando<LayoutBackground> _randomLayoutBackgroundSelections = Expando();
 
 LayoutBackground _selectRandomLayoutBackground(
-  RandomLayoutBackground background,
-) => _randomLayoutBackgroundSelections[background] ??=
-    background.backgrounds[_layoutBackgroundRandom.nextInt(
-      background.backgrounds.length,
-    )];
+  RandomLayoutBackground background, [
+  _RandomBackgroundSelectionScope? selectionScope,
+]) =>
+    selectionScope?.select(background) ??
+    (_randomLayoutBackgroundSelections[background] ??=
+        background.backgrounds[_layoutBackgroundRandom.nextInt(
+          background.backgrounds.length,
+        )]);
+
+class _RandomBackgroundSelectionScope {
+  _RandomBackgroundSelectionScope(this.previousSelections);
+
+  final Map<RandomLayoutBackground, LayoutBackground> previousSelections;
+  final Map<RandomLayoutBackground, LayoutBackground> _selections = {};
+
+  LayoutBackground select(RandomLayoutBackground background) {
+    return _selections.putIfAbsent(background, () {
+      final previous = previousSelections[background];
+      final candidates = background.backgrounds.length <= 1
+          ? background.backgrounds
+          : background.backgrounds
+                .where((candidate) => !identical(candidate, previous))
+                .toList(growable: false);
+      final selected =
+          candidates[_layoutBackgroundRandom.nextInt(candidates.length)];
+      previousSelections[background] = selected;
+      return selected;
+    });
+  }
+}
 
 Iterable<({LayoutBackground background, double opacity})>
 _activeLayoutBackgrounds(
@@ -1606,7 +1631,31 @@ class _LandscapeXlSceneComponent extends PositionComponent
     _CurvedLayoutPathImageMesh
   >
   _curvedLayoutPathImageMeshes = {};
+  final Map<PanelLayout, Map<RandomLayoutBackground, LayoutBackground>>
+  _previousPanelBackgroundSelections = {};
+  PanelLayout? _focusedBackgroundPanel;
+  _RandomBackgroundSelectionScope? _focusedBackgroundSelectionScope;
+  bool _focusedBackgroundPanelSeenThisFrame = false;
   Offset? hoverPosition;
+
+  _RandomBackgroundSelectionScope? _panelBackgroundSelectionScope(
+    PanelLayout panel,
+    bool focused,
+  ) {
+    if (!focused || _focusedBackgroundPanelSeenThisFrame) {
+      return identical(panel, _focusedBackgroundPanel)
+          ? _focusedBackgroundSelectionScope
+          : null;
+    }
+    _focusedBackgroundPanelSeenThisFrame = true;
+    if (!identical(panel, _focusedBackgroundPanel)) {
+      _focusedBackgroundPanel = panel;
+      _focusedBackgroundSelectionScope = _RandomBackgroundSelectionScope(
+        _previousPanelBackgroundSelections.putIfAbsent(panel, () => {}),
+      );
+    }
+    return _focusedBackgroundSelectionScope;
+  }
 
   @override
   void onRemove() {
@@ -1635,6 +1684,7 @@ class _LandscapeXlSceneComponent extends PositionComponent
 
   @override
   void render(Canvas canvas) {
+    _focusedBackgroundPanelSeenThisFrame = false;
     _tablePanelHeaderHits.clear();
     _tableNodeHits.clear();
     _tableActionHits.clear();
@@ -1719,6 +1769,7 @@ class _LandscapeXlSceneComponent extends PositionComponent
         hoverPosition,
         layoutContext,
         background: path.resolveBackground(layoutContext),
+        panelBackgroundSelectionScope: _panelBackgroundSelectionScope,
         curvedImageMeshes: _curvedLayoutPathImageMeshes,
         imageFor: (assetPath) => game.images.containsKey(assetPath)
             ? game.images.fromCache(assetPath)
@@ -1750,6 +1801,10 @@ class _LandscapeXlSceneComponent extends PositionComponent
           );
         },
       );
+    }
+    if (!_focusedBackgroundPanelSeenThisFrame) {
+      _focusedBackgroundPanel = null;
+      _focusedBackgroundSelectionScope = null;
     }
     if (!guidelinesPainted) drawGuidelines();
     for (final resolved in resolvedLayouts.values) {
@@ -2293,6 +2348,11 @@ void _drawLayoutPath(
   Offset? hoverPosition,
   LayoutContext layoutContext, {
   required List<LayoutBackground> background,
+  required _RandomBackgroundSelectionScope? Function(
+    PanelLayout panel,
+    bool focused,
+  )
+  panelBackgroundSelectionScope,
   required Map<
     (LayoutPath, LayoutImageBackground, _FlexSurfaceRect),
     _CurvedLayoutPathImageMesh
@@ -2364,6 +2424,12 @@ void _drawLayoutPath(
   void drawTable(
     TableLayout table,
     List<Offset> tablePoints, {
+    _FlexSurfaceRect surfaceFrame = const (
+      left: 0,
+      top: 0,
+      right: 1,
+      bottom: 1,
+    ),
     PanelConfig? inheritedPanel,
     NodeConfig? inheritedNodeConfig,
   }) {
@@ -2376,6 +2442,8 @@ void _drawLayoutPath(
       classificationLabelComponent,
       nodeListSources: nodeListSources,
       layoutContext: layoutContext,
+      projection: projection,
+      surfaceFrame: surfaceFrame,
       panelDefaults:
           inheritedPanel ??
           panelDefaults.merge(layoutPath.resolvePanelConfig(layoutContext)),
@@ -2413,6 +2481,8 @@ void _drawLayoutPath(
       resolvedPoints,
       composition,
       layoutContext,
+      hoverPosition,
+      panelBackgroundSelectionScope,
       imageFor,
       layoutPath: layoutPath,
       projection: projection,
@@ -2438,6 +2508,8 @@ void _drawLayoutPath(
       resolvedPoints,
       composition,
       layoutContext,
+      hoverPosition,
+      panelBackgroundSelectionScope,
       imageFor,
       layoutPath: layoutPath,
       projection: projection,
@@ -2463,6 +2535,8 @@ void _drawLayoutPath(
       resolvedPoints,
       grid,
       layoutContext,
+      hoverPosition,
+      panelBackgroundSelectionScope,
       imageFor,
       layoutPath: layoutPath,
       projection: projection,
@@ -2501,13 +2575,23 @@ void _drawLayoutPath(
       )) {
         continue;
       }
-      final tablePoints = _resolveGridPlacementPoints(
-        resolvedPoints,
-        projection,
+      final tableFrame = _resolveGridPlacementFrame(
+        projection?.canProjectBackground ?? false
+            ? projection!.flatSize
+            : _quadrilateralAverageSize(resolvedPoints),
         placement.gridSteps,
-        layoutContext,
+        rootFontSize: layoutContext.rootFontSize,
       );
-      if (tablePoints == null) continue;
+      if (tableFrame == null) continue;
+      final tablePoints = projection?.canProjectBackground ?? false
+          ? _curvedSurfaceCorners(projection!, tableFrame)
+          : _quadrilateralSlice(
+              _screenOrderedQuadrilateral(resolvedPoints),
+              left: tableFrame.left,
+              right: tableFrame.right,
+              top: tableFrame.top,
+              bottom: tableFrame.bottom,
+            );
       var inheritedPanel = panelDefaults.merge(
         layoutPath.resolvePanelConfig(layoutContext),
       );
@@ -2523,6 +2607,7 @@ void _drawLayoutPath(
       drawTable(
         placement.layout,
         tablePoints,
+        surfaceFrame: tableFrame,
         inheritedPanel: inheritedPanel,
         inheritedNodeConfig: inheritedNodeConfig,
       );
@@ -2536,6 +2621,9 @@ void _drawGridBackgrounds(
   List<Offset> owningPoints,
   GridLayout grid,
   LayoutContext layoutContext,
+  Offset? hoverPosition,
+  _RandomBackgroundSelectionScope? Function(PanelLayout panel, bool focused)
+  panelBackgroundSelectionScope,
   ui.Image? Function(String assetPath) imageFor, {
   required LayoutPath layoutPath,
   required _LayoutPathProjection? projection,
@@ -2552,6 +2640,8 @@ void _drawGridBackgrounds(
     grid,
     frame,
     layoutContext,
+    hoverPosition,
+    panelBackgroundSelectionScope,
     imageFor,
     layoutPath: layoutPath,
     projection: projection,
@@ -2583,6 +2673,8 @@ void _drawGridBackgrounds(
         owningPoints,
         childGrid,
         layoutContext,
+        hoverPosition,
+        panelBackgroundSelectionScope,
         imageFor,
         layoutPath: layoutPath,
         projection: projection,
@@ -2595,6 +2687,8 @@ void _drawGridBackgrounds(
         owningPoints,
         child.layout,
         layoutContext,
+        hoverPosition,
+        panelBackgroundSelectionScope,
         imageFor,
         layoutPath: layoutPath,
         projection: projection,
@@ -2608,6 +2702,8 @@ void _drawGridBackgrounds(
         child.layout,
         childFrame,
         layoutContext,
+        hoverPosition,
+        panelBackgroundSelectionScope,
         imageFor,
         layoutPath: layoutPath,
         projection: projection,
@@ -2622,6 +2718,9 @@ void _drawFlexBackgrounds(
   List<Offset> owningPoints,
   Layout composition,
   LayoutContext layoutContext,
+  Offset? hoverPosition,
+  _RandomBackgroundSelectionScope? Function(PanelLayout panel, bool focused)
+  panelBackgroundSelectionScope,
   ui.Image? Function(String assetPath) imageFor, {
   required LayoutPath layoutPath,
   required _LayoutPathProjection? projection,
@@ -2638,6 +2737,8 @@ void _drawFlexBackgrounds(
     composition,
     frame,
     layoutContext,
+    hoverPosition,
+    panelBackgroundSelectionScope,
     imageFor,
     layoutPath: layoutPath,
     projection: projection,
@@ -2696,6 +2797,8 @@ void _drawFlexBackgrounds(
         owningPoints,
         child,
         layoutContext,
+        hoverPosition,
+        panelBackgroundSelectionScope,
         imageFor,
         layoutPath: layoutPath,
         projection: projection,
@@ -2708,6 +2811,8 @@ void _drawFlexBackgrounds(
         owningPoints,
         child,
         layoutContext,
+        hoverPosition,
+        panelBackgroundSelectionScope,
         imageFor,
         layoutPath: layoutPath,
         projection: projection,
@@ -2721,6 +2826,8 @@ void _drawFlexBackgrounds(
         child,
         childFrame,
         layoutContext,
+        hoverPosition,
+        panelBackgroundSelectionScope,
         imageFor,
         layoutPath: layoutPath,
         projection: projection,
@@ -2736,6 +2843,9 @@ void _drawSurfaceBackgrounds(
   Layout layout,
   _FlexSurfaceRect frame,
   LayoutContext layoutContext,
+  Offset? hoverPosition,
+  _RandomBackgroundSelectionScope? Function(PanelLayout panel, bool focused)
+  panelBackgroundSelectionScope,
   ui.Image? Function(String assetPath) imageFor, {
   required LayoutPath layoutPath,
   required _LayoutPathProjection? projection,
@@ -2745,8 +2855,6 @@ void _drawSurfaceBackgrounds(
   >
   curvedImageMeshes,
 }) {
-  final resolvedBackground = layout.resolveBackground(layoutContext);
-  if (resolvedBackground.isEmpty) return;
   final isCurved = projection?.canProjectBackground ?? false;
   final points = isCurved
       ? _curvedSurfaceCorners(projection!, frame)
@@ -2760,6 +2868,18 @@ void _drawSurfaceBackgrounds(
   final path = isCurved
       ? _curvedSurfacePath(projection!, frame)
       : _polygonPath(points);
+  final panelFocused =
+      layout is PanelLayout &&
+      hoverPosition != null &&
+      path.contains(hoverPosition);
+  final randomSelectionScope = layout is PanelLayout
+      ? panelBackgroundSelectionScope(layout, panelFocused)
+      : null;
+  final resolvedContext = layout is PanelLayout
+      ? layoutContext.withPanelFocused(panelFocused)
+      : layoutContext;
+  final resolvedBackground = layout.resolveBackground(resolvedContext);
+  if (resolvedBackground.isEmpty) return;
   final backgrounds = [...resolvedBackground]
     ..sort((left, right) => left.orderPosition.compareTo(right.orderPosition));
   for (final background in backgrounds) {
@@ -2768,12 +2888,13 @@ void _drawSurfaceBackgrounds(
       path,
       points,
       background,
-      layoutContext,
+      resolvedContext,
       imageFor,
       layoutPath: layoutPath,
       projection: isCurved ? projection : null,
       curvedImageMeshes: curvedImageMeshes,
       surfaceFrame: frame,
+      randomSelectionScope: randomSelectionScope,
     );
   }
 }
@@ -2826,6 +2947,7 @@ void _drawLayoutPathBackground(
   curvedImageMeshes,
   double inheritedOpacity = 1,
   _FlexSurfaceRect surfaceFrame = const (left: 0, top: 0, right: 1, bottom: 1),
+  _RandomBackgroundSelectionScope? randomSelectionScope,
 }) {
   final opacity = (inheritedOpacity * background.opacity)
       .clamp(0, 1)
@@ -2836,7 +2958,7 @@ void _drawLayoutPathBackground(
       canvas,
       path,
       points,
-      _selectRandomLayoutBackground(background),
+      _selectRandomLayoutBackground(background, randomSelectionScope),
       layoutContext,
       imageFor,
       layoutPath: layoutPath,
@@ -2844,6 +2966,7 @@ void _drawLayoutPathBackground(
       curvedImageMeshes: curvedImageMeshes,
       inheritedOpacity: opacity,
       surfaceFrame: surfaceFrame,
+      randomSelectionScope: randomSelectionScope,
     );
     return;
   }
@@ -2861,6 +2984,7 @@ void _drawLayoutPathBackground(
       curvedImageMeshes: curvedImageMeshes,
       inheritedOpacity: opacity,
       surfaceFrame: surfaceFrame,
+      randomSelectionScope: randomSelectionScope,
     );
     return;
   }
@@ -5254,6 +5378,28 @@ _FlexSurfaceRect _scaleFlexSurfaceRect(
   bottom: ui.lerpDouble(parent.top, parent.bottom, child.bottom)!,
 );
 
+_FlexSurfaceRect _insetFlexSurfaceFrame(
+  _FlexSurfaceRect frame, {
+  required double horizontalPixels,
+  required double verticalPixels,
+  required Size surfaceSize,
+}) {
+  final horizontalInset = surfaceSize.width <= 0
+      ? 0.0
+      : horizontalPixels / surfaceSize.width;
+  final verticalInset = surfaceSize.height <= 0
+      ? 0.0
+      : verticalPixels / surfaceSize.height;
+  final centerX = (frame.left + frame.right) / 2;
+  final centerY = (frame.top + frame.bottom) / 2;
+  return (
+    left: math.min(frame.left + horizontalInset, centerX),
+    top: math.min(frame.top + verticalInset, centerY),
+    right: math.max(frame.right - horizontalInset, centerX),
+    bottom: math.max(frame.bottom - verticalInset, centerY),
+  );
+}
+
 void _drawCurvedGridGuides(
   Canvas canvas,
   _LayoutPathProjection projection,
@@ -6240,6 +6386,85 @@ Rect _boundsForPoints(List<Offset> points) {
   );
 }
 
+typedef _ProjectedPictureStrip = ({
+  Rect source,
+  Path destination,
+  Float64List transform,
+});
+
+Iterable<_ProjectedPictureStrip> _projectedPictureStrips(
+  _LayoutPathProjection projection,
+  _FlexSurfaceRect frame,
+  Size flatSize,
+) sync* {
+  final stripCount =
+      (projection.meshSegmentCount * (frame.right - frame.left).abs() / 8)
+          .ceil()
+          .clamp(8, 96);
+  for (var index = 0; index < stripCount; index += 1) {
+    final startFraction = index / stripCount;
+    final endFraction = (index + 1) / stripCount;
+    final source = Rect.fromLTRB(
+      flatSize.width * startFraction,
+      0,
+      flatSize.width * endFraction,
+      flatSize.height,
+    );
+    final startU = ui.lerpDouble(frame.left, frame.right, startFraction)!;
+    final endU = ui.lerpDouble(frame.left, frame.right, endFraction)!;
+    final destinationPoints = [
+      projection.project(startU, frame.top),
+      projection.project(endU, frame.top),
+      projection.project(endU, frame.bottom),
+      projection.project(startU, frame.bottom),
+    ];
+    yield (
+      source: source,
+      destination: _polygonPath(destinationPoints),
+      transform: _rectToQuadTransform(
+        source.width,
+        source.height,
+        destinationPoints,
+      ),
+    );
+  }
+}
+
+void _drawPictureOnProjectedSurface(
+  Canvas canvas,
+  ui.Picture picture,
+  _LayoutPathProjection projection,
+  _FlexSurfaceRect frame,
+  Size flatSize,
+) {
+  for (final strip in _projectedPictureStrips(projection, frame, flatSize)) {
+    canvas.save();
+    canvas.clipPath(strip.destination);
+    canvas.transform(strip.transform);
+    canvas.translate(-strip.source.left, 0);
+    canvas.drawPicture(picture);
+    canvas.restore();
+  }
+}
+
+Path _projectFlatPathToSurface(
+  Path flatPath,
+  _LayoutPathProjection projection,
+  _FlexSurfaceRect frame,
+  Size flatSize,
+) {
+  final projected = Path();
+  for (final strip in _projectedPictureStrips(projection, frame, flatSize)) {
+    final sourceClip = Path()..addRect(strip.source);
+    final clipped = Path.combine(PathOperation.intersect, flatPath, sourceClip);
+    projected.addPath(
+      clipped.shift(Offset(-strip.source.left, 0)).transform(strip.transform),
+      Offset.zero,
+    );
+  }
+  return projected;
+}
+
 void _drawTableLayout(
   Canvas canvas,
   List<Offset> parentPoints,
@@ -6249,6 +6474,8 @@ void _drawTableLayout(
   ClassificationLabelComponent classificationLabelComponent, {
   required _NodeListSources nodeListSources,
   required LayoutContext layoutContext,
+  required _LayoutPathProjection? projection,
+  required _FlexSurfaceRect surfaceFrame,
   required PanelConfig panelDefaults,
   required NodeConfig nodeConfig,
   required LabelConfig label,
@@ -6279,26 +6506,35 @@ void _drawTableLayout(
   );
   if (rows.isEmpty) return;
 
-  final panelPath = Path()
-    ..moveTo(parentPoints.first.dx, parentPoints.first.dy);
-  for (final corner in parentPoints.skip(1)) {
-    panelPath.lineTo(corner.dx, corner.dy);
-  }
-  panelPath.close();
+  final curvedProjection = projection?.canProjectBackground ?? false
+      ? projection
+      : null;
+  final projectedTableFrame = curvedProjection == null
+      ? surfaceFrame
+      : _insetFlexSurfaceFrame(
+          surfaceFrame,
+          horizontalPixels: table.padding,
+          verticalPixels: table.padding,
+          surfaceSize: curvedProjection.flatSize,
+        );
+  final panelPath = curvedProjection == null
+      ? _polygonPath(parentPoints)
+      : _curvedSurfacePath(curvedProjection, surfaceFrame);
+  final tablePoints = curvedProjection == null
+      ? _paddedPathPoints(parentPoints, LayoutPathPadding.all(table.padding))
+      : _curvedSurfaceCorners(curvedProjection, projectedTableFrame);
+  final logicalTableSize = curvedProjection == null
+      ? _quadrilateralAverageSize(tablePoints)
+      : Size(
+          curvedProjection.flatSize.width *
+              (projectedTableFrame.right - projectedTableFrame.left),
+          curvedProjection.flatSize.height *
+              (projectedTableFrame.bottom - projectedTableFrame.top),
+        );
+  if (logicalTableSize.width <= 48 || logicalTableSize.height <= 48) return;
 
-  final tablePoints = _paddedPathPoints(
-    parentPoints,
-    LayoutPathPadding.all(table.padding),
-  );
-  final panelBounds = _boundsForPoints(tablePoints);
-  if (panelBounds.width <= 48 || panelBounds.height <= 48) return;
-
-  final leftLength = (tablePoints[3] - tablePoints[0]).distance;
-  final rightLength = (tablePoints[2] - tablePoints[1]).distance;
-  final averageHeight = (leftLength + rightLength) / 2;
-  final topWidth = (tablePoints[1] - tablePoints[0]).distance;
-  final bottomWidth = (tablePoints[2] - tablePoints[3]).distance;
-  final averageWidth = (topWidth + bottomWidth) / 2;
+  final averageWidth = logicalTableSize.width;
+  final averageHeight = logicalTableSize.height;
   final placements = _tableRowPlacements(
     table,
     rows,
@@ -6330,6 +6566,14 @@ void _drawTableLayout(
     averageHeight,
     tableTransformPoints,
   );
+  Path resolveTablePath(Path flatPath) => curvedProjection == null
+      ? flatPath.transform(tableTransform)
+      : _projectFlatPathToSurface(
+          flatPath,
+          curvedProjection,
+          projectedTableFrame,
+          logicalTableSize,
+        );
   for (final placement in placements) {
     final row = placement.row;
     final panelId = row.panelId;
@@ -6338,16 +6582,15 @@ void _drawTableLayout(
     if (panel == null || !panel.isFoldable) continue;
     onPanelHeader(
       panelId,
-      _polygonPath([
-        for (final point in _tableCellPoints(
+      resolveTablePath(
+        _tableCellPath(
           flatTablePoints,
           placement.rowStart,
           placement.rowEnd,
           placement.columnStart,
           placement.columnEnd,
-        ))
-          _transformCanvasPoint(tableTransform, point),
-      ]),
+        ),
+      ),
     );
   }
   final recorder = ui.PictureRecorder();
@@ -6376,12 +6619,14 @@ void _drawTableLayout(
           placement,
           columnStops[column + 1],
         );
-        if (!_tableCellPath(
-          tablePoints,
-          placement.rowStart,
-          placement.rowEnd,
-          columnStart,
-          columnEnd,
+        if (!resolveTablePath(
+          _tableCellPath(
+            flatTablePoints,
+            placement.rowStart,
+            placement.rowEnd,
+            columnStart,
+            columnEnd,
+          ),
         ).contains(hoverPosition)) {
           continue;
         }
@@ -6496,16 +6741,18 @@ void _drawTableLayout(
     );
     if (row.key != null && firstValueColumnIndex >= 0) {
       final value = _formatTableValue(row.value);
-      final valueCellPath = _tableCellPath(
-        flatTablePoints,
-        rowStart,
-        rowEnd,
-        _tablePlacementColumn(placement, columnStops[firstValueColumnIndex]),
-        _tablePlacementColumn(
-          placement,
-          columnStops[firstValueColumnIndex + 1],
+      final valueCellPath = resolveTablePath(
+        _tableCellPath(
+          flatTablePoints,
+          rowStart,
+          rowEnd,
+          _tablePlacementColumn(placement, columnStops[firstValueColumnIndex]),
+          _tablePlacementColumn(
+            placement,
+            columnStops[firstValueColumnIndex + 1],
+          ),
         ),
-      ).transform(tableTransform);
+      );
       for (final action in row.actions) {
         if (action.copiesToClipboard) {
           onAction(action, row.key!, value, valueCellPath);
@@ -6563,10 +6810,7 @@ void _drawTableLayout(
                 ),
               ).text,
             ),
-            _polygonPath([
-              for (final point in entry.points)
-                _transformCanvasPoint(tableTransform, point),
-            ]),
+            resolveTablePath(_polygonPath(entry.points)),
           );
         }
         continue;
@@ -6593,10 +6837,7 @@ void _drawTableLayout(
         for (final frame in labelFrames) {
           final hoverStyle = frame.hoverStyle;
           if (hoverStyle == null) continue;
-          onClassificationLabel(
-            frame.path.transform(tableTransform),
-            hoverStyle,
-          );
+          onClassificationLabel(resolveTablePath(frame.path), hoverStyle);
         }
         continue;
       }
@@ -6644,8 +6885,18 @@ void _drawTableLayout(
   final tablePicture = recorder.endRecording();
   canvas.save();
   canvas.clipPath(panelPath);
-  canvas.transform(tableTransform);
-  canvas.drawPicture(tablePicture);
+  if (curvedProjection == null) {
+    canvas.transform(tableTransform);
+    canvas.drawPicture(tablePicture);
+  } else {
+    _drawPictureOnProjectedSurface(
+      canvas,
+      tablePicture,
+      curvedProjection,
+      projectedTableFrame,
+      logicalTableSize,
+    );
+  }
   canvas.restore();
   tablePicture.dispose();
 }
@@ -7161,15 +7412,6 @@ Float64List _rectToQuadTransform(
     0,
     1,
   ]);
-}
-
-Offset _transformCanvasPoint(Float64List transform, Offset point) {
-  final w = transform[3] * point.dx + transform[7] * point.dy + transform[15];
-  final safeW = w.abs() <= 0.000001 ? 1.0 : w;
-  return Offset(
-    (transform[0] * point.dx + transform[4] * point.dy + transform[12]) / safeW,
-    (transform[1] * point.dx + transform[5] * point.dy + transform[13]) / safeW,
-  );
 }
 
 Path _tableCellPath(
