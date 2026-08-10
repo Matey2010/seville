@@ -1,7 +1,10 @@
 import 'package:flutter/services.dart';
 
+import '../generated/fonts/sevifont.dart';
+
 abstract final class SevilleTypography {
   static const fontFamily = 'Alegreya Sans SC';
+  static const nodeFontFamily = Sevifont.fontFamily;
 
   static const _fontAssets = [
     'assets/fonts/alegreya_sans_sc/AlegreyaSansSC-Regular.ttf',
@@ -9,6 +12,7 @@ abstract final class SevilleTypography {
     'assets/fonts/alegreya_sans_sc/AlegreyaSansSC-Bold.ttf',
     'assets/fonts/alegreya_sans_sc/AlegreyaSansSC-Black.ttf',
   ];
+  static const _nodeFontAsset = 'assets/fonts/sevifont/Sevifont.ttf';
 
   static Future<void>? _loadFuture;
 
@@ -20,6 +24,8 @@ abstract final class SevilleTypography {
     for (final asset in _fontAssets) {
       loader.addFont(rootBundle.load(asset));
     }
-    await loader.load();
+    final nodeLoader = FontLoader(nodeFontFamily)
+      ..addFont(rootBundle.load(_nodeFontAsset));
+    await Future.wait([loader.load(), nodeLoader.load()]);
   }
 }

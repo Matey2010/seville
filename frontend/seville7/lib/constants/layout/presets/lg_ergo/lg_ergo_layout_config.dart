@@ -65,12 +65,15 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
     fontSize: LayoutTextDefaults.rootFontSize,
   ),
   node: const NodeConfig(
-    text: LayoutTextConfig(fontSize: 10),
+    text: LayoutTextConfig(
+      fontFamily: SevilleTypography.nodeFontFamily,
+      fontSize: 10,
+    ),
     slugColor: Color(0xFFFFD54F),
     labelColor: Color(0xFFFFF8E7),
     valueColor: Color(0xFFFFF8E7),
     slugPrefix: '[[',
-    slugTransform: TextTransform.capitalCap(),
+    slugTransform: TextTransform.uppercase(),
     slugSuffix: ']]',
     state: LayoutState({
       LayoutCondition.hasLabelsInCurrentNode(['Science']): NodeConfig(
@@ -560,8 +563,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               background: LayoutBackground.color(Color(0xFF0000FF)),
             ),
             LayoutBackground.image(
-              assetPath:
-                  'assets/wallpapers/borderlands-2-main-menu-1920x1080.jpg',
+              assetPath: 'assets/wallpapers/sims-4-interface.png',
               opacity: 0.78,
               fit: LayoutBackgroundFit.fill,
               orderPosition: 1,
@@ -610,7 +612,6 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                 'panorama',
               ],
               rowsConfig: {
-                'header': LayoutDefaultSize.panoramicHeader,
                 'top': LayoutSize.fr(1),
                 'center': LayoutSize.fr(1),
                 'bottom': LayoutSize.fr(1),
@@ -619,10 +620,26 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               columnsConfig: {
                 'left-ribbon': LayoutDefaultSize.crossAxisRibbonWidth,
                 'left': LayoutSize.fr(1),
-                'center': LayoutSize.fr(2),
+                'center': LayoutSize.fr(3),
                 'right': LayoutSize.fr(1),
               },
               slots: {
+                'point-of-view': GridSlot(
+                  row: 'top',
+                  column: 'right',
+                  rowSpan: 0.25,
+                ),
+                'sidebar': GridSlot(
+                  row: 'top',
+                  column: 'left-ribbon',
+                  rowSpan: GridSpan.full,
+                ),
+                'boss-ribbon': GridSlot(
+                  row: 'top',
+                  column: 'center',
+                  rowSpan: 0.25,
+                  columnSpan: 1,
+                ),
                 'navigation-column': GridSlot(
                   row: 'top',
                   column: 'left',
@@ -638,17 +655,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                   rowSpan: 1,
                   rowOffset: 1,
                 ),
-                'left-ribbon': GridSlot(
-                  row: 'header',
-                  column: 'left-ribbon',
-                  rowSpan: GridSpan.full,
-                ),
                 'logo': GridSlot(row: 'header', column: 'left-ribbon'),
-                'header': GridSlot(
-                  row: 'header',
-                  column: 'left-ribbon',
-                  columnSpan: GridSpan.full,
-                ),
                 'find-layout': GridSlot(
                   row: 'top',
                   column: 'center',
@@ -658,9 +665,9 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                 'info-table-slot': GridSlot(
                   row: 'top',
                   column: 'right',
-                  columnOffset: -0.8,
                   columnSpan: 2,
-                  rowSpan: 2,
+                  rowSpan: 1.5,
+                  rowOffset: 0.5,
                 ),
                 'scene-graph': GridSlot(
                   row: 'top',
@@ -694,7 +701,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                 ),
                 'status': GridSlot(row: 'bottom', column: 'left', rowOffset: 1),
                 'teletext': GridSlot(
-                  row: 'teletext-ribbon',
+                  row: 'bottom',
                   rowSpan: 1,
                   rowOffset: 1,
                   column: 'center',
@@ -729,16 +736,8 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                     ),
                   ],
                 ),
-                'left-ribbon': GridLayout(
-                  slot: 'left-ribbon',
-                  rowsConfig: {
-                    'logo': LayoutDefaultSize.panoramicHeader,
-                    'content': LayoutSize.fr(1),
-                  },
-                  columnsConfig: {'ribbon': LayoutSize.fr(1)},
-                  slots: {
-                    'content': GridSlot(row: 'content', column: 'ribbon'),
-                  },
+                'left-ribbon': ColumnLayout(
+                  slot: 'sidebar',
                   aliases: [
                     'left-ribbon',
                     'panoramic-left-ribbon',
@@ -852,90 +851,53 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                     'cortex-control',
                   ],
                 ),
-                'header': RowLayout(
-                  slot: 'header',
-                  crossAxisAlignment: LayoutCrossAxisAlignment.stretch(),
-                  aliases: [
-                    'header',
-                    'panoramic-header',
-                    'scene-header',
-                    'header-content',
-                    'header-lorem',
-                    'top-ribbon',
-                  ],
-                  text: LayoutTextConfig(
-                    color: Color(0xFFFFD54F),
-                    fontSize: 12,
-                    flow: LayoutTextFlow.horizontal(),
-                  ),
-                  children: {
-                    'spacer': PanelLayout(
-                      aliases: ['header-spacer', 'spacer-shortcut'],
-                      size: LayoutDefaultSize.crossAxisRibbonWidth,
-                      text: LayoutTextConfig(value: LayoutText.none()),
+                'opponent-panel': ListLayout(
+                  slot: 'boss-ribbon',
+                  direction: ListLayoutDirection.vertical,
+                  [
+                    PanelLayout(
+                      aliases: ['header-opponent', 'opponent-shortcut'],
+                      borderStyle: GuideStyle(
+                        color: Color(0xFFFFD54F),
+                        strokeWidth: 1.2,
+                        pattern: GuideLinePattern.solid,
+                      ),
+                      text: LayoutTextConfig(
+                        value: LayoutText.value('🤖 opponent'),
+                      ),
                     ),
-                    'opponent-panel': ListLayout(
-                      direction: ListLayoutDirection.vertical,
-                      [
-                        PanelLayout(
-                          aliases: ['header-opponent', 'opponent-shortcut'],
-                          borderStyle: GuideStyle(
-                            color: Color(0xFFFFD54F),
-                            strokeWidth: 1.2,
-                            pattern: GuideLinePattern.solid,
-                          ),
-                          text: LayoutTextConfig(
-                            value: LayoutText.value('🤖 opponent'),
-                          ),
-                        ),
-                        PanelLayout(
-                          size: LayoutSize.fr(3),
-                          aliases: [
-                            'center-ribbon',
-                            'panoramic-center-ribbon',
-                            'scene-center-header',
-                          ],
-                          state: LayoutState({
-                            LayoutCondition.hasActiveNodes(): LayoutConfig(
-                              text: LayoutTextConfig(
-                                fontSize: 8,
-                                value: LayoutText.lorem(length: 1),
-                              ),
-                            ),
-                          }),
-                          text: LayoutTextConfig(
-                            color: Color.fromARGB(255, 255, 97, 79),
-                            value: LayoutText.value(
-                              'Choose your NODEs, Player!',
-                            ),
-                            wordSpacing: 1.2,
-                            letterSpacing: 0.8,
-                          ),
-                        ),
+                    PanelLayout(
+                      aliases: [
+                        'center-ribbon',
+                        'panoramic-center-ribbon',
+                        'scene-center-header',
                       ],
-                    ),
-                    'degeneracy-panel': RowLayout(
-                      size: LayoutSize.fr(2),
-                      crossAxisAlignment: LayoutCrossAxisAlignment.top(),
-                      text: LayoutTextConfig(flow: LayoutTextFlow.horizontal()),
-                      children: {
-                        'pov': PanelLayout(
-                          aliases: [
-                            'header-view-change',
-                            'view-change-shortcut',
-                          ],
-                          borderStyle: GuideStyle(
-                            color: Color(0xFFFFD54F),
-                            strokeWidth: 1.2,
-                            pattern: GuideLinePattern.solid,
-                          ),
+                      state: LayoutState({
+                        LayoutCondition.hasActiveNodes(): LayoutConfig(
                           text: LayoutTextConfig(
-                            value: LayoutText.value('🎥 pov | p'),
+                            fontSize: 8,
+                            value: LayoutText.lorem(length: 1),
                           ),
                         ),
-                      },
+                      }),
+                      text: LayoutTextConfig(
+                        color: Color.fromARGB(255, 255, 97, 79),
+                        value: LayoutText.value('Choose your NODEs, Player!'),
+                        wordSpacing: 1.2,
+                        letterSpacing: 0.8,
+                      ),
                     ),
-                  },
+                  ],
+                ),
+                'pov': PanelLayout(
+                  slot: 'point-of-view',
+                  aliases: ['header-view-change', 'view-change-shortcut'],
+                  borderStyle: GuideStyle(
+                    color: Color(0xFFFFD54F),
+                    strokeWidth: 1.2,
+                    pattern: GuideLinePattern.solid,
+                  ),
+                  text: LayoutTextConfig(value: LayoutText.value('🎥 pov | p')),
                 ),
                 'info-grid': TableLayout(
                   slot: 'info-table-slot',
@@ -955,7 +917,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                     LayoutBackground.image(
                       assetPath: 'assets/wallpapers/daft-punk-suit.jpg',
                       fit: LayoutBackgroundFit.fill,
-                      opacity: 0.34,
+                      opacity: 0.84,
                     ),
                   ],
                   layoutBorderWidth: 1.8,
@@ -1192,11 +1154,18 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                   emojiSlugGapFactor: 0.5,
                 ),
                 'navigation-column': ColumnLayout(
+                  text: LayoutTextConfig(
+                    fontFamily: SevilleTypography.nodeFontFamily,
+                    fontSize: 32,
+                    letterSpacing: 0,
+                    wordSpacing: 0.5,
+                    flow: LayoutTextFlow.horizontal(),
+                  ),
                   background: [
                     LayoutBackground.image(
                       assetPath: 'assets/wallpapers/dark-vintage-scheme.jpg',
                       fit: LayoutBackgroundFit.cover,
-                      opacity: 0.75,
+                      opacity: 0.82,
                       orderPosition: 1,
                     ),
                   ],
@@ -1217,10 +1186,10 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                     'navigation-row',
                     'browser-navigation',
                   ],
-                  text: LayoutTextConfig(flow: LayoutTextFlow.horizontal()),
                   size: LayoutSize.px(48),
                   children: {
                     'add-node': PanelLayout(
+                      state: _lgErgoNavigationPanelState,
                       aliases: [
                         'action-button',
                         'add-action',
@@ -1231,11 +1200,30 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                         strokeWidth: 1,
                         pattern: GuideLinePattern.solid,
                       )),
+                      input: LayoutInputConfig(
+                        submission: LayoutInputSubmission.createVirtualNode(),
+                        hint: LayoutText.value('New Node slug'),
+                        backgroundColor: Color(0xF2283252),
+                        borderStyle: GuideStyle(
+                          color: Color(0xCCB7C2FF),
+                          strokeWidth: 1,
+                          pattern: GuideLinePattern.solid,
+                        ),
+                        text: LayoutTextConfig(
+                          color: Color.fromARGB(255, 133, 255, 33),
+                          fontFamily: SevilleTypography.nodeFontFamily,
+                          fontSize: 16,
+                        ),
+                      ),
                       text: LayoutTextConfig(
-                        value: LayoutText.value('🏁 New Node | ⌘N'),
+                        color: Color.fromARGB(255, 133, 255, 33),
+                        value: LayoutText.value(
+                          '🏁 Next adventure | N',
+                        ),
                       ),
                     ),
                     'refresh-fans': PanelLayout(
+                      state: _lgErgoNavigationPanelState,
                       aliases: [
                         'action-button',
                         'refresh-action',
@@ -1251,18 +1239,34 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                       ),
                     ),
                     'find': PanelLayout(
+                      state: _lgErgoNavigationPanelState,
                       aliases: ['header-search', 'search-shortcut'],
-                      onTap: LayoutTapAction.findOpened(),
                       borderStyle: GuideStyle(
                         color: Color(0xFFFFD54F),
                         strokeWidth: 1.2,
                         pattern: GuideLinePattern.solid,
+                      ),
+                      input: LayoutInputConfig(
+                        submission: LayoutInputSubmission.findNodes(),
+                        hint: LayoutText.value('Find Nodes'),
+                        backgroundColor: Color(0xF2283252),
+                        borderStyle: GuideStyle(
+                          color: Color(0xFFFFD54F),
+                          strokeWidth: 1.2,
+                          pattern: GuideLinePattern.solid,
+                        ),
+                        text: LayoutTextConfig(
+                          color: Color(0xFFFFD54F),
+                          fontFamily: SevilleTypography.nodeFontFamily,
+                          fontSize: 16,
+                        ),
                       ),
                       text: LayoutTextConfig(
                         value: LayoutText.value('F 🔎 find'),
                       ),
                     ),
                     'today': PanelLayout(
+                      state: _lgErgoNavigationPanelState,
                       aliases: [
                         'action-button',
                         'today-action',
@@ -1274,10 +1278,11 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                         pattern: GuideLinePattern.solid,
                       )),
                       text: LayoutTextConfig(
-                        value: LayoutText.value('📅 Today'),
+                        value: LayoutText.value('📅 Today 3! 3! 3!]'),
                       ),
                     ),
                     'confirm': PanelLayout(
+                      state: _lgErgoNavigationPanelState,
                       aliases: [
                         'action-button',
                         'confirm-action',
@@ -1294,6 +1299,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                       ),
                     ),
                     'settings': PanelLayout(
+                      state: _lgErgoNavigationPanelState,
                       aliases: ['header-settings', 'settings-shortcut'],
                       borderStyle: GuideStyle(
                         color: Color(0xFFFFD54F),
@@ -1305,6 +1311,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                       ),
                     ),
                     'close-selection': PanelLayout(
+                      state: _lgErgoNavigationPanelState,
                       aliases: [
                         'action-button',
                         'close-action',
@@ -1493,8 +1500,63 @@ final _lgErgoPossessionPanelState = LayoutState<LayoutConfig>({
           fit: LayoutBackgroundFit.contain,
         ),
         LayoutBackground.svg(
+          assetPath: 'assets/icons/vector/modular-long-sword.svg',
+          fit: LayoutBackgroundFit.contain,
+        ),
+        LayoutBackground.svg(
+          assetPath: 'assets/icons/vector/modular-spear.svg',
+          fit: LayoutBackgroundFit.contain,
+        ),
+        LayoutBackground.svg(
           assetPath: 'assets/icons/vector/shiv.svg',
           fit: LayoutBackgroundFit.contain,
+        ),
+        LayoutBackground.svg(
+          assetPath: 'assets/icons/vector/cursed-sword.svg',
+          fit: LayoutBackgroundFit.contain,
+        ),
+        LayoutBackground.svg(
+          assetPath: 'assets/icons/vector/world-staff.svg',
+          fit: LayoutBackgroundFit.contain,
+        ),
+      ]),
+    ],
+  ),
+});
+
+final _lgErgoNavigationPanelState = LayoutState<LayoutConfig>({
+  LayoutCondition.panelFocused(): LayoutConfig(
+    background: [
+      LayoutBackground.random([
+        LayoutBackground.svg(
+          assetPath: 'assets/icons/vector/modular-sword.svg',
+          fit: LayoutBackgroundFit.contain,
+          rotationDegrees: 90,
+        ),
+        LayoutBackground.svg(
+          assetPath: 'assets/icons/vector/modular-long-sword.svg',
+          fit: LayoutBackgroundFit.contain,
+          rotationDegrees: 90,
+        ),
+        LayoutBackground.svg(
+          assetPath: 'assets/icons/vector/modular-spear.svg',
+          fit: LayoutBackgroundFit.contain,
+          rotationDegrees: 90,
+        ),
+        LayoutBackground.svg(
+          assetPath: 'assets/icons/vector/shiv.svg',
+          fit: LayoutBackgroundFit.contain,
+          rotationDegrees: 90,
+        ),
+        LayoutBackground.svg(
+          assetPath: 'assets/icons/vector/cursed-sword.svg',
+          fit: LayoutBackgroundFit.contain,
+          rotationDegrees: 90,
+        ),
+        LayoutBackground.svg(
+          assetPath: 'assets/icons/vector/world-staff.svg',
+          fit: LayoutBackgroundFit.contain,
+          rotationDegrees: 90,
         ),
       ]),
     ],

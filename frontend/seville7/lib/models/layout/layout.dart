@@ -6,6 +6,7 @@ import 'package:seville_proto/seville_proto.dart'
 
 part 'graph_traverse_type.dart';
 part 'default_size.dart';
+part 'input.dart';
 part 'label.dart';
 part 'landscape_xl_layout.dart';
 part 'layout_condition.dart';
@@ -1725,6 +1726,7 @@ class PanelLayout extends Layout {
     super.slot,
     this.borderStyle,
     this.onTap,
+    this.input,
     super.aliases,
     super.background,
     super.layoutPadding,
@@ -1742,6 +1744,7 @@ class PanelLayout extends Layout {
   }) : super(attributes: const [LayoutAttribute.rectangular]);
   final GuideStyle? borderStyle;
   final LayoutTapAction? onTap;
+  final LayoutInputConfig? input;
 }
 
 class LayoutPath extends Layout {

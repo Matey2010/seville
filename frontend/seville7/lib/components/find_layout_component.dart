@@ -6,12 +6,15 @@ import '../constants/keymap.dart';
 import '../models/layout/layout.dart';
 import 'layout_component_registry.dart';
 
-class FindLayoutViewState {
-  const FindLayoutViewState({
+class LayoutInputViewState {
+  const LayoutInputViewState({
     required this.layout,
     required this.text,
     this.isOpen = false,
     this.draft = '',
+    this.input,
+    this.owner,
+    this.layoutKey,
     this.projectedCorners = const [],
     this.logicalSize = Size.zero,
   });
@@ -20,26 +23,50 @@ class FindLayoutViewState {
   final LayoutTextConfig text;
   final bool isOpen;
   final String draft;
+  final LayoutInputConfig? input;
+  final PanelLayout? owner;
+  final String? layoutKey;
   final List<Offset> projectedCorners;
   final Size logicalSize;
+
+  bool get isFindInput =>
+      input == null || input!.submission is FindNodesLayoutInputSubmission;
+
+  LayoutInputConfig get effectiveInput =>
+      input ??
+      LayoutInputConfig(
+        submission: const LayoutInputSubmission.findNodes(),
+        hint: layout.hint,
+        backgroundColor: layout.inputBackgroundColor,
+        borderStyle: layout.inputBorderStyle,
+        borderRadius: layout.inputBorderRadius,
+        horizontalPadding: 16,
+      );
 
   bool get hasGeometry =>
       projectedCorners.length == 4 &&
       logicalSize.width > 0 &&
       logicalSize.height > 0;
 
-  FindLayoutViewState copyWith({
+  LayoutInputViewState copyWith({
     FindLayout? layout,
     LayoutTextConfig? text,
     bool? isOpen,
     String? draft,
+    LayoutInputConfig? input,
+    PanelLayout? owner,
+    String? layoutKey,
+    bool clearPanelInput = false,
     List<Offset>? projectedCorners,
     Size? logicalSize,
-  }) => FindLayoutViewState(
+  }) => LayoutInputViewState(
     layout: layout ?? this.layout,
     text: text ?? this.text,
     isOpen: isOpen ?? this.isOpen,
     draft: draft ?? this.draft,
+    input: clearPanelInput ? null : input ?? this.input,
+    owner: clearPanelInput ? null : owner ?? this.owner,
+    layoutKey: clearPanelInput ? null : layoutKey ?? this.layoutKey,
     projectedCorners: projectedCorners ?? this.projectedCorners,
     logicalSize: logicalSize ?? this.logicalSize,
   );
@@ -47,13 +74,14 @@ class FindLayoutViewState {
 
 /// Flame-side interaction owner for [FindLayout].
 ///
-/// Its geometry is resolved by the game and shared with [FindInputOverlay], so
+/// Its geometry is resolved by the game and shared with [LayoutInputOverlay], so
 /// paint, focus, and pointer input all use the configured projected surface.
-class FindLayoutComponent extends PositionComponent with KeyboardHandler {
-  FindLayoutComponent({
+class LayoutInputComponent extends PositionComponent with KeyboardHandler {
+  LayoutInputComponent({
     required FindLayout layout,
     required this.searchValue,
     required this.onSearchSubmitted,
+    required this.onCreateVirtualNodeSubmitted,
     required this.onCancel,
     required this.onRefreshFanData,
     required this.onCopySelectedNodeSlug,
@@ -61,7 +89,7 @@ class FindLayoutComponent extends PositionComponent with KeyboardHandler {
     required this.onNodeSelected,
     this.results = const [],
   }) : viewState = ValueNotifier(
-         FindLayoutViewState(
+         LayoutInputViewState(
            layout: layout,
            text: LayoutTextDefaults.config.merge(layout.text),
          ),
@@ -69,21 +97,25 @@ class FindLayoutComponent extends PositionComponent with KeyboardHandler {
 
   String searchValue;
   ValueChanged<String> onSearchSubmitted;
+  void Function(String slug, String layoutKey) onCreateVirtualNodeSubmitted;
   VoidCallback onCancel;
   VoidCallback onRefreshFanData;
   VoidCallback onCopySelectedNodeSlug;
   VoidCallback onSubmit;
   ValueChanged<ResolvedVaultNode> onNodeSelected;
   List<ResolvedVaultNode> results;
-  final ValueNotifier<FindLayoutViewState> viewState;
+  final ValueNotifier<LayoutInputViewState> viewState;
 
   int _highlightedIndex = -1;
   int _geometryUpdateGeneration = 0;
+  LayoutInputViewState? _lastFindPanelState;
 
   FindLayout get layout => viewState.value.layout;
   bool get isOpen => viewState.value.isOpen;
+  bool get isFindOpen => isOpen && viewState.value.isFindInput;
+  String? get activeLayoutKey => isOpen ? viewState.value.layoutKey : null;
   bool get showsResults =>
-      isOpen &&
+      isFindOpen &&
       viewState.value.draft.trim() == searchValue.trim() &&
       results.isNotEmpty;
 
@@ -119,7 +151,9 @@ class FindLayoutComponent extends PositionComponent with KeyboardHandler {
     final generation = ++_geometryUpdateGeneration;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (generation != _geometryUpdateGeneration) return;
-      viewState.value = viewState.value.copyWith(
+      final current = viewState.value;
+      if (current.input != null) return;
+      viewState.value = current.copyWith(
         layout: layout,
         text: text,
         logicalSize: logicalSize,
@@ -145,10 +179,50 @@ class FindLayoutComponent extends PositionComponent with KeyboardHandler {
   }
 
   void open(String initialValue) {
+    final cached = _lastFindPanelState;
+    if (cached != null) {
+      viewState.value = cached.copyWith(isOpen: true, draft: initialValue);
+      _highlightedIndex = showsResults ? 0 : -1;
+      return;
+    }
     viewState.value = viewState.value.copyWith(
       isOpen: true,
       draft: initialValue,
+      clearPanelInput: true,
     );
+    _highlightedIndex = showsResults ? 0 : -1;
+  }
+
+  void openPanel({
+    required String layoutKey,
+    required PanelLayout panel,
+    required List<Offset> projectedCorners,
+    required String initialValue,
+  }) {
+    final input = panel.input;
+    if (input == null || projectedCorners.length != 4) return;
+    final horizontalExtent =
+        ((projectedCorners[1] - projectedCorners[0]).distance +
+            (projectedCorners[2] - projectedCorners[3]).distance) /
+        2;
+    final verticalExtent =
+        ((projectedCorners[3] - projectedCorners[0]).distance +
+            (projectedCorners[2] - projectedCorners[1]).distance) /
+        2;
+    if (horizontalExtent <= 0 || verticalExtent <= 0) return;
+    final text = LayoutTextDefaults.config.merge(panel.text).merge(input.text);
+    final next = viewState.value.copyWith(
+      isOpen: true,
+      draft: initialValue,
+      input: input,
+      owner: panel,
+      layoutKey: layoutKey,
+      projectedCorners: List.unmodifiable(projectedCorners),
+      logicalSize: Size(horizontalExtent, verticalExtent),
+      text: text,
+    );
+    viewState.value = next;
+    if (next.isFindInput) _lastFindPanelState = next.copyWith(isOpen: false);
     _highlightedIndex = showsResults ? 0 : -1;
   }
 
@@ -164,11 +238,19 @@ class FindLayoutComponent extends PositionComponent with KeyboardHandler {
   }
 
   void submitDraft() {
+    final state = viewState.value;
+    final query = state.draft.trim();
+    if (state.input?.submission case CreateVirtualNodeLayoutInputSubmission()) {
+      final layoutKey = state.layoutKey;
+      if (query.isEmpty || layoutKey == null) return;
+      onCreateVirtualNodeSubmitted(query, layoutKey);
+      close();
+      return;
+    }
     if (showsResults && _highlightedIndex >= 0) {
       selectResult(_highlightedIndex);
       return;
     }
-    final query = viewState.value.draft.trim();
     searchValue = query;
     results = const [];
     _highlightedIndex = -1;
@@ -225,21 +307,21 @@ class FindLayoutComponent extends PositionComponent with KeyboardHandler {
   }
 }
 
-class FindInputOverlay extends StatefulWidget {
-  const FindInputOverlay({
+class LayoutInputOverlay extends StatefulWidget {
+  const LayoutInputOverlay({
     required this.component,
     required this.onFocusReleased,
     super.key,
   });
 
-  final FindLayoutComponent component;
+  final LayoutInputComponent component;
   final VoidCallback onFocusReleased;
 
   @override
-  State<FindInputOverlay> createState() => _FindInputOverlayState();
+  State<LayoutInputOverlay> createState() => _LayoutInputOverlayState();
 }
 
-class _FindInputOverlayState extends State<FindInputOverlay> {
+class _LayoutInputOverlayState extends State<LayoutInputOverlay> {
   late final TextEditingController _controller;
   late final FocusNode _focusNode;
   bool _wasOpen = false;
@@ -258,7 +340,7 @@ class _FindInputOverlayState extends State<FindInputOverlay> {
   }
 
   @override
-  void didUpdateWidget(FindInputOverlay oldWidget) {
+  void didUpdateWidget(LayoutInputOverlay oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.component == widget.component) return;
     oldWidget.component.viewState.removeListener(_scheduleViewStateSync);
@@ -334,14 +416,14 @@ class _FindInputOverlayState extends State<FindInputOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<FindLayoutViewState>(
+    return ValueListenableBuilder<LayoutInputViewState>(
       valueListenable: widget.component.viewState,
       builder: (context, state, _) {
         if (!state.isOpen || !state.hasGeometry) {
           return const SizedBox.shrink();
         }
-        final layout = state.layout;
-        final border = layout.inputBorderStyle;
+        final input = state.effectiveInput;
+        final border = input.borderStyle;
         final text = state.text;
         final matrix = _projectiveTransform(
           state.logicalSize,
@@ -364,11 +446,13 @@ class _FindInputOverlayState extends State<FindInputOverlay> {
                         focusNode: _focusNode,
                         autofocus: true,
                         maxLines: 1,
-                        textInputAction: TextInputAction.search,
+                        textInputAction: state.isFindInput
+                            ? TextInputAction.search
+                            : TextInputAction.done,
                         onSubmitted: (_) => widget.component.submitDraft(),
                         cursorColor: border.color,
                         style: TextStyle(
-                          color: text.resolveColor(layout.inputBackgroundColor),
+                          color: text.resolveColor(input.backgroundColor),
                           fontFamily: text.fontFamily,
                           fontSize: text.fontSize ?? 18,
                           fontWeight: text.fontWeight,
@@ -380,15 +464,15 @@ class _FindInputOverlayState extends State<FindInputOverlay> {
                           fontFeatures: text.fontFeatures,
                         ),
                         decoration: InputDecoration(
-                          hintText: layout.hint.resolve(),
+                          hintText: input.hint.resolve(),
                           filled: true,
-                          fillColor: layout.inputBackgroundColor,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
+                          fillColor: input.backgroundColor,
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: input.horizontalPadding,
                           ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(
-                              layout.inputBorderRadius,
+                              input.borderRadius,
                             ),
                             borderSide: BorderSide(
                               color: border.color,
@@ -397,7 +481,7 @@ class _FindInputOverlayState extends State<FindInputOverlay> {
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(
-                              layout.inputBorderRadius,
+                              input.borderRadius,
                             ),
                             borderSide: BorderSide(
                               color: border.color,
@@ -406,7 +490,7 @@ class _FindInputOverlayState extends State<FindInputOverlay> {
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(
-                              layout.inputBorderRadius,
+                              input.borderRadius,
                             ),
                             borderSide: BorderSide(
                               color: border.color,

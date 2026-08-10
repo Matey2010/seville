@@ -81,6 +81,10 @@ flutter:
           weight: 700
         - asset: assets/fonts/alegreya_sans_sc/AlegreyaSansSC-Black.ttf
           weight: 900
+    - family: Sevifont
+      fonts:
+        - asset: assets/fonts/sevifont/Sevifont.ttf
+          weight: 400
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

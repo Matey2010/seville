@@ -10,3 +10,11 @@ The files are registered in `pubspec.yaml`. `SevilleTypography.ensureLoaded()`
 also loads the family before `runApp`, while raw Flame `TextPainter` styles use
 `SevilleTypography.fontFamily` explicitly because canvas text does not inherit
 the Flutter Material theme.
+
+Node slugs use the custom **Sevifont** family. Its SVG compiler manifest and
+desktop font outputs live in `sevifont/`; the generated Dart glyph API lives in
+`lib/generated/fonts/sevifont.dart`. `make -C scripts buildFont` compiles the
+manifest-owned SVG pool locally through FontForge. The preserved IcoMoon font
+is only a temporary migration base for glyphs that do not yet have SVG sources.
+`SevilleTypography.ensureLoaded()` loads the generated Sevifont before Flame
+creates Node text painters.

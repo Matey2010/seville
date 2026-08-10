@@ -15,7 +15,6 @@ abstract final class LayoutDefaultSize {
     );
   }
 
-  static const LayoutSize panoramicHeader = LayoutSize.rem(2);
   static const LayoutSize crossAxisRibbonWidth = LayoutSize.rem(6);
   static const LayoutSize panoramicFooter = LayoutSize.rem(2);
   static const LayoutSize panoramicRightWidth = LayoutSize.rem(8);

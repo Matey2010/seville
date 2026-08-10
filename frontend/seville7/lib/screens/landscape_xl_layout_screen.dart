@@ -194,6 +194,9 @@ class _LandscapeXlLayoutScreenState
         searchValue: searchValue,
         onSearchSubmitted: _submitSearch,
         onSearchNodeSelected: _selectSearchNode,
+        onCreateVirtualNodeSubmitted: (slug, layoutKey) => unawaited(
+          _createVirtualNode(_pathFromAddress(layoutKey), requestedSlug: slug),
+        ),
         onCancel: _cancelInterface,
         onRefreshFanData: _refreshFanData,
         onCopySelectedNodeSlug: _copySelectedNodeSlug,
@@ -371,18 +374,38 @@ class _LandscapeXlLayoutScreenState
         );
   }
 
-  Future<void> _createVirtualNode(List<String> layoutPath) async {
+  Future<void> _createVirtualNode(
+    List<String> layoutPath, {
+    String? requestedSlug,
+  }) async {
     if (_isAddingVirtualNode) return;
     _isAddingVirtualNode = true;
     try {
       final selectedNodes = ref.read(selectedNodesProvider.notifier);
-      var slug = selectedNodes.nextVirtualNodeSlugCandidate();
-      while (await ref.read(
-            nodeBySlugProvider(
-              NodeBySlugRequest(slug: slug, layoutPath: layoutPath),
-            ).future,
-          ) !=
-          null) {
+      final explicitSlug = requestedSlug?.trim();
+      var slug = explicitSlug == null || explicitSlug.isEmpty
+          ? selectedNodes.nextVirtualNodeSlugCandidate()
+          : explicitSlug;
+      while (true) {
+        final selectedDuplicate = ref
+            .read(selectedNodesProvider)
+            .any((node) => node.node?.slug.trim() == slug);
+        final storedDuplicate = await ref.read(
+          nodeBySlugProvider(
+            NodeBySlugRequest(slug: slug, layoutPath: layoutPath),
+          ).future,
+        );
+        if (!selectedDuplicate && storedDuplicate == null) break;
+        if (explicitSlug != null && explicitSlug.isNotEmpty) {
+          if (!mounted) return;
+          ref
+              .read(toastProvider.notifier)
+              .show(
+                'Node already exists: [[$slug]]',
+                type: NotificationType.NOTIFICATION_TYPE_ERROR,
+              );
+          return;
+        }
         slug = selectedNodes.nextVirtualNodeSlugCandidate();
       }
       if (!mounted) return;

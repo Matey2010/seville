@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<!-- Created with Linearity Curve (http://linearity.io/curve) -->
+<svg height="100%" stroke-miterlimit="10" style="fill-rule:nonzero;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;" version="1.1" viewBox="0 0 1024 1024" width="100%" xml:space="preserve" xmlns="http://www.w3.org/2000/svg" xmlns:vectornator="http://vectornator.io" xmlns:xlink="http://www.w3.org/1999/xlink">
+<defs/>
+<g id="Layer">
+<path d="M426.723 863.894C421.486 863.93 417.632 859 418.932 853.926L482.616 605.498L455.437 369.541C454.364 360.228 461.645 352.06 471.019 352.06L506.853 352.06C509.496 352.06 511.727 354.028 512.058 356.651L524.776 457.556L543.017 362.506C544.181 356.443 549.485 352.06 555.659 352.06L600.926 352.06C604.498 352.06 607.129 355.404 606.287 358.876L546.37 606.038L578.304 857.471C578.714 860.693 576.203 863.542 572.955 863.542L532.165 863.542C528.851 863.542 526.038 861.111 525.559 857.832L508.694 742.533L478.343 857.998C477.483 861.27 474.536 863.559 471.153 863.583L426.723 863.894Z" fill="#000000" fill-rule="nonzero" opacity="1" stroke="none"/>
+</g>
+</svg>

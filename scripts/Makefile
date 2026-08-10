@@ -30,6 +30,7 @@ export SEVILLE_GIT_VAULT_SUBPATH
 
 .PHONY: help interface start build serve serve-built stop restart status logs
 .PHONY: proto migrate-obsidian set-default-icon setDefaultIcon
+.PHONY: build-font buildFont check-font checkFont
 .PHONY: set-app-name setAppName generate-macos-app-names
 .PHONY: generate-macos-icons generate-platform-icons
 
@@ -43,6 +44,8 @@ help:
 	@echo "  make -C scripts logs               Follow the API log"
 	@echo "  make -C scripts proto              Regenerate protobuf code"
 	@echo "  make -C scripts migrate-obsidian   Run the manual vault migration"
+	@echo "  make -C scripts buildFont          Build Sevifont from its SVG manifest"
+	@echo "  make -C scripts checkFont          Validate Sevifont without writing output"
 	@echo "  make -C scripts setDefaultIcon path=PATH"
 	@echo "                                      Set Debug and production macOS icons"
 	@echo "    or: debug_path=PATH production_path=PATH"
@@ -415,6 +418,30 @@ generate-platform-icons: generate-macos-icons
 	dart run flutter_launcher_icons -f flutter_launcher_icons.yaml; \
 	sed -i.bak 's/ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = AppIcon;/ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;/g' ios/Runner.xcodeproj/project.pbxproj; \
 	rm -f ios/Runner.xcodeproj/project.pbxproj.bak
+
+buildFont: build-font
+
+build-font:
+	@set -eu; \
+	if ! command -v fontforge >/dev/null 2>&1; then \
+		echo "FontForge is required. Install it with: brew install fontforge" >&2; \
+		exit 69; \
+	fi; \
+	font_manifest='$(if $(manifest),$(manifest),$(FLUTTER_DIR)/assets/fonts/sevifont/sevifont.font.json)'; \
+	case "$$font_manifest" in /*) ;; *) font_manifest="$(ROOT)/$$font_manifest" ;; esac; \
+	fontforge -lang=py -script "$(SCRIPTS_DIR)/fonts/build_font.py" "$$font_manifest"
+
+checkFont: check-font
+
+check-font:
+	@set -eu; \
+	if ! command -v fontforge >/dev/null 2>&1; then \
+		echo "FontForge is required. Install it with: brew install fontforge" >&2; \
+		exit 69; \
+	fi; \
+	font_manifest='$(if $(manifest),$(manifest),$(FLUTTER_DIR)/assets/fonts/sevifont/sevifont.font.json)'; \
+	case "$$font_manifest" in /*) ;; *) font_manifest="$(ROOT)/$$font_manifest" ;; esac; \
+	fontforge -lang=py -script "$(SCRIPTS_DIR)/fonts/build_font.py" "$$font_manifest" --check
 
 proto:
 	@cd "$(ROOT)" && protoc \

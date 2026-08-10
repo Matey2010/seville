@@ -1,0 +1,63 @@
+{
+  "font": {
+    "family": "Sevifont",
+    "style": "Regular",
+    "postScriptName": "Sevifont-Regular",
+    "version": "1.0",
+    "unitsPerEm": 1024,
+    "ascent": 864,
+    "descent": 160,
+    "capHeight": 704,
+    "xHeight": 512,
+    "comment": "Generated from Linearity Curve SVG prototypes by Seville's manifest-driven FontForge compiler."
+  },
+  "sourceDirectory": "../../icons/vector",
+  "baseFont": "../alegreya_sans_sc/AlegreyaSansSC-Regular.ttf",
+  "outputs": {
+    "ttf": "Sevifont.ttf",
+    "otf": "Sevifont.otf",
+    "dart": "../../../lib/generated/fonts/sevifont.dart",
+    "dartClass": "Sevifont"
+  },
+  "glyphs": [
+    {
+      "name": "x",
+      "dartName": "x",
+      "codePoint": "U+0078",
+      "source": "x.svg",
+      "sourceAdvanceLeft": 320,
+      "advanceWidth": 384,
+      "expectedBounds": {
+        "yMin": 0,
+        "yMax": 512,
+        "tolerance": 1
+      }
+    },
+    {
+      "name": "exclam",
+      "dartName": "exclamation",
+      "codePoint": "U+0021",
+      "source": "Exclamation.svg",
+      "sourceAdvanceLeft": 416,
+      "advanceWidth": 192,
+      "expectedBounds": {
+        "yMin": -2,
+        "yMax": 706,
+        "tolerance": 1
+      }
+    },
+    {
+      "name": "three",
+      "dartName": "digitThree",
+      "codePoint": "U+0033",
+      "source": "digits/digit-three.svg",
+      "sourceAdvanceLeft": 319.5,
+      "advanceWidth": 385,
+      "expectedBounds": {
+        "yMin": -2,
+        "yMax": 706,
+        "tolerance": 1
+      }
+    }
+  ]
+}

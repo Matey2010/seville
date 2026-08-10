@@ -29,6 +29,8 @@ import '../utils/layout_guidelines.dart';
 import '../utils/vault_node_resolver.dart';
 
 typedef LandscapeXlLayoutTapCallback = void Function(LayoutTapTarget target);
+typedef CreateVirtualNodeInputCallback =
+    void Function(String slug, String layoutKey);
 
 class LayoutTapTarget {
   const LayoutTapTarget({
@@ -39,6 +41,7 @@ class LayoutTapTarget {
     this.label,
     this.tableAction,
     this.textValue,
+    this.projectedCorners = const [],
   });
 
   final String key;
@@ -48,6 +51,7 @@ class LayoutTapTarget {
   final String? label;
   final TableAction? tableAction;
   final String? textValue;
+  final List<Offset> projectedCorners;
 }
 
 class LandscapeXlLayoutView extends StatefulWidget {
@@ -65,6 +69,7 @@ class LandscapeXlLayoutView extends StatefulWidget {
     required this.searchValue,
     required this.onSearchSubmitted,
     required this.onSearchNodeSelected,
+    required this.onCreateVirtualNodeSubmitted,
     required this.onCancel,
     required this.onRefreshFanData,
     required this.onCopySelectedNodeSlug,
@@ -85,6 +90,7 @@ class LandscapeXlLayoutView extends StatefulWidget {
   final String searchValue;
   final ValueChanged<String> onSearchSubmitted;
   final ValueChanged<ResolvedVaultNode> onSearchNodeSelected;
+  final CreateVirtualNodeInputCallback onCreateVirtualNodeSubmitted;
   final VoidCallback onCancel;
   final VoidCallback onRefreshFanData;
   final VoidCallback onCopySelectedNodeSlug;
@@ -110,6 +116,7 @@ class _LandscapeXlLayoutViewState extends State<LandscapeXlLayoutView> {
     searchValue: widget.searchValue,
     onSearchSubmitted: widget.onSearchSubmitted,
     onSearchNodeSelected: widget.onSearchNodeSelected,
+    onCreateVirtualNodeSubmitted: widget.onCreateVirtualNodeSubmitted,
     onCancel: widget.onCancel,
     onRefreshFanData: widget.onRefreshFanData,
     onCopySelectedNodeSlug: widget.onCopySelectedNodeSlug,
@@ -141,6 +148,7 @@ class _LandscapeXlLayoutViewState extends State<LandscapeXlLayoutView> {
         searchValue: widget.searchValue,
         onSearchSubmitted: widget.onSearchSubmitted,
         onSearchNodeSelected: widget.onSearchNodeSelected,
+        onCreateVirtualNodeSubmitted: widget.onCreateVirtualNodeSubmitted,
         onCancel: widget.onCancel,
         onRefreshFanData: widget.onRefreshFanData,
         onCopySelectedNodeSlug: widget.onCopySelectedNodeSlug,
@@ -162,6 +170,7 @@ class _LandscapeXlLayoutViewState extends State<LandscapeXlLayoutView> {
       searchValue: widget.searchValue,
       onSearchSubmitted: widget.onSearchSubmitted,
       onSearchNodeSelected: widget.onSearchNodeSelected,
+      onCreateVirtualNodeSubmitted: widget.onCreateVirtualNodeSubmitted,
       onCancel: widget.onCancel,
       onRefreshFanData: widget.onRefreshFanData,
       onCopySelectedNodeSlug: widget.onCopySelectedNodeSlug,
@@ -184,8 +193,8 @@ class _LandscapeXlLayoutViewState extends State<LandscapeXlLayoutView> {
         focusNode: _gameFocusNode,
       ),
       Positioned.fill(
-        child: FindInputOverlay(
-          component: _game.findLayoutComponent,
+        child: LayoutInputOverlay(
+          component: _game.layoutInputComponent,
           onFocusReleased: _gameFocusNode.requestFocus,
         ),
       ),
@@ -209,17 +218,19 @@ class LandscapeXlLayoutGame extends FlameGame
     required this.searchValue,
     required this.onSearchSubmitted,
     required this.onSearchNodeSelected,
+    required this.onCreateVirtualNodeSubmitted,
     required this.onCancel,
     required this.onRefreshFanData,
     required this.onCopySelectedNodeSlug,
     required this.onSubmit,
   }) {
     final findLayout = _findLayoutConfig(layout);
-    _findLayoutComponent = FindLayoutComponent(
+    _layoutInputComponent = LayoutInputComponent(
       layout: findLayout,
       searchValue: searchValue,
       results: queryNodes,
       onSearchSubmitted: onSearchSubmitted,
+      onCreateVirtualNodeSubmitted: onCreateVirtualNodeSubmitted,
       onCancel: onCancel,
       onRefreshFanData: onRefreshFanData,
       onCopySelectedNodeSlug: onCopySelectedNodeSlug,
@@ -241,13 +252,14 @@ class LandscapeXlLayoutGame extends FlameGame
   String searchValue;
   ValueChanged<String> onSearchSubmitted;
   ValueChanged<ResolvedVaultNode> onSearchNodeSelected;
+  CreateVirtualNodeInputCallback onCreateVirtualNodeSubmitted;
   VoidCallback onCancel;
   VoidCallback onRefreshFanData;
   VoidCallback onCopySelectedNodeSlug;
   VoidCallback onSubmit;
   EdgeInsets _safePadding = EdgeInsets.zero;
   Vector2? _viewportSize;
-  late final FindLayoutComponent _findLayoutComponent;
+  late final LayoutInputComponent _layoutInputComponent;
   AudioPool? _nodeSelectionAudioPool;
   AudioPool? _nodeHoverAudioPool;
   final BackgroundMusicController _backgroundMusic =
@@ -265,10 +277,10 @@ class LandscapeXlLayoutGame extends FlameGame
     layout,
     highlightedNodes,
     selectedNodes,
-    findOpened: _findLayoutComponent.isOpen,
+    findOpened: _layoutInputComponent.isFindOpen,
   );
 
-  FindLayoutComponent get findLayoutComponent => _findLayoutComponent;
+  LayoutInputComponent get layoutInputComponent => _layoutInputComponent;
 
   EdgeInsets get safePadding => _safePadding;
 
@@ -456,7 +468,7 @@ class LandscapeXlLayoutGame extends FlameGame
         )..priority = 120,
       );
     }
-    add(_findLayoutComponent..priority = 1000);
+    add(_layoutInputComponent..priority = 1000);
     add(_nodeComponent..priority = 1100);
     add(_classificationLabelComponent..priority = 910);
     add(_gameCursor..priority = 2000);
@@ -475,7 +487,7 @@ class LandscapeXlLayoutGame extends FlameGame
   }
 
   void _selectSearchNode(ResolvedVaultNode resolvedNode) {
-    _findLayoutComponent.close();
+    _layoutInputComponent.close();
     final slug = resolvedNode.node?.slug.trim() ?? '';
     final isSelectingNode =
         slug.isNotEmpty &&
@@ -620,11 +632,26 @@ class LandscapeXlLayoutGame extends FlameGame
   }
 
   void openFindLayout() {
-    _findLayoutComponent.open(searchValue);
+    _layoutInputComponent.open(searchValue);
     _syncFindLayoutGeometry();
   }
 
-  void closeFindLayout() => _findLayoutComponent.close();
+  void closeLayoutInput() => _layoutInputComponent.close();
+
+  void openPanelInput(LayoutTapTarget target) {
+    final panel = target.layout;
+    if (panel is! PanelLayout || panel.input == null) return;
+    final initialValue =
+        panel.input!.submission is FindNodesLayoutInputSubmission
+        ? searchValue
+        : '';
+    _layoutInputComponent.openPanel(
+      layoutKey: target.key,
+      panel: panel,
+      projectedCorners: target.projectedCorners,
+      initialValue: initialValue,
+    );
+  }
 
   void performLayoutTapAction(LayoutTapAction action) {
     switch (action) {
@@ -647,6 +674,7 @@ class LandscapeXlLayoutGame extends FlameGame
     required String searchValue,
     required ValueChanged<String> onSearchSubmitted,
     required ValueChanged<ResolvedVaultNode> onSearchNodeSelected,
+    required CreateVirtualNodeInputCallback onCreateVirtualNodeSubmitted,
     required VoidCallback onCancel,
     required VoidCallback onRefreshFanData,
     required VoidCallback onCopySelectedNodeSlug,
@@ -665,13 +693,15 @@ class LandscapeXlLayoutGame extends FlameGame
     this.searchValue = searchValue;
     this.onSearchSubmitted = onSearchSubmitted;
     this.onSearchNodeSelected = onSearchNodeSelected;
+    this.onCreateVirtualNodeSubmitted = onCreateVirtualNodeSubmitted;
     this.onCancel = onCancel;
     this.onRefreshFanData = onRefreshFanData;
     this.onCopySelectedNodeSlug = onCopySelectedNodeSlug;
     this.onSubmit = onSubmit;
     unawaited(_preloadLayoutBackgroundAssets(layout));
-    _findLayoutComponent
+    _layoutInputComponent
       ..onSearchSubmitted = onSearchSubmitted
+      ..onCreateVirtualNodeSubmitted = onCreateVirtualNodeSubmitted
       ..onCancel = onCancel
       ..onRefreshFanData = onRefreshFanData
       ..onCopySelectedNodeSlug = onCopySelectedNodeSlug
@@ -692,7 +722,7 @@ class LandscapeXlLayoutGame extends FlameGame
     )) {
       final surface = _resolveLayoutPlacementSurface(placement);
       if (surface == null) continue;
-      _findLayoutComponent.updateLayout(
+      _layoutInputComponent.updateLayout(
         placement.layout,
         surface,
         _resolvedTextConfig(placement.hierarchy, layoutContext),
@@ -1697,7 +1727,7 @@ class _LandscapeXlSceneComponent extends PositionComponent
     final selectedNodes = game.selectedNodes;
     final nodeListSources = _nodeListSources(
       selectedNodes,
-      searchResults: game._findLayoutComponent.showsResults
+      searchResults: game._layoutInputComponent.showsResults
           ? game.queryNodes
           : const [],
     );
@@ -2002,10 +2032,10 @@ class _LandscapeXlSceneComponent extends PositionComponent
       game.vaultNodeResolver,
       game.highlightedNodes,
       game.selectedNodes,
-      searchResults: game._findLayoutComponent.showsResults
+      searchResults: game._layoutInputComponent.showsResults
           ? game.queryNodes
           : const [],
-      findOpened: game._findLayoutComponent.isOpen,
+      findOpened: game._layoutInputComponent.isFindOpen,
     );
     final nodePath = hit?.nodePath;
     if (hit?.target.resolvedNode?.node == null || nodePath == null) return null;
@@ -2061,16 +2091,29 @@ class _LandscapeXlSceneComponent extends PositionComponent
       game.vaultNodeResolver,
       game.highlightedNodes,
       game.selectedNodes,
-      searchResults: game._findLayoutComponent.showsResults
+      searchResults: game._layoutInputComponent.showsResults
           ? game.queryNodes
           : const [],
-      findOpened: game._findLayoutComponent.isOpen,
+      findOpened: game._layoutInputComponent.isFindOpen,
     );
-    if (target == null) return;
+    if (target == null) {
+      if (game._layoutInputComponent.isOpen) game.closeLayoutInput();
+      return;
+    }
+    if (game._layoutInputComponent.isOpen &&
+        game._layoutInputComponent.activeLayoutKey != target.key) {
+      game.closeLayoutInput();
+    }
     if (target.layout case final NodeListLayout nodeList
         when nodeList.dataSource == NodeListDataSource.searchResults) {
       final node = target.resolvedNode;
       if (node != null) game._selectSearchNode(node);
+      return;
+    }
+    if (target.layout is PanelLayout &&
+        (target.layout as PanelLayout).input != null &&
+        target.projectedCorners.length == 4) {
+      game.openPanelInput(target);
       return;
     }
     if (target.layout case PanelLayout(onTap: final action?)) {
@@ -2079,7 +2122,7 @@ class _LandscapeXlSceneComponent extends PositionComponent
     }
     if (target.layout.aliases.contains('cancel-interface-action') ||
         target.layout.aliases.contains('clear-selection-action')) {
-      game.closeFindLayout();
+      game.closeLayoutInput();
     }
     game.dispatchLayoutTap(target);
   }
@@ -3855,6 +3898,7 @@ void _drawNodeListLayout(
       math.min(topWidth, bottomWidth) * 0.88,
       resolvedNodeConfig.labelColor ?? NodeDefaults.labelColor,
       layout.labelSize,
+      resolvedNodeConfig.text,
     );
   }
 }
@@ -4084,6 +4128,7 @@ void _drawFanLayout(
       segment.labelWidth,
       config.labelColor ?? NodeDefaults.labelColor,
       config.text.fontSize ?? LayoutTextDefaults.rootFontSize,
+      config.text,
     );
   }
 }
@@ -4170,6 +4215,7 @@ void _paintNodeLabel(
   double maxWidth,
   Color color,
   double fontSize,
+  LayoutTextConfig textConfig,
 ) {
   final label = presentation.text;
   if (label.isEmpty || maxWidth < fontSize * 2) return;
@@ -4178,6 +4224,7 @@ void _paintNodeLabel(
     maxWidth: maxWidth,
     color: color,
     fontSize: fontSize,
+    textConfig: textConfig,
   );
   textPainter.paint(
     canvas,
@@ -4190,13 +4237,12 @@ TextPainter _nodeLabelTextPainter(
   required double maxWidth,
   required Color color,
   required double fontSize,
+  required LayoutTextConfig textConfig,
 }) => TextPainter(
   text: TextSpan(
     text: LayoutText.defaultRepresentation(presentation.text),
     style: TextStyle(
-      // Alegreya Sans SC deliberately displays lowercase as small caps.
-      // Node slugs are syntax, so keep their stored casing legible.
-      fontFamily: presentation.isSlug ? null : SevilleTypography.fontFamily,
+      fontFamily: textConfig.fontFamily ?? SevilleTypography.fontFamily,
       color: presentation.colorOverride ?? color,
       fontSize: fontSize,
       fontWeight: presentation.isSlug ? FontWeight.w700 : FontWeight.w600,
@@ -4651,7 +4697,9 @@ typedef _LayoutTapHit = ({LayoutTapTarget target, Path? nodePath});
 
 bool _isTappablePanel(Layout layout) =>
     layout is PanelLayout &&
-    (layout.onTap != null || layout.aliases.contains('action-button'));
+    (layout.input != null ||
+        layout.onTap != null ||
+        layout.aliases.contains('action-button'));
 
 LayoutTapTarget? _hitTestLayoutTapTarget(
   LandscapeXlLayout root,
@@ -5762,6 +5810,7 @@ _LayoutTapHit? _hitTestCurvedFlexComposition(
           key: childPath,
           layout: layout,
           label: layout.resolveTextConfig(layoutContext).value?.resolve(),
+          projectedCorners: corners,
         ),
         nodePath: null,
       );
@@ -5903,6 +5952,7 @@ _LayoutTapHit? _hitTestCurvedGridComposition(
           key: childPath,
           layout: layout,
           label: layout.resolveTextConfig(layoutContext).value?.resolve(),
+          projectedCorners: childPoints,
         ),
         nodePath: null,
       );
@@ -5949,6 +5999,7 @@ _LayoutTapHit? _hitTestGridLeaf(
         key: path,
         layout: layout,
         label: layout.resolveTextConfig(layoutContext).value?.resolve(),
+        projectedCorners: points,
       ),
       nodePath: null,
     );
@@ -6030,6 +6081,7 @@ _LayoutTapHit? _hitTestFlexComposition(
           key: childPath,
           layout: layout,
           label: layout.resolveTextConfig(layoutContext).value?.resolve(),
+          projectedCorners: child.points,
         ),
         nodePath: null,
       );
@@ -6854,7 +6906,9 @@ void _drawTableLayout(
             : _formatTableRowValue(row.key, row.value, nodeConfig),
         maxLines: isKeyColumn ? 2 : 3,
         style: TextStyle(
-          fontFamily: isNodeSlugValue ? null : SevilleTypography.fontFamily,
+          fontFamily: isNodeSlugValue
+              ? nodeConfig.text.fontFamily ?? SevilleTypography.fontFamily
+              : SevilleTypography.fontFamily,
           color: isKeyColumn
               ? nodeConfig.labelColor ?? NodeDefaults.labelColor
               : isNodeSlugValue

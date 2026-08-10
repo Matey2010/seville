@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<!-- Created with Linearity Curve (http://linearity.io/curve) -->
+<svg height="100%" stroke-miterlimit="10" style="fill-rule:nonzero;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;" version="1.1" viewBox="0 0 32 78.4307" width="100%" xml:space="preserve" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<defs/>
+<clipPath id="ArtboardFrame">
+<rect height="78.4307" width="32" x="0" y="0"/>
+</clipPath>
+<g clip-path="url(#ArtboardFrame)" id="Layer-1">
+<path d="M56.6261 152.038" fill="#f2b63c" fill-rule="nonzero" opacity="1" stroke="#000000" stroke-linecap="butt" stroke-linejoin="round" stroke-width="6"/>
+<path d="M23.5002 0C18.157 0 13.5783 3.82068 12.6216 9.07745L0.218898 77.2279C0.105568 77.8506 0.589535 78.4217 1.22241 78.4119L7.33607 78.3182C7.81219 78.3109 8.21775 77.9703 8.30716 77.5026L12.7784 54.114C12.8683 53.644 13.2773 53.3026 13.7559 53.2983L21.6639 53.2274C22.2039 53.2226 22.651 53.6456 22.6761 54.185L23.7559 77.3861C23.7808 77.922 24.2226 78.3438 24.7591 78.3438L30.9596 78.3438C31.5281 78.3438 31.9833 77.8722 31.9633 77.304L29.3439 3.12538C29.2824 1.38172 27.851 0 26.1062 0L23.5002 0ZM16.6659 22.5038C16.8492 20.9858 18.1374 19.8438 19.6665 19.8438L21.6268 19.8438C22.1815 19.8438 22.6312 20.2934 22.6312 20.8481L22.6312 41.3081C22.6312 41.8628 22.1815 42.3125 21.6268 42.3125L15.4065 42.3125C14.8041 42.3125 14.3372 41.7858 14.4094 41.1877L16.6659 22.5038Z" fill="#f2b63c" fill-rule="nonzero" opacity="1" stroke="#000000" stroke-linecap="butt" stroke-linejoin="round" stroke-width="1"/>
+</g>
+</svg>

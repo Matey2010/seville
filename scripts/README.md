@@ -17,6 +17,20 @@ make -C scripts status
 make -C scripts stop
 ```
 
+## Custom SVG fonts
+
+Build the custom Sevifont TTF, OTF, and Dart API from its SVG/JSON sources:
+
+```sh
+make -C scripts buildFont
+```
+
+Use `make -C scripts checkFont` for read-only SVG and metric validation. The
+compiler contract and manifest customization fields are documented in
+[`fonts/README.md`](fonts/README.md). FontForge is the local compiler; IcoMoon
+is retained only as an optional migration base until every legacy glyph has a
+manifest-owned SVG source.
+
 Legacy source migration tools live below `scripts/migrations/` so they cannot
 be confused with normal process control. The documented Obsidian/Markdown
 importer is described in [`migrations/obsidian/`](migrations/obsidian/) and runs

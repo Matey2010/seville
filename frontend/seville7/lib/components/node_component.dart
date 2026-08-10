@@ -415,9 +415,7 @@ TextPainter _nodeTextPainter(
   text: TextSpan(
     text: LayoutText.defaultRepresentation(text),
     style: TextStyle(
-      fontFamily: isSlug
-          ? null
-          : textConfig.fontFamily ?? SevilleTypography.fontFamily,
+      fontFamily: textConfig.fontFamily ?? SevilleTypography.fontFamily,
       color: color,
       fontSize: fontSize,
       fontWeight: isSlug
