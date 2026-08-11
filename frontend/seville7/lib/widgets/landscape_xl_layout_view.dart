@@ -278,6 +278,7 @@ class LandscapeXlLayoutGame extends FlameGame
     highlightedNodes,
     selectedNodes,
     findOpened: _layoutInputComponent.isFindOpen,
+    createOpened: _layoutInputComponent.isCreateOpen,
   );
 
   LayoutInputComponent get layoutInputComponent => _layoutInputComponent;
@@ -1135,7 +1136,7 @@ LabelConfig _resolvedLabelConfig(
   Iterable<Layout> hierarchy,
   LayoutContext context,
 ) {
-  var config = LabelDefaults.config.resolve(context);
+  var config = LabelDefaults.config;
   for (final layout in hierarchy) {
     config = config.merge(layout.resolveLabelConfig(context));
   }
@@ -2036,6 +2037,7 @@ class _LandscapeXlSceneComponent extends PositionComponent
           ? game.queryNodes
           : const [],
       findOpened: game._layoutInputComponent.isFindOpen,
+      createOpened: game._layoutInputComponent.isCreateOpen,
     );
     final nodePath = hit?.nodePath;
     if (hit?.target.resolvedNode?.node == null || nodePath == null) return null;
@@ -2095,6 +2097,7 @@ class _LandscapeXlSceneComponent extends PositionComponent
           ? game.queryNodes
           : const [],
       findOpened: game._layoutInputComponent.isFindOpen,
+      createOpened: game._layoutInputComponent.isCreateOpen,
     );
     if (target == null) {
       if (game._layoutInputComponent.isOpen) game.closeLayoutInput();
@@ -2321,11 +2324,13 @@ LayoutContext _layoutContext(
   List<ResolvedVaultNode> highlightedNodes,
   List<ResolvedVaultNode> selectedNodes, {
   bool findOpened = false,
+  bool createOpened = false,
 }) {
   final selectedPath = selectedNodes.lastOrNull?.path;
   final selectedPaths = [for (final node in selectedNodes) node.path];
   final nodeContext = LayoutContext(
     findOpened: findOpened,
+    createOpened: createOpened,
     selectedNodePath: selectedPath,
     selectedNodePaths: selectedPaths,
     highlightedNodePaths: [for (final node in highlightedNodes) node.path],
@@ -3837,6 +3842,13 @@ typedef _NodeListEntryFrame = ({
   List<Offset> points,
 });
 
+typedef _CurvedNodeListEntryFrame = ({
+  ResolvedVaultNode resolvedNode,
+  Node node,
+  _FlexSurfaceRect frame,
+  Path path,
+});
+
 typedef _NodeListSources = ({
   List<ResolvedVaultNode> virtualNodes,
   List<ResolvedVaultNode> searchResults,
@@ -3903,6 +3915,75 @@ void _drawNodeListLayout(
   }
 }
 
+void _drawCurvedNodeListLayout(
+  Canvas canvas,
+  _LayoutPathProjection projection,
+  _FlexSurfaceRect frame,
+  NodeListLayout layout,
+  _NodeListSources sources,
+  LayoutContext layoutContext, {
+  required LayoutTextConfig text,
+  NodeConfig? nodeConfig,
+}) {
+  final resolvedNodeConfig = nodeConfig ?? layout.node;
+  final borderWidth = layout.layoutBorderWidth ?? layout.style.strokeWidth;
+  for (final entry in _curvedNodeListEntries(
+    layout,
+    sources,
+    projection,
+    frame,
+  )) {
+    canvas.drawPath(
+      entry.path,
+      Paint()
+        ..color = NodeComponent.backgroundColor(
+          NodeComponent.colorFor(entry.node).resolve(),
+          entry.node.slug,
+          layoutContext,
+          layout,
+          isVirtual: entry.resolvedNode.isVirtual,
+          config: resolvedNodeConfig,
+        )
+        ..style = PaintingStyle.fill,
+    );
+    NodeComponent.renderBorder(
+      canvas,
+      entry.path,
+      resolvedNodeConfig.borderStyle ?? layout.style,
+      borderWidth,
+      isVirtual: entry.resolvedNode.isVirtual,
+    );
+    final presentation = _nodePresentation(
+      entry.node,
+      layout,
+      nodeConfig: resolvedNodeConfig,
+    );
+    final projectedText = text
+        .merge(resolvedNodeConfig.text)
+        .merge(
+          LayoutTextConfig(
+            color:
+                presentation.colorOverride ??
+                resolvedNodeConfig.labelColor ??
+                NodeDefaults.labelColor,
+            fontSize: layout.labelSize,
+            fontWeight: presentation.isSlug ? FontWeight.w700 : FontWeight.w600,
+            fontFeatures: presentation.fontFeatures,
+          ),
+        );
+    canvas.save();
+    canvas.clipPath(entry.path);
+    _drawProjectedPanelText(
+      canvas,
+      projection,
+      entry.frame,
+      projectedText,
+      presentation.text,
+    );
+    canvas.restore();
+  }
+}
+
 List<_NodeListEntryFrame> _nodeListEntries(
   NodeListLayout layout,
   _NodeListSources sources,
@@ -3933,6 +4014,46 @@ List<_NodeListEntryFrame> _nodeListEntries(
   ];
 }
 
+List<_CurvedNodeListEntryFrame> _curvedNodeListEntries(
+  NodeListLayout layout,
+  _NodeListSources sources,
+  _LayoutPathProjection projection,
+  _FlexSurfaceRect frame,
+) {
+  final nodes = switch (layout.dataSource) {
+    NodeListDataSource.virtualNodes => sources.virtualNodes,
+    NodeListDataSource.searchResults => sources.searchResults,
+  };
+  final resolvedNodes = [
+    for (final resolvedNode in nodes)
+      if (resolvedNode.node case final node?)
+        (resolvedNode: resolvedNode, node: node),
+  ];
+  if (resolvedNodes.isEmpty) return const [];
+  return List.generate(resolvedNodes.length, (index) {
+    final entryFrame = (
+      left: frame.left,
+      top: ui.lerpDouble(
+        frame.top,
+        frame.bottom,
+        index / resolvedNodes.length,
+      )!,
+      right: frame.right,
+      bottom: ui.lerpDouble(
+        frame.top,
+        frame.bottom,
+        (index + 1) / resolvedNodes.length,
+      )!,
+    );
+    return (
+      resolvedNode: resolvedNodes[index].resolvedNode,
+      node: resolvedNodes[index].node,
+      frame: entryFrame,
+      path: _curvedSurfacePath(projection, entryFrame),
+    );
+  }, growable: false);
+}
+
 _NodeListEntryFrame? _hitTestNodeList(
   NodeListLayout layout,
   _NodeListSources sources,
@@ -3941,6 +4062,24 @@ _NodeListEntryFrame? _hitTestNodeList(
 ) {
   for (final entry in _nodeListEntries(layout, sources, points).reversed) {
     if (_polygonContains(entry.points, position)) return entry;
+  }
+  return null;
+}
+
+_CurvedNodeListEntryFrame? _hitTestCurvedNodeList(
+  NodeListLayout layout,
+  _NodeListSources sources,
+  _LayoutPathProjection projection,
+  _FlexSurfaceRect frame,
+  Offset position,
+) {
+  for (final entry in _curvedNodeListEntries(
+    layout,
+    sources,
+    projection,
+    frame,
+  ).reversed) {
+    if (entry.path.contains(position)) return entry;
   }
   return null;
 }
@@ -4711,6 +4850,7 @@ LayoutTapTarget? _hitTestLayoutTapTarget(
   List<ResolvedVaultNode> selectedNodes, {
   List<ResolvedVaultNode> searchResults = const [],
   bool findOpened = false,
+  bool createOpened = false,
 }) => _hitTestLayoutTap(
   root,
   size,
@@ -4721,6 +4861,7 @@ LayoutTapTarget? _hitTestLayoutTapTarget(
   selectedNodes,
   searchResults: searchResults,
   findOpened: findOpened,
+  createOpened: createOpened,
 )?.target;
 
 _LayoutTapHit? _hitTestLayoutTap(
@@ -4733,12 +4874,14 @@ _LayoutTapHit? _hitTestLayoutTap(
   List<ResolvedVaultNode> selectedNodes, {
   List<ResolvedVaultNode> searchResults = const [],
   bool findOpened = false,
+  bool createOpened = false,
 }) {
   final layoutContext = _layoutContext(
     root,
     highlightedNodes,
     selectedNodes,
     findOpened: findOpened,
+    createOpened: createOpened,
   );
   final nodeListSources = _nodeListSources(
     selectedNodes,
@@ -5328,12 +5471,14 @@ void _drawCurvedFlexComposition(
         childText,
       );
     } else if (layout is NodeListLayout) {
-      _drawNodeListLayout(
+      _drawCurvedNodeListLayout(
         canvas,
-        _curvedSurfaceCorners(projection, child.frame),
+        projection,
+        child.frame,
         layout,
         nodeListSources,
         layoutContext,
+        text: childText,
       );
     } else if (layout is ColumnLayout || layout is RowLayout) {
       _drawCurvedFlexComposition(
@@ -5384,12 +5529,14 @@ void _drawCurvedGridComposition(
     if (layout is PanelLayout) {
       _drawCurvedPanelLayout(canvas, projection, childFrame, layout, childText);
     } else if (layout is NodeListLayout) {
-      _drawNodeListLayout(
+      _drawCurvedNodeListLayout(
         canvas,
-        _curvedSurfaceCorners(projection, childFrame),
+        projection,
+        childFrame,
         layout,
         nodeListSources,
         layoutContext,
+        text: childText,
       );
     } else if (layout is ColumnLayout || layout is RowLayout) {
       _drawCurvedFlexComposition(
@@ -5782,12 +5929,12 @@ _LayoutTapHit? _hitTestCurvedFlexComposition(
       );
       if (nested != null) return nested;
     }
-    final corners = _curvedSurfaceCorners(projection, child.frame);
     if (layout is NodeListLayout) {
-      final entry = _hitTestNodeList(
+      final entry = _hitTestCurvedNodeList(
         layout,
         nodeListSources,
-        corners,
+        projection,
+        child.frame,
         position,
       );
       if (entry != null) {
@@ -5799,10 +5946,11 @@ _LayoutTapHit? _hitTestCurvedFlexComposition(
             resolvedNode: entry.resolvedNode,
             label: _nodePresentationLabel(entry.node, layout),
           ),
-          nodePath: _polygonPath(entry.points),
+          nodePath: entry.path,
         );
       }
     }
+    final corners = _curvedSurfaceCorners(projection, child.frame);
     if (_isTappablePanel(layout) &&
         _curvedSurfacePath(projection, child.frame).contains(position)) {
       return (
@@ -5945,6 +6093,27 @@ _LayoutTapHit? _hitTestCurvedGridComposition(
       if (nested != null) return nested;
     }
     final childPoints = _curvedSurfaceCorners(projection, childFrame);
+    if (layout is NodeListLayout) {
+      final entry = _hitTestCurvedNodeList(
+        layout,
+        nodeListSources,
+        projection,
+        childFrame,
+        position,
+      );
+      if (entry != null) {
+        return (
+          target: LayoutTapTarget(
+            key: '$childPath/${entry.node.slug}',
+            layout: layout,
+            node: entry.resolvedNode,
+            resolvedNode: entry.resolvedNode,
+            label: _nodePresentationLabel(entry.node, layout),
+          ),
+          nodePath: entry.path,
+        );
+      }
+    }
     if (_isTappablePanel(layout) &&
         _curvedSurfacePath(projection, childFrame).contains(position)) {
       return (
@@ -5957,15 +6126,17 @@ _LayoutTapHit? _hitTestCurvedGridComposition(
         nodePath: null,
       );
     }
-    final hit = _hitTestGridLeaf(
-      layout,
-      childPoints,
-      position,
-      childPath,
-      layoutContext,
-      nodeListSources,
-    );
-    if (hit != null) return hit;
+    if (layout is! NodeListLayout) {
+      final hit = _hitTestGridLeaf(
+        layout,
+        childPoints,
+        position,
+        childPath,
+        layoutContext,
+        nodeListSources,
+      );
+      if (hit != null) return hit;
+    }
   }
   return null;
 }

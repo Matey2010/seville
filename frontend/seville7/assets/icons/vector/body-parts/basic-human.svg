@@ -1,0 +1,328 @@
+<?xml version='1.0' encoding='utf-8'?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:vectornator="http://vectornator.io" viewBox="0 0 1024 2048" width="100%" height="100%" style="fill-rule:nonzero;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;" version="1.1">
+  <g id="neck" transform="translate(438 350)">
+    <svg width="148" height="156" viewBox="0 0 385.518 406.256" preserveAspectRatio="xMidYMid meet" style="fill-rule:nonzero;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;" stroke-miterlimit="10">
+      <defs />
+      <clipPath id="neck__ArtboardFrame">
+        <rect height="406.256" width="385.518" x="0" y="0" />
+      </clipPath>
+      <g clip-path="url(#neck__ArtboardFrame)" id="neck__bust" vectornator:layerName="bust">
+        <path d="M31.5765 51.8178C-32.5928 115.987 30.3539 406.256 111.483 406.256C167.225 406.256 386.892 399.502 386.892 321.015C386.892 203.128 367.335 147.079 367.335 81.7113C367.335 2.84217e-14 85.2186-1.82427 31.5765 51.8178Z" fill="#f8e9e4" fill-rule="nonzero" opacity="1" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.88902" vectornator:layerName="Curve 4" />
+      </g>
+    </svg>
+  </g>
+  <g id="left-shoulder" transform="translate(190 435) rotate(12 92.5 97.5)">
+    <svg width="185" height="195" viewBox="0 0 385.518 406.256" preserveAspectRatio="xMidYMid meet" style="fill-rule:nonzero;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;" stroke-miterlimit="10">
+      <defs />
+      <clipPath id="left-shoulder__ArtboardFrame">
+        <rect height="406.256" width="385.518" x="0" y="0" />
+      </clipPath>
+      <g clip-path="url(#left-shoulder__ArtboardFrame)" id="left-shoulder__bust" vectornator:layerName="bust">
+        <path d="M331.361 27.8351C341.56 34.6811 355.051 35.8293 367.335 35.8293C378.322 35.8293 345.185 32.7486 335.358 27.8351C308.825 14.5686 288.944 8.04332 255.416 3.8523C183.429-5.14601 85.2186-1.82427 31.5765 51.8178C-32.5928 115.987 9.97457 321.853 79.542 363.594C174.35 420.479 316.248 434.833 367.335 315.628C398.288 243.405 385.75 154.22 359.341 83.7949C348.993 56.2009 286.906-2.00434 331.361 27.8351Z" fill="#f8e9e4" fill-rule="nonzero" opacity="1" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.88902" vectornator:layerName="Curve 4" />
+      </g>
+    </svg>
+  </g>
+  <g id="right-shoulder" transform="translate(649 435) rotate(-12 92.5 97.5) translate(185 0) scale(-1 1)">
+    <svg width="185" height="195" viewBox="0 0 385.518 406.256" preserveAspectRatio="xMidYMid meet" style="fill-rule:nonzero;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;" stroke-miterlimit="10">
+      <defs />
+      <clipPath id="right-shoulder__ArtboardFrame">
+        <rect height="406.256" width="385.518" x="0" y="0" />
+      </clipPath>
+      <g clip-path="url(#right-shoulder__ArtboardFrame)" id="right-shoulder__bust" vectornator:layerName="bust">
+        <path d="M331.361 27.8351C341.56 34.6811 355.051 35.8293 367.335 35.8293C378.322 35.8293 345.185 32.7486 335.358 27.8351C308.825 14.5686 288.944 8.04332 255.416 3.8523C183.429-5.14601 85.2186-1.82427 31.5765 51.8178C-32.5928 115.987 9.97457 321.853 79.542 363.594C174.35 420.479 316.248 434.833 367.335 315.628C398.288 243.405 385.75 154.22 359.341 83.7949C348.993 56.2009 286.906-2.00434 331.361 27.8351Z" fill="#f8e9e4" fill-rule="nonzero" opacity="1" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.88902" vectornator:layerName="Curve 4" />
+      </g>
+    </svg>
+  </g>
+  <g id="left-biceps" transform="translate(166 555) rotate(7 50 168)">
+    <svg width="100" height="336" viewBox="0 0 285.696 959.892" preserveAspectRatio="xMidYMid meet" style="fill-rule:nonzero;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;" stroke-miterlimit="10">
+      <defs />
+      <clipPath id="left-biceps__ArtboardFrame">
+        <rect height="959.892" width="285.696" x="0" y="0" />
+      </clipPath>
+      <g clip-path="url(#left-biceps__ArtboardFrame)" id="left-biceps__bust" vectornator:layerName="bust">
+        <path d="M248.524 65.768C228.861 34.4222 214.128 19.0045 189.281 9.10212C135.934-12.1589 63.153-4.31035 23.4004 122.434C-24.1536 274.051 7.39186 760.467 58.9463 859.09C129.206 993.497 234.362 1027.41 272.221 745.758C295.16 575.11 285.868 364.387 266.297 197.988C258.629 132.79 255.807 77.3776 248.524 65.768Z" fill="#f8e9e4" fill-rule="nonzero" opacity="1" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="3.68975" vectornator:layerName="Curve 6" />
+      </g>
+    </svg>
+  </g>
+  <g id="right-biceps" transform="translate(758 555) rotate(-7 50 168) translate(100 0) scale(-1 1)">
+    <svg width="100" height="336" viewBox="0 0 285.696 959.892" preserveAspectRatio="xMidYMid meet" style="fill-rule:nonzero;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;" stroke-miterlimit="10">
+      <defs />
+      <clipPath id="right-biceps__ArtboardFrame">
+        <rect height="959.892" width="285.696" x="0" y="0" />
+      </clipPath>
+      <g clip-path="url(#right-biceps__ArtboardFrame)" id="right-biceps__bust" vectornator:layerName="bust">
+        <path d="M248.524 65.768C228.861 34.4222 214.128 19.0045 189.281 9.10212C135.934-12.1589 63.153-4.31035 23.4004 122.434C-24.1536 274.051 7.39186 760.467 58.9463 859.09C129.206 993.497 234.362 1027.41 272.221 745.758C295.16 575.11 285.868 364.387 266.297 197.988C258.629 132.79 255.807 77.3776 248.524 65.768Z" fill="#f8e9e4" fill-rule="nonzero" opacity="1" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="3.68975" vectornator:layerName="Curve 6" />
+      </g>
+    </svg>
+  </g>
+  <g id="left-elbow" transform="translate(168 858)">
+    <svg width="92" height="102" viewBox="0 0 218.816 242.221" preserveAspectRatio="xMidYMid meet" style="fill-rule:nonzero;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;" stroke-miterlimit="10">
+      <defs />
+      <clipPath id="left-elbow__ArtboardFrame">
+        <rect height="242.221" width="218.816" x="0" y="0" />
+      </clipPath>
+      <g clip-path="url(#left-elbow__ArtboardFrame)" id="left-elbow__bust" vectornator:layerName="bust">
+        <path d="M190.346 16.596C175.286 8.68617 164.002 4.79564 144.972 2.29685C104.113-3.06819 48.3693-1.08768 17.9225 30.8952C-18.4994 69.1546 5.66147 191.898 45.1473 216.784C98.9597 250.701 179.499 259.259 208.496 188.186C226.065 145.124 218.948 91.95 203.959 49.9607C198.085 33.5085 195.924 19.5256 190.346 16.596Z" fill="#f8e9e4" fill-rule="nonzero" opacity="1" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="3.68975" vectornator:layerName="Curve 7" />
+      </g>
+    </svg>
+  </g>
+  <g id="right-elbow" transform="translate(764 858) translate(92 0) scale(-1 1)">
+    <svg width="92" height="102" viewBox="0 0 218.816 242.221" preserveAspectRatio="xMidYMid meet" style="fill-rule:nonzero;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;" stroke-miterlimit="10">
+      <defs />
+      <clipPath id="right-elbow__ArtboardFrame">
+        <rect height="242.221" width="218.816" x="0" y="0" />
+      </clipPath>
+      <g clip-path="url(#right-elbow__ArtboardFrame)" id="right-elbow__bust" vectornator:layerName="bust">
+        <path d="M190.346 16.596C175.286 8.68617 164.002 4.79564 144.972 2.29685C104.113-3.06819 48.3693-1.08768 17.9225 30.8952C-18.4994 69.1546 5.66147 191.898 45.1473 216.784C98.9597 250.701 179.499 259.259 208.496 188.186C226.065 145.124 218.948 91.95 203.959 49.9607C198.085 33.5085 195.924 19.5256 190.346 16.596Z" fill="#f8e9e4" fill-rule="nonzero" opacity="1" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="3.68975" vectornator:layerName="Curve 7" />
+      </g>
+    </svg>
+  </g>
+  <g id="left-forearm" transform="translate(177 934) rotate(-4 41 122)">
+    <svg width="82" height="244" viewBox="0 0 187.899 559.245" preserveAspectRatio="xMidYMid meet" style="fill-rule:nonzero;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;" stroke-miterlimit="10">
+      <defs />
+      <clipPath id="left-forearm__ArtboardFrame">
+        <rect height="559.245" width="187.899" x="0" y="0" />
+      </clipPath>
+      <g clip-path="url(#left-forearm__ArtboardFrame)" id="left-forearm__bust" vectornator:layerName="bust">
+        <path d="M186.494 47.7539C177.806 27.8829 170.598 17.6715 157.051 9.78284C127.964-7.15452 85.0949-8.89764 51.092 61.1379C10.4161 144.918-13.3541 429.617 8.00436 491.245C37.1123 575.235 95.138 603.987 141.437 443.988C169.489 347.048 182.323 224.09 185.365 125.938C186.557 87.4798 189.712 55.1136 186.494 47.7539Z" fill="#f8e9e4" fill-rule="nonzero" opacity="1" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.16258" vectornator:layerName="Curve 6" />
+      </g>
+    </svg>
+  </g>
+  <g id="right-forearm" transform="translate(765 934) rotate(4 41 122) translate(82 0) scale(-1 1)">
+    <svg width="82" height="244" viewBox="0 0 187.899 559.245" preserveAspectRatio="xMidYMid meet" style="fill-rule:nonzero;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;" stroke-miterlimit="10">
+      <defs />
+      <clipPath id="right-forearm__ArtboardFrame">
+        <rect height="559.245" width="187.899" x="0" y="0" />
+      </clipPath>
+      <g clip-path="url(#right-forearm__ArtboardFrame)" id="right-forearm__bust" vectornator:layerName="bust">
+        <path d="M186.494 47.7539C177.806 27.8829 170.598 17.6715 157.051 9.78284C127.964-7.15452 85.0949-8.89764 51.092 61.1379C10.4161 144.918-13.3541 429.617 8.00436 491.245C37.1123 575.235 95.138 603.987 141.437 443.988C169.489 347.048 182.323 224.09 185.365 125.938C186.557 87.4798 189.712 55.1136 186.494 47.7539Z" fill="#f8e9e4" fill-rule="nonzero" opacity="1" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.16258" vectornator:layerName="Curve 6" />
+      </g>
+    </svg>
+  </g>
+  <g id="left-wrist" transform="translate(188 1153)">
+    <svg width="62" height="69" viewBox="0 0 126.396 139.915" preserveAspectRatio="xMidYMid meet" style="fill-rule:nonzero;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;" stroke-miterlimit="10">
+      <defs />
+      <clipPath id="left-wrist__ArtboardFrame">
+        <rect height="139.915" width="126.396" x="0" y="0" />
+      </clipPath>
+      <g clip-path="url(#left-wrist__ArtboardFrame)" id="left-wrist__bust" vectornator:layerName="bust">
+        <path d="M109.951 9.58643C101.251 5.01743 94.7331 2.77013 83.7406 1.32674C60.1391-1.77229 27.9398-0.628282 10.3527 17.8461C-10.6859 39.9461 3.27026 110.847 26.0786 125.222C57.1626 144.813 103.685 149.757 120.435 108.703C130.583 83.8288 126.472 53.1135 117.814 28.8591C114.421 19.3557 113.172 11.2787 109.951 9.58643Z" fill="#f8e9e4" fill-rule="nonzero" opacity="1" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.13133" vectornator:layerName="Curve 7" />
+      </g>
+    </svg>
+  </g>
+  <g id="right-wrist" transform="translate(774 1153) translate(62 0) scale(-1 1)">
+    <svg width="62" height="69" viewBox="0 0 126.396 139.915" preserveAspectRatio="xMidYMid meet" style="fill-rule:nonzero;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;" stroke-miterlimit="10">
+      <defs />
+      <clipPath id="right-wrist__ArtboardFrame">
+        <rect height="139.915" width="126.396" x="0" y="0" />
+      </clipPath>
+      <g clip-path="url(#right-wrist__ArtboardFrame)" id="right-wrist__bust" vectornator:layerName="bust">
+        <path d="M109.951 9.58643C101.251 5.01743 94.7331 2.77013 83.7406 1.32674C60.1391-1.77229 27.9398-0.628282 10.3527 17.8461C-10.6859 39.9461 3.27026 110.847 26.0786 125.222C57.1626 144.813 103.685 149.757 120.435 108.703C130.583 83.8288 126.472 53.1135 117.814 28.8591C114.421 19.3557 113.172 11.2787 109.951 9.58643Z" fill="#f8e9e4" fill-rule="nonzero" opacity="1" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.13133" vectornator:layerName="Curve 7" />
+      </g>
+    </svg>
+  </g>
+  <g id="left-palm" transform="translate(170 1196) rotate(4 46.5 78)">
+    <svg width="93" height="156" viewBox="0 0 271.431 454.186" preserveAspectRatio="xMidYMid meet" style="fill-rule:nonzero;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;" stroke-miterlimit="10">
+      <defs />
+      <clipPath id="left-palm__ArtboardFrame">
+        <rect height="454.186" width="271.431" x="0" y="0" />
+      </clipPath>
+      <g clip-path="url(#left-palm__ArtboardFrame)" id="left-palm__bust" vectornator:layerName="bust">
+        <path d="M62.4352 10.77L3.20227 104.221C3.20227 104.221-9.57713 257.88 15.9224 279.886C31.3624 293.212 38.4143 129.727 80.5772 152.709C136.286 183.074 22.7737 454.186 74.2739 454.186C155.037 454.186 260.556 401.982 271.182 245.784C275.209 186.597 229.395 85.4356 197.398 10.77C187.013-13.4624 62.4352 10.77 62.4352 10.77Z" fill="#f8e9e4" fill-rule="nonzero" opacity="1" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.88902" vectornator:layerName="Curve 8" />
+      </g>
+    </svg>
+  </g>
+  <g id="right-palm" transform="translate(761 1196) rotate(-4 46.5 78) translate(93 0) scale(-1 1)">
+    <svg width="93" height="156" viewBox="0 0 271.431 454.186" preserveAspectRatio="xMidYMid meet" style="fill-rule:nonzero;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;" stroke-miterlimit="10">
+      <defs />
+      <clipPath id="right-palm__ArtboardFrame">
+        <rect height="454.186" width="271.431" x="0" y="0" />
+      </clipPath>
+      <g clip-path="url(#right-palm__ArtboardFrame)" id="right-palm__bust" vectornator:layerName="bust">
+        <path d="M62.4352 10.77L3.20227 104.221C3.20227 104.221-9.57713 257.88 15.9224 279.886C31.3624 293.212 38.4143 129.727 80.5772 152.709C136.286 183.074 22.7737 454.186 74.2739 454.186C155.037 454.186 260.556 401.982 271.182 245.784C275.209 186.597 229.395 85.4356 197.398 10.77C187.013-13.4624 62.4352 10.77 62.4352 10.77Z" fill="#f8e9e4" fill-rule="nonzero" opacity="1" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.88902" vectornator:layerName="Curve 8" />
+      </g>
+    </svg>
+  </g>
+  <g id="chest" transform="translate(245 430)">
+    <svg width="534" height="444" viewBox="0 0 1024 851.393" preserveAspectRatio="xMidYMid meet" style="fill-rule:nonzero;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;" stroke-miterlimit="10">
+      <defs />
+      <clipPath id="chest__ArtboardFrame">
+        <rect height="851.393" width="1024" x="0" y="0" />
+      </clipPath>
+      <g clip-path="url(#chest__ArtboardFrame)" id="chest__bust" vectornator:layerName="bust">
+        <path d="M512 755.383C432.836 755.383 138.793 892.97 83.1017 831.852C20.8638 763.55-44.4782 245.702 34.1653 137.819C83.6296 69.9637 389.978 12.5213 459.536-0.201279C504.708-8.46354 553.338 6.23884 598.817-1.13687e-13C640.432-5.70886 960.554 111.708 1024 137.819C1032.89 141.479 1036.11 572.522 930.641 755.383C841.447 910.029 551.78 755.383 512 755.383Z" fill="#f8e9e4" fill-rule="nonzero" opacity="1" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="3.43307" vectornator:layerName="Curve 5" />
+        <path d="M381.369 19.1835C306.481 25.3874 392.953 168.783 392.953 168.783L497.681 194.711C512.193 198.303 527.466 197.255 541.35 191.714L633.818 154.809C684.006 113.781 672.677 4.163 629.101-2.84217e-14" fill="none" opacity="1" stroke="#dddddd" stroke-linecap="butt" stroke-linejoin="round" stroke-width="17.7" vectornator:layerName="Curve 1" />
+      </g>
+    </svg>
+  </g>
+  <g id="belly" transform="translate(335 790)">
+    <svg width="354" height="351" viewBox="0 0 866.075 860.162" preserveAspectRatio="xMidYMid meet" style="fill-rule:nonzero;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;" stroke-miterlimit="10">
+      <defs />
+      <clipPath id="belly__ArtboardFrame">
+        <rect height="860.162" width="866.075" x="0" y="0" />
+      </clipPath>
+      <g clip-path="url(#belly__ArtboardFrame)" id="belly__bust" vectornator:layerName="bust">
+        <path d="M27.5979 452.52C27.5979 638.686-143.282 850.056 433.037 850.056C1009.36 850.056 838.477 699.558 838.477 452.52C838.477 205.482 1024-4.11218 433.037-4.11218C-157.921-4.11218 27.5979 266.354 27.5979 452.52Z" fill="#f8e9e4" fill-rule="nonzero" opacity="1" stroke="#000000" stroke-linecap="butt" stroke-linejoin="round" stroke-width="3.93448" vectornator:layerName="Oval 3" />
+      </g>
+    </svg>
+  </g>
+  <g id="pelvis" transform="translate(315 1080)">
+    <svg width="394" height="182" viewBox="0 0 1257.96 581" preserveAspectRatio="xMidYMid meet" style="fill-rule:nonzero;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;" stroke-miterlimit="10">
+      <defs />
+      <clipPath id="pelvis__ArtboardFrame">
+        <rect height="581" width="1257.96" x="0" y="0" />
+      </clipPath>
+      <g clip-path="url(#pelvis__ArtboardFrame)" id="pelvis__bust" vectornator:layerName="bust">
+        <path d="M596.852 580.955C371.509 585.787-173.839 201.757 109.616 25.8542C163.273-7.44362 582.577 53.4147 679.002 34.2922C1091.96-47.6041 1156.45 43.6958 1195.93 134.373C1244.63 246.222 888.917 574.692 596.852 580.955Z" fill="#f8e9e4" fill-rule="nonzero" opacity="1" stroke="#000000" stroke-linecap="butt" stroke-linejoin="round" stroke-width="2.76928" vectornator:layerName="Oval 5" />
+        <path d="M1179.04 38.8891C1049.82 2.40646 819.509 67.6212 897.862 329.085C945.982 489.662 1125.13 499.043 1179.04 419.353C1257.23 303.755 1308.25 75.3718 1179.04 38.8891Z" fill="#f0e1dc" fill-rule="nonzero" opacity="1" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="3" vectornator:layerName="Curve 1" />
+        <path d="M81.3691 25.5675C214.592-12.047 452.051 55.1911 371.268 324.766C321.655 490.325 136.945 499.998 81.3691 417.836C0.750644 298.651-51.8534 63.1821 81.3691 25.5675Z" fill="#f0e1dc" fill-rule="nonzero" opacity="1" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="3.09308" vectornator:layerName="Curve 3" />
+      </g>
+    </svg>
+  </g>
+  <g id="left-thigh" transform="translate(352 1195) rotate(2 59 202.5)">
+    <svg width="118" height="405" viewBox="0 0 394.834 1354.49" preserveAspectRatio="xMidYMid meet" style="fill-rule:nonzero;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;" stroke-miterlimit="10">
+      <defs />
+      <clipPath id="left-thigh__ArtboardFrame">
+        <rect height="1354.49" width="394.834" x="0" y="0" />
+      </clipPath>
+      <g clip-path="url(#left-thigh__ArtboardFrame)" id="left-thigh__bust" vectornator:layerName="bust">
+        <path d="M108.952 1183.29C116.073 1256.48-141.989-82.4392 134.26 4.01587C429.16 96.3075 426.867 967.975 353.599 1243.13C275.642 1535.9 106.262 1155.64 108.952 1183.29Z" fill="#f0e1dc" fill-rule="nonzero" opacity="1" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="3" vectornator:layerName="Curve 2" />
+      </g>
+    </svg>
+  </g>
+  <g id="right-thigh" transform="translate(554 1195) rotate(-2 59 202.5) translate(118 0) scale(-1 1)">
+    <svg width="118" height="405" viewBox="0 0 394.834 1354.49" preserveAspectRatio="xMidYMid meet" style="fill-rule:nonzero;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;" stroke-miterlimit="10">
+      <defs />
+      <clipPath id="right-thigh__ArtboardFrame">
+        <rect height="1354.49" width="394.834" x="0" y="0" />
+      </clipPath>
+      <g clip-path="url(#right-thigh__ArtboardFrame)" id="right-thigh__bust" vectornator:layerName="bust">
+        <path d="M108.952 1183.29C116.073 1256.48-141.989-82.4392 134.26 4.01587C429.16 96.3075 426.867 967.975 353.599 1243.13C275.642 1535.9 106.262 1155.64 108.952 1183.29Z" fill="#f0e1dc" fill-rule="nonzero" opacity="1" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="3" vectornator:layerName="Curve 2" />
+      </g>
+    </svg>
+  </g>
+  <g id="left-knee" transform="translate(362 1568)">
+    <svg width="92" height="102" viewBox="0 0 218.816 242.221" preserveAspectRatio="xMidYMid meet" style="fill-rule:nonzero;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;" stroke-miterlimit="10">
+      <defs />
+      <clipPath id="left-knee__ArtboardFrame">
+        <rect height="242.221" width="218.816" x="0" y="0" />
+      </clipPath>
+      <g clip-path="url(#left-knee__ArtboardFrame)" id="left-knee__bust" vectornator:layerName="bust">
+        <path d="M190.346 16.596C175.286 8.68617 164.002 4.79564 144.972 2.29685C104.113-3.06819 48.3693-1.08768 17.9225 30.8952C-18.4994 69.1546 5.66147 191.898 45.1473 216.784C98.9597 250.701 179.499 259.259 208.496 188.186C226.065 145.124 218.948 91.95 203.959 49.9607C198.085 33.5085 195.924 19.5256 190.346 16.596Z" fill="#f8e9e4" fill-rule="nonzero" opacity="1" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="3.68975" vectornator:layerName="Curve 7" />
+      </g>
+    </svg>
+  </g>
+  <g id="right-knee" transform="translate(570 1568) translate(92 0) scale(-1 1)">
+    <svg width="92" height="102" viewBox="0 0 218.816 242.221" preserveAspectRatio="xMidYMid meet" style="fill-rule:nonzero;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;" stroke-miterlimit="10">
+      <defs />
+      <clipPath id="right-knee__ArtboardFrame">
+        <rect height="242.221" width="218.816" x="0" y="0" />
+      </clipPath>
+      <g clip-path="url(#right-knee__ArtboardFrame)" id="right-knee__bust" vectornator:layerName="bust">
+        <path d="M190.346 16.596C175.286 8.68617 164.002 4.79564 144.972 2.29685C104.113-3.06819 48.3693-1.08768 17.9225 30.8952C-18.4994 69.1546 5.66147 191.898 45.1473 216.784C98.9597 250.701 179.499 259.259 208.496 188.186C226.065 145.124 218.948 91.95 203.959 49.9607C198.085 33.5085 195.924 19.5256 190.346 16.596Z" fill="#f8e9e4" fill-rule="nonzero" opacity="1" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="3.68975" vectornator:layerName="Curve 7" />
+      </g>
+    </svg>
+  </g>
+  <g id="left-calf" transform="translate(371 1640)">
+    <svg width="72" height="316" viewBox="0 0 187.799 825.322" preserveAspectRatio="xMidYMid meet" style="fill-rule:nonzero;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;" stroke-miterlimit="10">
+      <defs />
+      <clipPath id="left-calf__ArtboardFrame">
+        <rect height="825.322" width="187.799" x="0" y="0" />
+      </clipPath>
+      <g clip-path="url(#left-calf__ArtboardFrame)" id="left-calf__bust" vectornator:layerName="bust">
+        <path d="M171.528 58.8754C159.326 31.558 149.975 18.0212 133.791 9.02142C99.0416-10.3015 50.6839-5.00414 21.115 103.085C-14.2567 232.385-5.92108 650.86 25.648 736.604C68.6713 853.459 137.373 884.68 169.682 643.482C189.258 497.344 188.541 316.141 179.88 172.81C176.487 116.65 176.048 68.9931 171.528 58.8754Z" fill="#f8e9e4" fill-rule="nonzero" opacity="1" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.16258" vectornator:layerName="Curve 6" />
+      </g>
+    </svg>
+  </g>
+  <g id="right-calf" transform="translate(581 1640) translate(72 0) scale(-1 1)">
+    <svg width="72" height="316" viewBox="0 0 187.799 825.322" preserveAspectRatio="xMidYMid meet" style="fill-rule:nonzero;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;" stroke-miterlimit="10">
+      <defs />
+      <clipPath id="right-calf__ArtboardFrame">
+        <rect height="825.322" width="187.799" x="0" y="0" />
+      </clipPath>
+      <g clip-path="url(#right-calf__ArtboardFrame)" id="right-calf__bust" vectornator:layerName="bust">
+        <path d="M171.528 58.8754C159.326 31.558 149.975 18.0212 133.791 9.02142C99.0416-10.3015 50.6839-5.00414 21.115 103.085C-14.2567 232.385-5.92108 650.86 25.648 736.604C68.6713 853.459 137.373 884.68 169.682 643.482C189.258 497.344 188.541 316.141 179.88 172.81C176.487 116.65 176.048 68.9931 171.528 58.8754Z" fill="#f8e9e4" fill-rule="nonzero" opacity="1" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.16258" vectornator:layerName="Curve 6" />
+      </g>
+    </svg>
+  </g>
+  <g id="left-ankle" transform="translate(382 1930)">
+    <svg width="48" height="53" viewBox="0 0 126.396 139.915" preserveAspectRatio="xMidYMid meet" style="fill-rule:nonzero;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;" stroke-miterlimit="10">
+      <defs />
+      <clipPath id="left-ankle__ArtboardFrame">
+        <rect height="139.915" width="126.396" x="0" y="0" />
+      </clipPath>
+      <g clip-path="url(#left-ankle__ArtboardFrame)" id="left-ankle__bust" vectornator:layerName="bust">
+        <path d="M109.778 9.41371C101.079 4.8447 94.5604 2.5974 83.5679 1.15401C59.9664-1.94502 27.767-0.801008 10.1799 17.6734C-10.8586 39.7734 3.09754 110.674 25.9059 125.049C56.9898 144.641 103.512 149.584 120.262 108.53C130.41 83.6561 126.299 52.9408 117.641 28.6863C114.248 19.1829 113 11.1059 109.778 9.41371Z" fill="#f8e9e4" fill-rule="nonzero" opacity="1" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.13133" vectornator:layerName="Curve 7" />
+      </g>
+    </svg>
+  </g>
+  <g id="right-ankle" transform="translate(594 1930) translate(48 0) scale(-1 1)">
+    <svg width="48" height="53" viewBox="0 0 126.396 139.915" preserveAspectRatio="xMidYMid meet" style="fill-rule:nonzero;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;" stroke-miterlimit="10">
+      <defs />
+      <clipPath id="right-ankle__ArtboardFrame">
+        <rect height="139.915" width="126.396" x="0" y="0" />
+      </clipPath>
+      <g clip-path="url(#right-ankle__ArtboardFrame)" id="right-ankle__bust" vectornator:layerName="bust">
+        <path d="M109.778 9.41371C101.079 4.8447 94.5604 2.5974 83.5679 1.15401C59.9664-1.94502 27.767-0.801008 10.1799 17.6734C-10.8586 39.7734 3.09754 110.674 25.9059 125.049C56.9898 144.641 103.512 149.584 120.262 108.53C130.41 83.6561 126.299 52.9408 117.641 28.6863C114.248 19.1829 113 11.1059 109.778 9.41371Z" fill="#f8e9e4" fill-rule="nonzero" opacity="1" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.13133" vectornator:layerName="Curve 7" />
+      </g>
+    </svg>
+  </g>
+  <g id="left-foot" transform="translate(326 1970)">
+    <svg width="125" height="50" viewBox="0 0 312.441 125.92" preserveAspectRatio="xMidYMid meet" style="fill-rule:nonzero;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;" stroke-miterlimit="10">
+      <defs />
+      <clipPath id="left-foot__ArtboardFrame">
+        <rect height="125.92" width="312.441" x="0" y="0" />
+      </clipPath>
+      <g clip-path="url(#left-foot__ArtboardFrame)" id="left-foot__bust" vectornator:layerName="bust">
+        <path d="M212.493 120.45C193.568 131.048-16.6001 141.219 1.05151 29.0334C5.36567 1.61454 511.908-47.2188 212.493 120.45Z" fill="#f8e9e4" fill-rule="nonzero" opacity="1" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="3" vectornator:layerName="Curve 6" />
+      </g>
+    </svg>
+  </g>
+  <g id="right-foot" transform="translate(573 1970) translate(125 0) scale(-1 1)">
+    <svg width="125" height="50" viewBox="0 0 312.441 125.92" preserveAspectRatio="xMidYMid meet" style="fill-rule:nonzero;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;" stroke-miterlimit="10">
+      <defs />
+      <clipPath id="right-foot__ArtboardFrame">
+        <rect height="125.92" width="312.441" x="0" y="0" />
+      </clipPath>
+      <g clip-path="url(#right-foot__ArtboardFrame)" id="right-foot__bust" vectornator:layerName="bust">
+        <path d="M212.493 120.45C193.568 131.048-16.6001 141.219 1.05151 29.0334C5.36567 1.61454 511.908-47.2188 212.493 120.45Z" fill="#f8e9e4" fill-rule="nonzero" opacity="1" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="3" vectornator:layerName="Curve 6" />
+      </g>
+    </svg>
+  </g>
+  <g id="head" transform="translate(354 24)">
+    <svg width="316" height="417" viewBox="0 0 611.671 807.785" preserveAspectRatio="xMidYMid meet" style="fill-rule:nonzero;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;" stroke-miterlimit="10">
+      <defs />
+      <clipPath id="head__ArtboardFrame">
+        <rect height="807.785" width="611.671" x="0" y="0" />
+      </clipPath>
+      <g clip-path="url(#head__ArtboardFrame)" id="head__Front" vectornator:layerName="Front">
+        <g opacity="1" vectornator:layerName="head">
+          <path d="M17.7494 306.201C17.7494 152.015 143.802 27.022 299.294 27.022C454.788 27.022 580.839 152.015 580.839 306.201C580.839 460.388 454.788 585.38 299.294 585.38C143.802 585.38 17.7494 460.388 17.7494 306.201Z" fill="#f8e9e4" fill-rule="nonzero" opacity="0.994231" stroke="#000000" stroke-linecap="butt" stroke-linejoin="round" stroke-width="1.8047" vectornator:layerName="head-top-oval" />
+          <g opacity="1" vectornator:layerName="ears">
+            <path d="M605.86 546.306C593.363 592.334 564.773 618.194 542.002 604.065C519.231 589.936 510.903 541.168 523.401 495.138C535.899 449.109 564.489 423.249 587.26 437.378C610.03 451.507 618.358 500.277 605.86 546.306Z" fill="#f8e9e4" fill-rule="nonzero" opacity="1" stroke="#000000" stroke-linecap="butt" stroke-linejoin="round" stroke-width="1.8047" vectornator:layerName="left-ear" />
+            <path d="M109.216 562.125C114.17 609.581 96.8573 644.125 70.544 639.28C44.2319 634.436 18.8844 592.037 13.9284 544.581C8.97356 497.126 26.2878 462.582 52.6 467.426C78.9133 472.271 104.261 514.668 109.216 562.125Z" fill="#f8e9e4" fill-rule="nonzero" opacity="0.994231" stroke="#000000" stroke-linecap="butt" stroke-linejoin="round" stroke-width="1.8047" vectornator:layerName="right-ear" />
+          </g>
+          <path d="M44.669 411.339C92.6933 546.698 110.703 811.373 314.808 807.748C486.486 804.699 551.33 561.201 566.937 390.793" fill="#f8e9e4" fill-rule="nonzero" opacity="1" stroke="#000000" stroke-linecap="butt" stroke-linejoin="round" stroke-width="1.8047" vectornator:layerName="jaw" />
+          <path d="M241.41 671.823L310.906 681.4L381.508 671.277" fill="none" opacity="0.477459" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="9.2645" vectornator:layerName="mouth" />
+          <g opacity="1" vectornator:layerName="eyebrows">
+            <path d="M104.569 423.115L137.001 396.759C145.389 389.943 156.232 386.52 167.222 387.221L206.521 389.726L250.097 392.504" fill="none" opacity="0.477459" stroke="#000000" stroke-linecap="butt" stroke-linejoin="round" stroke-width="10.6765" vectornator:layerName="left-brow" />
+            <path d="M510.181 402.869L480.343 377.313C468.91 367.521 453.387 363.304 438.267 365.886L408.058 371.04L366.235 378.177" fill="none" opacity="0.477459" stroke="#000000" stroke-linecap="butt" stroke-linejoin="round" stroke-width="12.5931" vectornator:layerName="right-brow" />
+          </g>
+          <path d="M101.73 212.766C5.00563 336.473 83.3872 278.994 40.0995 482.023C5.38663 365.201-29.0156 285.428 39.3341 159.931C97.8153 52.5538 198.44 2.95406 289.487 0.780746C380.505-4.59733 493.256 13.3682 585.017 197.466C598.54 224.598 612.718 334.243 569.904 425.068C565.673 291.268 609.59 303.294 489.721 163.006C375.844 139.112 371.966 188.648 297.309 185.973C256.739 184.519 155.919 143.459 101.73 212.766Z" fill="#957d52" fill-rule="nonzero" opacity="0.996154" stroke="#000002" stroke-linecap="butt" stroke-linejoin="round" stroke-width="1.8047" vectornator:layerName="hair" />
+          <g opacity="1" vectornator:layerName="eyes">
+            <g opacity="1" vectornator:layerName="Group 4">
+              <path d="M247.536 453.804C248.14 470.425 217.799 482.01 191.5 482.856C165.2 483.702 123.901 473.189 123.274 458.42L123.274 458.42C122.741 443.774 134.216 431.485 148.865 431.014L220.657 428.705C234.999 428.244 247.015 439.464 247.536 453.804L247.536 453.804Z" fill="#5e5e5e" fill-rule="nonzero" opacity="1" stroke="#000000" stroke-linecap="butt" stroke-linejoin="round" stroke-width="3.48898" vectornator:layerName="Hollow" />
+              <path d="M209.101 429.077C209.101 429.077 165.143 430.49 165.143 430.49C165.143 430.49 179.534 472.631 190.586 472.276C202.688 471.887 209.101 429.077 209.101 429.077Z" fill="#7cc9bf" fill-rule="nonzero" opacity="1" stroke="#000000" stroke-linecap="butt" stroke-linejoin="round" stroke-width="3.75311" vectornator:layerName="left-eye 1" />
+            </g>
+          </g>
+          <path d="M308.529 486.112C305.237 480.184 296.129 480.842 293.807 487.175L256.891 587.902C255.438 591.868 257.584 596.212 261.714 597.662L302.414 611.954C304.625 612.73 307.081 612.544 309.136 611.443L355.463 586.638C359.28 584.595 360.69 580.016 358.639 576.325L308.529 486.112Z" fill="#f1d1c6" fill-rule="nonzero" opacity="0.477459" stroke="#000000" stroke-linecap="butt" stroke-linejoin="round" stroke-width="1.8047" vectornator:layerName="nose" />
+        </g>
+        <path d="M425.462 463.738C455.858 465.739 480.212 449.766 479.608 435.443C479.237 426.656 475.255 407.306 430.326 410.712C410.811 412.191 368.767 431.63 369.127 440.165C369.477 448.457 384.467 461.039 425.462 463.738Z" fill="#ffffff" fill-rule="nonzero" opacity="1" stroke="#000000" stroke-linecap="butt" stroke-linejoin="round" stroke-width="2.6586" vectornator:layerName="left-eye" />
+        <path d="M450.882 411.48C450.882 411.48 440.132 409.574 430.206 410.315C419.051 411.148 407.37 416.597 407.37 416.597C407.37 416.597 419.674 447.38 430.312 446.586C441.959 445.716 450.882 411.48 450.882 411.48Z" fill="#50d5ee" fill-rule="nonzero" opacity="1" stroke="#000000" stroke-linecap="butt" stroke-linejoin="round" stroke-width="3.61925" vectornator:layerName="left-eye 1" />
+        <path d="M379.696 452.3C379.696 452.3 377.808 443.006 377.809 439.488C377.811 435.533 375.148 433.997 375.148 433.997C375.148 433.997 370.794 437.519 370.792 441.29C370.791 445.419 379.696 452.3 379.696 452.3Z" fill="#f8e9e4" fill-rule="nonzero" opacity="1" stroke="#000000" stroke-linecap="butt" stroke-linejoin="round" stroke-width="1.27943" vectornator:layerName="left-eye 2" />
+        <path d="M440.719 414.268C433.949 409.451 428.068 408.625 418.409 415.094C417.981 416.341 417.617 417.625 417.617 419.019C417.617 425.723 423.022 431.172 429.667 431.172C436.313 431.172 441.683 425.723 441.683 419.019C441.683 417.326 441.339 415.732 440.719 414.268Z" fill="#002b2b" fill-rule="nonzero" opacity="1" stroke="#000000" stroke-linecap="butt" stroke-linejoin="round" stroke-width="1.84196" vectornator:layerName="Curve" />
+        <path d="M431.572 418.304C432.416 416.616 433.223 421.931 433.193 421.871C433.024 421.534 434.637 417.007 432.977 417.007C431.804 417.007 434.943 418.503 435.355 419.601C435.469 419.905 435.355 420.898 435.355 420.574C435.355 418.955 436.379 417.599 435.031 416.25C434.847 416.067 434.382 415.818 434.382 415.818C434.382 415.818 437.192 417.386 437.192 418.736" fill="none" opacity="1" stroke="#ffffff" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.84196" vectornator:layerName="Curve 1" />
+      </g>
+    </svg>
+  </g>
+</svg>

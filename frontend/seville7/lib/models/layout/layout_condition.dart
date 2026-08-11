@@ -50,6 +50,8 @@ abstract class LayoutCondition {
 
   const factory LayoutCondition.findOpened() = _LayoutFindOpenedCondition;
 
+  const factory LayoutCondition.createOpened() = _LayoutCreateOpenedCondition;
+
   final Set<String> exclude;
 
   Set<String> get normalizedExclude => {
@@ -106,6 +108,13 @@ class _LayoutFindOpenedCondition extends LayoutCondition {
 
   @override
   bool isActive(LayoutContext context) => context.findOpened;
+}
+
+class _LayoutCreateOpenedCondition extends LayoutCondition {
+  const _LayoutCreateOpenedCondition() : super._();
+
+  @override
+  bool isActive(LayoutContext context) => context.createOpened;
 }
 
 class _LayoutNodeHighlightedCondition extends LayoutCondition {

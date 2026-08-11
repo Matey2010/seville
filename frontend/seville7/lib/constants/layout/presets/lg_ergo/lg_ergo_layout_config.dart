@@ -84,6 +84,14 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
           ),
         ],
       ),
+      LayoutCondition.hasLabelsInCurrentNode(['Character']): NodeConfig(
+        background: [
+          LayoutBackground.svg(
+            assetPath: 'assets/icons/vector/body-parts/basic-human.svg',
+            fit: LayoutBackgroundFit.contain,
+          ),
+        ],
+      ),
       LayoutCondition.nodeHighlighted(): NodeConfig(
         borderStyle: GuideStyle(
           color: Color(0xFF2196F3),
@@ -710,7 +718,12 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
               },
               children: {
                 'character': NodeLayout(
-                  fallbackNode: Node(slug: 'great-cortex-snt-project-nskp'),
+                  fallbackNode: Node(
+                    slug: 'player-character',
+                    path: 'player-character',
+                    title: 'Player Character',
+                    labels: ['Character', 'Human'],
+                  ),
                   slot: 'bottom-left',
                   size: LayoutDefaultSize.crossAxisRibbonWidth,
                   aliases: [
@@ -720,21 +733,14 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                   ],
                   filter: NodeSearchFilter.anyOf([
                     NodeSearchParameter(
-                      parameter: NodeParameter.slug,
-                      value: 'great-cortex-snt-project-nskp',
+                      parameter: NodeParameter.label,
+                      value: 'Character',
                     ),
                   ]),
-                  text: LayoutTextConfig(
-                    value: LayoutText.value('🦹🏼‍♂️'),
-                    fontSize: 39,
+                  node: NodeConfig(
+                    backgroundOpacity: 0,
+                    content: NodeContent.emoji(),
                   ),
-                  node: NodeConfig(backgroundOpacity: 0),
-                  background: [
-                    LayoutBackground.svg(
-                      assetPath: 'assets/icons/vector/bbob.svg',
-                      fit: LayoutBackgroundFit.contain,
-                    ),
-                  ],
                 ),
                 'left-ribbon': ColumnLayout(
                   slot: 'sidebar',
@@ -762,15 +768,6 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                             pattern: GuideLinePattern.solid,
                           ),
                           text: LayoutTextConfig(value: LayoutText.value('📁')),
-                        ),
-                        'bookmarks': PanelLayout(
-                          aliases: ['left-ribbon-bookmarks'],
-                          borderStyle: GuideStyle(
-                            color: Color(0xFFFFD54F),
-                            strokeWidth: 1.2,
-                            pattern: GuideLinePattern.solid,
-                          ),
-                          text: LayoutTextConfig(value: LayoutText.value('🔖')),
                         ),
                         'avatar-pro': NodeLayout(
                           slot: 'logo',
@@ -1090,7 +1087,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                     FindLayout.resultsLayoutKey: ColumnLayout(
                       slot: FindLayout.resultsLayoutKey,
                       aliases: ['search-results', 'search-results-column'],
-                      text: LayoutTextConfig(flow: LayoutTextFlow.vertical()),
+                      text: LayoutTextConfig(flow: LayoutTextFlow.horizontal()),
                       children: {
                         'search_results': NodeListLayout(
                           dataSource: NodeListDataSource.searchResults,
@@ -1188,6 +1185,22 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                   ],
                   size: LayoutSize.px(48),
                   children: {
+                    'continue': PanelLayout(
+                      state: _lgErgoNavigationPanelState,
+                      aliases: [
+                        'action-button',
+                        'continue-action',
+                        'navigation-action',
+                      ],
+                      borderStyle: GuideStyle(
+                        color: Color(0xFFFFD54F),
+                        strokeWidth: 1.2,
+                        pattern: GuideLinePattern.solid,
+                      ),
+                      text: LayoutTextConfig(
+                        value: LayoutText.value('🔖 Continue | C'),
+                      ),
+                    ),
                     'add-node': PanelLayout(
                       state: _lgErgoNavigationPanelState,
                       aliases: [
@@ -1217,9 +1230,7 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                       ),
                       text: LayoutTextConfig(
                         color: Color.fromARGB(255, 133, 255, 33),
-                        value: LayoutText.value(
-                          '🏁 Next adventure | N',
-                        ),
+                        value: LayoutText.value('🏁 New | N'),
                       ),
                     ),
                     'refresh-fans': PanelLayout(
@@ -1349,8 +1360,8 @@ final lgErgoLayoutConfig = LandscapeXlLayout(
                     ),
                   ),
                   children: {
-                    'bookmarks': PanelLayout(
-                      aliases: ['bottom-bookmarks', 'bookmarks-shortcut'],
+                    'perks': PanelLayout(
+                      aliases: ['bottom-perks', 'perks-shortcut'],
                       borderStyle: GuideStyle(
                         color: Color(0xFFFFD54F),
                         strokeWidth: 1.2,

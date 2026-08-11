@@ -69,6 +69,7 @@ flutter:
     - assets/wallpapers/
     - assets/logo/
     - assets/icons/vector/
+    - assets/icons/vector/body-parts/
 
   fonts:
     - family: Alegreya Sans SC

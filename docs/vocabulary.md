@@ -139,6 +139,11 @@ unconditional baseline, including the default beige `#F5EDD6` label fill, and
 values. Dart reserves the shorter words `default` and `in`. Classification labels are decorative,
 frontend-styled folders for knowledge; their names come from Neo4j, but their
 colors are explicit Layout semantics rather than hash-assigned palette values.
+Renderers merge the unresolved `LabelConfig` hierarchy first and resolve its
+ordered state only after assigning the concrete label to
+`LayoutContext.currentLabel`; hover resolves the same configuration with
+`labelHighlighted`. This preserves root semantic colors and later explicit
+specializations for every angled, punched-hole classification tag.
 These models live in
 `frontend/seville7/lib/models/layout/label.dart` and are configured once by LG Ergo's
 root Layout rather than repeated by individual layouts.
@@ -203,6 +208,15 @@ Flame-resolved projected surface and submits the query, Riverpod owns its
 asynchronous state, and `NodeListLayout` renders the result inside the
 configured Flame layout tree. Selecting a result changes the same
 slug-identified active Node set used by Fan and Graph layouts.
+
+Layout input state remains declarative. `LayoutCondition.findOpened()` matches
+only while a Find submission owns the active input, and
+`LayoutCondition.createOpened()` matches only while a create-virtual-Node
+submission owns it. The conditions are mutually exclusive because the shared
+input overlay has one active owner. They may specialize any stable Layout tree
+key through `LayoutState<LayoutConfig>`; they do not introduce separate Find or
+Create domain entities. The input-owning `PanelLayout` continues to supply the
+projected geometry, typography, hint, border, and submission behavior.
 
 ## HTTP graph operations
 

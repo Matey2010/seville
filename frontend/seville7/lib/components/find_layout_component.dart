@@ -32,6 +32,9 @@ class LayoutInputViewState {
   bool get isFindInput =>
       input == null || input!.submission is FindNodesLayoutInputSubmission;
 
+  bool get isCreateInput =>
+      input?.submission is CreateVirtualNodeLayoutInputSubmission;
+
   LayoutInputConfig get effectiveInput =>
       input ??
       LayoutInputConfig(
@@ -113,6 +116,7 @@ class LayoutInputComponent extends PositionComponent with KeyboardHandler {
   FindLayout get layout => viewState.value.layout;
   bool get isOpen => viewState.value.isOpen;
   bool get isFindOpen => isOpen && viewState.value.isFindInput;
+  bool get isCreateOpen => isOpen && viewState.value.isCreateInput;
   String? get activeLayoutKey => isOpen ? viewState.value.layoutKey : null;
   bool get showsResults =>
       isFindOpen &&

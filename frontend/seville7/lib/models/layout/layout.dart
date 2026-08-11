@@ -25,7 +25,7 @@ abstract class Layout {
     LayoutSize? size,
     this.slot,
     this.aliases = const [],
-    this.label = LabelDefaults.config,
+    this.label = const LabelConfig(),
     this.text = const LayoutTextConfig(),
     this.node = const NodeConfig(),
     this.panel = const PanelConfig(),
@@ -153,7 +153,7 @@ abstract class Layout {
     for (final overlay in _activeStateOverlays(context)) {
       if (overlay.label case final label?) resolved = resolved.merge(label);
     }
-    return resolved.resolve(context);
+    return resolved;
   }
 
   PanelConfig resolvePanelConfig(LayoutContext context) {
@@ -312,6 +312,7 @@ class LayoutContext {
   const LayoutContext({
     this.inputSource,
     this.findOpened = false,
+    this.createOpened = false,
     this.selectedNodePath,
     this.selectedNodePaths = const [],
     this.highlightedNodePaths = const [],
@@ -333,6 +334,7 @@ class LayoutContext {
   /// Source of the interaction currently being evaluated, when applicable.
   final LayoutInputSource? inputSource;
   final bool findOpened;
+  final bool createOpened;
   final String? selectedNodePath;
   final List<String> selectedNodePaths;
   final List<String> highlightedNodePaths;
@@ -358,6 +360,7 @@ class LayoutContext {
     return LayoutContext(
       inputSource: inputSource,
       findOpened: findOpened,
+      createOpened: createOpened,
       selectedNodePath: selectedNodePath,
       selectedNodePaths: selectedNodePaths,
       highlightedNodePaths: highlightedNodePaths,
@@ -379,6 +382,7 @@ class LayoutContext {
     return LayoutContext(
       inputSource: inputSource,
       findOpened: findOpened,
+      createOpened: createOpened,
       selectedNodePath: selectedNodePath,
       selectedNodePaths: selectedNodePaths,
       highlightedNodePaths: highlightedNodePaths,
@@ -400,6 +404,7 @@ class LayoutContext {
     return LayoutContext(
       inputSource: inputSource,
       findOpened: findOpened,
+      createOpened: createOpened,
       selectedNodePath: selectedNodePath,
       selectedNodePaths: selectedNodePaths,
       highlightedNodePaths: highlightedNodePaths,
@@ -425,6 +430,7 @@ class LayoutContext {
     return LayoutContext(
       inputSource: inputSource,
       findOpened: findOpened,
+      createOpened: createOpened,
       selectedNodePath: selectedNodePath,
       selectedNodePaths: selectedNodePaths,
       highlightedNodePaths: highlightedNodePaths,
@@ -446,6 +452,7 @@ class LayoutContext {
     return LayoutContext(
       inputSource: inputSource,
       findOpened: findOpened,
+      createOpened: createOpened,
       selectedNodePath: selectedNodePath,
       selectedNodePaths: selectedNodePaths,
       highlightedNodePaths: [...highlightedNodePaths, path],
@@ -467,6 +474,7 @@ class LayoutContext {
     return LayoutContext(
       inputSource: inputSource,
       findOpened: findOpened,
+      createOpened: createOpened,
       selectedNodePath: selectedNodePath,
       selectedNodePaths: selectedNodePaths,
       highlightedNodePaths: highlightedNodePaths,

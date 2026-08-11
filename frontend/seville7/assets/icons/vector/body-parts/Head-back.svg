@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<!-- Created with Linearity Curve (http://linearity.io/curve) -->
+<svg height="100%" stroke-miterlimit="10" style="fill-rule:nonzero;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;" version="1.1" viewBox="0 0 611.671 807.785" width="100%" xml:space="preserve" xmlns="http://www.w3.org/2000/svg" xmlns:vectornator="http://vectornator.io" xmlns:xlink="http://www.w3.org/1999/xlink">
+<defs/>
+<clipPath id="ArtboardFrame">
+<rect height="807.785" width="611.671" x="0" y="0"/>
+</clipPath>
+<g clip-path="url(#ArtboardFrame)" id="bust" vectornator:layerName="bust">
+<path d="M12.0882 307.571C12.0882 137.704 108.942-3.55571 279.794-3.55571C450.647-3.55571 589.15 134.148 589.15 304.015C589.15 473.882 450.647 611.586 279.794 611.586C108.942 611.586 12.0882 477.437 12.0882 307.571Z" fill="#f8e9e4" fill-rule="nonzero" opacity="0.994231" stroke="#000000" stroke-linecap="butt" stroke-linejoin="round" stroke-width="1.98824" vectornator:layerName="head-top-oval 1"/>
+<path d="M610.752 422.369C605.742 469.819 581.632 500.013 556.899 489.809C532.167 479.605 516.178 432.867 521.187 385.416C526.197 337.966 550.308 307.772 575.04 317.976C599.774 328.18 615.762 374.918 610.752 422.369Z" fill="#f8e9e4" fill-rule="nonzero" opacity="0.994231" stroke="#000000" stroke-linecap="butt" stroke-linejoin="round" stroke-width="1.8047" vectornator:layerName="right-ear"/>
+<path d="M150.964 575.721L200.245 707.482C205.319 721.05 214.969 732.423 227.53 739.64L308.448 786.129C316.686 790.863 325.898 793.646 335.379 794.268L357.403 795.711C369.442 796.5 381.452 793.772 391.969 787.858L497.591 728.475L542.931 600.721L587.628 376.252" fill="#f8e9e4" fill-rule="nonzero" opacity="1" stroke="#000000" stroke-linecap="butt" stroke-linejoin="round" stroke-width="2" vectornator:layerName="jaw"/>
+<path d="M605.763 324.23C589.205 351.655 585.744 268.127 565.97 403.892C559.702 373.014 569.093 739.283 565.97 708.074C558.567 634.089 94.749 689.265 119.933 611.586C127.087 589.52 41.0584 587.947 11.0108 450.582C-17.2794 321.252 8.95228 55.9201 55.9466 29.1884C256.696-85.0033 463.37 20.6952 520.269 0C520.269 0 611.267 315.115 605.763 324.23Z" fill="#957d52" fill-rule="nonzero" opacity="0.996154" stroke="#000002" stroke-linecap="butt" stroke-linejoin="round" stroke-width="1.98824" vectornator:layerName="hair"/>
+</g>
+</svg>

@@ -1,0 +1,193 @@
+{
+  "canvas": {
+    "width": 1024,
+    "height": 2048
+  },
+  "sourceDirectory": ".",
+  "output": "basic-human.svg",
+  "parts": [
+    {
+      "name": "neck",
+      "source": "Neck.svg",
+      "frame": { "x": 438, "y": 350, "width": 148, "height": 156 },
+      "zIndex": 10
+    },
+    {
+      "name": "left-shoulder",
+      "source": "Left-shoulder.svg",
+      "frame": { "x": 190, "y": 435, "width": 185, "height": 195 },
+      "rotation": 12,
+      "zIndex": 20
+    },
+    {
+      "name": "right-shoulder",
+      "source": "Left-shoulder.svg",
+      "frame": { "x": 649, "y": 435, "width": 185, "height": 195 },
+      "rotation": -12,
+      "mirrorX": true,
+      "zIndex": 20
+    },
+    {
+      "name": "left-biceps",
+      "source": "Biceps.svg",
+      "frame": { "x": 166, "y": 555, "width": 100, "height": 336 },
+      "rotation": 7,
+      "zIndex": 21
+    },
+    {
+      "name": "right-biceps",
+      "source": "Biceps.svg",
+      "frame": { "x": 758, "y": 555, "width": 100, "height": 336 },
+      "rotation": -7,
+      "mirrorX": true,
+      "zIndex": 21
+    },
+    {
+      "name": "left-elbow",
+      "source": "Elbow.svg",
+      "frame": { "x": 168, "y": 858, "width": 92, "height": 102 },
+      "zIndex": 22
+    },
+    {
+      "name": "right-elbow",
+      "source": "Elbow.svg",
+      "frame": { "x": 764, "y": 858, "width": 92, "height": 102 },
+      "mirrorX": true,
+      "zIndex": 22
+    },
+    {
+      "name": "left-forearm",
+      "source": "Forearm.svg",
+      "frame": { "x": 177, "y": 934, "width": 82, "height": 244 },
+      "rotation": -4,
+      "zIndex": 23
+    },
+    {
+      "name": "right-forearm",
+      "source": "Forearm.svg",
+      "frame": { "x": 765, "y": 934, "width": 82, "height": 244 },
+      "rotation": 4,
+      "mirrorX": true,
+      "zIndex": 23
+    },
+    {
+      "name": "left-wrist",
+      "source": "Wrist.svg",
+      "frame": { "x": 188, "y": 1153, "width": 62, "height": 69 },
+      "zIndex": 24
+    },
+    {
+      "name": "right-wrist",
+      "source": "Wrist.svg",
+      "frame": { "x": 774, "y": 1153, "width": 62, "height": 69 },
+      "mirrorX": true,
+      "zIndex": 24
+    },
+    {
+      "name": "left-palm",
+      "source": "Palm.svg",
+      "frame": { "x": 170, "y": 1196, "width": 93, "height": 156 },
+      "rotation": 4,
+      "zIndex": 25
+    },
+    {
+      "name": "right-palm",
+      "source": "Palm.svg",
+      "frame": { "x": 761, "y": 1196, "width": 93, "height": 156 },
+      "rotation": -4,
+      "mirrorX": true,
+      "zIndex": 25
+    },
+    {
+      "name": "chest",
+      "source": "Chest.svg",
+      "frame": { "x": 245, "y": 430, "width": 534, "height": 444 },
+      "zIndex": 30
+    },
+    {
+      "name": "belly",
+      "source": "Belly.svg",
+      "frame": { "x": 335, "y": 790, "width": 354, "height": 351 },
+      "zIndex": 31
+    },
+    {
+      "name": "pelvis",
+      "source": "Taz.svg",
+      "frame": { "x": 315, "y": 1080, "width": 394, "height": 182 },
+      "zIndex": 32
+    },
+    {
+      "name": "left-thigh",
+      "source": "Tight.svg",
+      "frame": { "x": 352, "y": 1195, "width": 118, "height": 405 },
+      "rotation": 2,
+      "zIndex": 40
+    },
+    {
+      "name": "right-thigh",
+      "source": "Tight.svg",
+      "frame": { "x": 554, "y": 1195, "width": 118, "height": 405 },
+      "rotation": -2,
+      "mirrorX": true,
+      "zIndex": 40
+    },
+    {
+      "name": "left-knee",
+      "source": "Knee.svg",
+      "frame": { "x": 362, "y": 1568, "width": 92, "height": 102 },
+      "zIndex": 41
+    },
+    {
+      "name": "right-knee",
+      "source": "Knee.svg",
+      "frame": { "x": 570, "y": 1568, "width": 92, "height": 102 },
+      "mirrorX": true,
+      "zIndex": 41
+    },
+    {
+      "name": "left-calf",
+      "source": "Stockman - 20.svg",
+      "frame": { "x": 371, "y": 1640, "width": 72, "height": 316 },
+      "zIndex": 42
+    },
+    {
+      "name": "right-calf",
+      "source": "Stockman - 20.svg",
+      "frame": { "x": 581, "y": 1640, "width": 72, "height": 316 },
+      "mirrorX": true,
+      "zIndex": 42
+    },
+    {
+      "name": "left-ankle",
+      "source": "Stockman - 21.svg",
+      "frame": { "x": 382, "y": 1930, "width": 48, "height": 53 },
+      "zIndex": 43
+    },
+    {
+      "name": "right-ankle",
+      "source": "Stockman - 21.svg",
+      "frame": { "x": 594, "y": 1930, "width": 48, "height": 53 },
+      "mirrorX": true,
+      "zIndex": 43
+    },
+    {
+      "name": "left-foot",
+      "source": "Feet.svg",
+      "frame": { "x": 326, "y": 1970, "width": 125, "height": 50 },
+      "zIndex": 44
+    },
+    {
+      "name": "right-foot",
+      "source": "Feet.svg",
+      "frame": { "x": 573, "y": 1970, "width": 125, "height": 50 },
+      "mirrorX": true,
+      "zIndex": 44
+    },
+    {
+      "name": "head",
+      "source": "Head-anfas.svg",
+      "frame": { "x": 354, "y": 24, "width": 316, "height": 417 },
+      "zIndex": 100
+    }
+  ]
+}

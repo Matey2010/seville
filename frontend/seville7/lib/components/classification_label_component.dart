@@ -54,7 +54,7 @@ class ClassificationLabelComponent extends PositionComponent {
 
     for (final label in values) {
       final labelContext = context.withCurrentLabel(label);
-      final style = config.resolveWithDefaults(labelContext).style;
+      final style = config.resolve(labelContext).style;
       final availableTextWidth = math
           .max(
             bounds.width - 12 - pointWidth - horizontalPadding * 2,
@@ -96,7 +96,7 @@ class ClassificationLabelComponent extends PositionComponent {
         ClassificationLabelFrame(
           label: label,
           hoverStyle: config
-              .resolveWithDefaults(labelContext.withLabelHighlighted(true))
+              .resolve(labelContext.withLabelHighlighted(true))
               .style
               .borderStyle,
           path: _paintTag(canvas, tagBounds, pointWidth, textPainter, style),

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<!-- Created with Linearity Curve (http://linearity.io/curve) -->
+<svg height="100%" stroke-miterlimit="10" style="fill-rule:nonzero;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;" version="1.1" viewBox="0 0 126.396 139.915" width="100%" xml:space="preserve" xmlns="http://www.w3.org/2000/svg" xmlns:vectornator="http://vectornator.io" xmlns:xlink="http://www.w3.org/1999/xlink">
+<defs/>
+<clipPath id="ArtboardFrame">
+<rect height="139.915" width="126.396" x="0" y="0"/>
+</clipPath>
+<g clip-path="url(#ArtboardFrame)" id="bust" vectornator:layerName="bust">
+<path d="M109.951 9.58643C101.251 5.01743 94.7331 2.77013 83.7406 1.32674C60.1391-1.77229 27.9398-0.628282 10.3527 17.8461C-10.6859 39.9461 3.27026 110.847 26.0786 125.222C57.1626 144.813 103.685 149.757 120.435 108.703C130.583 83.8288 126.472 53.1135 117.814 28.8591C114.421 19.3557 113.172 11.2787 109.951 9.58643Z" fill="#f8e9e4" fill-rule="nonzero" opacity="1" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.13133" vectornator:layerName="Curve 7"/>
+</g>
+</svg>

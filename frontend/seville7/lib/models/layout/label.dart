@@ -42,8 +42,20 @@ class LabelConfig {
 
   LabelConfig merge(LabelConfig overlay) => LabelConfig(
     style: style.merge(overlay.style),
-    state: state.merge(overlay.state),
+    state: _mergeOrderedLabelState(state, overlay.state),
   );
+}
+
+LayoutState<LabelConfig> _mergeOrderedLabelState(
+  LayoutState<LabelConfig> base,
+  LayoutState<LabelConfig> overlay,
+) {
+  final values = {...base.values};
+  for (final entry in overlay.values.entries) {
+    values.remove(entry.key);
+    values[entry.key] = entry.value;
+  }
+  return LayoutState(values);
 }
 
 /// Renderer-independent visual values owned by [LabelConfig].

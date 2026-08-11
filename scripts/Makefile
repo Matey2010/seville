@@ -31,6 +31,7 @@ export SEVILLE_GIT_VAULT_SUBPATH
 .PHONY: help interface start build serve serve-built stop restart status logs
 .PHONY: proto migrate-obsidian set-default-icon setDefaultIcon
 .PHONY: build-font buildFont check-font checkFont
+.PHONY: build-body buildBody check-body checkBody
 .PHONY: set-app-name setAppName generate-macos-app-names
 .PHONY: generate-macos-icons generate-platform-icons
 
@@ -46,6 +47,8 @@ help:
 	@echo "  make -C scripts migrate-obsidian   Run the manual vault migration"
 	@echo "  make -C scripts buildFont          Build Sevifont from its SVG manifest"
 	@echo "  make -C scripts checkFont          Validate Sevifont without writing output"
+	@echo "  make -C scripts buildBody          Build the basic SVG character rig"
+	@echo "  make -C scripts checkBody          Validate the character rig inputs"
 	@echo "  make -C scripts setDefaultIcon path=PATH"
 	@echo "                                      Set Debug and production macOS icons"
 	@echo "    or: debug_path=PATH production_path=PATH"
@@ -442,6 +445,22 @@ check-font:
 	font_manifest='$(if $(manifest),$(manifest),$(FLUTTER_DIR)/assets/fonts/sevifont/sevifont.font.json)'; \
 	case "$$font_manifest" in /*) ;; *) font_manifest="$(ROOT)/$$font_manifest" ;; esac; \
 	fontforge -lang=py -script "$(SCRIPTS_DIR)/fonts/build_font.py" "$$font_manifest" --check
+
+buildBody: build-body
+
+build-body:
+	@set -eu; \
+	body_manifest='$(if $(manifest),$(manifest),$(FLUTTER_DIR)/assets/icons/vector/body-parts/basic-human.body.json)'; \
+	case "$$body_manifest" in /*) ;; *) body_manifest="$(ROOT)/$$body_manifest" ;; esac; \
+	python3 "$(SCRIPTS_DIR)/body/build_body.py" "$$body_manifest"
+
+checkBody: check-body
+
+check-body:
+	@set -eu; \
+	body_manifest='$(if $(manifest),$(manifest),$(FLUTTER_DIR)/assets/icons/vector/body-parts/basic-human.body.json)'; \
+	case "$$body_manifest" in /*) ;; *) body_manifest="$(ROOT)/$$body_manifest" ;; esac; \
+	python3 "$(SCRIPTS_DIR)/body/build_body.py" "$$body_manifest" --check
 
 proto:
 	@cd "$(ROOT)" && protoc \
