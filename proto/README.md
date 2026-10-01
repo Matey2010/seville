@@ -11,7 +11,8 @@ structured Node filters, and the flat `NodeSearchQuery`/`NodeSearchResult`
 contract used by `QUERY /api/v1/node/search`. It also owns the typed
 `NodeCreateRequest` contract used by `POST /api/v1/node/` and the
 `NodeMutationRequest`/`NodeMutationResult` contract used by
-`PATCH /api/v1/node/`.
+`PATCH /api/v1/node/`. Creation carries the caller-selected Neo4j labels and
+initial Markdown body together with the required slug.
 `seville/notification/v1/notification.proto` defines shared notification
 severity vocabulary without prescribing a renderer or transport endpoint.
 `Node` remains the primary data unit rather than an abstract knowledge

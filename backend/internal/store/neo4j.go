@@ -698,6 +698,7 @@ FOREACH (_ IN CASE WHEN created THEN [1] ELSE [] END |
 	query := `MERGE (node {slug: $slug})
 ON CREATE SET node.id = randomUUID(),
               node.update_count = 0,
+              node.body = $body,
               node.modified_at = $modified_at,
               node.__seville_create_token = $create_token
 WITH node, coalesce(node.__seville_create_token = $create_token, false) AS created` + labelMutation + `
@@ -713,6 +714,7 @@ RETURN created,
        [] AS emojis`
 	return query, map[string]any{
 		"slug":        slug,
+		"body":        create.Body,
 		"modified_at": time.Now().UTC().UnixNano(),
 	}, slug, nil
 }

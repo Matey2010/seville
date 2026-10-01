@@ -67,8 +67,8 @@ flutter:
     - assets/audio/technology-select.wav
     - assets/backgrounds/
     - assets/wallpapers/
-    - assets/logo/
     - assets/icons/vector/
+    - assets/icons/png/
     - assets/icons/vector/body-parts/
 
   fonts:

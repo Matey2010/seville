@@ -53,6 +53,7 @@ func (s *Server) createNode(w http.ResponseWriter, r *http.Request) {
 	node, err := s.store.CreateNode(r.Context(), store.NodeCreate{
 		Slug:   request.GetSlug(),
 		Labels: request.GetLabels(),
+		Body:   request.GetBody(),
 	})
 	if errors.Is(err, store.ErrInvalidNodeCreate) {
 		s.writeError(w, http.StatusBadRequest, "invalid_node_create", err.Error())

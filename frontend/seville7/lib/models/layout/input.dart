@@ -38,6 +38,12 @@ sealed class LayoutInputSubmission {
 
   const factory LayoutInputSubmission.createVirtualNode() =
       CreateVirtualNodeLayoutInputSubmission;
+
+  const factory LayoutInputSubmission.setCreationLabels() =
+      SetCreationLabelsLayoutInputSubmission;
+
+  const factory LayoutInputSubmission.setCreationBody() =
+      SetCreationBodyLayoutInputSubmission;
 }
 
 class FindNodesLayoutInputSubmission extends LayoutInputSubmission {
@@ -46,4 +52,12 @@ class FindNodesLayoutInputSubmission extends LayoutInputSubmission {
 
 class CreateVirtualNodeLayoutInputSubmission extends LayoutInputSubmission {
   const CreateVirtualNodeLayoutInputSubmission() : super._();
+}
+
+class SetCreationLabelsLayoutInputSubmission extends LayoutInputSubmission {
+  const SetCreationLabelsLayoutInputSubmission() : super._();
+}
+
+class SetCreationBodyLayoutInputSubmission extends LayoutInputSubmission {
+  const SetCreationBodyLayoutInputSubmission() : super._();
 }

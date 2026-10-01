@@ -66,6 +66,7 @@ message NodeSearchResult {
 message NodeCreateRequest {
   string slug = 1;
   repeated string labels = 2;
+  string body = 3;
 }
 
 message NodePropertyValue {

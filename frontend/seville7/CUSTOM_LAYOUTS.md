@@ -253,7 +253,7 @@ screen
 ```
 
 Start from `lgErgoLayoutConfig` in
-`constants/layout/presets/lg_ergo/lg_ergo_layout_config.dart`. Add subsections
+`presets/lg_ergo/lg_ergo_layout_config.dart`. Add subsections
 directly to a parent layout's `children` map. Use `SafeAreaLayout` when a child
 must respect macOS display insets; no role or frame metadata is required.
 
@@ -472,11 +472,13 @@ LayoutPath(
 ```
 
 `from` and `to` must resolve to structural path corners. The curve passes
-through the resolved `through` derivative. A `GridLayout`, `RowLayout`, or
-`ColumnLayout` beneath a curved path is resolved in normalized surface
-coordinates: horizontal boundaries follow the curve, nested layouts inherit
-the same projection, and hit testing uses the rendered curved paths. The
-content is not rendered as a flat quadrilateral and clipped afterward.
+through the resolved `through` derivative. Configure a stateful `extent` when
+the surface should animate: `1fr` uses the authored control point and `0fr`
+collapses it onto the midpoint of the structural edge. A `GridLayout`,
+`RowLayout`, or `ColumnLayout` beneath a curved path is resolved in normalized
+surface coordinates: horizontal boundaries follow the curve, nested layouts
+inherit the same projection, and hit testing uses the rendered curved paths.
+The content is not rendered as a flat quadrilateral and clipped afterward.
 
 ### Conditional Node styles
 
@@ -559,7 +561,7 @@ limits. Internal bands keep a regular radius while the final band adapts the
 same cumulative fractions to the owning `LayoutPath` boundary by path length,
 preventing triangle or trapezoid perspective from adding unintended edge width.
 Fan segments paint their resolved Node color and state overlay without owning
-an image background. LG Ergo configures the elder-brain artwork once on the
+an image background. LG Ergo configures its fan pattern once on the
 `cortex-bush` Fan Layout surface, so it does not repeat per Node. `time-fan`
 has no image background.
 For a two-point curved Fan plane, Flame uses the midpoint of the structural
@@ -595,10 +597,15 @@ excludes the shared space-time slug matches. `time-fan` starts from the same
 cortex root and reverses that complete child filter, keeping the two planes as
 derived complementary partitions. The top uses direct-parts-weighted sizing;
 the bottom uses equal sizing.
-`GraphLayout` is the selected Node pool used by the center scene. It is nested
-at `panoramic-scene-plane/direction-pad/scene-graph`; its named slot spans the
-curved grid's complete center column and resolves the projected Graph area. It
-reads the complete Riverpod-selected Node
+`GraphLayout` is the selected Node pool reserved for the center scene. It is
+nested at `panoramic-scene-plane/direction-pad/game-scene/scene-graph`; its
+named slot spans the nested scene Grid's complete center column and resolves
+the projected Graph area. LG Ergo keeps the complete game-scene configuration
+in a separate preset module and gates it through `LayoutCondition.gameplay()`.
+Continue enters that scene; Escape returns to the menu without clearing
+selected Nodes. The same scene owns the `possessions` Row as its
+Layout-rendered HUD.
+It reads the complete Riverpod-selected Node
 collection and gives every Node an equal centered cell. `nodeExtentFactor` controls the circular
 Node diameter relative to that cell and defaults to `0.5`. The pool becomes
 denser as selection grows. Logical Node circles are sampled through the full
@@ -709,55 +716,71 @@ option components immediately beneath the input. Search options always show
 the wrapped slug, even when an Emoji exists, so each proposal exposes its Node
 identity. Arrow keys move the highlighted option; Enter or tapping an option
 toggles the same selected-node set used by Fan and Graph layouts.
+After a successful search with no results, the input overlay suggests creating
+the searched slug. The action reuses the normal exact-slug check and virtual
+Node creation flow; pending or failed searches do not expose it.
 LG Ergo configures it through `safe-area/find-layout`. `FindLayout` fills that
 resolved safe-area frame and owns padding, input/result dimensions, maximum
 width, hint, input fill, and border presentation. The editable Flutter control
 uses the same projected input corners resolved by Flame, while result Nodes
 remain native Flame layout children above normal scene and action-panel content.
-The LG Ergo right-plane green Add action appends a uniquely slugged virtual
-Node (`new-node`, `new-node-2`, and so on) to `selectedNodesProvider`. Virtual
-status is carried by `ResolvedVaultNode.isVirtual`; it is not written into the
-Node protobuf. Graph uses the shared Node border path to render that draft with
-a dashed border while retaining normal active fill and tap behavior.
-The top-row ✅ action beside the nuclear close action submits the first virtual
-Node with `New` and `Virtual` labels through `POST /api/v1/node/`. On success,
+LG Ergo's New action appends a uniquely slugged, commented `New:Virtual` draft
+(`new-node`, `new-node-2`, and so on) to `selectedNodesProvider`. Virtual status
+is carried by `ResolvedVaultNode.isVirtual`; the semantic labels remain normal
+Node data. The draft activates the creation-kind Layout. Kind panels dispatch
+`LayoutTapAction.selectCreationLabels(...)` with one root label and the complete
+exclusive root-label set, so `Character`, `Project`, `Universe`, `Business`,
+`Item`, `Event`, and `Space` select distinct specialized screens without a
+parallel renderer router. `LayoutCondition.creationNodeHasLabels(...)` reads
+only that draft rather than every selected Node.
+
+Each specialized slug input renames the same draft. The shared create action
+submits its slug, complete accumulated labels, and Markdown `body` through
+`POST /api/v1/node/`. On success,
 `SelectedNodesNotifier.replaceVirtualNode` preserves the selected-list position
-but swaps in the canonical response, making the shared border solid. Plain
-Enter invokes this action outside Find; while Find is visible it
-consumes Enter to submit the query or select the highlighted Node instead.
+but swaps in the canonical response, making the shared border solid. The Today
+action performs its normal exact-date lookup first; a missing date creates a
+`New:Virtual:Event:Day:Date` draft and therefore opens the Event screen.
+
+The shared creation Layout owns a top breadcrumb that names the current kind,
+including Character. Non-Character screens expose a two-stage form beneath it.
+Stage 1 edits the slug and optional comma-separated
+labels using projected single-line inputs. The kind label and the `New` and
+`Virtual` system labels remain on the draft when optional labels are replaced.
+Stage 2 opens a projected multiline Markdown input on the description panel;
+Apply or Command-Enter copies its exact source into the draft's `Node.body`.
+Create sends the current draft values. The Character creator retains its own
+body-stage rendering and is not replaced by this generic form.
 
 The right plane keeps Copy and Share in its second action row. Me has moved to
 the left info table as a visible group; its previous exact-slug player action
 is intentionally not connected until the group receives global functionality.
+Confirm/Enter and Close/Escape are not navigation-column items. Their dedicated
+`center-action-row: RowLayout` occupies a fixed center-column track immediately
+above the named teletext track, reuses the navigation surface background, and
+retains the same action aliases and focused weapon artwork.
 The panoramic scene contains a three-by-three directional core whose slots
 represent top-left, top-center,
 top-right, center-left, center, center-right, bottom-left, bottom-center, and
-bottom-right. A fixed 4rem header and 2rem bottom ribbon surround those rows,
-while a fixed 4rem left-ribbon slot spans the complete column. Its nested
-content skips the first 4rem header row. The header is a direct `RowLayout`
-spanning all four columns. A
-foreground logo slot owns their first-cell intersection and uses `NodeLayout`
-to load the same exact Calendar root as the top and bottom Fans, while
-preserving its `brain-control` aliases and brain Emoji. The elder-brain image
-is configured once on `cortex-bush`, not on the logo. The center
-content column is wider than its side columns. Header panels are direct children of its
-single RowLayout. These controls
-expose stable `direction-*` aliases but remain
-declarative interaction placeholders for now.
-The full-width bottom track is owned by `footer: RowLayout`. It crosses the
-left-ribbon column explicitly and orders a fixed ribbon-width start spacer, the
-flexible teletext `bottom-ribbon` panel, and a matching end spacer.
+bottom-right. A fixed action row and 2rem teletext ribbon follow those rows.
+The three content columns consume the complete panoramic width, with no
+auxiliary left-ribbon track. The center content column is wider than its side
+columns. The extracted navigation column occupies the top-left directional
+slot through the same `GridSlot` placement system as other scene content.
+These controls expose stable `direction-*` aliases but remain declarative
+interaction placeholders for now.
 
 The top-row Today action formats the local calendar date as `DD-MM-YYYY` and
 performs an exact-slug `QUERY /api/v1/node/search`. A returned canonical Node is
 selected through the shared Riverpod set. A successful empty result creates a
-dashed virtual Node with `Calendar`, `Date`, and `Day` labels. Query failures do
-not manufacture a potentially duplicate draft.
+dashed `New:Virtual:Event:Day:Date` draft and opens Event creation. Query
+failures do not manufacture a potentially duplicate draft.
 
-The right-plane cross and Escape both dispatch the same nuclear cancel action.
-It clears canonical and virtual selection, empties the submitted search value
-and visible results, closes Find, invalidates cached Node searches, and
-therefore closes the selected-node scene. The left plane is not involved.
+In gameplay, the close panel and Escape return to the main menu while keeping
+selected Nodes. In the menu and creation flow, the same cancel action clears
+canonical and virtual selection, empties the submitted search value and visible
+results, closes Find, and invalidates cached Node searches. The left plane is
+not involved.
 The `left-plane`
 provides the 12-segment x/space plane between scene-left and screen-left; its
 grid contains only the real space rows, not fake padding tracks. The scene inner
@@ -765,19 +788,11 @@ circle uses the owning layout's `padding + borderWidth` as an inset, while the
 outer circle remains the scene boundary for anchors and shape framing.
 
 The `direction-pad` is the panoramic reference grid: three fractional scene
-rows plus fixed header and bottom-ribbon rows, and three fractional content
-columns preceded by the fixed 4rem `left-ribbon`. `info-grid` spans its
-projected left content column across the three scene rows between header and
-footer, `scene-graph` spans
-its projected center column, and `action-panel` directly owns the projected
-right column as a `ColumnLayout` across the three scene rows, stopping before
-the footer. The left-ribbon content is also a
-`ColumnLayout`, nested in a full-height Grid slot whose first row is reserved
-for the logo. The header is a direct full-width Row. `logo` separately owns the
-header/left-ribbon intersection. Its shared-root `NodeLayout` and brain Emoji
-paint above both outer ribbon surfaces without a separate image background.
-The directional
-slots remain reserved for controls. Its center track is
+rows plus fixed action and teletext rows, and three fractional content columns.
+`info-grid`, `game-scene`, `action-panel`, and the navigation column address
+their projected areas exclusively through named slots. The nested game scene
+owns the `scene-graph` and `possessions` slots. Navigation occupies the top-left
+slot. The directional slots remain reserved for controls. Its center track is
 wider than its side tracks, demonstrating that grid tracks remain independent
 from child `Layout.size` values.
 

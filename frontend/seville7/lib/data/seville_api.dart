@@ -204,6 +204,7 @@ class SevilleApi {
   Future<Node> createNode({
     required String slug,
     Iterable<String> labels = const [],
+    String body = '',
   }) async {
     final normalizedSlug = slug.trim();
     if (normalizedSlug.isEmpty) {
@@ -212,6 +213,7 @@ class SevilleApi {
     final request = wire.NodeCreateRequest(
       slug: normalizedSlug,
       labels: labels,
+      body: body,
     );
     final response = await _dio.post<List<int>>(
       '/api/v1/node/',

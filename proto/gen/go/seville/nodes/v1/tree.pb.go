@@ -492,6 +492,7 @@ type NodeCreateRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Slug          string                 `protobuf:"bytes,1,opt,name=slug,proto3" json:"slug,omitempty"`
 	Labels        []string               `protobuf:"bytes,2,rep,name=labels,proto3" json:"labels,omitempty"`
+	Body          string                 `protobuf:"bytes,3,opt,name=body,proto3" json:"body,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -538,6 +539,13 @@ func (x *NodeCreateRequest) GetLabels() []string {
 		return x.Labels
 	}
 	return nil
+}
+
+func (x *NodeCreateRequest) GetBody() string {
+	if x != nil {
+		return x.Body
+	}
+	return ""
 }
 
 type NodePropertyValue struct {
@@ -991,10 +999,11 @@ const file_seville_nodes_v1_tree_proto_rawDesc = "" +
 	"\x05limit\x18\x02 \x01(\rH\x00R\x05limit\x88\x01\x01B\b\n" +
 	"\x06_limit\"?\n" +
 	"\x10NodeSearchResult\x12+\n" +
-	"\x05nodes\x18\x01 \x03(\v2\x15.seville.node.v2.NodeR\x05nodes\"?\n" +
+	"\x05nodes\x18\x01 \x03(\v2\x15.seville.node.v2.NodeR\x05nodes\"S\n" +
 	"\x11NodeCreateRequest\x12\x12\n" +
 	"\x04slug\x18\x01 \x01(\tR\x04slug\x12\x16\n" +
-	"\x06labels\x18\x02 \x03(\tR\x06labels\"\xb4\x01\n" +
+	"\x06labels\x18\x02 \x03(\tR\x06labels\x12\x12\n" +
+	"\x04body\x18\x03 \x01(\tR\x04body\"\xb4\x01\n" +
 	"\x11NodePropertyValue\x12#\n" +
 	"\fstring_value\x18\x01 \x01(\tH\x00R\vstringValue\x12%\n" +
 	"\rinteger_value\x18\x02 \x01(\x03H\x00R\fintegerValue\x12#\n" +

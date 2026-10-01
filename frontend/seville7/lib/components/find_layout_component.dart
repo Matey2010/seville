@@ -33,7 +33,12 @@ class LayoutInputViewState {
       input == null || input!.submission is FindNodesLayoutInputSubmission;
 
   bool get isCreateInput =>
-      input?.submission is CreateVirtualNodeLayoutInputSubmission;
+      input?.submission is CreateVirtualNodeLayoutInputSubmission ||
+      input?.submission is SetCreationLabelsLayoutInputSubmission ||
+      input?.submission is SetCreationBodyLayoutInputSubmission;
+
+  bool get isBodyInput =>
+      input?.submission is SetCreationBodyLayoutInputSubmission;
 
   LayoutInputConfig get effectiveInput =>
       input ??
@@ -83,8 +88,10 @@ class LayoutInputComponent extends PositionComponent with KeyboardHandler {
   LayoutInputComponent({
     required FindLayout layout,
     required this.searchValue,
+    required this.searchResolved,
     required this.onSearchSubmitted,
-    required this.onCreateVirtualNodeSubmitted,
+    required this.onCreateSuggestedNode,
+    required this.onCreationInputSubmitted,
     required this.onCancel,
     required this.onRefreshFanData,
     required this.onCopySelectedNodeSlug,
@@ -99,8 +106,15 @@ class LayoutInputComponent extends PositionComponent with KeyboardHandler {
        );
 
   String searchValue;
+  bool searchResolved;
   ValueChanged<String> onSearchSubmitted;
-  void Function(String slug, String layoutKey) onCreateVirtualNodeSubmitted;
+  ValueChanged<String> onCreateSuggestedNode;
+  bool Function(
+    String value,
+    String layoutKey,
+    LayoutInputSubmission submission,
+  )
+  onCreationInputSubmitted;
   VoidCallback onCancel;
   VoidCallback onRefreshFanData;
   VoidCallback onCopySelectedNodeSlug;
@@ -122,6 +136,13 @@ class LayoutInputComponent extends PositionComponent with KeyboardHandler {
       isFindOpen &&
       viewState.value.draft.trim() == searchValue.trim() &&
       results.isNotEmpty;
+
+  bool get canSuggestCreation =>
+      isFindOpen &&
+      searchResolved &&
+      results.isEmpty &&
+      searchValue.trim().isNotEmpty &&
+      viewState.value.draft.trim() == searchValue.trim();
 
   void updateLayout(
     FindLayout layout,
@@ -168,10 +189,13 @@ class LayoutInputComponent extends PositionComponent with KeyboardHandler {
 
   void updateConfiguration({
     required String searchValue,
+    required bool searchResolved,
     required List<ResolvedVaultNode> results,
   }) {
     final resultsChanged = !_sameNodes(this.results, results);
+    final searchResolvedChanged = this.searchResolved != searchResolved;
     this.searchValue = searchValue;
+    this.searchResolved = searchResolved;
     this.results = results;
     if (!showsResults) {
       _highlightedIndex = -1;
@@ -179,6 +203,11 @@ class LayoutInputComponent extends PositionComponent with KeyboardHandler {
         _highlightedIndex < 0 ||
         _highlightedIndex >= results.length) {
       _highlightedIndex = 0;
+    }
+    if (searchResolvedChanged || resultsChanged) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        viewState.value = viewState.value.copyWith();
+      });
     }
   }
 
@@ -230,6 +259,27 @@ class LayoutInputComponent extends PositionComponent with KeyboardHandler {
     _highlightedIndex = showsResults ? 0 : -1;
   }
 
+  void updatePanelGeometry(List<Offset> projectedCorners) {
+    if (!isOpen ||
+        viewState.value.owner == null ||
+        projectedCorners.length != 4) {
+      return;
+    }
+    final horizontalExtent =
+        ((projectedCorners[1] - projectedCorners[0]).distance +
+            (projectedCorners[2] - projectedCorners[3]).distance) /
+        2;
+    final verticalExtent =
+        ((projectedCorners[3] - projectedCorners[0]).distance +
+            (projectedCorners[2] - projectedCorners[1]).distance) /
+        2;
+    if (horizontalExtent <= 0 || verticalExtent <= 0) return;
+    viewState.value = viewState.value.copyWith(
+      projectedCorners: List.unmodifiable(projectedCorners),
+      logicalSize: Size(horizontalExtent, verticalExtent),
+    );
+  }
+
   void close() {
     viewState.value = viewState.value.copyWith(isOpen: false);
     _highlightedIndex = -1;
@@ -244,11 +294,24 @@ class LayoutInputComponent extends PositionComponent with KeyboardHandler {
   void submitDraft() {
     final state = viewState.value;
     final query = state.draft.trim();
-    if (state.input?.submission case CreateVirtualNodeLayoutInputSubmission()) {
+    final submission = state.input?.submission;
+    if (submission is CreateVirtualNodeLayoutInputSubmission ||
+        submission is SetCreationLabelsLayoutInputSubmission ||
+        submission is SetCreationBodyLayoutInputSubmission) {
       final layoutKey = state.layoutKey;
-      if (query.isEmpty || layoutKey == null) return;
-      onCreateVirtualNodeSubmitted(query, layoutKey);
-      close();
+      if (layoutKey == null ||
+          (submission is CreateVirtualNodeLayoutInputSubmission &&
+              query.isEmpty)) {
+        return;
+      }
+      final accepted = onCreationInputSubmitted(
+        submission is SetCreationBodyLayoutInputSubmission
+            ? state.draft
+            : query,
+        layoutKey,
+        submission!,
+      );
+      if (accepted) close();
       return;
     }
     if (showsResults && _highlightedIndex >= 0) {
@@ -407,6 +470,15 @@ class _LayoutInputOverlayState extends State<LayoutInputOverlay> {
       widget.component.close();
       return KeyEventResult.handled;
     }
+    if (widget.component.viewState.value.isBodyInput &&
+        event.logicalKey == LogicalKeyboardKey.enter &&
+        HardwareKeyboard.instance.isMetaPressed) {
+      widget.component.submitDraft();
+      return KeyEventResult.handled;
+    }
+    if (widget.component.viewState.value.isBodyInput) {
+      return KeyEventResult.ignored;
+    }
     if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
       widget.component.moveHighlight(1);
       return KeyEventResult.handled;
@@ -445,69 +517,112 @@ class _LayoutInputOverlayState extends State<LayoutInputOverlay> {
                     size: state.logicalSize,
                     child: Focus(
                       onKeyEvent: _handleKey,
-                      child: TextField(
-                        controller: _controller,
-                        focusNode: _focusNode,
-                        autofocus: true,
-                        maxLines: 1,
-                        textInputAction: state.isFindInput
-                            ? TextInputAction.search
-                            : TextInputAction.done,
-                        onSubmitted: (_) => widget.component.submitDraft(),
-                        cursorColor: border.color,
-                        style: TextStyle(
-                          color: text.resolveColor(input.backgroundColor),
-                          fontFamily: text.fontFamily,
-                          fontSize: text.fontSize ?? 18,
-                          fontWeight: text.fontWeight,
-                          fontStyle: text.fontStyle,
-                          letterSpacing: text.letterSpacing,
-                          wordSpacing: text.wordSpacing,
-                          height: text.height,
-                          shadows: text.effects,
-                          fontFeatures: text.fontFeatures,
-                        ),
-                        decoration: InputDecoration(
-                          hintText: input.hint.resolve(),
-                          filled: true,
-                          fillColor: input.backgroundColor,
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: input.horizontalPadding,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(
-                              input.borderRadius,
+                      child: Builder(
+                        builder: (context) {
+                          final editor = TextField(
+                            controller: _controller,
+                            focusNode: _focusNode,
+                            autofocus: true,
+                            maxLines: state.isBodyInput ? null : 1,
+                            expands: state.isBodyInput,
+                            textInputAction: state.isFindInput
+                                ? TextInputAction.search
+                                : state.isBodyInput
+                                ? TextInputAction.newline
+                                : TextInputAction.done,
+                            onSubmitted: state.isBodyInput
+                                ? null
+                                : (_) => widget.component.submitDraft(),
+                            cursorColor: border.color,
+                            style: TextStyle(
+                              color: text.resolveColor(input.backgroundColor),
+                              fontFamily: text.fontFamily,
+                              fontSize: text.fontSize ?? 18,
+                              fontWeight: text.fontWeight,
+                              fontStyle: text.fontStyle,
+                              letterSpacing: text.letterSpacing,
+                              wordSpacing: text.wordSpacing,
+                              height: text.height,
+                              shadows: text.effects,
+                              fontFeatures: text.fontFeatures,
                             ),
-                            borderSide: BorderSide(
-                              color: border.color,
-                              width: border.strokeWidth,
+                            decoration: InputDecoration(
+                              hintText: input.hint.resolve(),
+                              filled: true,
+                              fillColor: input.backgroundColor,
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: input.horizontalPadding,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(
+                                  input.borderRadius,
+                                ),
+                                borderSide: BorderSide(
+                                  color: border.color,
+                                  width: border.strokeWidth,
+                                ),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(
+                                  input.borderRadius,
+                                ),
+                                borderSide: BorderSide(
+                                  color: border.color,
+                                  width: border.strokeWidth,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(
+                                  input.borderRadius,
+                                ),
+                                borderSide: BorderSide(
+                                  color: border.color,
+                                  width: border.strokeWidth,
+                                ),
+                              ),
                             ),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(
-                              input.borderRadius,
-                            ),
-                            borderSide: BorderSide(
-                              color: border.color,
-                              width: border.strokeWidth,
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(
-                              input.borderRadius,
-                            ),
-                            borderSide: BorderSide(
-                              color: border.color,
-                              width: border.strokeWidth,
-                            ),
-                          ),
-                        ),
+                          );
+                          if (!state.isBodyInput) return editor;
+                          return Column(
+                            children: [
+                              Expanded(child: editor),
+                              SizedBox(
+                                height: 44,
+                                child: TextButton(
+                                  onPressed: widget.component.submitDraft,
+                                  child: const Text('APPLY DESCRIPTION  ·  ⌘↵'),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
                       ),
                     ),
                   ),
                 ),
               ),
             ),
+            if (widget.component.canSuggestCreation)
+              Positioned(
+                left: state.projectedCorners[3].dx,
+                top: state.projectedCorners[3].dy + 8,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: state.logicalSize.width,
+                  ),
+                  child: FilledButton(
+                    onPressed: () {
+                      final slug = state.draft.trim();
+                      widget.component.close();
+                      widget.component.onCreateSuggestedNode(slug);
+                    },
+                    child: Text(
+                      'CREATE [[${state.draft.trim()}]]',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+              ),
           ],
         );
       },

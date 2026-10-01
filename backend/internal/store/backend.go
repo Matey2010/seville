@@ -21,6 +21,7 @@ var ErrInvalidNodeMutation = errors.New("invalid Node mutation")
 type NodeCreate struct {
 	Slug   string
 	Labels []string
+	Body   string
 }
 
 // NodeMutation describes canonical Node data changes. Additional mutation

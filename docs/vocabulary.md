@@ -86,9 +86,11 @@ A virtual Node is a frontend draft represented by `ResolvedVaultNode` with
 `isVirtual: true`. It participates in the same slug-identified selected-node
 state and Graph layout as canonical Nodes, but it has not been created in
 Neo4j. Flame renderers distinguish that status with a dashed Node border.
-Submitting creates the first virtual Node as canonical `:New:Virtual` data and
-replaces the draft in place with the backend response. Cancelling the interface
-discards virtual Nodes with the rest of selection.
+Creation drafts additionally carry `New` and `Virtual` labels and begin with a
+Markdown comment in `Node.body`. Submitting sends the draft slug, complete
+accumulated label set, and body through `POST /api/v1/node/`, then replaces the
+draft in place with the backend response. Cancelling the interface discards
+virtual Nodes with the rest of selection.
 
 ## Source adapter
 
@@ -96,6 +98,18 @@ A source adapter reads an external representation such as a local Git checkout
 or Markdown folder and proposes nodes and connections to the ingestion layer.
 Source formats do not define Seville's domain vocabulary and do not silently
 overwrite newer canonical graph state.
+
+## Gameplay actor
+
+A gameplay actor is one runtime participant in the 2D simulation. Its stable
+`actorId` connects collision bodies, RPG state, multiplayer commands, and
+server-authored world events for the lifetime of that world session.
+
+A gameplay actor is not a replacement name for `Node`. `Node` remains Seville's
+canonical durable data unit. An actor may reference a Node for authored content
+or persistent identity later, but transient position, velocity, collision, and
+presence state remain in the game simulation unless an explicit application
+rule promotes a durable change through the Go API.
 
 ## Layout
 
@@ -114,6 +128,20 @@ Layout variants, conditions, sizes, Fan traversal configuration, tables,
 panels, Nodes, labels, searches, and screen-specific Layout models behind that
 single import boundary. This grouping keeps the configuration layer coherent
 if it is later represented through protobuf, YAML, or another serialization.
+
+Application presets live under `frontend/seville7/lib/presets`, beside the
+application's `components` and `data` packages rather than beneath shared
+constants. Large preset trees may be split across separate Dart files to
+encapsulate one coherent interface component and its supporting configuration.
+The extracted file exposes one Layout value at its top, keeps its manifests and
+helpers private below it, and the owning preset inserts that value under the
+same stable `Layout.children` key. A file boundary organizes authored
+configuration; it does not create a new renderer, runtime hierarchy, identity
+system, or parallel Layout model. LG Ergo follows this pattern for its
+create-character layout and body-part map. Its root preset likewise delegates
+the complete `direction-pad` subtree to `lgErgoPanoramicGrid`; shared preset
+query data lives in a separate preset-local data module instead of being
+duplicated between the outer planes and panoramic composition.
 
 `GridLayout.slots` is the authored placement map. Each `GridSlot` selects named
 row and column tracks, while a child declares the area it occupies through
@@ -157,11 +185,36 @@ the same flow to intrinsic measurement and painting. When both contrast colors
 are present, renderers select dark text
 for a light resolved background and light text for a dark background.
 
+`LayoutSize.state` conditionally replaces one configured size while preserving
+its owner and tree position. A non-zero `animationDuration` asks Flame to
+interpolate compatible scalar sizes and to reverse that interpolation when the
+condition stops matching. Grid tracks resolve this animated size once through
+their shared track-stop calculation, so slots, projected paint, backgrounds,
+hit testing, and native input overlays use the same moving geometry. LG Ergo's
+panoramic `left` column animates from `1fr` to `0.5fr` while either
+`LayoutCondition.findOpened()` or `LayoutCondition.createOpened()` matches.
+
+`GridSlot.state` conditionally replaces a slot's named grid destination. A
+non-zero `animationDuration` interpolates the resolved row, column, offsets,
+and spans in grid-track space, including transitions between different named
+tracks. Paint, projected backgrounds, hit testing, input overlays, and slot
+references consume the same animated slot. While LG Ergo's character creator
+is open, `point-of-view` shifts from the top-right quarter to the bottom-center
+quarter while `teletext` moves into the vacated top-right quarter. A slot
+animation may resolve either span to exactly zero; the surface then disappears
+from paint and hit testing instead of being retained as a minimum-size sliver.
+Configure `animationDuration` on the stable outer `GridSlot`, not on one
+conditional target. LG Ergo's info table uses this protocol to extend through
+the right-side tracks while Node creation is open.
+
 `LayoutBackground.svg(...)` is the vector-source counterpart to
 `LayoutBackground.image(...)`. Flame loads it through `flame_svg`, rasterizes
 it once at a maximum 1024-pixel side while preserving its authored viewBox
 aspect ratio, and then paints it through the same flat, projective, or curved
-Layout surface mesh as raster backgrounds.
+Layout surface mesh as raster backgrounds. Quarter-turn rotations exchange the
+surface's fitting axes before applying `LayoutBackgroundFit`, so tall artwork
+rotated into a horizontal panel reaches that panel's top and bottom edges in
+both flat and projected rendering.
 
 `NodeConfig` is a layout-owned, recursively conditional Node configuration. Its
 presentation and typography fields live directly on the configuration. Its
@@ -208,15 +261,109 @@ Flame-resolved projected surface and submits the query, Riverpod owns its
 asynchronous state, and `NodeListLayout` renders the result inside the
 configured Flame layout tree. Selecting a result changes the same
 slug-identified active Node set used by Fan and Graph layouts.
+After a successful empty Find response, its projected input offers
+`Create [[searched-slug]]`. Loading and failed searches never offer creation.
+The suggestion starts the ordinary virtual-Node flow, which checks the exact
+slug again before adding a draft.
 
 Layout input state remains declarative. `LayoutCondition.findOpened()` matches
 only while a Find submission owns the active input, and
-`LayoutCondition.createOpened()` matches only while a create-virtual-Node
-submission owns it. The conditions are mutually exclusive because the shared
-input overlay has one active owner. They may specialize any stable Layout tree
-key through `LayoutState<LayoutConfig>`; they do not introduce separate Find or
-Create domain entities. The input-owning `PanelLayout` continues to supply the
+`LayoutCondition.createOpened()` matches while a selected virtual creation Node
+with the `New` label exists, including while one of its editable inputs owns the
+shared overlay. They may specialize any stable Layout tree key through
+`LayoutState<LayoutConfig>`; they do not introduce separate Find or Create
+domain entities. The input-owning `PanelLayout` continues to supply the
 projected geometry, typography, hint, border, and submission behavior.
+
+`LayoutContext.scene` is the semantic interface scene. Riverpod owns the base
+scene (`mainMenu` or `gameplay`); an active creation draft temporarily resolves
+it to `LayoutScene.nodeCreation`. Presets use `LayoutCondition.mainMenu()` and
+`LayoutCondition.gameplay()` to gate their respective surfaces. Continue enters
+gameplay; Escape or the close action returns to the menu without discarding
+selected Nodes. The existing creation flow remains independent.
+
+Node creation uses the draft's Neo4j labels as semantic branching state rather
+than introducing a parallel creation-kind enum. `LayoutCondition.creationNodeHasLabels(...)`
+reads only the active `New:Virtual` draft, never unrelated selected Nodes. The
+first LG Ergo screen offers the mutually exclusive root labels `Character`,
+`Project`, `Universe`, `Business`, `Item`, `Event`, and `Space`; choosing one
+removes the other root labels and adds the selected label to the same draft.
+Each specialized Layout is conditionally visible from its root label, so a
+`:Project` draft cannot activate the Character body composer. Later semantic
+steps may accumulate more labels through the same action, while skipped
+optional fields remain transient form progress and must not create synthetic
+Neo4j labels. Submission is rejected until the draft owns at least one
+classification label beyond `New` and `Virtual`.
+
+The Today action uses the same creation pipeline when its date slug is absent.
+It creates a commented `New:Virtual:Event:Day:Date` draft, whose labels select
+the Event Layout. If the canonical date Node already exists, Today remains an
+ordinary Node selection and does not open a redundant creation flow.
+
+`LayoutPathCurve.activeCondition` controls only the curved replacement edge;
+it does not hide or relocate the owning path. Use it for an immediate edge
+switch and use a stateful curve extent when the transition must animate. LG
+Ergo retains its separately authored top and bottom Fan planes behind
+`LayoutCondition.never`, with their curve extent fixed at zero while the square
+architecture is active. Their exported `FanLayout` values remain available for
+future grids. The panoramic navigation column follows the same module boundary:
+its complete menu and focused-panel artwork state live in a separate preset
+module, while the panoramic grid retains only its stable child key and top-left
+slot. The exported column is visible only under `LayoutCondition.mainMenu()`.
+
+`LayoutPathCurve.extent` is a stateful scalar `LayoutSize`: `1fr` preserves the
+authored curve, while `0fr` collapses its control point onto the structural
+edge. Animated extents use the shared Layout-size animation pipeline, so path
+paint, projected children, and hit geometry resolve the same intermediate
+curve. LG Ergo currently shares one always-zero extent across both dormant Fan
+planes and both panoramic edges, keeping the scene plane square without a
+renderer-specific geometry branch.
+
+LG Ergo's `create-layout` is an ordinary conditionally visible `GridLayout` in
+the same panoramic slot as `FindLayout`. It owns the kind-selection screen,
+label-selected specialized screens, and shared back/cancel/create actions.
+The shared creation Layout shows a breadcrumb above the kind screen and every
+specialized screen. Non-Character screens show `New › kind › name and labels ›
+description`, a slug input, comma-separated extra labels, and a Markdown body
+input. These fields edit the same selected virtual Node. The root kind and
+system labels remain protected when extra labels are replaced; the Go label
+syntax (`[A-Za-z_][A-Za-z0-9_]*`) is validated before submission. Opening the
+description panel is the second editing stage. Its native multiline editor
+projects onto the configured panel, preserves Markdown source verbatim, and
+applies it to `Node.body` with the Apply button or Command-Enter. Creating the
+Node then sends that body with the slug and labels through the existing POST.
+The Character screen receives only the shared breadcrumb; it retains its
+Sevifont heading and nested normalized body stage,
+whose positioned `PanelLayout` children own individual SVG body-part
+backgrounds. One ordered body-part manifest derives both the slots and panels
+so artwork and geometry remain coupled. Reused right-side artwork sets
+`LayoutBackground.svg(flipHorizontally: true)`; flat and projected background
+renderers apply that mirror through their shared image path.
+
+LG Ergo's selected-Node game scene lives in a separate game-scene preset
+module. The panoramic grid owns only the stable `game-scene` child key and
+complete-core slot. The nested scene Grid owns the center `scene-graph` world
+surface and the right-bottom `possessions` Row HUD. It is visible through
+`LayoutCondition.gameplay()`, keeping the world hidden until Continue is
+activated. The Graph
+component paints beneath the Layout-rendered HUD. A compact status Panel names
+the active gameplay system families, while the kernel continues updating its
+child systems even on frames with no queued events.
+The scene's nested world Grid is 500m wide and 200m tall. Its reusable
+Character-creator body remains a physical 1m × 2m model. The gameplay view's
+15× perspective scale gives it a centered 15m × 30m projected cell while retaining
+the body midpoint at world `(250m, 100m)`. A textured ground surface starts
+immediately beneath its projected feet, and independent random SVG layers
+compose debris above it.
+
+LG Ergo's main-menu Confirm/Enter and Close/Escape panels live in a separate
+`center-action-row` preset module rather than the navigation column. The
+panoramic grid gives that Row a fixed track immediately before the named
+teletext track in the center column. Teletext addresses `teletext-ribbon`
+directly instead of relying on a positional row offset, so additional chrome
+tracks cannot silently move it. Navigation and center actions share one
+preset-local focused-panel artwork state and the same dark-vintage surface
+background.
 
 ## HTTP graph operations
 

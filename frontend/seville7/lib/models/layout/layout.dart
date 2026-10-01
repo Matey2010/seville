@@ -311,6 +311,7 @@ class LayoutDerivativeSnapshot {
 class LayoutContext {
   const LayoutContext({
     this.inputSource,
+    this.baseScene = LayoutScene.mainMenu,
     this.findOpened = false,
     this.createOpened = false,
     this.selectedNodePath,
@@ -322,17 +323,22 @@ class LayoutContext {
     this.currentNodePath,
     this.currentNodeSlug,
     this.currentNodeLabels = const [],
+    this.creationNodePath,
+    this.creationNodeLabels = const [],
     this.activeNodeSlugs = const [],
     this.activeNodePaths = const [],
     this.activeNodeLabels = const [],
     this.layoutPath = const [],
     this.rootFontSize = LayoutTextDefaults.rootFontSize,
+    this.resolvedLayoutSizes = const {},
+    this.resolvedGridSlots = const {},
   });
 
   static const empty = LayoutContext();
 
   /// Source of the interaction currently being evaluated, when applicable.
   final LayoutInputSource? inputSource;
+  final LayoutScene baseScene;
   final bool findOpened;
   final bool createOpened;
   final String? selectedNodePath;
@@ -344,11 +350,23 @@ class LayoutContext {
   final String? currentNodePath;
   final String? currentNodeSlug;
   final List<String> currentNodeLabels;
+  final String? creationNodePath;
+  final List<String> creationNodeLabels;
   final List<String> activeNodeSlugs;
   final List<String> activeNodePaths;
   final List<String> activeNodeLabels;
   final List<String> layoutPath;
   final double rootFontSize;
+  final Map<LayoutSize, LayoutSize> resolvedLayoutSizes;
+  final Map<GridSlot, GridSlot> resolvedGridSlots;
+
+  LayoutScene get scene => createOpened ? LayoutScene.nodeCreation : baseScene;
+
+  LayoutSize resolveLayoutSize(LayoutSize size) =>
+      resolvedLayoutSizes[size] ?? size.resolve(this);
+
+  GridSlot resolveGridSlot(GridSlot slot) =>
+      resolvedGridSlots[slot] ?? slot.resolve(this);
 
   List<String> get resolvedActiveNodePaths {
     if (activeNodePaths.isNotEmpty) return activeNodePaths;
@@ -359,6 +377,7 @@ class LayoutContext {
   LayoutContext withCurrentNodePath(String? path) {
     return LayoutContext(
       inputSource: inputSource,
+      baseScene: baseScene,
       findOpened: findOpened,
       createOpened: createOpened,
       selectedNodePath: selectedNodePath,
@@ -370,17 +389,22 @@ class LayoutContext {
       currentNodePath: path,
       currentNodeSlug: currentNodeSlug,
       currentNodeLabels: currentNodeLabels,
+      creationNodePath: creationNodePath,
+      creationNodeLabels: creationNodeLabels,
       activeNodeSlugs: activeNodeSlugs,
       activeNodePaths: activeNodePaths,
       activeNodeLabels: activeNodeLabels,
       layoutPath: layoutPath,
       rootFontSize: rootFontSize,
+      resolvedLayoutSizes: resolvedLayoutSizes,
+      resolvedGridSlots: resolvedGridSlots,
     );
   }
 
   LayoutContext withLabelHighlighted(bool value) {
     return LayoutContext(
       inputSource: inputSource,
+      baseScene: baseScene,
       findOpened: findOpened,
       createOpened: createOpened,
       selectedNodePath: selectedNodePath,
@@ -392,17 +416,22 @@ class LayoutContext {
       currentNodePath: currentNodePath,
       currentNodeSlug: currentNodeSlug,
       currentNodeLabels: currentNodeLabels,
+      creationNodePath: creationNodePath,
+      creationNodeLabels: creationNodeLabels,
       activeNodeSlugs: activeNodeSlugs,
       activeNodePaths: activeNodePaths,
       activeNodeLabels: activeNodeLabels,
       layoutPath: layoutPath,
       rootFontSize: rootFontSize,
+      resolvedLayoutSizes: resolvedLayoutSizes,
+      resolvedGridSlots: resolvedGridSlots,
     );
   }
 
   LayoutContext withCurrentLabel(String? label) {
     return LayoutContext(
       inputSource: inputSource,
+      baseScene: baseScene,
       findOpened: findOpened,
       createOpened: createOpened,
       selectedNodePath: selectedNodePath,
@@ -414,11 +443,15 @@ class LayoutContext {
       currentNodePath: currentNodePath,
       currentNodeSlug: currentNodeSlug,
       currentNodeLabels: currentNodeLabels,
+      creationNodePath: creationNodePath,
+      creationNodeLabels: creationNodeLabels,
       activeNodeSlugs: activeNodeSlugs,
       activeNodePaths: activeNodePaths,
       activeNodeLabels: activeNodeLabels,
       layoutPath: layoutPath,
       rootFontSize: rootFontSize,
+      resolvedLayoutSizes: resolvedLayoutSizes,
+      resolvedGridSlots: resolvedGridSlots,
     );
   }
 
@@ -429,6 +462,7 @@ class LayoutContext {
   }) {
     return LayoutContext(
       inputSource: inputSource,
+      baseScene: baseScene,
       findOpened: findOpened,
       createOpened: createOpened,
       selectedNodePath: selectedNodePath,
@@ -440,17 +474,22 @@ class LayoutContext {
       currentNodePath: path,
       currentNodeSlug: slug,
       currentNodeLabels: labels,
+      creationNodePath: creationNodePath,
+      creationNodeLabels: creationNodeLabels,
       activeNodeSlugs: activeNodeSlugs,
       activeNodePaths: activeNodePaths,
       activeNodeLabels: activeNodeLabels,
       layoutPath: layoutPath,
       rootFontSize: rootFontSize,
+      resolvedLayoutSizes: resolvedLayoutSizes,
+      resolvedGridSlots: resolvedGridSlots,
     );
   }
 
   LayoutContext withHighlightedNodePath(String path) {
     return LayoutContext(
       inputSource: inputSource,
+      baseScene: baseScene,
       findOpened: findOpened,
       createOpened: createOpened,
       selectedNodePath: selectedNodePath,
@@ -462,17 +501,22 @@ class LayoutContext {
       currentNodePath: currentNodePath,
       currentNodeSlug: currentNodeSlug,
       currentNodeLabels: currentNodeLabels,
+      creationNodePath: creationNodePath,
+      creationNodeLabels: creationNodeLabels,
       activeNodeSlugs: activeNodeSlugs,
       activeNodePaths: activeNodePaths,
       activeNodeLabels: activeNodeLabels,
       layoutPath: layoutPath,
       rootFontSize: rootFontSize,
+      resolvedLayoutSizes: resolvedLayoutSizes,
+      resolvedGridSlots: resolvedGridSlots,
     );
   }
 
   LayoutContext withPanelFocused(bool value) {
     return LayoutContext(
       inputSource: inputSource,
+      baseScene: baseScene,
       findOpened: findOpened,
       createOpened: createOpened,
       selectedNodePath: selectedNodePath,
@@ -484,14 +528,20 @@ class LayoutContext {
       currentNodePath: currentNodePath,
       currentNodeSlug: currentNodeSlug,
       currentNodeLabels: currentNodeLabels,
+      creationNodePath: creationNodePath,
+      creationNodeLabels: creationNodeLabels,
       activeNodeSlugs: activeNodeSlugs,
       activeNodePaths: activeNodePaths,
       activeNodeLabels: activeNodeLabels,
       layoutPath: layoutPath,
       rootFontSize: rootFontSize,
+      resolvedLayoutSizes: resolvedLayoutSizes,
+      resolvedGridSlots: resolvedGridSlots,
     );
   }
 }
+
+enum LayoutScene { mainMenu, gameplay, nodeCreation }
 
 abstract final class LayoutKey {
   static const innerBorder = 'inner-border';
@@ -1236,6 +1286,7 @@ abstract class LayoutBackground {
     Offset position,
     double rotationDegrees,
     double scale,
+    bool flipHorizontally,
   }) = LayoutImageBackground;
 
   const factory LayoutBackground.svg({
@@ -1247,6 +1298,7 @@ abstract class LayoutBackground {
     Offset position,
     double rotationDegrees,
     double scale,
+    bool flipHorizontally,
   }) = LayoutSvgBackground;
 
   const factory LayoutBackground.guides({
@@ -1320,6 +1372,7 @@ class LayoutImageBackground extends LayoutBackground {
     this.position = const Offset(0.5, 0.5),
     this.rotationDegrees = 0,
     this.scale = 1,
+    this.flipHorizontally = false,
   }) : assert(repeat > 0),
        assert(scale > 0);
 
@@ -1337,6 +1390,9 @@ class LayoutImageBackground extends LayoutBackground {
 
   /// Uniform scale around the center of each image tile.
   final double scale;
+
+  /// Mirrors artwork around the vertical center of its owning tile.
+  final bool flipHorizontally;
 }
 
 /// SVG asset rasterized once for projection through the shared image mesh.
@@ -1350,6 +1406,7 @@ class LayoutSvgBackground extends LayoutImageBackground {
     super.position,
     super.rotationDegrees,
     super.scale,
+    super.flipHorizontally,
   });
 }
 
@@ -1449,43 +1506,59 @@ class LayoutPathPadding {
 enum LayoutSizeUnit { fraction, pixels, rootEms, calculatedFraction }
 
 class LayoutSize {
-  const LayoutSize.fr(double value)
-    : _value = value,
-      _unit = LayoutSizeUnit.fraction,
-      _derivative = null,
-      _primary = null,
-      _secondary = null;
+  const LayoutSize.fr(
+    double value, {
+    this.state = const LayoutState(),
+    this.animationDuration = Duration.zero,
+  }) : _value = value,
+       _unit = LayoutSizeUnit.fraction,
+       _derivative = null,
+       _primary = null,
+       _secondary = null;
 
-  const LayoutSize.px(double value)
-    : _value = value,
-      _unit = LayoutSizeUnit.pixels,
-      _derivative = null,
-      _primary = null,
-      _secondary = null;
+  const LayoutSize.px(
+    double value, {
+    this.state = const LayoutState(),
+    this.animationDuration = Duration.zero,
+  }) : _value = value,
+       _unit = LayoutSizeUnit.pixels,
+       _derivative = null,
+       _primary = null,
+       _secondary = null;
 
-  const LayoutSize.pt(double value)
-    : _value = value,
-      _unit = LayoutSizeUnit.pixels,
-      _derivative = null,
-      _primary = null,
-      _secondary = null;
+  const LayoutSize.pt(
+    double value, {
+    this.state = const LayoutState(),
+    this.animationDuration = Duration.zero,
+  }) : _value = value,
+       _unit = LayoutSizeUnit.pixels,
+       _derivative = null,
+       _primary = null,
+       _secondary = null;
 
   /// A fixed size relative to the root Layout's configured font size.
-  const LayoutSize.rem(double value)
-    : _value = value,
-      _unit = LayoutSizeUnit.rootEms,
-      _derivative = null,
-      _primary = null,
-      _secondary = null;
+  const LayoutSize.rem(
+    double value, {
+    this.state = const LayoutState(),
+    this.animationDuration = Duration.zero,
+  }) : _value = value,
+       _unit = LayoutSizeUnit.rootEms,
+       _derivative = null,
+       _primary = null,
+       _secondary = null;
 
-  const LayoutSize.calculatedFr(double value, {required String derivative})
-    : _value = value,
-      _unit = LayoutSizeUnit.calculatedFraction,
-      // Keep the public parameter name free of private storage vocabulary.
-      // ignore: prefer_initializing_formals
-      _derivative = derivative,
-      _primary = null,
-      _secondary = null;
+  const LayoutSize.calculatedFr(
+    double value, {
+    required String derivative,
+    this.state = const LayoutState(),
+    this.animationDuration = Duration.zero,
+  }) : _value = value,
+       _unit = LayoutSizeUnit.calculatedFraction,
+       // Keep the public parameter name free of private storage vocabulary.
+       // ignore: prefer_initializing_formals
+       _derivative = derivative,
+       _primary = null,
+       _secondary = null;
 
   /// A renderer-interpreted two-dimensional size.
   ///
@@ -1494,6 +1567,8 @@ class LayoutSize {
   const LayoutSize.twoDimensional({
     required LayoutSize primary,
     required LayoutSize secondary,
+    this.state = const LayoutState(),
+    this.animationDuration = Duration.zero,
   }) : _value = null,
        _unit = null,
        _derivative = null,
@@ -1509,6 +1584,8 @@ class LayoutSize {
   final String? _derivative;
   final LayoutSize? _primary;
   final LayoutSize? _secondary;
+  final LayoutState<LayoutSize> state;
+  final Duration animationDuration;
 
   LayoutSize get primary => _primary?.primary ?? this;
   LayoutSize? get secondary => _secondary;
@@ -1516,6 +1593,91 @@ class LayoutSize {
   double get value => _primary?.value ?? _value!;
   LayoutSizeUnit get unit => _primary?.unit ?? _unit!;
   String? get derivative => _primary?.derivative ?? _derivative;
+
+  bool get hasState => state.values.isNotEmpty;
+  bool get isAnimated => hasState && animationDuration > Duration.zero;
+
+  LayoutSize resolve(LayoutContext context) => state.resolve(
+    context,
+    base: _withoutState(),
+    merge: (_, overlay) => overlay,
+    resolveValue: (value, stateContext) => value.resolve(stateContext),
+  );
+
+  LayoutSize interpolateTo(LayoutSize target, double progress) {
+    final clamped = progress.clamp(0.0, 1.0).toDouble();
+    if (isTwoDimensional || target.isTwoDimensional) {
+      return clamped < 1 ? this : target;
+    }
+    if (unit != target.unit || derivative != target.derivative) {
+      return clamped < 1 ? _withoutState() : target._withoutState();
+    }
+    return _scalar(value + (target.value - value) * clamped);
+  }
+
+  bool hasSameResolvedValue(LayoutSize other) =>
+      !isTwoDimensional &&
+      !other.isTwoDimensional &&
+      unit == other.unit &&
+      derivative == other.derivative &&
+      value == other.value;
+
+  LayoutSize withState(
+    LayoutState<LayoutSize> state, {
+    Duration animationDuration = Duration.zero,
+  }) {
+    if (isTwoDimensional) {
+      return LayoutSize.twoDimensional(
+        primary: primary,
+        secondary: secondary!,
+        state: state,
+        animationDuration: animationDuration,
+      );
+    }
+    return switch (unit) {
+      LayoutSizeUnit.fraction => LayoutSize.fr(
+        value,
+        state: state,
+        animationDuration: animationDuration,
+      ),
+      LayoutSizeUnit.pixels => LayoutSize.px(
+        value,
+        state: state,
+        animationDuration: animationDuration,
+      ),
+      LayoutSizeUnit.rootEms => LayoutSize.rem(
+        value,
+        state: state,
+        animationDuration: animationDuration,
+      ),
+      LayoutSizeUnit.calculatedFraction => LayoutSize.calculatedFr(
+        value,
+        derivative: derivative!,
+        state: state,
+        animationDuration: animationDuration,
+      ),
+    };
+  }
+
+  LayoutSize _withoutState() {
+    if (isTwoDimensional) {
+      return LayoutSize.twoDimensional(
+        primary: primary._withoutState(),
+        secondary: secondary!._withoutState(),
+      );
+    }
+    return _scalar(value);
+  }
+
+  LayoutSize _scalar(double resolvedValue) => switch (unit) {
+    LayoutSizeUnit.fraction => LayoutSize.fr(resolvedValue),
+    LayoutSizeUnit.pixels => LayoutSize.px(resolvedValue),
+    LayoutSizeUnit.rootEms => LayoutSize.rem(resolvedValue),
+    LayoutSizeUnit.calculatedFraction => LayoutSize.calculatedFr(
+      resolvedValue,
+      derivative: derivative!,
+    ),
+  };
 }
 
 /// Shared ordered track contract for layouts that present content as a table.
@@ -1545,6 +1707,8 @@ class GridSlot {
     this.columnSpan = 1,
     this.initialSpan = GridSlotSpan.track,
     this.maxSpan = GridSlotSpan.track,
+    this.state = const LayoutState(),
+    this.animationDuration = Duration.zero,
   });
 
   final String row;
@@ -1558,6 +1722,63 @@ class GridSlot {
   final double columnSpan;
   final GridSlotSpan initialSpan;
   final GridSlotSpan maxSpan;
+  final LayoutState<GridSlot> state;
+  final Duration animationDuration;
+
+  bool get hasState => state.values.isNotEmpty;
+  bool get isAnimated => hasState && animationDuration > Duration.zero;
+
+  GridSlot resolve(LayoutContext context) => state.resolve(
+    context,
+    base: _withoutState(),
+    merge: (_, overlay) => overlay,
+    resolveValue: (value, stateContext) => value.resolve(stateContext),
+  );
+
+  GridSlot interpolateTo(GridSlot target, double progress) {
+    final clamped = progress.clamp(0.0, 1.0).toDouble();
+    if (row != target.row || column != target.column) {
+      return clamped < 1 ? _withoutState() : target._withoutState();
+    }
+    double interpolate(double start, double end) {
+      if (!start.isFinite || !end.isFinite) return clamped < 1 ? start : end;
+      return start + (end - start) * clamped;
+    }
+
+    return GridSlot(
+      row: row,
+      column: column,
+      aliases: clamped < 1 ? aliases : target.aliases,
+      rowOffset: interpolate(rowOffset, target.rowOffset),
+      columnOffset: interpolate(columnOffset, target.columnOffset),
+      rowSpan: interpolate(rowSpan, target.rowSpan),
+      columnSpan: interpolate(columnSpan, target.columnSpan),
+      initialSpan: clamped < 1 ? initialSpan : target.initialSpan,
+      maxSpan: clamped < 1 ? maxSpan : target.maxSpan,
+    );
+  }
+
+  bool hasSameResolvedValue(GridSlot other) =>
+      row == other.row &&
+      column == other.column &&
+      rowOffset == other.rowOffset &&
+      columnOffset == other.columnOffset &&
+      rowSpan == other.rowSpan &&
+      columnSpan == other.columnSpan &&
+      initialSpan == other.initialSpan &&
+      maxSpan == other.maxSpan;
+
+  GridSlot _withoutState() => GridSlot(
+    row: row,
+    column: column,
+    aliases: aliases,
+    rowOffset: rowOffset,
+    columnOffset: columnOffset,
+    rowSpan: rowSpan,
+    columnSpan: columnSpan,
+    initialSpan: initialSpan,
+    maxSpan: maxSpan,
+  );
 }
 
 /// CSS-like two-dimensional composition using named tracks and slots.
@@ -1720,16 +1941,56 @@ class LayoutCrossAxisAlignment {
 abstract class LayoutTapAction {
   const LayoutTapAction._();
 
+  const factory LayoutTapAction.continueGame() = ContinueGameLayoutTapAction;
+
   const factory LayoutTapAction.findOpened() = FindOpenedLayoutTapAction;
+
+  const factory LayoutTapAction.focusInput({required List<String> layoutPath}) =
+      FocusInputLayoutTapAction;
+
+  const factory LayoutTapAction.beginNodeCreation({List<String> labels}) =
+      BeginNodeCreationLayoutTapAction;
+
+  const factory LayoutTapAction.selectCreationLabels({
+    required List<String> labels,
+    List<String> exclusiveWith,
+  }) = SelectCreationLabelsLayoutTapAction;
+}
+
+class ContinueGameLayoutTapAction extends LayoutTapAction {
+  const ContinueGameLayoutTapAction() : super._();
 }
 
 class FindOpenedLayoutTapAction extends LayoutTapAction {
   const FindOpenedLayoutTapAction() : super._();
 }
 
-/// Paintable leaf used inside row/column composition.
+class FocusInputLayoutTapAction extends LayoutTapAction {
+  const FocusInputLayoutTapAction({required this.layoutPath}) : super._();
+
+  final List<String> layoutPath;
+}
+
+class BeginNodeCreationLayoutTapAction extends LayoutTapAction {
+  const BeginNodeCreationLayoutTapAction({this.labels = const []}) : super._();
+
+  final List<String> labels;
+}
+
+class SelectCreationLabelsLayoutTapAction extends LayoutTapAction {
+  const SelectCreationLabelsLayoutTapAction({
+    required this.labels,
+    this.exclusiveWith = const [],
+  }) : super._();
+
+  final List<String> labels;
+  final List<String> exclusiveWith;
+}
+
+/// Paintable panel surface used inside layout composition.
 class PanelLayout extends Layout {
   const PanelLayout({
+    super.children,
     super.size,
     super.slot,
     this.borderStyle,
@@ -1796,17 +2057,26 @@ class LayoutPath extends Layout {
 /// A smooth replacement for one edge of a [LayoutPath].
 ///
 /// [from] and [to] identify the structural edge, while [through] supplies a
-/// shaping derivative that the rendered curve passes through.
+/// shaping derivative that the rendered curve passes through. [extent]
+/// controls how far the curve expands from that structural edge: zero is
+/// flat, while one uses the complete authored curve.
 class LayoutPathCurve {
   const LayoutPathCurve({
     required this.from,
     required this.through,
     required this.to,
+    this.extent = const LayoutSize.fr(1),
+    this.activeCondition,
   });
 
   final LayoutDerivativeReference from;
   final LayoutDerivativeReference through;
   final LayoutDerivativeReference to;
+  final LayoutSize extent;
+  final LayoutCondition? activeCondition;
+
+  bool isActive(LayoutContext context) =>
+      activeCondition?.isActive(context) ?? true;
 }
 
 class FanLayout extends Layout with TableLayoutMixin {

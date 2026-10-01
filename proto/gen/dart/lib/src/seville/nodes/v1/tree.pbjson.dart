@@ -218,13 +218,14 @@ const NodeCreateRequest$json = {
   '2': [
     {'1': 'slug', '3': 1, '4': 1, '5': 9, '10': 'slug'},
     {'1': 'labels', '3': 2, '4': 3, '5': 9, '10': 'labels'},
+    {'1': 'body', '3': 3, '4': 1, '5': 9, '10': 'body'},
   ],
 };
 
 /// Descriptor for `NodeCreateRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List nodeCreateRequestDescriptor = $convert.base64Decode(
     'ChFOb2RlQ3JlYXRlUmVxdWVzdBISCgRzbHVnGAEgASgJUgRzbHVnEhYKBmxhYmVscxgCIAMoCV'
-    'IGbGFiZWxz');
+    'IGbGFiZWxzEhIKBGJvZHkYAyABKAlSBGJvZHk=');
 
 @$core.Deprecated('Use nodePropertyValueDescriptor instead')
 const NodePropertyValue$json = {

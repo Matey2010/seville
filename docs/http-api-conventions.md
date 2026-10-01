@@ -193,14 +193,14 @@ into Cypher.
 requests never mutate a Node or increment `update_count`.
 
 `POST /api/v1/node/` creates one canonical Node from a protobuf
-`NodeCreateRequest`. The request contains a required `slug` and zero or more
-Neo4j labels. The backend assigns a stable random `id`, initializes
+`NodeCreateRequest`. The request contains a required `slug`, zero or more
+Neo4j labels, and initial Markdown `body` content. The backend assigns a stable random `id`, initializes
 `update_count` to zero, records `modified_at`, and returns the complete Node with
 `201 Created`. An existing slug returns `409 node_already_exists`. Slugs remain
 Cypher parameters. Labels are trimmed, deduplicated, sorted, and accepted as
 Cypher identifiers only when they match `[A-Za-z_][A-Za-z0-9_]*`; the request
-therefore cannot inject Cypher through either field. Creation does not add the
-labels that were not explicitly requested.
+therefore cannot inject Cypher through either field. The body remains a Cypher
+parameter. Creation does not add labels that were not explicitly requested.
 
 `PUT` and `DELETE` retain their standard meanings, but no Node replacement or
 deletion route is exposed until relationship handling and deletion policy have

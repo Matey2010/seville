@@ -12,12 +12,14 @@
 
 ## Supported runtime
 
-- Seville currently runs in production on macOS only.
-- Treat web, Chrome, iOS, Android, Linux, and Windows as unimplemented unless
-  the project owner explicitly says otherwise.
+- Seville runs in production on macOS. Android phone landscape has an
+  experimental compact preset for owner verification; portrait is disabled.
+- Treat web, Chrome, iOS, Linux, and Windows as unimplemented unless the
+  project owner explicitly says otherwise.
 - When giving run or process-control instructions, use the macOS Make target:
   `make -C scripts interface`.
-- Do not suggest other Flutter targets.
+- Do not suggest other Flutter targets for production. The project owner owns
+  Android Pixel build and runtime verification.
 
 ## HTTP methods
 
@@ -192,9 +194,8 @@
   two-axis form. The owning renderer assigns geometric meaning to those axes;
   scalar consumers use `primary` and ignore an absent `secondary`.
   Shared panoramic chrome dimensions live in `LayoutDefaultSize`, a part of
-  the Layout model library. Header, left-ribbon, their nested spacer tracks,
-  footer height, and footer intersections reference its typed `LayoutSize`
-  values instead of declaring preset-local constants.
+  the Layout model library. Reused footer and fixed-panel dimensions reference
+  its typed `LayoutSize` values instead of declaring preset-local constants.
 - Use `Layout.aliases` for extra human/config vocabulary. The layout map key
   remains the stable address; aliases are alternative names, not identity.
 - Do not add legacy axes, role tags, or frame metadata when the concrete layout
@@ -246,7 +247,7 @@
   instead of a rectangular grid. It must be owned by a `LayoutPath`; its Flame
   component projects every fan row into that path's resolved polygon. Fan
   segments paint their resolved Node color and state overlay without owning an
-  image background. LG Ergo configures the elder-brain artwork once on the
+  image background. LG Ergo configures its fan pattern once on the
   `cortex-bush` Fan Layout surface; `time-fan` has no image background. By
   default it grows inward, opposite to its `position` in the owning plane; set
   `growthDirection: LayoutDerivativeReference(...)` only when a specific target
@@ -287,10 +288,28 @@
   `columnsConfig` are angular segments across the tree fan.
   LG Ergo keeps its always-available shallow fan under `top-plane`.
 - Use `GraphLayout` for the selected Node pool at
-  `safe-area/panoramic-scene-plane/direction-pad/scene-graph`.
-  The panoramic grid places it across all three 1fr rows of its center 2fr
-  column between 1fr side columns; the Graph component must use that curved,
-  resolved grid area rather than the complete owning path.
+  `safe-area/panoramic-scene-plane/direction-pad/game-scene/scene-graph`.
+  The panoramic grid places `game-scene` across its complete three-row,
+  three-column core. That nested Grid places the Graph across all three 1fr
+  rows of its center 3fr column between 1fr side columns; the Graph component
+  must use that curved, resolved grid area rather than the complete owning
+  path. The game scene is visible under `LayoutCondition.gameplay()` after
+  Continue, and hidden in the main menu and Node-creation screens. Escape
+  returns to the menu without clearing selected Nodes.
+  Its Graph component paints below the Layout-rendered HUD. A compact
+  Layout-owned status Panel identifies the registered Collision, RPG, and
+  Multiplayer systems. `GameplayKernel.update()` must always delegate to
+  Flame's component update so empty event frames still update child systems.
+  Its nested world Grid is 500m wide and 200m tall. Reuse the Character
+  creator's assembled physical 1m × 2m body-part Grid. Its gameplay perspective
+  scale is 15×, producing a centered 15m × 30m projected cell while retaining the
+  body midpoint at world `(250m, 100m)`; do not substitute `StickmanLayout` for
+  this model. The textured ground begins beneath its projected feet, and
+  independent `LayoutBackground.random(...)` SVG layers compose overhead
+  debris.
+  The scene owns the
+  `possessions` Row at `game-scene/possessions`; do not restore possessions as
+  a sibling of the game scene in the panoramic grid.
   It renders every Riverpod-selected Node through one Flame component. Arrange
   Nodes in equal centered cells, render each Node as a circle whose diameter is
   `nodeExtentFactor` of its cell, and shrink the cells as the selected set
@@ -328,26 +347,13 @@
   Direction controls belong to `panoramic-scene-plane/direction-pad`. Its
   three fractional scene rows and three fractional content columns represent
   top-left through bottom-right, including center; the center content column is
-  wider than its side columns. A 4rem header and 2rem bottom ribbon are fixed
-  rows around that core. A 4rem `left-ribbon` column precedes the content
-  columns. The outer left-ribbon `GridLayout` spans every row, but reserves its
-  first 4rem row so its nested `ColumnLayout` content starts beneath the header.
-  The header is a direct `RowLayout` spanning the complete top row; do not wrap
-  it in another Grid. A
-  foreground `logo` slot owns their header/left-ribbon intersection and
-  renders the aliased `brain-control` `NodeLayout`. It uses the exact shared
-  top/bottom Fan root filter and renders its configured brain Emoji without a
-  separate image background.
-  Header panels remain direct children of
-  that Row; do not restore a separate
-  center-ribbon composition. The `footer` slot spans the complete 2rem bottom
-  row, including its left-ribbon intersection. Its `RowLayout` contains a
-  `LayoutDefaultSize.crossAxisRibbonWidth` start spacer, the flexible
-  `bottom-ribbon` Panel, and a
-  matching end spacer. `action-panel` spans only the three scene rows and must
-  stop before this footer track. `info-grid` likewise spans from the first scene
-  row after the header through the last scene row before the footer, including
-  neither chrome row. Keep
+  wider than its side columns. A fixed action row and 2rem teletext ribbon
+  follow that core. Do not restore an auxiliary left-ribbon track: the three
+  content columns consume the complete panoramic width. The extracted
+  navigation column occupies the core's top-left slot through `GridSlot`, and
+  the character Node remains independently assigned to the bottom-left slot.
+  `action-panel` and `info-grid` stay within their authored scene slots rather
+  than compensating for removed chrome. Keep
   stable `direction-*` aliases in layout configuration;
   directional behavior remains a later interaction-policy concern.
 - Use `NodeLayout` for one filter-backed Node. Its required
@@ -610,10 +616,11 @@
   Plain Enter dispatches the right-plane submit action unless the Search HUD is
   visible. While visible, the component consumes Enter to submit its local
   draft or select its highlighted Node option.
-  `SevilleKeymapAction.cancel` is the global nuclear cancel action. Both Escape
-  and the right-plane cross dispatch it through the screen; it clears selected
-  and virtual Nodes, clears cached/search-visible results, closes the Search HUD,
-  and closes the selected-node scene. Keep these effects on one action path.
+  `SevilleKeymapAction.cancel` and the close panel dispatch the same screen
+  action. In gameplay it returns to the main menu without clearing selected
+  Nodes. In the menu or creation flow it clears selected and virtual Nodes,
+  clears cached/search-visible results, and closes the Search HUD. Keep these
+  effects on one action path.
 - Classify layouts with `List<LayoutAttribute>` using lower-camel enum values.
   Put reusable computed geometry in attribute-provided derivatives and let
   explicit snapshots override only the values they specialize.

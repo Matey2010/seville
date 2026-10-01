@@ -69,6 +69,13 @@ interaction. Flutter widgets provide application composition and host the
 exists today. Ordinary layout content must not be introduced as a widget,
 gesture overlay, or parallel hit-test layer.
 
+The first 2D simulation foundation runs inside the existing Flame game through
+a `GameplayKernel`. Collision counting, composable RPG rules, and multiplayer
+session handling remain independent gameplay systems. Multiplayer clients send
+commands, while only server-authored snapshots and ordered deltas become world
+state. See [`game-architecture.md`](game-architecture.md) for this boundary and
+its staged delivery path.
+
 ## Repository boundaries
 
 ```text

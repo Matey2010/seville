@@ -325,10 +325,12 @@ class NodeCreateRequest extends $pb.GeneratedMessage {
   factory NodeCreateRequest({
     $core.String? slug,
     $core.Iterable<$core.String>? labels,
+    $core.String? body,
   }) {
     final result = create();
     if (slug != null) result.slug = slug;
     if (labels != null) result.labels.addAll(labels);
+    if (body != null) result.body = body;
     return result;
   }
 
@@ -348,6 +350,7 @@ class NodeCreateRequest extends $pb.GeneratedMessage {
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'slug')
     ..pPS(2, _omitFieldNames ? '' : 'labels')
+    ..aOS(3, _omitFieldNames ? '' : 'body')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -380,6 +383,15 @@ class NodeCreateRequest extends $pb.GeneratedMessage {
 
   @$pb.TagNumber(2)
   $pb.PbList<$core.String> get labels => $_getList(1);
+
+  @$pb.TagNumber(3)
+  $core.String get body => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set body($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasBody() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearBody() => $_clearField(3);
 }
 
 enum NodePropertyValue_Value {

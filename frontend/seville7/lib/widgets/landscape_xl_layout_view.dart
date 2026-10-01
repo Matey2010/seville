@@ -23,14 +23,19 @@ import '../components/node_layout_component.dart';
 import '../components/find_layout_component.dart';
 import '../constants/typography.dart';
 import '../domain/node.dart';
+import '../game/game.dart';
 import '../models/layout/layout.dart';
 import '../utils/canvas_guides.dart';
 import '../utils/layout_guidelines.dart';
 import '../utils/vault_node_resolver.dart';
 
 typedef LandscapeXlLayoutTapCallback = void Function(LayoutTapTarget target);
-typedef CreateVirtualNodeInputCallback =
-    void Function(String slug, String layoutKey);
+typedef CreationInputCallback =
+    bool Function(
+      String value,
+      String layoutKey,
+      LayoutInputSubmission submission,
+    );
 
 class LayoutTapTarget {
   const LayoutTapTarget({
@@ -65,11 +70,14 @@ class LandscapeXlLayoutView extends StatefulWidget {
     this.queryNodes = const [],
     this.highlightedNodes = const [],
     this.selectedNodes = const [],
+    this.baseScene = LayoutScene.mainMenu,
     this.onLayoutTap,
     required this.searchValue,
+    required this.searchResolved,
     required this.onSearchSubmitted,
+    required this.onCreateSuggestedNode,
     required this.onSearchNodeSelected,
-    required this.onCreateVirtualNodeSubmitted,
+    required this.onCreationInputSubmitted,
     required this.onCancel,
     required this.onRefreshFanData,
     required this.onCopySelectedNodeSlug,
@@ -86,11 +94,14 @@ class LandscapeXlLayoutView extends StatefulWidget {
   final List<ResolvedVaultNode> queryNodes;
   final List<ResolvedVaultNode> highlightedNodes;
   final List<ResolvedVaultNode> selectedNodes;
+  final LayoutScene baseScene;
   final LandscapeXlLayoutTapCallback? onLayoutTap;
   final String searchValue;
+  final bool searchResolved;
   final ValueChanged<String> onSearchSubmitted;
+  final ValueChanged<String> onCreateSuggestedNode;
   final ValueChanged<ResolvedVaultNode> onSearchNodeSelected;
-  final CreateVirtualNodeInputCallback onCreateVirtualNodeSubmitted;
+  final CreationInputCallback onCreationInputSubmitted;
   final VoidCallback onCancel;
   final VoidCallback onRefreshFanData;
   final VoidCallback onCopySelectedNodeSlug;
@@ -112,11 +123,14 @@ class _LandscapeXlLayoutViewState extends State<LandscapeXlLayoutView> {
     queryNodes: widget.queryNodes,
     highlightedNodes: widget.highlightedNodes,
     selectedNodes: widget.selectedNodes,
+    baseScene: widget.baseScene,
     onLayoutTap: widget.onLayoutTap,
     searchValue: widget.searchValue,
+    searchResolved: widget.searchResolved,
     onSearchSubmitted: widget.onSearchSubmitted,
+    onCreateSuggestedNode: widget.onCreateSuggestedNode,
     onSearchNodeSelected: widget.onSearchNodeSelected,
-    onCreateVirtualNodeSubmitted: widget.onCreateVirtualNodeSubmitted,
+    onCreationInputSubmitted: widget.onCreationInputSubmitted,
     onCancel: widget.onCancel,
     onRefreshFanData: widget.onRefreshFanData,
     onCopySelectedNodeSlug: widget.onCopySelectedNodeSlug,
@@ -144,11 +158,14 @@ class _LandscapeXlLayoutViewState extends State<LandscapeXlLayoutView> {
         queryNodes: widget.queryNodes,
         highlightedNodes: widget.highlightedNodes,
         selectedNodes: widget.selectedNodes,
+        baseScene: widget.baseScene,
         onLayoutTap: widget.onLayoutTap,
         searchValue: widget.searchValue,
+        searchResolved: widget.searchResolved,
         onSearchSubmitted: widget.onSearchSubmitted,
+        onCreateSuggestedNode: widget.onCreateSuggestedNode,
         onSearchNodeSelected: widget.onSearchNodeSelected,
-        onCreateVirtualNodeSubmitted: widget.onCreateVirtualNodeSubmitted,
+        onCreationInputSubmitted: widget.onCreationInputSubmitted,
         onCancel: widget.onCancel,
         onRefreshFanData: widget.onRefreshFanData,
         onCopySelectedNodeSlug: widget.onCopySelectedNodeSlug,
@@ -166,11 +183,14 @@ class _LandscapeXlLayoutViewState extends State<LandscapeXlLayoutView> {
       queryNodes: widget.queryNodes,
       highlightedNodes: widget.highlightedNodes,
       selectedNodes: widget.selectedNodes,
+      baseScene: widget.baseScene,
       onLayoutTap: widget.onLayoutTap,
       searchValue: widget.searchValue,
+      searchResolved: widget.searchResolved,
       onSearchSubmitted: widget.onSearchSubmitted,
+      onCreateSuggestedNode: widget.onCreateSuggestedNode,
       onSearchNodeSelected: widget.onSearchNodeSelected,
-      onCreateVirtualNodeSubmitted: widget.onCreateVirtualNodeSubmitted,
+      onCreationInputSubmitted: widget.onCreationInputSubmitted,
       onCancel: widget.onCancel,
       onRefreshFanData: widget.onRefreshFanData,
       onCopySelectedNodeSlug: widget.onCopySelectedNodeSlug,
@@ -185,25 +205,44 @@ class _LandscapeXlLayoutViewState extends State<LandscapeXlLayoutView> {
   }
 
   @override
-  Widget build(BuildContext context) => Stack(
-    children: [
-      GameWidget<LandscapeXlLayoutGame>(
-        key: ValueKey(_game),
-        game: _game,
-        focusNode: _gameFocusNode,
-      ),
-      Positioned.fill(
-        child: LayoutInputOverlay(
-          component: _game.layoutInputComponent,
-          onFocusReleased: _gameFocusNode.requestFocus,
+  Widget build(BuildContext context) =>
+      ValueListenableBuilder<LayoutInputViewState>(
+        valueListenable: _game.layoutInputComponent.viewState,
+        builder: (context, inputState, child) => PopScope(
+          canPop:
+              widget.baseScene == LayoutScene.mainMenu &&
+              !inputState.isOpen &&
+              !_game.layoutContext.createOpened,
+          onPopInvokedWithResult: (didPop, _) {
+            if (didPop) return;
+            if (inputState.isOpen) {
+              _game.closeLayoutInput();
+            } else {
+              widget.onCancel();
+            }
+          },
+          child: child!,
         ),
-      ),
-    ],
-  );
+        child: Stack(
+          children: [
+            GameWidget<LandscapeXlLayoutGame>(
+              key: ValueKey(_game),
+              game: _game,
+              focusNode: _gameFocusNode,
+            ),
+            Positioned.fill(
+              child: LayoutInputOverlay(
+                component: _game.layoutInputComponent,
+                onFocusReleased: _gameFocusNode.requestFocus,
+              ),
+            ),
+          ],
+        ),
+      );
 }
 
 class LandscapeXlLayoutGame extends FlameGame
-    with HasKeyboardHandlerComponents {
+    with HasKeyboardHandlerComponents, HasCollisionDetection {
   LandscapeXlLayoutGame({
     required this.layout,
     required this.componentRegistry,
@@ -214,23 +253,37 @@ class LandscapeXlLayoutGame extends FlameGame
     required this.queryNodes,
     required this.highlightedNodes,
     required this.selectedNodes,
+    required this.baseScene,
     required this.onLayoutTap,
     required this.searchValue,
+    required this.searchResolved,
     required this.onSearchSubmitted,
+    required this.onCreateSuggestedNode,
     required this.onSearchNodeSelected,
-    required this.onCreateVirtualNodeSubmitted,
+    required this.onCreationInputSubmitted,
     required this.onCancel,
     required this.onRefreshFanData,
     required this.onCopySelectedNodeSlug,
     required this.onSubmit,
   }) {
+    collisionSystem = CollisionSystem();
+    rpgSystem = RpgSystem();
+    localMultiplayerServer = InMemoryMultiplayerServer();
+    multiplayerSystem = MultiplayerSystem(
+      transport: InMemoryMultiplayerTransport(localMultiplayerServer),
+    );
+    gameplay = GameplayKernel(
+      systems: [collisionSystem, rpgSystem, multiplayerSystem],
+    );
     final findLayout = _findLayoutConfig(layout);
     _layoutInputComponent = LayoutInputComponent(
       layout: findLayout,
       searchValue: searchValue,
+      searchResolved: searchResolved,
       results: queryNodes,
       onSearchSubmitted: onSearchSubmitted,
-      onCreateVirtualNodeSubmitted: onCreateVirtualNodeSubmitted,
+      onCreateSuggestedNode: onCreateSuggestedNode,
+      onCreationInputSubmitted: onCreationInputSubmitted,
       onCancel: onCancel,
       onRefreshFanData: onRefreshFanData,
       onCopySelectedNodeSlug: onCopySelectedNodeSlug,
@@ -248,15 +301,23 @@ class LandscapeXlLayoutGame extends FlameGame
   List<ResolvedVaultNode> queryNodes;
   List<ResolvedVaultNode> highlightedNodes;
   List<ResolvedVaultNode> selectedNodes;
+  LayoutScene baseScene;
   LandscapeXlLayoutTapCallback? onLayoutTap;
   String searchValue;
+  bool searchResolved;
   ValueChanged<String> onSearchSubmitted;
+  ValueChanged<String> onCreateSuggestedNode;
   ValueChanged<ResolvedVaultNode> onSearchNodeSelected;
-  CreateVirtualNodeInputCallback onCreateVirtualNodeSubmitted;
+  CreationInputCallback onCreationInputSubmitted;
   VoidCallback onCancel;
   VoidCallback onRefreshFanData;
   VoidCallback onCopySelectedNodeSlug;
   VoidCallback onSubmit;
+  late final GameplayKernel gameplay;
+  late final CollisionSystem collisionSystem;
+  late final RpgSystem rpgSystem;
+  late final InMemoryMultiplayerServer localMultiplayerServer;
+  late final MultiplayerSystem multiplayerSystem;
   EdgeInsets _safePadding = EdgeInsets.zero;
   Vector2? _viewportSize;
   late final LayoutInputComponent _layoutInputComponent;
@@ -271,14 +332,25 @@ class LandscapeXlLayoutGame extends FlameGame
       ClassificationLabelComponent();
   final List<GraphLayoutComponent> _graphLayoutComponents = [];
   final List<NodeLayoutComponent> _nodeLayoutComponents = [];
+  final Map<LayoutSize, _LayoutSizeAnimation> _layoutSizeAnimations = {};
+  final Map<GridSlot, _GridSlotAnimation> _gridSlotAnimations = {};
   final AssetsCache _svgAssets = AssetsCache(prefix: '');
 
   LayoutContext get layoutContext => _layoutContext(
     layout,
     highlightedNodes,
     selectedNodes,
+    baseScene: baseScene,
     findOpened: _layoutInputComponent.isFindOpen,
     createOpened: _layoutInputComponent.isCreateOpen,
+    resolvedLayoutSizes: {
+      for (final entry in _layoutSizeAnimations.entries)
+        entry.key: entry.value.resolved,
+    },
+    resolvedGridSlots: {
+      for (final entry in _gridSlotAnimations.entries)
+        entry.key: entry.value.resolved,
+    },
   );
 
   LayoutInputComponent get layoutInputComponent => _layoutInputComponent;
@@ -352,7 +424,107 @@ class LandscapeXlLayoutGame extends FlameGame
   }
 
   @override
+  void update(double dt) {
+    final layoutGeometryChanged = _updateLayoutAnimations(dt);
+    super.update(dt);
+    if (layoutGeometryChanged) {
+      _syncFindLayoutGeometry();
+      _syncActivePanelInputGeometry();
+    }
+  }
+
+  bool _updateLayoutAnimations(double dt) {
+    var changed = false;
+    final configured = _animatedLayoutSizes(layout).toSet();
+    _layoutSizeAnimations.removeWhere((size, _) => !configured.contains(size));
+    final stateContext = _layoutContext(
+      layout,
+      highlightedNodes,
+      selectedNodes,
+      baseScene: baseScene,
+      findOpened: _layoutInputComponent.isFindOpen,
+      createOpened: _layoutInputComponent.isCreateOpen,
+    );
+    for (final size in configured) {
+      final animation = _layoutSizeAnimations[size] ??= _LayoutSizeAnimation(
+        size,
+      );
+      final previous = animation.resolved;
+      animation.update(size.resolve(stateContext), dt);
+      changed = changed || !previous.hasSameResolvedValue(animation.resolved);
+    }
+    final configuredSlots = _animatedGridSlots(layout).toList(growable: false);
+    final configuredSlotKeys = {
+      for (final configured in configuredSlots) configured.slot,
+    };
+    _gridSlotAnimations.removeWhere(
+      (slot, _) => !configuredSlotKeys.contains(slot),
+    );
+    for (final configured in configuredSlots) {
+      final target = _normalizeGridSlotForAnimation(
+        configured.slot.resolve(stateContext),
+        configured.grid,
+        configured.slot,
+      );
+      final animation = _gridSlotAnimations[configured.slot] ??=
+          _GridSlotAnimation(
+            configured.slot,
+            _normalizeGridSlotForAnimation(
+              configured.slot.resolve(LayoutContext.empty),
+              configured.grid,
+              configured.slot,
+            ),
+          );
+      final previous = animation.resolved;
+      animation.update(target, dt);
+      changed = changed || !previous.hasSameResolvedValue(animation.resolved);
+    }
+    return changed;
+  }
+
+  void _syncActivePanelInputGeometry() {
+    final state = _layoutInputComponent.viewState.value;
+    final activeKey = _layoutInputComponent.activeLayoutKey;
+    final viewport = _viewportSize;
+    if (!state.isOpen ||
+        state.owner == null ||
+        activeKey == null ||
+        state.projectedCorners.length != 4 ||
+        viewport == null ||
+        viewport.x <= 0 ||
+        viewport.y <= 0) {
+      return;
+    }
+    final center =
+        state.projectedCorners.fold<Offset>(
+          Offset.zero,
+          (sum, point) => sum + point,
+        ) /
+        state.projectedCorners.length.toDouble();
+    final target = _hitTestLayoutTapTarget(
+      layout,
+      Size(viewport.x, viewport.y),
+      safePadding,
+      center,
+      vaultNodeResolver,
+      highlightedNodes,
+      selectedNodes,
+      baseScene: baseScene,
+      searchResults: _layoutInputComponent.showsResults ? queryNodes : const [],
+      findOpened: _layoutInputComponent.isFindOpen,
+      createOpened: _layoutInputComponent.isCreateOpen,
+      resolvedLayoutSizes: layoutContext.resolvedLayoutSizes,
+      resolvedGridSlots: layoutContext.resolvedGridSlots,
+    );
+    if (target?.key != activeKey || target!.projectedCorners.length != 4) {
+      return;
+    }
+    _layoutInputComponent.updatePanelGeometry(target.projectedCorners);
+  }
+
+  @override
   Future<void> onLoad() async {
+    await add(gameplay);
     mouseCursor = SystemMouseCursors.none;
     _nodeSelectionAudioPool = await FlameAudio.createPool(
       'technology-select.wav',
@@ -420,34 +592,36 @@ class LandscapeXlLayoutGame extends FlameGame
             label: hit.label,
           ),
         ),
-      )..priority = 110;
+      )..priority = 90;
       _graphLayoutComponents.add(component);
       add(component);
     }
-    for (final placement in _pathLayoutPlacements<NodeLayout>(
+    for (final binding in LayoutSnapshot.capture(
       layout,
-      layoutContext,
-    )) {
+    ).layoutsOfType<NodeLayout>()) {
+      final hierarchy =
+          _layoutHierarchyTo(layout, binding.layout) ??
+          [layout, binding.layout];
       final component = NodeLayoutComponent(
-        layoutKey: placement.key,
-        layout: placement.layout,
-        isLayoutVisible: () => placement.hierarchy.every(
-          (layout) => layout.isVisible(layoutContext),
-        ),
-        resolvedNode: () => nodeLayoutNodes[placement.layout],
+        layoutKey: binding.address,
+        layout: binding.layout,
+        isLayoutVisible: () =>
+            hierarchy.every((layout) => layout.isVisible(layoutContext)),
+        resolvedNode: () => nodeLayoutNodes[binding.layout],
         layoutContext: () => layoutContext,
         nodeConfig: (node) => _resolvedNodeConfig(
-          placement.hierarchy,
+          hierarchy,
           _nodeLayoutContext(layoutContext, node),
         ),
         imageFor: (assetPath) =>
             images.containsKey(assetPath) ? images.fromCache(assetPath) : null,
-        surface: () => _resolveLayoutPlacementSurface(placement),
+        surface: () =>
+            _resolveLayoutAddressSurface(binding.path, layoutContext),
         isTapEnabled: () => onLayoutTap != null,
         onNodeTap: (hit) => dispatchLayoutTap(
           LayoutTapTarget(
             key: hit.key,
-            layout: placement.layout,
+            layout: binding.layout,
             node: hit.resolvedNode,
             resolvedNode: hit.resolvedNode,
             label: hit.label,
@@ -553,9 +727,10 @@ class LandscapeXlLayoutGame extends FlameGame
   ) => _resolveLayoutPlacementSurface(placement);
 
   LayoutSurface? _resolveLayoutPlacementSurface<T extends Layout>(
-    _PathLayoutPlacement<T> placement,
-  ) {
-    final context = layoutContext;
+    _PathLayoutPlacement<T> placement, {
+    LayoutContext? layoutContextOverride,
+  }) {
+    final context = layoutContextOverride ?? layoutContext;
     final resolvedLayouts = _resolveLayouts(
       layout,
       Size(size.x, size.y),
@@ -579,6 +754,7 @@ class LandscapeXlLayoutGame extends FlameGame
         projection!.flatSize,
         placement.gridSteps,
         rootFontSize: context.rootFontSize,
+        layoutContext: context,
       );
       if (frame == null) return null;
       return (
@@ -645,7 +821,29 @@ class LandscapeXlLayoutGame extends FlameGame
     final initialValue =
         panel.input!.submission is FindNodesLayoutInputSubmission
         ? searchValue
-        : '';
+        : switch (panel.input!.submission) {
+            SetCreationLabelsLayoutInputSubmission() =>
+              _creationNode?.node?.labels
+                      .where(
+                        (label) =>
+                            label != 'New' &&
+                            label != 'Virtual' &&
+                            !const [
+                              'Character',
+                              'Project',
+                              'Universe',
+                              'Business',
+                              'Item',
+                              'Event',
+                              'Space',
+                            ].contains(label),
+                      )
+                      .join(', ') ??
+                  '',
+            SetCreationBodyLayoutInputSubmission() =>
+              _creationNode?.node?.body ?? '',
+            _ => _creationNode?.node?.slug ?? '',
+          };
     _layoutInputComponent.openPanel(
       layoutKey: target.key,
       panel: panel,
@@ -654,11 +852,171 @@ class LandscapeXlLayoutGame extends FlameGame
     );
   }
 
-  void performLayoutTapAction(LayoutTapAction action) {
+  ResolvedVaultNode? get _creationNode => selectedNodes
+      .where(
+        (resolvedNode) =>
+            resolvedNode.isVirtual &&
+            (resolvedNode.node?.labels.contains('New') ?? false),
+      )
+      .firstOrNull;
+
+  bool performLayoutTapAction(LayoutTapAction action) {
     switch (action) {
+      case ContinueGameLayoutTapAction():
+        closeLayoutInput();
+        return false;
       case FindOpenedLayoutTapAction():
         openFindLayout();
+        return true;
+      case FocusInputLayoutTapAction(:final layoutPath):
+        _focusLayoutInput(layoutPath);
+        return true;
+      case BeginNodeCreationLayoutTapAction() ||
+          SelectCreationLabelsLayoutTapAction():
+        return false;
     }
+    return false;
+  }
+
+  void _focusLayoutInput(List<String> layoutPath) {
+    final layoutKey = layoutPath.join('/');
+    final configuredPanel = _layoutAtPath(layout, layoutPath, layoutContext);
+    final submission = configuredPanel is PanelLayout
+        ? configuredPanel.input?.submission
+        : null;
+    if (submission == null) return;
+    final targetContext = _layoutContext(
+      layout,
+      highlightedNodes,
+      selectedNodes,
+      baseScene: baseScene,
+      findOpened: submission is FindNodesLayoutInputSubmission,
+      createOpened: submission is CreateVirtualNodeLayoutInputSubmission,
+      resolvedLayoutSizes: layoutContext.resolvedLayoutSizes,
+      resolvedGridSlots: layoutContext.resolvedGridSlots,
+    );
+    final panel = _layoutAtPath(layout, layoutPath, targetContext);
+    if (panel is! PanelLayout || panel.input == null) return;
+    final surface = _resolveLayoutAddressSurface(layoutPath, targetContext);
+    if (surface == null) return;
+    _layoutInputComponent.openPanel(
+      layoutKey: layoutKey,
+      panel: panel,
+      projectedCorners: [
+        surface.project(0, 0),
+        surface.project(1, 0),
+        surface.project(1, 1),
+        surface.project(0, 1),
+      ],
+      initialValue: '',
+    );
+  }
+
+  LayoutSurface? _resolveLayoutAddressSurface(
+    List<String> layoutPath,
+    LayoutContext context,
+  ) {
+    final resolvedLayouts = _resolveLayouts(
+      layout,
+      Size(size.x, size.y),
+      safePadding,
+      context,
+    );
+    var current = layout.resolve(context);
+    LayoutPath? plane;
+    List<Offset>? planePoints;
+    _LayoutPathProjection? projection;
+    var frame = const (left: 0.0, top: 0.0, right: 1.0, bottom: 1.0);
+
+    for (final key in layoutPath) {
+      final child = current.children[key]?.resolve(context);
+      if (child == null) return null;
+      if (plane != null && planePoints != null) {
+        final surfaceSize = projection?.canProjectBackground ?? false
+            ? projection!.flatSize
+            : _quadrilateralAverageSize(
+                _screenOrderedQuadrilateral(planePoints),
+              );
+        if (current case final GridLayout grid) {
+          final tracks = _resolvedGridTracks(
+            grid,
+            Size(
+              surfaceSize.width * (frame.right - frame.left),
+              surfaceSize.height * (frame.bottom - frame.top),
+            ),
+            rootFontSize: context.rootFontSize,
+            layoutContext: context,
+          );
+          final slotName = child.slot;
+          final slot = slotName == null
+              ? null
+              : _resolveGridSlot(grid, slotName);
+          if (tracks == null || slot == null) return null;
+          final childFrame = _resolveGridSlotFrame(
+            slot.slot,
+            tracks,
+            layout: child,
+            layoutContext: context,
+          );
+          if (childFrame == null) return null;
+          frame = _scaleFlexSurfaceRect(frame, childFrame);
+        } else if (current is RowLayout || current is ColumnLayout) {
+          final childFrame = _resolveFlexChildFrame(
+            current,
+            key,
+            frame,
+            surfaceSize,
+            context,
+          );
+          if (childFrame == null) return null;
+          frame = childFrame;
+        }
+      }
+      if (child case final LayoutPath layoutPlane) {
+        plane = layoutPlane;
+        planePoints = _resolvedLayoutPathPoints(
+          layoutPlane,
+          resolvedLayouts,
+          context,
+        );
+        if (planePoints == null || planePoints.length != 4) return null;
+        projection = _resolvedLayoutPathProjection(
+          layoutPlane,
+          planePoints,
+          resolvedLayouts,
+          context,
+        );
+        frame = const (left: 0, top: 0, right: 1, bottom: 1);
+      }
+      current = child;
+    }
+    final points = planePoints;
+    if (plane == null || points == null) return null;
+    if (projection?.canProjectBackground ?? false) {
+      return (
+        logicalSize: Size(
+          projection!.flatSize.width * (frame.right - frame.left),
+          projection.flatSize.height * (frame.bottom - frame.top),
+        ),
+        clipPath: _curvedSurfacePath(projection, frame),
+        project: (u, v) => projection!.project(
+          ui.lerpDouble(frame.left, frame.right, u)!,
+          ui.lerpDouble(frame.top, frame.bottom, v)!,
+        ),
+      );
+    }
+    final targetPoints = _quadrilateralSlice(
+      _screenOrderedQuadrilateral(points),
+      left: frame.left,
+      right: frame.right,
+      top: frame.top,
+      bottom: frame.bottom,
+    );
+    return (
+      logicalSize: _quadrilateralAverageSize(targetPoints),
+      clipPath: _polygonPath(targetPoints),
+      project: (u, v) => _projectiveQuadrilateralPoint(targetPoints, u, v),
+    );
   }
 
   void updateConfiguration({
@@ -671,11 +1029,14 @@ class LandscapeXlLayoutGame extends FlameGame
     required List<ResolvedVaultNode> queryNodes,
     required List<ResolvedVaultNode> highlightedNodes,
     required List<ResolvedVaultNode> selectedNodes,
+    required LayoutScene baseScene,
     required LandscapeXlLayoutTapCallback? onLayoutTap,
     required String searchValue,
+    required bool searchResolved,
     required ValueChanged<String> onSearchSubmitted,
+    required ValueChanged<String> onCreateSuggestedNode,
     required ValueChanged<ResolvedVaultNode> onSearchNodeSelected,
-    required CreateVirtualNodeInputCallback onCreateVirtualNodeSubmitted,
+    required CreationInputCallback onCreationInputSubmitted,
     required VoidCallback onCancel,
     required VoidCallback onRefreshFanData,
     required VoidCallback onCopySelectedNodeSlug,
@@ -690,11 +1051,14 @@ class LandscapeXlLayoutGame extends FlameGame
     this.queryNodes = queryNodes;
     this.highlightedNodes = highlightedNodes;
     this.selectedNodes = selectedNodes;
+    this.baseScene = baseScene;
     this.onLayoutTap = onLayoutTap;
     this.searchValue = searchValue;
+    this.searchResolved = searchResolved;
     this.onSearchSubmitted = onSearchSubmitted;
+    this.onCreateSuggestedNode = onCreateSuggestedNode;
     this.onSearchNodeSelected = onSearchNodeSelected;
-    this.onCreateVirtualNodeSubmitted = onCreateVirtualNodeSubmitted;
+    this.onCreationInputSubmitted = onCreationInputSubmitted;
     this.onCancel = onCancel;
     this.onRefreshFanData = onRefreshFanData;
     this.onCopySelectedNodeSlug = onCopySelectedNodeSlug;
@@ -702,13 +1066,18 @@ class LandscapeXlLayoutGame extends FlameGame
     unawaited(_preloadLayoutBackgroundAssets(layout));
     _layoutInputComponent
       ..onSearchSubmitted = onSearchSubmitted
-      ..onCreateVirtualNodeSubmitted = onCreateVirtualNodeSubmitted
+      ..onCreateSuggestedNode = onCreateSuggestedNode
+      ..onCreationInputSubmitted = onCreationInputSubmitted
       ..onCancel = onCancel
       ..onRefreshFanData = onRefreshFanData
       ..onCopySelectedNodeSlug = onCopySelectedNodeSlug
       ..onSubmit = onSubmit
       ..onNodeSelected = _selectSearchNode
-      ..updateConfiguration(searchValue: searchValue, results: queryNodes);
+      ..updateConfiguration(
+        searchValue: searchValue,
+        searchResolved: searchResolved,
+        results: queryNodes,
+      );
     _syncFindLayoutGeometry();
   }
 
@@ -1150,6 +1519,20 @@ Iterable<MapEntry<String, Layout>> _resolvedLayoutChildren(
   for (final entry in layout.children.entries) {
     yield MapEntry(entry.key, entry.value.resolve(context));
   }
+}
+
+Layout? _layoutAtPath(
+  Layout root,
+  List<String> layoutPath,
+  LayoutContext context,
+) {
+  var current = root.resolve(context);
+  for (final key in layoutPath) {
+    final child = current.children[key]?.resolve(context);
+    if (child == null) return null;
+    current = child;
+  }
+  return current;
 }
 
 Iterable<_PathLayoutPlacement<T>> _pathLayoutPlacements<T extends Layout>(
@@ -2033,11 +2416,14 @@ class _LandscapeXlSceneComponent extends PositionComponent
       game.vaultNodeResolver,
       game.highlightedNodes,
       game.selectedNodes,
+      baseScene: game.baseScene,
       searchResults: game._layoutInputComponent.showsResults
           ? game.queryNodes
           : const [],
       findOpened: game._layoutInputComponent.isFindOpen,
       createOpened: game._layoutInputComponent.isCreateOpen,
+      resolvedLayoutSizes: game.layoutContext.resolvedLayoutSizes,
+      resolvedGridSlots: game.layoutContext.resolvedGridSlots,
     );
     final nodePath = hit?.nodePath;
     if (hit?.target.resolvedNode?.node == null || nodePath == null) return null;
@@ -2093,11 +2479,14 @@ class _LandscapeXlSceneComponent extends PositionComponent
       game.vaultNodeResolver,
       game.highlightedNodes,
       game.selectedNodes,
+      baseScene: game.baseScene,
       searchResults: game._layoutInputComponent.showsResults
           ? game.queryNodes
           : const [],
       findOpened: game._layoutInputComponent.isFindOpen,
       createOpened: game._layoutInputComponent.isCreateOpen,
+      resolvedLayoutSizes: game.layoutContext.resolvedLayoutSizes,
+      resolvedGridSlots: game.layoutContext.resolvedGridSlots,
     );
     if (target == null) {
       if (game._layoutInputComponent.isOpen) game.closeLayoutInput();
@@ -2120,7 +2509,9 @@ class _LandscapeXlSceneComponent extends PositionComponent
       return;
     }
     if (target.layout case PanelLayout(onTap: final action?)) {
-      game.performLayoutTapAction(action);
+      if (!game.performLayoutTapAction(action)) {
+        game.dispatchLayoutTap(target);
+      }
       return;
     }
     if (target.layout.aliases.contains('cancel-interface-action') ||
@@ -2175,6 +2566,145 @@ class _TablePanelFoldAnimation {
     } else {
       _controller.recede(dt);
     }
+  }
+}
+
+class _LayoutSizeAnimation {
+  _LayoutSizeAnimation(this.configured)
+    : _resolved = configured.resolve(LayoutContext.empty),
+      _from = configured.resolve(LayoutContext.empty),
+      _target = configured.resolve(LayoutContext.empty);
+
+  final LayoutSize configured;
+  LayoutSize _resolved;
+  LayoutSize _from;
+  LayoutSize _target;
+  double _elapsedSeconds = 0;
+
+  LayoutSize get resolved => _resolved;
+  bool get isMoving => !_resolved.hasSameResolvedValue(_target);
+
+  void update(LayoutSize target, double dt) {
+    if (!_target.hasSameResolvedValue(target)) {
+      _from = _resolved;
+      _target = target;
+      _elapsedSeconds = 0;
+    }
+    if (!isMoving) return;
+    final durationSeconds =
+        configured.animationDuration.inMicroseconds /
+        Duration.microsecondsPerSecond;
+    if (durationSeconds <= 0) {
+      _resolved = _target;
+      return;
+    }
+    _elapsedSeconds = math.min(
+      _elapsedSeconds + math.max(dt, 0),
+      durationSeconds,
+    );
+    final progress = Curves.easeInOutCubic.transform(
+      (_elapsedSeconds / durationSeconds).clamp(0.0, 1.0),
+    );
+    _resolved = _from.interpolateTo(_target, progress);
+  }
+}
+
+class _GridSlotAnimation {
+  _GridSlotAnimation(this.configured, GridSlot initial)
+    : _resolved = initial,
+      _from = initial,
+      _target = initial;
+
+  final GridSlot configured;
+  GridSlot _resolved;
+  GridSlot _from;
+  GridSlot _target;
+  double _elapsedSeconds = 0;
+
+  GridSlot get resolved => _resolved;
+  bool get isMoving => !_resolved.hasSameResolvedValue(_target);
+
+  void update(GridSlot target, double dt) {
+    if (!_target.hasSameResolvedValue(target)) {
+      _from = _resolved;
+      _target = target;
+      _elapsedSeconds = 0;
+    }
+    if (!isMoving) return;
+    final durationSeconds =
+        configured.animationDuration.inMicroseconds /
+        Duration.microsecondsPerSecond;
+    if (durationSeconds <= 0) {
+      _resolved = _target;
+      return;
+    }
+    _elapsedSeconds = math.min(
+      _elapsedSeconds + math.max(dt, 0),
+      durationSeconds,
+    );
+    final progress = Curves.easeInOutCubic.transform(
+      (_elapsedSeconds / durationSeconds).clamp(0.0, 1.0),
+    );
+    _resolved = _from.interpolateTo(_target, progress);
+  }
+}
+
+GridSlot _normalizeGridSlotForAnimation(
+  GridSlot slot,
+  GridLayout grid,
+  GridSlot anchor,
+) {
+  final rows = grid.rowsConfig.keys.toList(growable: false);
+  final columns = grid.columnsConfig.keys.toList(growable: false);
+  final anchorRow = rows.indexOf(anchor.row);
+  final anchorColumn = columns.indexOf(anchor.column);
+  final targetRow = rows.indexOf(slot.row);
+  final targetColumn = columns.indexOf(slot.column);
+  if (anchorRow < 0 || anchorColumn < 0 || targetRow < 0 || targetColumn < 0) {
+    return slot;
+  }
+  return GridSlot(
+    row: anchor.row,
+    column: anchor.column,
+    aliases: slot.aliases,
+    rowOffset: targetRow - anchorRow + slot.rowOffset,
+    columnOffset: targetColumn - anchorColumn + slot.columnOffset,
+    rowSpan: slot.rowSpan,
+    columnSpan: slot.columnSpan,
+    initialSpan: slot.initialSpan,
+    maxSpan: slot.maxSpan,
+  );
+}
+
+Iterable<LayoutSize> _animatedLayoutSizes(Layout layout) sync* {
+  if (layout case final GridLayout grid) {
+    for (final size in [
+      ...grid.rowsConfig.values,
+      ...grid.columnsConfig.values,
+    ]) {
+      if (size.isAnimated) yield size;
+    }
+  }
+  if (layout case final LayoutPath path) {
+    for (final curve in path.curves) {
+      if (curve.extent.isAnimated) yield curve.extent;
+    }
+  }
+  for (final child in layout.children.values) {
+    yield* _animatedLayoutSizes(child);
+  }
+}
+
+Iterable<({GridLayout grid, GridSlot slot})> _animatedGridSlots(
+  Layout layout,
+) sync* {
+  if (layout case final GridLayout grid) {
+    for (final slot in grid.slots.values) {
+      if (slot.isAnimated) yield (grid: grid, slot: slot);
+    }
+  }
+  for (final child in layout.children.values) {
+    yield* _animatedGridSlots(child);
   }
 }
 
@@ -2323,14 +2853,30 @@ LayoutContext _layoutContext(
   Layout root,
   List<ResolvedVaultNode> highlightedNodes,
   List<ResolvedVaultNode> selectedNodes, {
+  LayoutScene baseScene = LayoutScene.mainMenu,
   bool findOpened = false,
   bool createOpened = false,
+  Map<LayoutSize, LayoutSize> resolvedLayoutSizes = const {},
+  Map<GridSlot, GridSlot> resolvedGridSlots = const {},
 }) {
   final selectedPath = selectedNodes.lastOrNull?.path;
   final selectedPaths = [for (final node in selectedNodes) node.path];
+  final creationNode = selectedNodes
+      .where(
+        (resolvedNode) =>
+            resolvedNode.isVirtual &&
+            (resolvedNode.node?.labels.contains('New') ?? false),
+      )
+      .firstOrNull;
+  final creationGraphNode = creationNode?.node;
   final nodeContext = LayoutContext(
+    baseScene: baseScene,
     findOpened: findOpened,
-    createOpened: createOpened,
+    createOpened: createOpened || creationNode != null,
+    creationNodePath: creationNode?.path,
+    creationNodeLabels: creationGraphNode?.labels ?? const [],
+    resolvedLayoutSizes: resolvedLayoutSizes,
+    resolvedGridSlots: resolvedGridSlots,
     selectedNodePath: selectedPath,
     selectedNodePaths: selectedPaths,
     highlightedNodePaths: [for (final node in highlightedNodes) node.path],
@@ -2426,6 +2972,16 @@ void _drawLayoutPath(
     layoutContext,
   );
   if (resolvedPoints == null) return;
+  if (resolvedPoints.length == 2) {
+    final activeCurve = layoutPath.curves
+        .where((curve) => curve.isActive(layoutContext))
+        .firstOrNull;
+    if (activeCurve != null &&
+        _resolvedLayoutPathCurveExtent(activeCurve, layoutContext) <=
+            0.000001) {
+      return;
+    }
+  }
   final projection = _resolvedLayoutPathProjection(
     layoutPath,
     resolvedPoints,
@@ -2629,6 +3185,7 @@ void _drawLayoutPath(
             : _quadrilateralAverageSize(resolvedPoints),
         placement.gridSteps,
         rootFontSize: layoutContext.rootFontSize,
+        layoutContext: layoutContext,
       );
       if (tableFrame == null) continue;
       final tablePoints = projection?.canProjectBackground ?? false
@@ -2711,6 +3268,7 @@ void _drawGridBackgrounds(
           (frame.bottom - frame.top),
     ),
     rootFontSize: layoutContext.rootFontSize,
+    layoutContext: layoutContext,
   );
   if (tracks == null) return;
   for (final child in _resolveGridChildren(grid, tracks, layoutContext)) {
@@ -3116,22 +3674,37 @@ void _paintBackgroundImage(
 ) {
   canvas.save();
   final radians = background.rotationDegrees * math.pi / 180;
-  if (radians != 0 || background.scale != 1) {
+  final paintRect = _backgroundUsesQuarterTurn(background.rotationDegrees)
+      ? Rect.fromCenter(
+          center: tile.center,
+          width: tile.height,
+          height: tile.width,
+        )
+      : tile;
+  if (radians != 0 || background.scale != 1 || background.flipHorizontally) {
     canvas
       ..translate(tile.center.dx, tile.center.dy)
       ..rotate(radians)
-      ..scale(background.scale)
+      ..scale(
+        background.flipHorizontally ? -background.scale : background.scale,
+        background.scale,
+      )
       ..translate(-tile.center.dx, -tile.center.dy);
   }
   paintImage(
     canvas: canvas,
-    rect: tile,
+    rect: paintRect,
     image: image,
     fit: _backgroundImageBoxFit(background.fit),
     alignment: _backgroundImageAlignment(background.position),
     opacity: opacity,
   );
   canvas.restore();
+}
+
+bool _backgroundUsesQuarterTurn(double rotationDegrees) {
+  final halfTurnRemainder = rotationDegrees.abs() % 180;
+  return (halfTurnRemainder - 90).abs() < 0.0001;
 }
 
 BoxFit _backgroundImageBoxFit(LayoutBackgroundFit fit) => switch (fit) {
@@ -3463,14 +4036,60 @@ _LayoutPathProjection? _resolvedLayoutPathProjection(
     return resolved;
   }
 
-  return _LayoutPathProjection.resolve(points, [
-    for (final curve in layoutPath.curves)
-      (
-        from: structuralEndpoint(curve.from),
-        through: _resolveReference(curve.through, layouts, layoutContext),
-        to: structuralEndpoint(curve.to),
+  final curves = <({Offset? from, Offset? through, Offset? to})>[];
+  for (final curve in layoutPath.curves.where(
+    (curve) => curve.isActive(layoutContext),
+  )) {
+    final from = structuralEndpoint(curve.from);
+    final to = structuralEndpoint(curve.to);
+    curves.add((
+      from: from,
+      through: _resolvedLayoutPathCurveThrough(
+        curve,
+        from,
+        to,
+        layouts,
+        layoutContext,
       ),
-  ], close: layoutPath.style?.close ?? true);
+      to: to,
+    ));
+  }
+  return _LayoutPathProjection.resolve(
+    points,
+    curves,
+    close: layoutPath.style?.close ?? true,
+  );
+}
+
+double _resolvedLayoutPathCurveExtent(
+  LayoutPathCurve curve,
+  LayoutContext layoutContext,
+) => layoutContext
+    .resolveLayoutSize(curve.extent)
+    .value
+    .clamp(0.0, 1.0)
+    .toDouble();
+
+Offset? _resolvedLayoutPathCurveThrough(
+  LayoutPathCurve curve,
+  Offset? from,
+  Offset? to,
+  Map<String, _ResolvedLayout> layouts,
+  LayoutContext layoutContext,
+) {
+  if (from == null || to == null) return null;
+  final authoredThrough = _resolveReference(
+    curve.through,
+    layouts,
+    layoutContext,
+  );
+  if (authoredThrough == null) return null;
+  final edgeCenter = Offset.lerp(from, to, 0.5)!;
+  return Offset.lerp(
+    edgeCenter,
+    authoredThrough,
+    _resolvedLayoutPathCurveExtent(curve, layoutContext),
+  );
 }
 
 List<Offset>? _resolvedCurvedFanSurface(
@@ -3479,11 +4098,23 @@ List<Offset>? _resolvedCurvedFanSurface(
   Map<String, _ResolvedLayout> layouts,
   LayoutContext layoutContext,
 ) {
-  if (points.length != 2 || layoutPath.curves.isEmpty) return null;
-  final curve = layoutPath.curves.first;
+  final activeCurves = layoutPath.curves.where(
+    (curve) => curve.isActive(layoutContext),
+  );
+  if (points.length != 2 || activeCurves.isEmpty) return null;
+  final curve = activeCurves.first;
+  if (_resolvedLayoutPathCurveExtent(curve, layoutContext) <= 0.000001) {
+    return null;
+  }
   final from = _resolveReference(curve.from, layouts, layoutContext);
-  final through = _resolveReference(curve.through, layouts, layoutContext);
   final to = _resolveReference(curve.to, layouts, layoutContext);
+  final through = _resolvedLayoutPathCurveThrough(
+    curve,
+    from,
+    to,
+    layouts,
+    layoutContext,
+  );
   if (from == null || through == null || to == null) return null;
 
   final forward =
@@ -3630,7 +4261,10 @@ class _CurvedLayoutPathImageMesh {
     );
     final imageSize = Size(image.width.toDouble(), image.height.toDouble());
     final fit = _backgroundImageBoxFit(background.fit);
-    final fitted = applyBoxFit(fit, imageSize, flatSize);
+    final fittingSize = _backgroundUsesQuarterTurn(background.rotationDegrees)
+        ? Size(flatSize.height, flatSize.width)
+        : flatSize;
+    final fitted = applyBoxFit(fit, imageSize, fittingSize);
     final alignment = _backgroundImageAlignment(background.position);
     final sourceRect = alignment.inscribe(
       fitted.source,
@@ -3638,12 +4272,12 @@ class _CurvedLayoutPathImageMesh {
     );
     final destinationRect = alignment.inscribe(
       fitted.destination,
-      Offset.zero & flatSize,
+      Offset.zero & fittingSize,
     );
-    final left = destinationRect.left / flatSize.width;
-    final right = destinationRect.right / flatSize.width;
-    final top = destinationRect.top / flatSize.height;
-    final bottom = destinationRect.bottom / flatSize.height;
+    final left = destinationRect.left / fittingSize.width;
+    final right = destinationRect.right / fittingSize.width;
+    final top = destinationRect.top / fittingSize.height;
+    final bottom = destinationRect.bottom / fittingSize.height;
     final positions = <Offset>[];
     final textureCoordinates = <Offset>[];
     final rotationRadians = background.rotationDegrees * math.pi / 180;
@@ -3672,7 +4306,12 @@ class _CurvedLayoutPathImageMesh {
       final localU = ui.lerpDouble(left, right, stop)!;
       final topDestination = transformedDestination(localU, top);
       final bottomDestination = transformedDestination(localU, bottom);
-      final textureX = ui.lerpDouble(sourceRect.left, sourceRect.right, stop)!;
+      final textureStop = background.flipHorizontally ? 1 - stop : stop;
+      final textureX = ui.lerpDouble(
+        sourceRect.left,
+        sourceRect.right,
+        textureStop,
+      )!;
       positions
         ..add(
           projection.project(
@@ -4848,9 +5487,12 @@ LayoutTapTarget? _hitTestLayoutTapTarget(
   VaultNodeResolver? vaultNodeResolver,
   List<ResolvedVaultNode> highlightedNodes,
   List<ResolvedVaultNode> selectedNodes, {
+  LayoutScene baseScene = LayoutScene.mainMenu,
   List<ResolvedVaultNode> searchResults = const [],
   bool findOpened = false,
   bool createOpened = false,
+  Map<LayoutSize, LayoutSize> resolvedLayoutSizes = const {},
+  Map<GridSlot, GridSlot> resolvedGridSlots = const {},
 }) => _hitTestLayoutTap(
   root,
   size,
@@ -4859,9 +5501,12 @@ LayoutTapTarget? _hitTestLayoutTapTarget(
   vaultNodeResolver,
   highlightedNodes,
   selectedNodes,
+  baseScene: baseScene,
   searchResults: searchResults,
   findOpened: findOpened,
   createOpened: createOpened,
+  resolvedLayoutSizes: resolvedLayoutSizes,
+  resolvedGridSlots: resolvedGridSlots,
 )?.target;
 
 _LayoutTapHit? _hitTestLayoutTap(
@@ -4872,16 +5517,22 @@ _LayoutTapHit? _hitTestLayoutTap(
   VaultNodeResolver? vaultNodeResolver,
   List<ResolvedVaultNode> highlightedNodes,
   List<ResolvedVaultNode> selectedNodes, {
+  LayoutScene baseScene = LayoutScene.mainMenu,
   List<ResolvedVaultNode> searchResults = const [],
   bool findOpened = false,
   bool createOpened = false,
+  Map<LayoutSize, LayoutSize> resolvedLayoutSizes = const {},
+  Map<GridSlot, GridSlot> resolvedGridSlots = const {},
 }) {
   final layoutContext = _layoutContext(
     root,
     highlightedNodes,
     selectedNodes,
+    baseScene: baseScene,
     findOpened: findOpened,
     createOpened: createOpened,
+    resolvedLayoutSizes: resolvedLayoutSizes,
+    resolvedGridSlots: resolvedGridSlots,
   );
   final nodeListSources = _nodeListSources(
     selectedNodes,
@@ -5102,6 +5753,7 @@ void _drawFlatGridComposition(
     grid,
     size,
     rootFontSize: layoutContext.rootFontSize,
+    layoutContext: layoutContext,
   );
   if (tracks == null) return;
   for (final child in _resolveGridChildren(grid, tracks, layoutContext)) {
@@ -5240,6 +5892,7 @@ List<Offset>? _resolveGridPlacementPoints(
     flatSize,
     gridSteps,
     rootFontSize: layoutContext.rootFontSize,
+    layoutContext: layoutContext,
   );
   if (frame == null) return null;
   return projection?.canProjectBackground ?? false
@@ -5257,6 +5910,7 @@ _FlexSurfaceRect? _resolveGridPlacementFrame(
   Size flatSize,
   List<({GridLayout grid, String slot, Layout layout})> gridSteps, {
   double rootFontSize = LayoutTextDefaults.rootFontSize,
+  LayoutContext layoutContext = LayoutContext.empty,
 }) {
   var frame = const (left: 0.0, top: 0.0, right: 1.0, bottom: 1.0);
   for (final step in gridSteps) {
@@ -5267,6 +5921,7 @@ _FlexSurfaceRect? _resolveGridPlacementFrame(
         flatSize.height * (frame.bottom - frame.top),
       ),
       rootFontSize: rootFontSize,
+      layoutContext: layoutContext,
     );
     if (tracks == null) return null;
     final resolvedSlot = _resolveGridSlot(step.grid, step.slot);
@@ -5275,6 +5930,7 @@ _FlexSurfaceRect? _resolveGridPlacementFrame(
       resolvedSlot.slot,
       tracks,
       layout: step.layout,
+      layoutContext: layoutContext,
     );
     if (areaFrame == null) return null;
     frame = _scaleFlexSurfaceRect(frame, areaFrame);
@@ -5286,6 +5942,7 @@ _ResolvedGridTracks? _resolvedGridTracks(
   GridLayout grid,
   Size size, {
   double rootFontSize = LayoutTextDefaults.rootFontSize,
+  LayoutContext layoutContext = LayoutContext.empty,
 }) {
   if (grid.rowsConfig.isEmpty || grid.columnsConfig.isEmpty || size.isEmpty) {
     return null;
@@ -5294,12 +5951,18 @@ _ResolvedGridTracks? _resolvedGridTracks(
     rowKeys: grid.rowsConfig.keys.toList(growable: false),
     columnKeys: grid.columnsConfig.keys.toList(growable: false),
     rowStops: _gridTrackStops(
-      grid.rowsConfig.values.toList(),
+      [
+        for (final size in grid.rowsConfig.values)
+          layoutContext.resolveLayoutSize(size),
+      ],
       size.height,
       rootFontSize: rootFontSize,
     ),
     columnStops: _gridTrackStops(
-      grid.columnsConfig.values.toList(),
+      [
+        for (final size in grid.columnsConfig.values)
+          layoutContext.resolveLayoutSize(size),
+      ],
       size.width,
       rootFontSize: rootFontSize,
     ),
@@ -5325,6 +5988,7 @@ _resolveGridChildren(
       resolvedSlot.slot,
       tracks,
       layout: layout,
+      layoutContext: layoutContext,
     );
     if (frame == null) continue;
     yield (key: entry.key, layout: layout, frame: frame);
@@ -5335,7 +5999,9 @@ _FlexSurfaceRect? _resolveGridSlotFrame(
   GridSlot slot,
   _ResolvedGridTracks tracks, {
   Layout? layout,
+  LayoutContext layoutContext = LayoutContext.empty,
 }) {
+  slot = layoutContext.resolveGridSlot(slot);
   final rowIndex = tracks.rowKeys.indexOf(slot.row);
   final columnIndex = tracks.columnKeys.indexOf(slot.column);
   if (rowIndex < 0 || columnIndex < 0) return null;
@@ -5520,6 +6186,7 @@ void _drawCurvedGridComposition(
       projection.flatSize.height * (frame.bottom - frame.top),
     ),
     rootFontSize: layoutContext.rootFontSize,
+    layoutContext: layoutContext,
   );
   if (tracks == null) return;
   for (final child in _resolveGridChildren(grid, tracks, layoutContext)) {
@@ -5627,6 +6294,59 @@ void _drawCurvedGridGuides(
       style,
     );
   }
+}
+
+_FlexSurfaceRect? _resolveFlexChildFrame(
+  Layout composition,
+  String childKey,
+  _FlexSurfaceRect frame,
+  Size surfaceSize,
+  LayoutContext layoutContext,
+) {
+  final vertical = _isVerticalFlexLayout(composition);
+  if (!vertical && composition is! RowLayout) return null;
+  final children = _resolvedLayoutChildren(composition, layoutContext)
+      .where((entry) => entry.value.isVisible(layoutContext))
+      .toList(growable: false);
+  final index = children.indexWhere((entry) => entry.key == childKey);
+  if (index < 0) return null;
+  final mainPixels = vertical
+      ? surfaceSize.height * (frame.bottom - frame.top)
+      : surfaceSize.width * (frame.right - frame.left);
+  final crossPixels = vertical
+      ? surfaceSize.width * (frame.right - frame.left)
+      : surfaceSize.height * (frame.bottom - frame.top);
+  if (mainPixels <= 0) return null;
+  final stops = _gridTrackStops(
+    [
+      for (final child in children)
+        child.value.resolveSize(layoutContext).primary,
+    ],
+    mainPixels,
+    rootFontSize: layoutContext.rootFontSize,
+  );
+  final start = stops[index];
+  final end = stops[index + 1];
+  final child = children[index].value;
+  final crossRange = _resolveFlexCrossAxisRange(
+    composition,
+    child,
+    crossPixels,
+    layoutContext,
+  );
+  return vertical
+      ? (
+          left: frame.left,
+          top: ui.lerpDouble(frame.top, frame.bottom, start)!,
+          right: frame.right,
+          bottom: ui.lerpDouble(frame.top, frame.bottom, end)!,
+        )
+      : (
+          left: ui.lerpDouble(frame.left, frame.right, start)!,
+          top: ui.lerpDouble(frame.top, frame.bottom, crossRange.start)!,
+          right: ui.lerpDouble(frame.left, frame.right, end)!,
+          bottom: ui.lerpDouble(frame.top, frame.bottom, crossRange.end)!,
+        );
 }
 
 Iterable<({String key, Layout layout, _FlexSurfaceRect frame})>
@@ -5991,6 +6711,7 @@ _LayoutTapHit? _hitTestGridComposition(
     grid,
     _quadrilateralAverageSize(points),
     rootFontSize: layoutContext.rootFontSize,
+    layoutContext: layoutContext,
   );
   if (tracks == null) return null;
   final children = _resolveGridChildren(
@@ -6058,6 +6779,7 @@ _LayoutTapHit? _hitTestCurvedGridComposition(
       projection.flatSize.height * (frame.bottom - frame.top),
     ),
     rootFontSize: layoutContext.rootFontSize,
+    layoutContext: layoutContext,
   );
   if (tracks == null) return null;
   final children = _resolveGridChildren(
@@ -7868,7 +8590,8 @@ Rect _layoutSquareFrameForCircle(Rect circleFrame, {required Rect fallback}) {
 
 double _gridAreaEnd(double start, double span, int trackCount) {
   if (span == GridSpan.full) return trackCount.toDouble();
-  return (start + math.max(span, 0.0001)).clamp(0, trackCount).toDouble();
+  if (span <= 0) return start.clamp(0, trackCount).toDouble();
+  return (start + span).clamp(0, trackCount).toDouble();
 }
 
 double _gridStopAt(List<double> stops, double track) {
@@ -8063,12 +8786,14 @@ Offset? _resolvePathSlotReference(
         ? projection!.flatSize
         : _quadrilateralAverageSize(points),
     rootFontSize: layoutContext.rootFontSize,
+    layoutContext: layoutContext,
   );
   if (tracks == null) return null;
   final frame = _resolveGridSlotFrame(
     resolvedSlot.slot,
     tracks,
     layout: _gridChildForSlot(grid, reference.slot, layoutContext),
+    layoutContext: layoutContext,
   );
   if (frame == null) return null;
   final corners = projection?.canProjectBackground ?? false

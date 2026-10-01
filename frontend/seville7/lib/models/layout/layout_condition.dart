@@ -25,6 +25,9 @@ abstract class LayoutCondition {
   const factory LayoutCondition.hasLabelsInCurrentNode(List<String> labels) =
       _HasLabelsInCurrentNodeCondition;
 
+  const factory LayoutCondition.creationNodeHasLabels(List<String> labels) =
+      _CreationNodeHasLabelsCondition;
+
   const factory LayoutCondition.not(LayoutCondition condition) =
       _LayoutNotCondition;
 
@@ -51,6 +54,10 @@ abstract class LayoutCondition {
   const factory LayoutCondition.findOpened() = _LayoutFindOpenedCondition;
 
   const factory LayoutCondition.createOpened() = _LayoutCreateOpenedCondition;
+
+  const factory LayoutCondition.mainMenu() = _LayoutMainMenuCondition;
+
+  const factory LayoutCondition.gameplay() = _LayoutGameplayCondition;
 
   final Set<String> exclude;
 
@@ -115,6 +122,20 @@ class _LayoutCreateOpenedCondition extends LayoutCondition {
 
   @override
   bool isActive(LayoutContext context) => context.createOpened;
+}
+
+class _LayoutMainMenuCondition extends LayoutCondition {
+  const _LayoutMainMenuCondition() : super._();
+
+  @override
+  bool isActive(LayoutContext context) => context.scene == LayoutScene.mainMenu;
+}
+
+class _LayoutGameplayCondition extends LayoutCondition {
+  const _LayoutGameplayCondition() : super._();
+
+  @override
+  bool isActive(LayoutContext context) => context.scene == LayoutScene.gameplay;
 }
 
 class _LayoutNodeHighlightedCondition extends LayoutCondition {
@@ -242,6 +263,22 @@ class _HasLabelsInCurrentNodeCondition extends LayoutCondition {
       for (final label in labels) _normalizeConditionValue(label),
     };
     return context.currentNodeLabels.any(
+      (label) => normalizedLabels.contains(_normalizeConditionValue(label)),
+    );
+  }
+}
+
+class _CreationNodeHasLabelsCondition extends LayoutCondition {
+  const _CreationNodeHasLabelsCondition(this.labels) : super._();
+
+  final List<String> labels;
+
+  @override
+  bool isActive(LayoutContext context) {
+    final normalizedLabels = {
+      for (final label in labels) _normalizeConditionValue(label),
+    };
+    return context.creationNodeLabels.any(
       (label) => normalizedLabels.contains(_normalizeConditionValue(label)),
     );
   }

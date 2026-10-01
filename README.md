@@ -45,6 +45,12 @@ boundaries:
 - [`seville-architecture-plan.md`](docs/seville-architecture-plan.md) records
   the product goal, current architecture direction, accepted decisions, and
   open design questions.
+- [`game-architecture.md`](docs/game-architecture.md) defines the incremental
+  Flame collision, RPG-system, and authoritative multiplayer foundation.
+- [`android-landscape.md`](docs/android-landscape.md) describes the experimental
+  compact Android-phone layout and Pixel API connection requirements.
+- [`REFFERENCES.md`](REFFERENCES.md) records the external games guiding product
+  and architecture decisions.
 - [`TODO.md`](TODO.md) records the repository-wide near-term product goals.
 
 ## Architecture at a glance

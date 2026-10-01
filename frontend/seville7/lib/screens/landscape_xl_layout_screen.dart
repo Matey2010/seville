@@ -6,10 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:seville_proto/seville_proto.dart';
 
 import '../components/layout_component_registry.dart';
-import '../constants/layout/presets/lg_ergo/lg_ergo_layout_config.dart';
 import '../data/runtime_config.dart';
 import '../models/layout/layout.dart';
+import '../presets/lg_ergo/lg_ergo_create_node_layout.dart';
+import '../presets/lg_ergo/lg_ergo_layout_config.dart';
 import '../state/node_store.dart';
+import '../state/layout_scene_store.dart';
 import '../state/overlay_store.dart';
 import '../state/search_store.dart';
 import '../utils/common_utilities.dart';
@@ -68,6 +70,7 @@ class _LandscapeXlLayoutScreenState
     final layoutSnapshot = ref.watch(layoutSnapshotProvider(layout));
     final highlightedNodes = ref.watch(highlightedNodesProvider);
     final selectedNodes = ref.watch(selectedNodesProvider);
+    final baseScene = ref.watch(layoutSceneProvider);
     final searchValue = ref.watch(
       searchStateProvider.select((state) => state.value),
     );
@@ -190,17 +193,23 @@ class _LandscapeXlLayoutScreenState
         queryNodes: queryNodes,
         highlightedNodes: highlightedNodes,
         selectedNodes: selectedNodes,
+        baseScene: baseScene,
         onLayoutTap: _handleLayoutTap,
         searchValue: searchValue,
+        searchResolved: searchState is AsyncData,
         onSearchSubmitted: _submitSearch,
+        onCreateSuggestedNode: (slug) =>
+            unawaited(_createVirtualNode(findLayoutPath, requestedSlug: slug)),
         onSearchNodeSelected: _selectSearchNode,
-        onCreateVirtualNodeSubmitted: (slug, layoutKey) => unawaited(
-          _createVirtualNode(_pathFromAddress(layoutKey), requestedSlug: slug),
-        ),
+        onCreationInputSubmitted: _submitCreationInput,
         onCancel: _cancelInterface,
         onRefreshFanData: _refreshFanData,
         onCopySelectedNodeSlug: _copySelectedNodeSlug,
-        onSubmit: () => unawaited(_submitVirtualNode()),
+        onSubmit: () {
+          if (ref.read(layoutSceneProvider) != LayoutScene.gameplay) {
+            unawaited(_submitVirtualNode());
+          }
+        },
       ),
     );
   }
@@ -223,6 +232,34 @@ class _LandscapeXlLayoutScreenState
   }
 
   void _handleLayoutTap(LayoutTapTarget target) {
+    final tapAction = target.layout is PanelLayout
+        ? (target.layout as PanelLayout).onTap
+        : null;
+    if (tapAction is ContinueGameLayoutTapAction) {
+      ref.read(layoutSceneProvider.notifier).showGame();
+      return;
+    }
+    if (tapAction case BeginNodeCreationLayoutTapAction(:final labels)) {
+      if (target.layout.aliases.contains('resolve-today-node')) {
+        unawaited(
+          _resolveTodayNode(_pathFromAddress(target.key), labels: labels),
+        );
+      } else {
+        unawaited(
+          _createVirtualNode(_pathFromAddress(target.key), labels: labels),
+        );
+      }
+      return;
+    }
+    if (tapAction case SelectCreationLabelsLayoutTapAction(
+      :final labels,
+      :final exclusiveWith,
+    )) {
+      ref
+          .read(selectedNodesProvider.notifier)
+          .selectCreationLabels(labels: labels, exclusiveWith: exclusiveWith);
+      return;
+    }
     if (target.tableAction?.copiesToClipboard ?? false) {
       _copyTextToClipboard(target.textValue ?? '');
       return;
@@ -374,14 +411,64 @@ class _LandscapeXlLayoutScreenState
         );
   }
 
+  bool _submitCreationInput(
+    String value,
+    String layoutKey,
+    LayoutInputSubmission submission,
+  ) {
+    final selectedNodes = ref.read(selectedNodesProvider.notifier);
+    switch (submission) {
+      case CreateVirtualNodeLayoutInputSubmission():
+        unawaited(
+          _createVirtualNode(_pathFromAddress(layoutKey), requestedSlug: value),
+        );
+        return true;
+      case SetCreationLabelsLayoutInputSubmission():
+        final rootLabel = selectedNodes.firstCreationNode?.node?.labels
+            .where(lgErgoCreationRootLabels.contains)
+            .firstOrNull;
+        if (rootLabel == null || rootLabel == 'Character') return false;
+        final labels = value
+            .split(',')
+            .map((label) => label.trim())
+            .where((label) => label.isNotEmpty)
+            .toSet();
+        final validLabel = RegExp(r'^[A-Za-z_][A-Za-z0-9_]*$');
+        if (labels.length > 61 ||
+            labels.any(
+              (label) =>
+                  !validLabel.hasMatch(label) ||
+                  label == 'New' ||
+                  label == 'Virtual' ||
+                  (lgErgoCreationRootLabels.contains(label) &&
+                      label != rootLabel),
+            )) {
+          ref
+              .read(toastProvider.notifier)
+              .show(
+                'Use up to 61 comma-separated labels (letters, digits, _)',
+                type: NotificationType.NOTIFICATION_TYPE_WARNING,
+              );
+          return false;
+        }
+        return selectedNodes.setCreationExtraLabels(labels, rootLabel);
+      case SetCreationBodyLayoutInputSubmission():
+        return selectedNodes.setCreationBody(value);
+      case FindNodesLayoutInputSubmission():
+        return false;
+    }
+  }
+
   Future<void> _createVirtualNode(
     List<String> layoutPath, {
     String? requestedSlug,
+    Iterable<String> labels = const [],
   }) async {
     if (_isAddingVirtualNode) return;
     _isAddingVirtualNode = true;
     try {
       final selectedNodes = ref.read(selectedNodesProvider.notifier);
+      final activeCreationNode = selectedNodes.firstCreationNode;
       final explicitSlug = requestedSlug?.trim();
       var slug = explicitSlug == null || explicitSlug.isEmpty
           ? selectedNodes.nextVirtualNodeSlugCandidate()
@@ -389,7 +476,11 @@ class _LandscapeXlLayoutScreenState
       while (true) {
         final selectedDuplicate = ref
             .read(selectedNodesProvider)
-            .any((node) => node.node?.slug.trim() == slug);
+            .any(
+              (node) =>
+                  !identical(node, activeCreationNode) &&
+                  node.node?.slug.trim() == slug,
+            );
         final storedDuplicate = await ref.read(
           nodeBySlugProvider(
             NodeBySlugRequest(slug: slug, layoutPath: layoutPath),
@@ -409,9 +500,15 @@ class _LandscapeXlLayoutScreenState
         slug = selectedNodes.nextVirtualNodeSlugCandidate();
       }
       if (!mounted) return;
+      if (activeCreationNode != null) {
+        selectedNodes.renameCreationNode(slug);
+        CommonUtilities.log('[interface] renamed virtual Node: $slug');
+        return;
+      }
       final node = selectedNodes.addVirtualNode(
         slug: slug,
         layoutPath: layoutPath,
+        labels: labels,
       );
       CommonUtilities.log(
         '[interface] created virtual Node: ${node.node?.slug}',
@@ -433,7 +530,7 @@ class _LandscapeXlLayoutScreenState
   Future<void> _submitVirtualNode() async {
     if (_isCreatingVirtualNode) return;
     final selectedNodes = ref.read(selectedNodesProvider.notifier);
-    final virtualNode = selectedNodes.firstVirtualNode;
+    final virtualNode = selectedNodes.firstCreationNode;
     final slug = virtualNode?.node?.slug.trim();
     if (virtualNode == null || slug == null || slug.isEmpty) {
       CommonUtilities.log('[interface] no virtual Node to create');
@@ -445,12 +542,29 @@ class _LandscapeXlLayoutScreenState
           );
       return;
     }
+    final draftNode = virtualNode.node!;
+    final hasClassificationLabel = draftNode.labels.any(
+      (label) => label != 'New' && label != 'Virtual',
+    );
+    if (!hasClassificationLabel) {
+      ref
+          .read(toastProvider.notifier)
+          .show(
+            'Choose what kind of Node to create',
+            type: NotificationType.NOTIFICATION_TYPE_WARNING,
+          );
+      return;
+    }
 
     _isCreatingVirtualNode = true;
     try {
       final createdNode = await ref
           .read(sevilleApiProvider)
-          .createNode(slug: slug, labels: const ['New', 'Virtual']);
+          .createNode(
+            slug: slug,
+            labels: draftNode.labels,
+            body: draftNode.body,
+          );
       if (!mounted) return;
       final replaced = ref
           .read(selectedNodesProvider.notifier)
@@ -485,7 +599,10 @@ class _LandscapeXlLayoutScreenState
     }
   }
 
-  Future<void> _resolveTodayNode(List<String> layoutPath) async {
+  Future<void> _resolveTodayNode(
+    List<String> layoutPath, {
+    Iterable<String> labels = const ['Event', 'Day', 'Date'],
+  }) async {
     if (_isResolvingTodayNode) return;
     _isResolvingTodayNode = true;
     final now = DateTime.now();
@@ -518,7 +635,7 @@ class _LandscapeXlLayoutScreenState
         selectedNodes.addVirtualNode(
           slug: slug,
           layoutPath: layoutPath,
-          labels: const ['Calendar', 'Date', 'Day'],
+          labels: labels,
         );
       }
       ref
@@ -596,6 +713,11 @@ class _LandscapeXlLayoutScreenState
   }
 
   void _cancelInterface() {
+    if (ref.read(layoutSceneProvider) == LayoutScene.gameplay) {
+      ref.read(layoutSceneProvider.notifier).showMenu();
+      CommonUtilities.log('[interface] returned to main menu');
+      return;
+    }
     ref.read(selectedNodesProvider.notifier).clear();
     ref.read(searchStateProvider.notifier).clear();
     ref.invalidate(nodeSearchProvider);

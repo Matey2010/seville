@@ -8,6 +8,9 @@ scaling, and animation.
 
 - `LandscapeXlLayout` owns the full-screen landscape hierarchy. It extends
   `Layout` and nests every child under a stable key in `Layout.children`.
+- The compact Android-phone landscape preset uses that same root and renderer,
+  with a separate grid composition selected for small Android screens. LG Ergo
+  remains the macOS preset; see `docs/android-landscape.md`.
 - `SafeAreaLayout`, `PlaneLayout`, `LayoutPath`, `GridLayout`, `ColumnLayout`,
   and `RowLayout` describe the active screen's structural composition.
 - `GridLayout` combines ordered row and column tracks with named `GridSlot`
@@ -31,7 +34,9 @@ active layout tree and extending an existing model where its semantics fit.
 `LayoutPathCurve` identifies a structural edge with direct `from` and `to`
 derivative references and a shaping derivative in `through`. Keep curve-only
 derivatives out of `LayoutPath.points`; a four-corner path remains a
-quadrilateral for structural consumers.
+quadrilateral for structural consumers. Its stateful `extent` may animate from
+`1fr` for the authored curve to `0fr` for the flat structural edge through the
+shared Layout-size animation pipeline.
 
 When a curved `LayoutPath` owns `GridLayout`, `RowLayout`, or `ColumnLayout`
 content, Flame resolves descendants in normalized surface coordinates. Grid
@@ -171,7 +176,7 @@ configuration, but visual stacking remains a frontend responsibility.
 `main.dart` owns only the application shell and selects
 `LandscapeXlLayoutScreen`
 as `MaterialApp.home`. The fresh starting hierarchy is declared entirely in
-`constants/layout/presets/lg_ergo/lg_ergo_layout_config.dart`:
+`presets/lg_ergo/lg_ergo_layout_config.dart`:
 
 1. `lgErgoLayoutConfig` fills the physical screen.
 2. Its `safe-area` child applies Flutter's runtime display insets.
@@ -219,10 +224,13 @@ planes remain complementary without duplicating parameters. Painters and
 components must not independently reimplement the filter.
 
 Selected Nodes have an explicit center configuration at
-`safe-area/panoramic-scene-plane/direction-pad/scene-graph`.
-The panoramic plane's `GridLayout` places the `GraphLayout` across the complete
-center 2fr column between 1fr side columns. Its three 1fr rows inherit the
-owning curved `LayoutPath` projection. The
+`safe-area/panoramic-scene-plane/direction-pad/game-scene/scene-graph`.
+The panoramic plane places `game-scene` across its complete core. That nested
+Grid places the `GraphLayout` across the complete center 3fr column between 1fr
+side columns and owns possessions as its right-bottom Layout HUD. LG Ergo
+extracts that configuration into its own game-scene preset module and makes it
+visible while the active virtual creation Node has the `Virtual` label. Its three 1fr rows
+inherit the owning curved `LayoutPath` projection. The
 Graph renders the complete Riverpod-selected Node pool in equal centered cells, with
 each circular Node occupying half of its cell by default. More selected Nodes
 therefore produce smaller circles. Each logical circle is sampled through the
@@ -231,10 +239,9 @@ by paint and hit testing. Every circle shows its wrapped slug; an
 assigned Emoji appears above it at twice the configured base Node font size,
 with a half-font-size vertical gap. LG Ergo's Fan and Graph renderers share
 the root `NodeConfig.text.fontSize` as that typography source; the renderers do
-not own parallel `labelSize` fields or a font-size constant. It is visible only when
-`LayoutCondition.hasActiveNodes()` is active and does not
-request a `NodeTree`; connections and graph-distance placement remain future
-extensions. `GraphLayoutComponent` is the single Flame owner of its geometry,
+not own parallel `labelSize` fields or a font-size constant. When enabled, it
+does not request a `NodeTree`; connections and graph-distance placement remain
+future extensions. `GraphLayoutComponent` is the single Flame owner of its geometry,
 clipping, Node painting, labels, tap handling, and hover hit testing.
 `LandscapeXlLayoutView` only supplies the resolved surface, current state, and
 application callback boundary. A `RandomLayoutBackground` configured anywhere
@@ -401,7 +408,7 @@ encountering its interchangeable implementation vocabulary.
   models and rendering utilities but do not own reusable spatial rules.
 - `lib/constants/` contains shared colors, tokens, and layout presets. The
   active hierarchy is configured in
-  `lib/constants/layout/presets/lg_ergo/lg_ergo_layout_config.dart`.
+  `lib/presets/lg_ergo/lg_ergo_layout_config.dart`.
 - `lib/utils/` contains small reusable helpers: drawing helpers, formatting
   helpers, geometry helpers, and other stateless operations.
 - `lib/components/` contains reusable Flame renderers such as Fan, Graph,
@@ -434,7 +441,7 @@ layout or interaction still behaves correctly after a change.
 
 Automated verification is limited to formatting and static analysis. The
 project owner exclusively performs final visual, interaction, build, and
-runtime verification in the real macOS application.
+runtime verification in the real application on the target device.
 
 ## Guidelines
 
@@ -451,7 +458,7 @@ remove, or reposition them without changing graph rendering.
 
 The Layout library lives at `lib/models/layout/layout.dart`, with its models in
 sibling part files. The active hierarchy preset lives in
-`lib/constants/layout/presets/lg_ergo/lg_ergo_layout_config.dart`. Explicit
+`lib/presets/lg_ergo/lg_ergo_layout_config.dart`. Explicit
 guideline drawing lives in `lib/utils/layout_guidelines.dart`, and dashed guide
 drawing lives in `lib/utils/canvas_guides.dart`. Recursive layout composition,
 SafeArea geometry, and the `GameWidget` host live in
@@ -605,15 +612,20 @@ The GameWidget region hides the native pointer through Flame's
 glow through `_GameCursorComponent`. Position and animation remain inside the
 Flame game. No platform cursor plugin or Flutter overlay follows the pointer.
 
-The green right-plane Add button creates a frontend-only selected Node through
+The New action creates a frontend-only, commented `New:Virtual` Node through
 `SelectedNodesNotifier.addVirtualNode()`. `ResolvedVaultNode.isVirtual` is the
 explicit not-yet-persisted flag, and the shared Flame Node border renderer
-paints virtual geometry dashed. The right-plane cross and Escape use the same
-`SevilleKeymapAction.cancel` path, which clears selection and drafts, resets and
-hides search, invalidates Node-search results, and closes the Graph scene.
-The top-row ✅ action beside the nuclear close action and plain Enter create the
-first virtual Node through the backend with Neo4j labels `New` and `Virtual`,
-then replace that exact Riverpod entry with the canonical response. If the
+paints virtual geometry dashed. The draft's accumulated labels select its
+creation Layout through `LayoutCondition.creationNodeHasLabels(...)`; root kind
+selection is exclusive, while later semantic labels may accumulate. The
+right-plane cross and Escape use the same `SevilleKeymapAction.cancel` path,
+which clears selection and drafts, resets and hides search, invalidates
+Node-search results, and closes the Graph scene.
+
+The shared creation action sends the draft slug, labels, and Markdown body
+through the backend, then replaces that exact Riverpod entry with the canonical
+response. Today uses the same path for a missing date by supplying `Event`,
+`Day`, and `Date`; those labels select Event rather than Character creation. If
 Find is visible, its native input consumes Enter to submit the Node query or
 select the highlighted result instead of creating a Node.
 
@@ -621,29 +633,24 @@ Copy and Share occupy the second right-plane action row. Me is now a visible
 shared-width group in the left info table. Its former right-plane implementation
 is retained as a comment beside the new group, ready for a later global action
 contract; the current group does not dispatch the player query yet.
+Confirm/Enter and Close/Escape live in their own main-menu `RowLayout` on the
+center column's fixed track immediately above teletext. They retain their
+existing action aliases, shared dark-vintage background, and focused weapon
+artwork; the navigation column must not duplicate them.
 Direction controls use a three-by-three fractional core, ordered from top-left
-through bottom-right with center included. Fixed header and bottom-ribbon rows
-surround it. A fixed 4rem left-ribbon track precedes the content columns and its
-outer Grid slot spans every row; its nested `ColumnLayout` skips the first 4rem
-header row. The header itself is a direct `RowLayout` spanning every column in
-the complete top row. A foreground `logo` slot owns their intersection and
-renders the 🧠 `brain-control` `NodeLayout`. Its filter is the same exact
-Calendar-root filter used by both Fans, while the elder-brain image is
-configured once on `cortex-bush`. The center content column remains wider than
-the side columns. Their `direction-*` aliases are configuration-level
-interaction vocabulary; concrete movement behavior is not implied by their
-rendering.
-The `footer` Grid slot spans the entire fixed bottom row, including the
-left-ribbon intersection. Its Row content is a fixed ribbon-width start spacer,
-the flexible teletext `bottom-ribbon` Panel, and a matching end spacer.
-The spanning header is one flat `RowLayout` whose panels are direct children.
-There is no nested header or center-ribbon Grid slot.
+through bottom-right with center included. Fixed action and teletext rows follow
+it. The three content columns consume the complete panoramic width; there is no
+auxiliary left-ribbon track or logo intersection. The extracted navigation
+column occupies the top-left slot through the same `GridSlot` contract as other
+scene content. The center content column remains wider than the side columns.
+Their `direction-*` aliases are configuration-level interaction vocabulary;
+concrete movement behavior is not implied by their rendering.
 
 The right-plane Today action performs an exact-slug Node query for the local
 `DD-MM-YYYY` value. A returned canonical Node is slug-upserted into
 `selectedNodesProvider`. Only a successful empty result creates a dashed
-virtual Node with `Calendar`, `Date`, and `Day` labels; a failed query must not
-create a draft that could duplicate unavailable canonical data.
+`New:Virtual:Event:Day:Date` draft; a failed query must not create a draft that
+could duplicate unavailable canonical data.
 
 `SEVILLE_PLAYER_SLUG` is the local player Node identity used before
 authentication provides one. Configure it in the ignored `.env`; the macOS

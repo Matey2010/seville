@@ -291,9 +291,14 @@ class SelectedNodesNotifier extends Notifier<List<ResolvedVaultNode>> {
   @override
   List<ResolvedVaultNode> build() => const [];
 
-  ResolvedVaultNode? get firstVirtualNode {
-    for (final node in state) {
-      if (node.isVirtual) return node;
+  ResolvedVaultNode? get firstCreationNode {
+    for (final resolvedNode in state) {
+      final node = resolvedNode.node;
+      if (resolvedNode.isVirtual &&
+          node != null &&
+          node.labels.contains('New')) {
+        return resolvedNode;
+      }
     }
     return null;
   }
@@ -317,12 +322,15 @@ class SelectedNodesNotifier extends Notifier<List<ResolvedVaultNode>> {
     required String slug,
     required List<String> layoutPath,
     Iterable<String> labels = const [],
+    String body = _defaultVirtualNodeComment,
   }) {
+    final resolvedLabels = <String>{'New', 'Virtual', ...labels};
     final node = Node(
       slug: slug,
       path: slug,
       title: 'New Node',
-      labels: labels,
+      body: body,
+      labels: resolvedLabels,
     );
     final resolvedNode = ResolvedVaultNode(
       path: slug,
@@ -333,6 +341,87 @@ class SelectedNodesNotifier extends Notifier<List<ResolvedVaultNode>> {
     );
     state = List.unmodifiable([...state, resolvedNode]);
     return resolvedNode;
+  }
+
+  bool selectCreationLabels({
+    required Iterable<String> labels,
+    Iterable<String> exclusiveWith = const [],
+  }) {
+    final creationNode = firstCreationNode;
+    final node = creationNode?.node;
+    if (creationNode == null || node == null) return false;
+    final excluded = {
+      for (final label in exclusiveWith) label.trim().toLowerCase(),
+    };
+    final updatedLabels = <String>{
+      for (final label in node.labels)
+        if (!excluded.contains(label.trim().toLowerCase())) label,
+      for (final label in labels)
+        if (label.trim().isNotEmpty) label.trim(),
+    };
+    final updatedNode = node.deepCopy()
+      ..labels.clear()
+      ..labels.addAll(updatedLabels);
+    _replaceVirtualNodeData(creationNode, updatedNode);
+    return true;
+  }
+
+  bool renameCreationNode(String slug) {
+    final normalizedSlug = slug.trim();
+    final creationNode = firstCreationNode;
+    final node = creationNode?.node;
+    if (normalizedSlug.isEmpty || creationNode == null || node == null) {
+      return false;
+    }
+    final updatedNode = node.deepCopy()
+      ..slug = normalizedSlug
+      ..path = normalizedSlug;
+    _replaceVirtualNodeData(creationNode, updatedNode, path: normalizedSlug);
+    return true;
+  }
+
+  bool setCreationExtraLabels(Iterable<String> labels, String rootLabel) {
+    final creationNode = firstCreationNode;
+    final node = creationNode?.node;
+    if (creationNode == null || node == null) return false;
+    final updatedNode = node.deepCopy()
+      ..labels.clear()
+      ..labels.addAll({'New', 'Virtual', rootLabel, ...labels});
+    _replaceVirtualNodeData(creationNode, updatedNode);
+    return true;
+  }
+
+  bool setCreationBody(String body) {
+    final creationNode = firstCreationNode;
+    final node = creationNode?.node;
+    if (creationNode == null || node == null) return false;
+    final updatedNode = node.deepCopy()..body = body;
+    _replaceVirtualNodeData(creationNode, updatedNode);
+    return true;
+  }
+
+  void _replaceVirtualNodeData(
+    ResolvedVaultNode resolvedNode,
+    Node node, {
+    String? path,
+  }) {
+    final index = state.indexOf(resolvedNode);
+    if (index < 0) return;
+    state = List.unmodifiable([
+      ...state.take(index),
+      ResolvedVaultNode(
+        path: path ?? resolvedNode.path,
+        color: resolvedNode.color,
+        label: resolvedNode.label,
+        status: resolvedNode.status,
+        backgrounds: resolvedNode.backgrounds,
+        node: node,
+        resolvedStatus: resolvedNode.resolvedStatus,
+        origin: resolvedNode.origin,
+        isVirtual: true,
+      ),
+      ...state.skip(index + 1),
+    ]);
   }
 
   ResolvedVaultNode storeFallbackNode(
@@ -421,6 +510,9 @@ class SelectedNodesNotifier extends Notifier<List<ResolvedVaultNode>> {
     state = const [];
   }
 }
+
+const _defaultVirtualNodeComment =
+    '> New Node comment — edit this content in Seville.';
 
 bool _sameStrings(List<String> left, List<String> right) {
   if (left.length != right.length) return false;
