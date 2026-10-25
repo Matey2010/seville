@@ -1,4 +1,7 @@
-# Defining custom layouts
+# Archived custom Layout documentation
+
+This describes the retired Flame and declarative Layout client. It is kept for
+historical reference and does not govern the native Flutter workspace.
 
 Seville separates layout data from Flame rendering:
 

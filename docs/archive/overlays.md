@@ -1,4 +1,7 @@
-# Flutter overlays
+# Archived overlay documentation
+
+This describes the retired Flame and overlay_layers client. It is kept for
+historical reference and does not govern the native Flutter workspace.
 
 `LandscapeXlLayoutView` is the direct body of its `Scaffold`. Ordinary
 interface and graph content remains Flame-rendered, while transient Flutter

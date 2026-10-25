@@ -616,38 +616,49 @@ func (s *Neo4jStore) CreateNode(
 
 	session := s.session(ctx, neo4j.AccessModeWrite)
 	defer session.Close(ctx)
-	traceStarted := s.startQueryTrace("node_create", query, parameters)
-	result, err := session.Run(ctx, query, parameters)
-	dispatchDuration := queryTraceDuration(traceStarted)
+	value, err := session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		traceStarted := s.startQueryTrace("node_create", query, parameters)
+		result, err := tx.Run(ctx, query, parameters)
+		dispatchDuration := queryTraceDuration(traceStarted)
+		if err != nil {
+			s.logQueryRunError("node_create", traceStarted, err)
+			return nil, err
+		}
+		if !result.Next(ctx) {
+			if err := result.Err(); err != nil {
+				return nil, err
+			}
+			return nil, fmt.Errorf("read created Node: empty result")
+		}
+		record := result.Record()
+		createdValue, ok := record.Get("created")
+		created, ok := createdValue.(bool)
+		if !ok {
+			return nil, fmt.Errorf("read created Node: invalid created flag")
+		}
+		node := nodeFromRecord(record)
+		if s.queryLog {
+			if err := s.finishQueryTrace(ctx, "node_create", traceStarted, dispatchDuration, 1, result); err != nil {
+				return nil, err
+			}
+		} else if _, err := result.Consume(ctx); err != nil {
+			return nil, err
+		}
+		if !created {
+			return nil, fmt.Errorf("%w: slug %q", ErrNodeAlreadyExists, slug)
+		}
+		if err := replaceOutgoingConnections(ctx, tx, node.Id, node.Path, create.Body); err != nil {
+			return nil, err
+		}
+		if err := resolveInboundUnresolvedForNode(ctx, tx, node.Id, node.Slug); err != nil {
+			return nil, err
+		}
+		return nodeByIDInTransaction(ctx, tx, node.Id)
+	})
 	if err != nil {
-		s.logQueryRunError("node_create", traceStarted, err)
 		return nil, fmt.Errorf("create Node: %w", err)
 	}
-	if !result.Next(ctx) {
-		if err := result.Err(); err != nil {
-			s.logQueryRunError("node_create", traceStarted, err)
-			return nil, fmt.Errorf("read created Node: %w", err)
-		}
-		return nil, fmt.Errorf("read created Node: empty result")
-	}
-	record := result.Record()
-	createdValue, ok := record.Get("created")
-	created, ok := createdValue.(bool)
-	if !ok {
-		return nil, fmt.Errorf("read created Node: invalid created flag")
-	}
-	node := nodeFromRecord(record)
-	if s.queryLog {
-		if err := s.finishQueryTrace(ctx, "node_create", traceStarted, dispatchDuration, 1, result); err != nil {
-			return nil, fmt.Errorf("read Node creation summary: %w", err)
-		}
-	} else if _, err := result.Consume(ctx); err != nil {
-		return nil, fmt.Errorf("consume Node creation result: %w", err)
-	}
-	if !created {
-		return nil, fmt.Errorf("%w: slug %q", ErrNodeAlreadyExists, slug)
-	}
-	return node, nil
+	return value.(*nodev2.Node), nil
 }
 
 func compileNodeCreate(create NodeCreate) (string, map[string]any, string, error) {
@@ -737,6 +748,12 @@ func compileNodeMutation(
 		}
 		if property == "update_count" {
 			return "", nil, fmt.Errorf("%w: update_count is managed by the store", ErrInvalidNodeMutation)
+		}
+		if property == "body" {
+			return "", nil, fmt.Errorf("%w: edit body through the Node resource so connections stay synchronized", ErrInvalidNodeMutation)
+		}
+		if property == "id" || property == "slug" {
+			return "", nil, fmt.Errorf("%w: Node identity cannot be changed through a filter mutation", ErrInvalidNodeMutation)
 		}
 		if property == "counter" {
 			return "", nil, fmt.Errorf("%w: legacy counter is not mutable", ErrInvalidNodeMutation)

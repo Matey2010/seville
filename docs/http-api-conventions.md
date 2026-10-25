@@ -125,6 +125,13 @@ search builds an OR filter across slug, title, tags, and Neo4j labels with an
 escaped case-insensitive regular expression, so user text remains data rather
 than query syntax. Search does not increment `Node.update_count`.
 
+`QUERY /api/v1/node/graph` accepts `NodeGraphQuery`. An optional stable
+`root_node_id` selects a local `LINKS_TO` neighborhood; otherwise a search term
+filters the bounded global view. `depth` is at most two and `limit` is between
+one and 200. The response returns complete Nodes, connections whose endpoints
+are both present, and `has_more` when the Node limit truncates a view. Reads do
+not mutate Node counters.
+
 `QUERY /api/v1/node/tree` accepts an `application/x-protobuf`
 `seville.nodes.v1.NodeTreeQuery` body and returns a
 `seville.nodes.v1.NodeTree`. A request must provide either `root_node_id` or a
@@ -189,7 +196,7 @@ store. Cypher uses a fixed query and passes the corresponding Neo4j relationship
 name as a parameter to `type(relationship)`; request text is never interpolated
 into Cypher.
 
-`QUERY` endpoints are read-only. Tree refreshes, searches, retries, and Fan
+`QUERY` endpoints are read-only. Graph and tree refreshes, searches, retries, and Fan
 requests never mutate a Node or increment `update_count`.
 
 `POST /api/v1/node/` creates one canonical Node from a protobuf
@@ -200,7 +207,8 @@ Neo4j labels, and initial Markdown `body` content. The backend assigns a stable 
 Cypher parameters. Labels are trimmed, deduplicated, sorted, and accepted as
 Cypher identifiers only when they match `[A-Za-z_][A-Za-z0-9_]*`; the request
 therefore cannot inject Cypher through either field. The body remains a Cypher
-parameter. Creation does not add labels that were not explicitly requested.
+parameter. Creation parses the body and writes outgoing connections in the
+same transaction. It does not add labels that were not explicitly requested.
 
 `PUT` and `DELETE` retain their standard meanings, but no Node replacement or
 deletion route is exposed until relationship handling and deletion policy have
@@ -215,10 +223,16 @@ as an ordinary property mutation. Source import remains ingestion rather than a
 canonical Node update and does not increment it. The legacy `counter` property
 is not read, written, migrated, or removed by this policy.
 
-`PATCH /api/v1/node/` is the authenticated mutation API. Its protobuf
+`PATCH /api/v1/node/{id}` edits a known Node body. `NodeBodyUpdateRequest`
+includes the last observed `update_count`; a stale value returns 409 and
+preserves the client's draft. Body, timestamp, counter, and outgoing
+connections update in one transaction.
+
+`PATCH /api/v1/node/` is the filter-driven mutation API. Its protobuf
 `NodeMutationRequest` contains a required `node_filter`, typed scalar
 `set_properties`, and explicit `remove_properties`. A property cannot be set
-and removed in the same request. `counter` and `update_count` are reserved and
+and removed in the same request. `counter`, `update_count`, `id`, `slug`, and
+`body` are reserved and
 cannot be supplied by clients. The response is `NodeMutationResult`, containing
 `mutated_node_count`. Because every successful application increments
 `update_count`, this PATCH operation is intentionally not idempotent. There is

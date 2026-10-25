@@ -1,11 +1,12 @@
 # Seville TODO
 
-1. Panoramic view
-    1. Ribbon buttons all over the panoramic view.
-1. Migrate Backend to fiber instead of using native go/http
-2. Provide an ability to select source of data (local, johnny, throne)
-3. Extend the basic virtual-Node Markdown input into a rich Node body editor.
-    1. Render Markdown preview and link suggestions on the Layout-owned surface.
-    2. Edit existing canonical Nodes as well as creation drafts.
-    3. Persist canonical edits through `PATCH /api/v1/node/` and refresh graph connections from edited `[[slug]]` references.
-    4. Preserve cursor, selection, focus, and hit geometry across flat and panoramic projection.
+1. Verify the native Flutter graph, search, creation, and body editor in the
+   macOS application; inspect the experimental Pixel landscape layout.
+2. Add pagination or clustering for broad graph exploration beyond the current
+   bounded global view.
+3. Add visible graph filters and optional `PART_OF`/`FAMILY` relationship layers.
+4. Render Markdown in the selected-Node reader while retaining source editing.
+5. Add connection suggestions, backlinks, and navigation to unresolved targets.
+6. Extend canonical Node editing beyond the body with the same conflict policy.
+7. Introduce source checkpoints and provenance before synchronizing changes
+   from Markdown or Git back into canonical Nodes.

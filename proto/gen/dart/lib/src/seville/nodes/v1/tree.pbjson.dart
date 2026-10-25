@@ -467,3 +467,81 @@ final $typed_data.Uint8List nodeTreeDescriptor = $convert.base64Decode(
     '5zaGlwGAIgASgOMiYuc2V2aWxsZS5ub2Rlcy52MS5Ob2RlUmVsYXRpb25zaGlwVHlwZVIMcmVs'
     'YXRpb25zaGlwEhQKBWRlcHRoGAMgASgNUgVkZXB0aBJGCgtvY2N1cnJlbmNlcxgEIAMoCzIkLn'
     'NldmlsbGUubm9kZXMudjEuTm9kZVRyZWVPY2N1cnJlbmNlUgtvY2N1cnJlbmNlcw==');
+
+@$core.Deprecated('Use nodeGraphQueryDescriptor instead')
+const NodeGraphQuery$json = {
+  '1': 'NodeGraphQuery',
+  '2': [
+    {
+      '1': 'root_node_id',
+      '3': 1,
+      '4': 1,
+      '5': 9,
+      '9': 0,
+      '10': 'rootNodeId',
+      '17': true
+    },
+    {'1': 'depth', '3': 2, '4': 1, '5': 13, '10': 'depth'},
+    {'1': 'limit', '3': 3, '4': 1, '5': 13, '10': 'limit'},
+    {'1': 'search', '3': 4, '4': 1, '5': 9, '10': 'search'},
+  ],
+  '8': [
+    {'1': '_root_node_id'},
+  ],
+};
+
+/// Descriptor for `NodeGraphQuery`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List nodeGraphQueryDescriptor = $convert.base64Decode(
+    'Cg5Ob2RlR3JhcGhRdWVyeRIlCgxyb290X25vZGVfaWQYASABKAlIAFIKcm9vdE5vZGVJZIgBAR'
+    'IUCgVkZXB0aBgCIAEoDVIFZGVwdGgSFAoFbGltaXQYAyABKA1SBWxpbWl0EhYKBnNlYXJjaBgE'
+    'IAEoCVIGc2VhcmNoQg8KDV9yb290X25vZGVfaWQ=');
+
+@$core.Deprecated('Use nodeGraphDescriptor instead')
+const NodeGraph$json = {
+  '1': 'NodeGraph',
+  '2': [
+    {
+      '1': 'nodes',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.seville.node.v2.Node',
+      '10': 'nodes'
+    },
+    {
+      '1': 'connections',
+      '3': 2,
+      '4': 3,
+      '5': 11,
+      '6': '.seville.node.v2.NodeConnection',
+      '10': 'connections'
+    },
+    {'1': 'has_more', '3': 3, '4': 1, '5': 8, '10': 'hasMore'},
+  ],
+};
+
+/// Descriptor for `NodeGraph`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List nodeGraphDescriptor = $convert.base64Decode(
+    'CglOb2RlR3JhcGgSKwoFbm9kZXMYASADKAsyFS5zZXZpbGxlLm5vZGUudjIuTm9kZVIFbm9kZX'
+    'MSQQoLY29ubmVjdGlvbnMYAiADKAsyHy5zZXZpbGxlLm5vZGUudjIuTm9kZUNvbm5lY3Rpb25S'
+    'C2Nvbm5lY3Rpb25zEhkKCGhhc19tb3JlGAMgASgIUgdoYXNNb3Jl');
+
+@$core.Deprecated('Use nodeBodyUpdateRequestDescriptor instead')
+const NodeBodyUpdateRequest$json = {
+  '1': 'NodeBodyUpdateRequest',
+  '2': [
+    {'1': 'body', '3': 1, '4': 1, '5': 9, '10': 'body'},
+    {
+      '1': 'expected_update_count',
+      '3': 2,
+      '4': 1,
+      '5': 4,
+      '10': 'expectedUpdateCount'
+    },
+  ],
+};
+
+/// Descriptor for `NodeBodyUpdateRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List nodeBodyUpdateRequestDescriptor = $convert.base64Decode(
+    'ChVOb2RlQm9keVVwZGF0ZVJlcXVlc3QSEgoEYm9keRgBIAEoCVIEYm9keRIyChVleHBlY3RlZF'
+    '91cGRhdGVfY291bnQYAiABKARSE2V4cGVjdGVkVXBkYXRlQ291bnQ=');

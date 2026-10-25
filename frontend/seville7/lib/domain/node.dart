@@ -17,17 +17,4 @@ extension NodeMetadata on Node {
     final normalizedTitle = title.trim();
     return normalizedTitle.isNotEmpty ? normalizedTitle : id;
   }
-
-  String? get version =>
-      frontmatter['version'] ??
-      frontmatter['node_version'] ??
-      frontmatter['schema_version'];
-
-  String? get aliases => frontmatter['aliases'] ?? frontmatter['alias'];
-
-  String? get classification =>
-      frontmatter['classification'] ??
-      frontmatter['class'] ??
-      frontmatter['type'] ??
-      frontmatter['kind'];
 }

@@ -278,6 +278,12 @@ func extractConnections(sourceID, body string) []*nodev2.NodeConnection {
 	return connections
 }
 
+// ExtractConnections uses the same Markdown connection syntax for imported
+// source documents and canonical Node body edits.
+func ExtractConnections(sourceID, body string) []*nodev2.NodeConnection {
+	return extractConnections(sourceID, body)
+}
+
 func resolveConnections(candidates []candidate) {
 	byPath := make(map[string]string)
 	byName := make(map[string][]string)

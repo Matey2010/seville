@@ -7,7 +7,7 @@ This README is an index to the repository. Detailed documentation belongs in
 
 | Folder | Responsibility |
 | --- | --- |
-| [`frontend/`](frontend/) | User-facing clients, currently implemented with Flutter and Flame |
+| [`frontend/`](frontend/) | Native Flutter knowledge graph client |
 | [`backend/`](backend/) | Go source ingestion, Neo4j graph storage, reconciliation, and HTTP API |
 | [`proto/`](proto/) | Canonical Protocol Buffer contracts and generated Go and Dart packages |
 | [`scripts/`](scripts/) | macOS process control and focused source, graph, and migration utilities |
@@ -18,11 +18,10 @@ instructions, and workspace-specific documentation.
 
 ## Client rendering policy
 
-Seville interface content is rendered and interacted with through Flame
-components. Flutter widgets host the `GameWidget` and Riverpod-driven toast
-widgets through `overlay_layers`; Search is a Flame HUD component.
-Do not add Flutter widget renderers, gesture layers, or hit boxes for layout or
-graph content.
+Flutter widgets own the workspace and graph interaction. The graph uses
+`InteractiveViewer`, positioned Node widgets, and a `CustomPaint` connection
+layer. Riverpod manages asynchronous API request state. The former Flame and
+declarative Layout layers are retired from the active client.
 
 ## Verification policy
 
@@ -39,18 +38,13 @@ The `docs/` folder contains documentation that applies across workspace
 boundaries:
 
 - [`vocabulary.md`](docs/vocabulary.md) defines the canonical language shared
-  by Neo4j, Go, protobuf, Flutter layouts, and renderers.
+  by Neo4j, Go, protobuf, and Flutter.
 - [`http-api-conventions.md`](docs/http-api-conventions.md) defines route
   versioning, field naming, transport, and the planned system information API.
-- [`seville-architecture-plan.md`](docs/seville-architecture-plan.md) records
-  the product goal, current architecture direction, accepted decisions, and
-  open design questions.
-- [`game-architecture.md`](docs/game-architecture.md) defines the incremental
-  Flame collision, RPG-system, and authoritative multiplayer foundation.
+- [`seville-architecture-plan.md`](docs/seville-architecture-plan.md) defines
+  the graph-centered knowledge client and its Go/Neo4j boundary.
 - [`android-landscape.md`](docs/android-landscape.md) describes the experimental
-  compact Android-phone layout and Pixel API connection requirements.
-- [`REFFERENCES.md`](REFFERENCES.md) records the external games guiding product
-  and architecture decisions.
+  Android-phone landscape client and Pixel API connection requirements.
 - [`TODO.md`](TODO.md) records the repository-wide near-term product goals.
 
 ## Architecture at a glance
@@ -59,26 +53,19 @@ Neo4j is Seville's canonical live graph. Git checkouts and Markdown folders are
 input sources, Go owns parsing and application policy, and clients access data
 through the authenticated Go API. SQLite is not part of the system.
 
-The long-term direction is a persistent multiplayer knowledge world with
-provenance, safe synchronization, verifiable history, and peer-assisted
-recovery. See the [architecture document](docs/seville-architecture-plan.md)
-for the current boundary and staged roadmap.
+The current product is a graph-centered knowledge base. Native Flutter displays
+and handles the graph; gameplay development is delegated outside this client. See
+the [architecture document](docs/seville-architecture-plan.md) for the current
+boundary and delivery priorities.
 
 ## Start locally on macOS
 
 ```sh
 cp .env.example .env
-make -C scripts start
-make -C scripts status
+make -C scripts interface
 ```
 
 Backend details and configuration live in [`backend/README.md`](backend/README.md).
-
-To start the complete local dependency chain and macOS client:
-
-```sh
-make -C scripts interface
-```
 
 The short recovery runbook and graph-rule guide live in
 [`docs/graph-recovery-sprint.md`](docs/graph-recovery-sprint.md).

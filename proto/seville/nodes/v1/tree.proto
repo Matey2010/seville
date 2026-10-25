@@ -109,3 +109,22 @@ message NodeTree {
   uint32 depth = 3;
   repeated NodeTreeOccurrence occurrences = 4;
 }
+
+// A bounded view of the canonical Node connection graph.
+message NodeGraphQuery {
+  optional string root_node_id = 1;
+  uint32 depth = 2;
+  uint32 limit = 3;
+  string search = 4;
+}
+
+message NodeGraph {
+  repeated seville.node.v2.Node nodes = 1;
+  repeated seville.node.v2.NodeConnection connections = 2;
+  bool has_more = 3;
+}
+
+message NodeBodyUpdateRequest {
+  string body = 1;
+  uint64 expected_update_count = 2;
+}

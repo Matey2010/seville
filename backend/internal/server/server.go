@@ -36,8 +36,10 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /v2/snapshot", s.auth(http.HandlerFunc(s.snapshot)))
 	mux.Handle("GET /system/v1/info", s.auth(http.HandlerFunc(s.systemInfo)))
 	mux.Handle("QUERY /api/v1/node/search", s.auth(http.HandlerFunc(s.nodeSearch)))
+	mux.Handle("QUERY /api/v1/node/graph", s.auth(http.HandlerFunc(s.nodeGraph)))
 	mux.Handle("POST /api/v1/node/{$}", s.auth(http.HandlerFunc(s.createNode)))
 	mux.Handle("PATCH /api/v1/node/{$}", s.auth(http.HandlerFunc(s.mutateNodes)))
+	mux.Handle("PATCH /api/v1/node/{id}", s.auth(http.HandlerFunc(s.updateNodeBody)))
 	nodeTreeHandler := s.auth(http.HandlerFunc(s.nodeTree))
 	mux.Handle("QUERY /api/v1/node/tree", nodeTreeHandler)
 	mux.Handle("GET /api/v1/node/tree", nodeTreeHandler)
@@ -69,6 +71,34 @@ func (s *Server) createNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.writeProto(w, http.StatusCreated, node)
+}
+
+func (s *Server) updateNodeBody(w http.ResponseWriter, r *http.Request) {
+	request := &nodesv1.NodeBodyUpdateRequest{}
+	if err := readProtoBody(r, request); err != nil {
+		s.writeError(w, http.StatusBadRequest, "invalid_node_body", err.Error())
+		return
+	}
+	id := strings.TrimSpace(r.PathValue("id"))
+	if id == "" {
+		s.writeError(w, http.StatusBadRequest, "invalid_node_id", "Node id is required.")
+		return
+	}
+	node, err := s.store.UpdateNodeBody(r.Context(), id, request.GetBody(), request.GetExpectedUpdateCount())
+	if errors.Is(err, store.ErrNodeNotFound) {
+		s.writeError(w, http.StatusNotFound, "node_not_found", "The Node does not exist.")
+		return
+	}
+	if errors.Is(err, store.ErrNodeConflict) {
+		s.writeError(w, http.StatusConflict, "node_conflict", "The Node changed since it was opened.")
+		return
+	}
+	if err != nil {
+		slog.Error("update Node body failed", "error", err, "node_id", id)
+		s.writeError(w, http.StatusInternalServerError, "storage_error", "The Node body could not be saved.")
+		return
+	}
+	s.writeProto(w, http.StatusOK, node)
 }
 
 func (s *Server) mutateNodes(w http.ResponseWriter, r *http.Request) {
@@ -170,6 +200,36 @@ func (s *Server) nodeSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.writeProto(w, http.StatusOK, result)
+}
+
+func (s *Server) nodeGraph(w http.ResponseWriter, r *http.Request) {
+	query := &nodesv1.NodeGraphQuery{}
+	if err := readProtoBody(r, query); err != nil {
+		s.writeError(w, http.StatusBadRequest, "invalid_query", err.Error())
+		return
+	}
+	if query.GetDepth() > 2 || query.GetLimit() < 1 || query.GetLimit() > 200 {
+		s.writeError(w, http.StatusBadRequest, "invalid_graph_bounds", "depth must be at most 2 and limit between 1 and 200.")
+		return
+	}
+	if len(query.GetSearch()) > 256 {
+		s.writeError(w, http.StatusBadRequest, "invalid_graph_search", "search must be at most 256 bytes.")
+		return
+	}
+	graph, err := s.store.NodeGraph(
+		r.Context(), strings.TrimSpace(query.GetRootNodeId()),
+		strings.TrimSpace(query.GetSearch()), query.GetDepth(), query.GetLimit(),
+	)
+	if errors.Is(err, store.ErrNodeNotFound) {
+		s.writeError(w, http.StatusNotFound, "root_node_not_found", "The requested root Node does not exist.")
+		return
+	}
+	if err != nil {
+		slog.Error("read Node graph failed", "error", err)
+		s.writeError(w, http.StatusInternalServerError, "storage_error", "The Node graph could not be read.")
+		return
+	}
+	s.writeProto(w, http.StatusOK, graph)
 }
 
 func (s *Server) nodeTree(w http.ResponseWriter, r *http.Request) {

@@ -1,4 +1,8 @@
-# Seville 2D Game Architecture
+# Seville 2D Game Architecture (archived)
+
+This document records the former in-client game direction. The knowledge
+client no longer includes its gameplay kernel, systems, or world layout.
+Game development is delegated outside this repository's active client plan.
 
 ## Goal
 
@@ -6,7 +10,7 @@ Seville grows into a 2D persistent world without discarding its existing Flame
 renderer, declarative Layout tree, Riverpod application state, Node model, or Go
 API boundary. Terraria is the main reference for world interaction and
 multiplayer authority. The Sims 3 is the main reference for composable actor
-simulation. See [`REFFERENCES.md`](../REFFERENCES.md).
+simulation. See [`REFFERENCES.md`](../../REFFERENCES.md).
 
 The first game slice establishes extension points before committing the project
 to one combat model, one stat list, or one network package.

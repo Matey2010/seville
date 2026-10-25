@@ -1,29 +1,20 @@
-# Android landscape layout
+# Android landscape client
 
-Seville has an experimental compact landscape preset for Android phones. It
-uses the existing Layout tree, Riverpod state, Flame renderer, Node search,
-creation flow, and gameplay kernel; LG Ergo remains the macOS preset. Android
-screens with a landscape logical height of at most 600 pixels select the compact
-preset. Larger Android screens retain LG Ergo until they have a dedicated
-layout. Android portrait is disabled at startup and in the activity manifest.
-
-The compact preset has a four-action touch menu (Continue, New Node, Find
-Nodes, Today), the existing label-driven Node creation flow, a full-content
-Find surface, and a closer character scene with a separate selected-Node area.
-The bottom action returns from gameplay to the menu without discarding selected
-Nodes. Android Back first closes an open input, then leaves gameplay or clears
-an active creation draft; Back from the plain menu leaves the application.
+Android phone landscape remains experimental. The native Flutter workspace
+adapts its panes to available width: wide windows show Node list, graph, and
+details; medium windows show graph and details; narrow windows stack graph and
+details. Android portrait is disabled at startup and in the activity manifest.
+The owner performs Pixel build and runtime verification.
 
 ## Connecting a physical Pixel
 
-`127.0.0.1` on the phone is the phone, not the development Mac. Supply
-`SEVILLE_BASE_URL` as the Mac's reachable LAN address and set `SEVILLE_ADDR`
-so the Go API listens on that interface. The phone and Mac must be on the same
-network, and `SEVILLE_TOKEN` must match on both sides. Do not expose the local
-API to an untrusted network. The Android debug manifest permits local HTTP for
-development; production traffic should use HTTPS. The application still needs
-the project owner's on-device visual and interaction check.
+`127.0.0.1` on the phone refers to the phone. Set `SEVILLE_BASE_URL` to the
+Mac's reachable LAN address, set `SEVILLE_ADDR` so the Go API listens on that
+interface, and use the same `SEVILLE_TOKEN` on both sides. The phone and Mac
+must be on the same network. Do not expose the local API to an untrusted
+network. The Android debug manifest permits local HTTP for development;
+production traffic should use HTTPS.
 
-The preset lives at
-`frontend/seville7/lib/presets/compact_landscape/compact_landscape_layout_config.dart`.
-Device selection and the orientation lock live in `frontend/seville7/lib/main.dart`.
+The orientation lock and app entry point live in
+`frontend/seville7/lib/main.dart`; responsive composition lives in
+`frontend/seville7/lib/screens/knowledge_workspace.dart`.

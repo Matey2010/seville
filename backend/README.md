@@ -121,21 +121,30 @@ and search values and the output is intentionally verbose.
   `NodeSearchResult`. The protobuf body carries a required `node_filter` and an
   optional limit from 1 through 100; the default limit is 20. Search returns
   complete Nodes, including labels, tags, frontmatter, and assigned Emoji.
+- `QUERY /api/v1/node/graph`: bounded `LINKS_TO` graph as binary `NodeGraph`.
+  An optional stable root ID requests a local graph; without it the endpoint
+  returns a bounded global view that can filter by a search term. Depth is at
+  most two and the Node limit is at most 200. `has_more` reports truncation;
+  the response includes only connections whose endpoints are present.
 - `POST /api/v1/node/`: create one Node from a protobuf `NodeCreateRequest`.
   The backend assigns its stable ID, initializes `update_count` to zero, safely
-  applies validated Neo4j labels, and returns the complete Node with status 201.
+  applies validated Neo4j labels, reconciles connections from its Markdown
+  body in the same transaction, and returns the complete Node with status 201.
   An existing slug returns 409.
+- `PATCH /api/v1/node/{id}`: update one known Node body using
+  `NodeBodyUpdateRequest`. An expected `update_count` guards against stale
+  edits. Body, timestamp, counter, and outgoing connections change in one
+  transaction; a stale edit returns 409.
 - `PATCH /api/v1/node/`: filter-driven scalar property updates and removals
   as protobuf. Every matched Node increments `update_count` atomically with the
-  requested mutation; `counter` and `update_count` are client-reserved.
+  requested mutation; body must use the Node-specific endpoint to keep
+  connections synchronized.
 
 Source migration is intentionally not exposed through the running API. Future
 user-facing migration should be a deliberate workflow with preview, source
 identity, provenance, and duplicate/conflict reporting.
 
-GraphQL CRUD and WebSocket change delivery are planned application boundaries;
-they are not implemented yet. Clients must continue using Go rather than
-connecting directly to Neo4j.
+Clients use the Go protobuf HTTP API and never connect directly to Neo4j.
 
 Canonical Node property writes use the store's `MutateNodes` boundary. It
 combines an allowlisted `NodeSearchFilter`, a parameterized property map, and an
@@ -151,4 +160,4 @@ nodes are subsequently edited through Seville rather than written back to
 Markdown.
 
 See [`../docs/seville-architecture-plan.md`](../docs/seville-architecture-plan.md)
-for reconciliation, multiplayer, provenance, and recovery direction.
+for the current knowledge product and source reconciliation direction.

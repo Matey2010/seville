@@ -11,7 +11,6 @@ FLUTTER_DIR := $(ROOT)/frontend/seville7
 SEVILLE_ADDR ?= 127.0.0.1:8787
 SEVILLE_BASE_URL ?= http://127.0.0.1:8787
 SEVILLE_TOKEN ?= local-seville-token
-SEVILLE_PLAYER_SLUG ?=
 SEVILLE_NEO4J_URI ?= bolt://127.0.0.1:7687
 SEVILLE_NEO4J_USERNAME ?= neo4j
 SEVILLE_NEO4J_PASSWORD ?= seville-local-password
@@ -20,7 +19,7 @@ SEVILLE_NEO4J_QUERY_LOG ?= false
 
 -include $(ROOT)/.env
 
-export SEVILLE_ADDR SEVILLE_BASE_URL SEVILLE_TOKEN SEVILLE_PLAYER_SLUG
+export SEVILLE_ADDR SEVILLE_BASE_URL SEVILLE_TOKEN
 export SEVILLE_NEO4J_URI SEVILLE_NEO4J_USERNAME SEVILLE_NEO4J_PASSWORD
 export SEVILLE_NEO4J_DATABASE SEVILLE_NEO4J_QUERY_LOG
 export SEVILLE_SOURCE SEVILLE_VAULT_PATH SEVILLE_GIT_REPOSITORY_PATH
@@ -199,8 +198,7 @@ interface: start
 	if [ "$$stale_macos_bundle" = true ]; then flutter clean; fi; \
 	flutter run -d macos \
 		--dart-define="SEVILLE_BASE_URL=$(SEVILLE_BASE_URL)" \
-		--dart-define="SEVILLE_TOKEN=$(SEVILLE_TOKEN)" \
-		--dart-define="SEVILLE_PLAYER_SLUG=$(SEVILLE_PLAYER_SLUG)"
+		--dart-define="SEVILLE_TOKEN=$(SEVILLE_TOKEN)"
 
 setDefaultIcon: set-default-icon
 

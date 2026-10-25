@@ -15,6 +15,7 @@ var ErrNodeAlreadyExists = errors.New("Node already exists")
 var ErrInvalidNodeCreate = errors.New("invalid Node creation")
 var ErrInvalidNodeSearchParameter = errors.New("invalid Node search parameter")
 var ErrInvalidNodeMutation = errors.New("invalid Node mutation")
+var ErrNodeConflict = errors.New("Node changed since it was opened")
 
 // NodeCreate describes the caller-owned fields accepted when creating a Node.
 // Stable identity and canonical defaults remain owned by the store.
@@ -46,6 +47,10 @@ type NodeSearchReader interface {
 	NodeSearch(context.Context, *nodesv1.NodeSearchFilter, uint32) (*nodesv1.NodeSearchResult, error)
 }
 
+type NodeGraphReader interface {
+	NodeGraph(context.Context, string, string, uint32, uint32) (*nodesv1.NodeGraph, error)
+}
+
 type NodeMutator interface {
 	MutateNodes(context.Context, *nodesv1.NodeSearchFilter, NodeMutation) (uint64, error)
 }
@@ -54,17 +59,23 @@ type NodeCreator interface {
 	CreateNode(context.Context, NodeCreate) (*nodev2.Node, error)
 }
 
+type NodeBodyUpdater interface {
+	UpdateNodeBody(context.Context, string, string, uint64) (*nodev2.Node, error)
+}
+
 type Reader interface {
 	SnapshotReader
 	SystemReader
 	NodeTreeReader
 	NodeSearchReader
+	NodeGraphReader
 }
 
 type NodeService interface {
 	Reader
 	NodeCreator
 	NodeMutator
+	NodeBodyUpdater
 }
 
 type Importer interface {

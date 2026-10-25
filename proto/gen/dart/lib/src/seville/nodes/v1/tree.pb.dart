@@ -940,6 +940,237 @@ class NodeTree extends $pb.GeneratedMessage {
   $pb.PbList<NodeTreeOccurrence> get occurrences => $_getList(3);
 }
 
+/// A bounded view of the canonical Node connection graph.
+class NodeGraphQuery extends $pb.GeneratedMessage {
+  factory NodeGraphQuery({
+    $core.String? rootNodeId,
+    $core.int? depth,
+    $core.int? limit,
+    $core.String? search,
+  }) {
+    final result = create();
+    if (rootNodeId != null) result.rootNodeId = rootNodeId;
+    if (depth != null) result.depth = depth;
+    if (limit != null) result.limit = limit;
+    if (search != null) result.search = search;
+    return result;
+  }
+
+  NodeGraphQuery._();
+
+  factory NodeGraphQuery.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory NodeGraphQuery.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'NodeGraphQuery',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'seville.nodes.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'rootNodeId')
+    ..aI(2, _omitFieldNames ? '' : 'depth', fieldType: $pb.PbFieldType.OU3)
+    ..aI(3, _omitFieldNames ? '' : 'limit', fieldType: $pb.PbFieldType.OU3)
+    ..aOS(4, _omitFieldNames ? '' : 'search')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  NodeGraphQuery clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  NodeGraphQuery copyWith(void Function(NodeGraphQuery) updates) =>
+      super.copyWith((message) => updates(message as NodeGraphQuery))
+          as NodeGraphQuery;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static NodeGraphQuery create() => NodeGraphQuery._();
+  @$core.override
+  NodeGraphQuery createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static NodeGraphQuery getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<NodeGraphQuery>(create);
+  static NodeGraphQuery? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get rootNodeId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set rootNodeId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRootNodeId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRootNodeId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get depth => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set depth($core.int value) => $_setUnsignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasDepth() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearDepth() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get limit => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set limit($core.int value) => $_setUnsignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasLimit() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearLimit() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get search => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set search($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasSearch() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearSearch() => $_clearField(4);
+}
+
+class NodeGraph extends $pb.GeneratedMessage {
+  factory NodeGraph({
+    $core.Iterable<$0.Node>? nodes,
+    $core.Iterable<$0.NodeConnection>? connections,
+    $core.bool? hasMore,
+  }) {
+    final result = create();
+    if (nodes != null) result.nodes.addAll(nodes);
+    if (connections != null) result.connections.addAll(connections);
+    if (hasMore != null) result.hasMore = hasMore;
+    return result;
+  }
+
+  NodeGraph._();
+
+  factory NodeGraph.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory NodeGraph.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'NodeGraph',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'seville.nodes.v1'),
+      createEmptyInstance: create)
+    ..pPM<$0.Node>(1, _omitFieldNames ? '' : 'nodes',
+        subBuilder: $0.Node.create)
+    ..pPM<$0.NodeConnection>(2, _omitFieldNames ? '' : 'connections',
+        subBuilder: $0.NodeConnection.create)
+    ..aOB(3, _omitFieldNames ? '' : 'hasMore')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  NodeGraph clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  NodeGraph copyWith(void Function(NodeGraph) updates) =>
+      super.copyWith((message) => updates(message as NodeGraph)) as NodeGraph;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static NodeGraph create() => NodeGraph._();
+  @$core.override
+  NodeGraph createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static NodeGraph getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<NodeGraph>(create);
+  static NodeGraph? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<$0.Node> get nodes => $_getList(0);
+
+  @$pb.TagNumber(2)
+  $pb.PbList<$0.NodeConnection> get connections => $_getList(1);
+
+  @$pb.TagNumber(3)
+  $core.bool get hasMore => $_getBF(2);
+  @$pb.TagNumber(3)
+  set hasMore($core.bool value) => $_setBool(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasHasMore() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearHasMore() => $_clearField(3);
+}
+
+class NodeBodyUpdateRequest extends $pb.GeneratedMessage {
+  factory NodeBodyUpdateRequest({
+    $core.String? body,
+    $fixnum.Int64? expectedUpdateCount,
+  }) {
+    final result = create();
+    if (body != null) result.body = body;
+    if (expectedUpdateCount != null)
+      result.expectedUpdateCount = expectedUpdateCount;
+    return result;
+  }
+
+  NodeBodyUpdateRequest._();
+
+  factory NodeBodyUpdateRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory NodeBodyUpdateRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'NodeBodyUpdateRequest',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'seville.nodes.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'body')
+    ..a<$fixnum.Int64>(
+        2, _omitFieldNames ? '' : 'expectedUpdateCount', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  NodeBodyUpdateRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  NodeBodyUpdateRequest copyWith(
+          void Function(NodeBodyUpdateRequest) updates) =>
+      super.copyWith((message) => updates(message as NodeBodyUpdateRequest))
+          as NodeBodyUpdateRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static NodeBodyUpdateRequest create() => NodeBodyUpdateRequest._();
+  @$core.override
+  NodeBodyUpdateRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static NodeBodyUpdateRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<NodeBodyUpdateRequest>(create);
+  static NodeBodyUpdateRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get body => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set body($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasBody() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearBody() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get expectedUpdateCount => $_getI64(1);
+  @$pb.TagNumber(2)
+  set expectedUpdateCount($fixnum.Int64 value) => $_setInt64(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasExpectedUpdateCount() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearExpectedUpdateCount() => $_clearField(2);
+}
+
 const $core.bool _omitFieldNames =
     $core.bool.fromEnvironment('protobuf.omit_field_names');
 const $core.bool _omitMessageNames =

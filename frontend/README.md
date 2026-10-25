@@ -1,57 +1,23 @@
 # Seville frontend
 
-This directory owns Seville's user-facing clients. The current client is the
-Flutter and Flame application under [`flutter/`](flutter/). Other interfaces,
-such as a CLI, can live beside it without becoming part of the Flutter project.
+`seville7` is the native Flutter knowledge client for macOS. It opens on a
+bounded global Node graph. Selecting a Node requests its local `LINKS_TO`
+neighborhood and shows its Markdown body. Search, Node creation, and body
+editing use the existing Go API and protobuf contracts.
 
-With the backend running, launch the client from the repository root:
+Flutter widgets own the workspace, graph interaction, text, and accessibility.
+Riverpod manages asynchronous API requests. The active client has no Flame
+engine or declarative Layout layer. At larger widths it shows a Node list,
+graph, and details; narrower widths use two or stacked panes. Android phone
+landscape is experimental for owner verification.
+
+The project owner runs and verifies the macOS app with:
 
 ```sh
 make -C scripts interface
 ```
 
-The Make target launches the supported macOS application, reads
-`SEVILLE_BASE_URL`, `SEVILLE_TOKEN`, and `SEVILLE_PLAYER_SLUG` from `.env`, and
-passes them to Flutter. Other Flutter targets are not currently implemented.
-
-All current interface rendering and interaction belongs to Flame components.
-Flutter widgets are limited to application composition and the `GameWidget`
-host, plus transient `overlay_layers` popups and toast widgets. No HUD exists
-today; ordinary panels, controls, layouts, and graphs must not be implemented
-as Flutter widgets.
-
-Component-independent table structure and row-building logic lives in
-[`flutter/packages/dart_tables`](flutter/packages/dart_tables). `dart_tables`
-provides a renderer-independent, more customizable alternative in the same
-problem space as `dart_tabulate`. Seville keeps
-layout sizing, Node/system adapters, canvas geometry, and component rendering
-in the application layer.
-
-For direct development commands:
-
-```sh
-cd frontend/seville7
-flutter analyze
-flutter build macos
-```
-
-Seville clients do not contain or run automated tests. Do not add test suites,
-test dependencies, test targets, or test runners. Automated feedback is limited
-to formatting and static analysis. The project owner verifies final behavior
-in the real application.
-
-The application fetches the generated protobuf `NodeSnapshot`, turns
-resolved graph links into edges, and renders the result with Flame. Visual
-rules are deliberately centralized in
-[`flutter/lib/graph/graph_rules.dart`](flutter/lib/graph/graph_rules.dart):
-
-- the first matching tag determines node color;
-- weighted link degree determines node radius;
-- wiki links, Markdown links, and embeds have independent weights and colors;
-- unresolved connections and connections to filtered-out nodes are not drawn.
-
-The Flutter composition follows the open-box spatial model documented in
-[`flutter/SEVILLE_GUIDELINES.md`](flutter/SEVILLE_GUIDELINES.md).
-
-Architecture and repository-wide decisions are documented in
-[`../docs/seville-architecture-plan.md`](../docs/seville-architecture-plan.md).
+Codex may use formatting and static analysis. Seville does not use automated
+application tests. See the repository
+[architecture document](../docs/seville-architecture-plan.md) for the API and
+data boundaries.
