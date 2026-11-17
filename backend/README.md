@@ -126,6 +126,12 @@ and search values and the output is intentionally verbose.
   returns a bounded global view that can filter by a search term. Depth is at
   most two and the Node limit is at most 200. `has_more` reports truncation;
   the response includes only connections whose endpoints are present.
+- `GET /api/v1/graph/color-rules`: the shared binary `NodeColorRuleSet` and
+  its revision. An unset database returns an empty ruleset at revision zero.
+- `PUT /api/v1/graph/color-rules`: replace the complete ordered ruleset as
+  protobuf. The supplied revision must match the stored revision; a stale
+  save returns 409. Up to 100 validated rules are stored atomically. Higher
+  weight wins, and list order resolves equal weights.
 - `POST /api/v1/node/`: create one Node from a protobuf `NodeCreateRequest`.
   The backend assigns its stable ID, initializes `update_count` to zero, safely
   applies validated Neo4j labels, reconciles connections from its Markdown
@@ -145,6 +151,22 @@ user-facing migration should be a deliberate workflow with preview, source
 identity, provenance, and duplicate/conflict reporting.
 
 Clients use the Go protobuf HTTP API and never connect directly to Neo4j.
+
+### Moving color rules to another server
+
+Color rules, their integer weights, list positions, and revision live in the
+same Neo4j database as canonical Nodes, under `ObsivilianColorRuleSet` and
+`ObsivilianColorRule` labels. A full Neo4j database backup and restore moves
+them together. The Node-only Markdown importer and `NodeSnapshot` export do
+not include presentation rules.
+
+For a Node-only transfer, use the API instead: read the source ruleset with
+`GET /api/v1/graph/color-rules`, read the destination ruleset to obtain its
+current revision, then `PUT` the source rules in a `NodeColorRuleSet` carrying
+the destination revision. The response confirms the new revision. This keeps
+weights and ordering intact. Back up destination rules first if they matter;
+`PUT` replaces the entire destination ruleset. Each server currently has one
+shared ruleset for its bearer-token users; there are no per-user accounts.
 
 Canonical Node property writes use the store's `MutateNodes` boundary. It
 combines an allowlisted `NodeSearchFilter`, a parameterized property map, and an

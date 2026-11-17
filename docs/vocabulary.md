@@ -1,8 +1,8 @@
-# Seville vocabulary
+# Obsivilian vocabulary
 
 ## Node
 
-`Node` is Seville's primary data unit across Neo4j, Go, protobuf, and Flutter.
+`Node` is Obsivilian's primary data unit across Neo4j, Go, protobuf, and Flutter.
 Its stable `id` is application identity. Its `slug` is a human-readable
 reference, commonly displayed as `[[slug]]`. Title, Markdown body, tags,
 frontmatter, Emoji, timestamps, and Neo4j labels are Node data or metadata.
@@ -50,3 +50,12 @@ circular Node collisions and gentle drift in both graph views; connections do
 not constrain the physics yet. Riverpod holds asynchronous API request state.
 The former declarative Layout and Flame layers are retired from the active
 client.
+
+## Node color rule
+
+A Node color rule is shared presentation configuration, not a canonical Node.
+It matches one Node field (ID, label, tag, slug, title, or a named frontmatter
+value) using case-insensitive exact, contains, or starts-with matching. Among
+enabled matching rules, the highest integer weight wins; list order breaks
+ties. A rule supplies a `#RRGGBB` fill color. The entire ordered ruleset has a
+revision to prevent stale edits from replacing changes made on another device.

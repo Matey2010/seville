@@ -6,6 +6,7 @@ import (
 
 	nodev2 "github.com/Matey2010/seville/proto/gen/go/seville/node/v2"
 	nodesv1 "github.com/Matey2010/seville/proto/gen/go/seville/nodes/v1"
+	presentationv1 "github.com/Matey2010/seville/proto/gen/go/seville/presentation/v1"
 	systemv1 "github.com/Matey2010/seville/proto/gen/go/seville/system/v1"
 )
 
@@ -16,6 +17,8 @@ var ErrInvalidNodeCreate = errors.New("invalid Node creation")
 var ErrInvalidNodeSearchParameter = errors.New("invalid Node search parameter")
 var ErrInvalidNodeMutation = errors.New("invalid Node mutation")
 var ErrNodeConflict = errors.New("Node changed since it was opened")
+var ErrInvalidColorRules = errors.New("invalid Node color rules")
+var ErrColorRulesConflict = errors.New("Node color rules changed since they were opened")
 
 // NodeCreate describes the caller-owned fields accepted when creating a Node.
 // Stable identity and canonical defaults remain owned by the store.
@@ -63,6 +66,11 @@ type NodeBodyUpdater interface {
 	UpdateNodeBody(context.Context, string, string, uint64) (*nodev2.Node, error)
 }
 
+type ColorRuleStore interface {
+	NodeColorRules(context.Context) (*presentationv1.NodeColorRuleSet, error)
+	ReplaceNodeColorRules(context.Context, *presentationv1.NodeColorRuleSet) (*presentationv1.NodeColorRuleSet, error)
+}
+
 type Reader interface {
 	SnapshotReader
 	SystemReader
@@ -76,6 +84,7 @@ type NodeService interface {
 	NodeCreator
 	NodeMutator
 	NodeBodyUpdater
+	ColorRuleStore
 }
 
 type Importer interface {

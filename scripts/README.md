@@ -17,20 +17,6 @@ make -C scripts status
 make -C scripts stop
 ```
 
-## Custom SVG fonts
-
-Build the custom Sevifont TTF, OTF, and Dart API from its SVG/JSON sources:
-
-```sh
-make -C scripts buildFont
-```
-
-Use `make -C scripts checkFont` for read-only SVG and metric validation. The
-compiler contract and manifest customization fields are documented in
-[`fonts/README.md`](fonts/README.md). FontForge is the local compiler; IcoMoon
-is retained only as an optional migration base until every legacy glyph has a
-manifest-owned SVG source.
-
 Legacy source migration tools live below `scripts/migrations/` so they cannot
 be confused with normal process control. The documented Obsidian/Markdown
 importer is described in [`migrations/obsidian/`](migrations/obsidian/) and runs
@@ -56,7 +42,7 @@ development application in the Dock, provide two sources instead:
 
 ```sh
 make -C scripts setDefaultIcon \
-  debug_path=./frontend/obsivilian/assets/legal/mascot-ska-debug.pdf \
+  debug_path=./frontend/obsivilian/assets/icons/vector/proto-icon.svg \
   production_path=./frontend/obsivilian/assets/legal/mascot-ska.png
 ```
 
@@ -118,7 +104,7 @@ the complete Make assignment, for example:
 
 ```sh
 make -C scripts setDefaultIcon \
-  path=./frontend/obsivilian/assets/icons/svg/seville8.min.svg
+  path=./frontend/obsivilian/assets/icons/vector/proto-icon.svg
 ```
 
 Do not edit generated catalog files by hand; change their configured source

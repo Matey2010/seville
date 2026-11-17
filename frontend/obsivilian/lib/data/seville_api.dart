@@ -24,6 +24,28 @@ class SevilleApi {
 
   final Dio _dio;
 
+  Future<NodeColorRuleSet> nodeColorRules() async {
+    final response = await _dio.get<List<int>>('/api/v1/graph/color-rules');
+    final bytes = response.data;
+    if (bytes == null) {
+      throw const FormatException('The backend returned empty color rules.');
+    }
+    return NodeColorRuleSet.fromBuffer(bytes);
+  }
+
+  Future<NodeColorRuleSet> replaceNodeColorRules(NodeColorRuleSet rules) async {
+    final response = await _dio.put<List<int>>(
+      '/api/v1/graph/color-rules',
+      data: rules.writeToBuffer(),
+      options: Options(contentType: 'application/x-protobuf'),
+    );
+    final bytes = response.data;
+    if (bytes == null) {
+      throw const FormatException('The backend returned empty color rules.');
+    }
+    return NodeColorRuleSet.fromBuffer(bytes);
+  }
+
   Future<NodeGraph> nodeGraph({
     String? rootNodeId,
     String search = '',

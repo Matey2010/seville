@@ -13,6 +13,7 @@ import (
 	"github.com/Matey2010/seville/backend/internal/store"
 	nodev2 "github.com/Matey2010/seville/proto/gen/go/seville/node/v2"
 	nodesv1 "github.com/Matey2010/seville/proto/gen/go/seville/nodes/v1"
+	presentationv1 "github.com/Matey2010/seville/proto/gen/go/seville/presentation/v1"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -37,6 +38,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /system/v1/info", s.auth(http.HandlerFunc(s.systemInfo)))
 	mux.Handle("QUERY /api/v1/node/search", s.auth(http.HandlerFunc(s.nodeSearch)))
 	mux.Handle("QUERY /api/v1/node/graph", s.auth(http.HandlerFunc(s.nodeGraph)))
+	mux.Handle("GET /api/v1/graph/color-rules", s.auth(http.HandlerFunc(s.nodeColorRules)))
+	mux.Handle("PUT /api/v1/graph/color-rules", s.auth(http.HandlerFunc(s.replaceNodeColorRules)))
 	mux.Handle("POST /api/v1/node/{$}", s.auth(http.HandlerFunc(s.createNode)))
 	mux.Handle("PATCH /api/v1/node/{$}", s.auth(http.HandlerFunc(s.mutateNodes)))
 	mux.Handle("PATCH /api/v1/node/{id}", s.auth(http.HandlerFunc(s.updateNodeBody)))
@@ -232,6 +235,46 @@ func (s *Server) nodeGraph(w http.ResponseWriter, r *http.Request) {
 	s.writeProto(w, http.StatusOK, graph)
 }
 
+func (s *Server) nodeColorRules(w http.ResponseWriter, r *http.Request) {
+	rules, err := s.store.NodeColorRules(r.Context())
+	if err != nil {
+		slog.Error("read Node color rules failed", "error", err)
+		s.writeError(w, http.StatusInternalServerError, "storage_error", "Node color rules could not be read.")
+		return
+	}
+	etag := fmt.Sprintf(`"%d"`, rules.GetRevision())
+	if r.Header.Get("If-None-Match") == etag {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+	w.Header().Set("ETag", etag)
+	s.writeProto(w, http.StatusOK, rules)
+}
+
+func (s *Server) replaceNodeColorRules(w http.ResponseWriter, r *http.Request) {
+	request := &presentationv1.NodeColorRuleSet{}
+	if err := readRequiredProtoBody(r, request); err != nil {
+		s.writeError(w, http.StatusBadRequest, "invalid_color_rules", err.Error())
+		return
+	}
+	rules, err := s.store.ReplaceNodeColorRules(r.Context(), request)
+	if errors.Is(err, store.ErrInvalidColorRules) {
+		s.writeError(w, http.StatusBadRequest, "invalid_color_rules", err.Error())
+		return
+	}
+	if errors.Is(err, store.ErrColorRulesConflict) {
+		s.writeError(w, http.StatusConflict, "color_rules_conflict", "Node color rules changed on another device. Reload before saving.")
+		return
+	}
+	if err != nil {
+		slog.Error("replace Node color rules failed", "error", err)
+		s.writeError(w, http.StatusInternalServerError, "storage_error", "Node color rules could not be saved.")
+		return
+	}
+	w.Header().Set("ETag", fmt.Sprintf(`"%d"`, rules.GetRevision()))
+	s.writeProto(w, http.StatusOK, rules)
+}
+
 func (s *Server) nodeTree(w http.ResponseWriter, r *http.Request) {
 	query, err := readNodeTreeQuery(r)
 	if err != nil {
@@ -340,6 +383,23 @@ func readProtoBody(r *http.Request, query proto.Message) error {
 	}
 	if err := proto.Unmarshal(body, query); err != nil {
 		return fmt.Errorf("decode protobuf query: %w", err)
+	}
+	return nil
+}
+
+func readRequiredProtoBody(r *http.Request, message proto.Message) error {
+	if r.Body == nil {
+		return fmt.Errorf("protobuf request body is required")
+	}
+	body, err := io.ReadAll(io.LimitReader(r.Body, maxProtoQueryBytes+1))
+	if err != nil {
+		return fmt.Errorf("read protobuf request: %w", err)
+	}
+	if len(body) == 0 || len(body) > maxProtoQueryBytes {
+		return fmt.Errorf("protobuf request body must contain 1 to %d bytes", maxProtoQueryBytes)
+	}
+	if err := proto.Unmarshal(body, message); err != nil {
+		return fmt.Errorf("decode protobuf request: %w", err)
 	}
 	return nil
 }

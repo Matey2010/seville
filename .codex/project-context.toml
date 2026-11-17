@@ -12,6 +12,7 @@ rules = [
   "Node is the primary domain and API unit. Neo4j labels classify Nodes but do not identify them. Do not introduce a parallel Note or Knowledge entity.",
   "Do not restore Flame, GameWidget, the declarative Layout library, or LG Ergo presets.",
   "Keep Go, Neo4j, and protobuf contracts unchanged until the project owner explicitly reopens backend development. The existing graph, search, create, and body update endpoints are the client baseline.",
+  "The owner reopened the backend for shared Node color presentation rules. Keep those settings separate from canonical Nodes and preserve weights and order during database transfer.",
 ]
 
 [runtime]
@@ -30,10 +31,11 @@ rules = [
 rules = [
   "Flutter widgets own layout, text input, accessibility, gestures, and the visible graph. Riverpod owns API request state; Dio and generated protobuf types cross the existing Go API boundary.",
   "Global and local graphs share a Forge2D simulation with circular Node collisions and gentle drift. Physics is independent of widgets; its normalized positions drive both connection paint and positioned Node widgets. Rebuild bodies when graph membership or viewport size changes, and advance motion on a fixed time step rather than pointer events. API connections are visual until their physics rules are defined.",
-  "Pin Forge2D 0.15.1 while the owner's Flutter SDK pins meta 1.18.0. Its Box2D v3 API resolves with older native build hooks; Forge2D 0.15.2+ does not resolve with that Flutter SDK.",
+  "The client currently pins Forge2D 0.15.1. Revisit dependency compatibility before upgrading the engine.",
   "The workspace shows the bounded global graph, optionally narrowed by a submitted search. Selecting a canonical Node opens a split modal with its details and body editor on the left and its local graph on the right. Closing the modal returns to the global graph.",
   "The global graph has a graph-only mode that hides the app bar, search, and Node list so the graph fills the window; a visible control and Cmd+backslash restore the interface.",
   "Node creation keeps its draft in the native form until the API accepts it. Body editing preserves unsaved text on API failure and uses the Node's last observed update_count for conflict detection.",
+  "Global and local graphs use one shared, server-backed Node color ruleset. Highest matching weight wins; list order breaks ties. Color selection is independent of Forge2D physics.",
 ]
 
 [development]

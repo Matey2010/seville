@@ -186,6 +186,7 @@ func (s *Neo4jStore) migrate(ctx context.Context) error {
 	defer session.Close(ctx)
 	statements := []string{
 		`CREATE CONSTRAINT seville_tag_id IF NOT EXISTS FOR (tag:Tag) REQUIRE tag.id IS UNIQUE`,
+		`CREATE CONSTRAINT obsivilian_color_rule_set_key IF NOT EXISTS FOR (settings:ObsivilianColorRuleSet) REQUIRE settings.key IS UNIQUE`,
 	}
 	for _, statement := range statements {
 		result, err := session.Run(ctx, statement, nil)
@@ -204,6 +205,7 @@ func (s *Neo4jStore) SystemInfo(ctx context.Context) (*systemv1.SystemInfo, erro
 	defer session.Close(ctx)
 	result, err := session.Run(ctx, `CALL {
   MATCH (labelled_node)
+  WHERE labelled_node.slug IS NOT NULL AND trim(toString(labelled_node.slug)) <> ''
   UNWIND labels(labelled_node) AS label
   WITH label, count(*) AS frequency
   ORDER BY frequency DESC, label

@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package seville.presentation.v1;
+
+option go_package = "github.com/Matey2010/seville/proto/gen/go/seville/presentation/v1;presentationv1";
+
+enum ColorRuleField {
+  COLOR_RULE_FIELD_UNSPECIFIED = 0;
+  COLOR_RULE_FIELD_ID = 1;
+  COLOR_RULE_FIELD_LABEL = 2;
+  COLOR_RULE_FIELD_TAG = 3;
+  COLOR_RULE_FIELD_SLUG = 4;
+  COLOR_RULE_FIELD_TITLE = 5;
+  COLOR_RULE_FIELD_FRONTMATTER = 6;
+}
+
+enum ColorRuleOperator {
+  COLOR_RULE_OPERATOR_UNSPECIFIED = 0;
+  COLOR_RULE_OPERATOR_EXACT = 1;
+  COLOR_RULE_OPERATOR_CONTAINS = 2;
+  COLOR_RULE_OPERATOR_STARTS_WITH = 3;
+}
+
+// Rule order breaks equal-weight ties. Higher weights win.
+message NodeColorRule {
+  string name = 1;
+  bool enabled = 2;
+  int32 weight = 3;
+  ColorRuleField field = 4;
+  ColorRuleOperator operator = 5;
+  string value = 6;
+  string frontmatter_key = 7;
+  string color_hex = 8;
+}
+
+// PUT replaces the complete shared ruleset when revision matches the server.
+message NodeColorRuleSet {
+  uint64 revision = 1;
+  repeated NodeColorRule rules = 2;
+}

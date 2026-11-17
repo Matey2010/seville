@@ -5,6 +5,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:seville_proto/seville_proto.dart';
 
 import '../domain/node.dart';
+import '../domain/node_color_rules.dart';
 import 'node_graph_physics.dart';
 
 /// Native Flutter view of one bounded NodeGraph response.
@@ -13,12 +14,14 @@ class NodeGraphView extends StatefulWidget {
     required this.graph,
     required this.selectedNodeId,
     required this.onNodeSelected,
+    required this.colorRules,
     super.key,
   });
 
   final NodeGraph graph;
   final String? selectedNodeId;
   final ValueChanged<Node> onNodeSelected;
+  final List<NodeColorRule> colorRules;
 
   @override
   State<NodeGraphView> createState() => _NodeGraphViewState();
@@ -32,11 +35,41 @@ class _NodeGraphViewState extends State<NodeGraphView>
   Duration? _lastFrame;
   double _accumulator = 0;
   double _simulationTime = 0;
+  Map<String, NodeColorRule> _matchedRules = {};
+  Map<String, Color> _ruleColors = {};
 
   @override
   void initState() {
     super.initState();
+    _resolveColors();
     _ticker = createTicker(_onFrame)..start();
+  }
+
+  @override
+  void didUpdateWidget(covariant NodeGraphView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.graph != widget.graph ||
+        oldWidget.colorRules != widget.colorRules) {
+      _resolveColors();
+    }
+  }
+
+  void _resolveColors() {
+    final matched = <String, NodeColorRule>{};
+    final colors = <String, Color>{};
+    for (final node in widget.graph.nodes) {
+      final rule = matchingNodeColorRule(node, widget.colorRules);
+      if (rule == null) continue;
+      matched[node.id] = rule;
+      final hex = rule.colorHex;
+      if (RegExp(r'^#[0-9A-Fa-f]{6}$').hasMatch(hex)) {
+        colors[node.id] = Color(
+          0xFF000000 | int.parse(hex.substring(1), radix: 16),
+        );
+      }
+    }
+    _matchedRules = matched;
+    _ruleColors = colors;
   }
 
   @override
@@ -92,6 +125,8 @@ class _NodeGraphViewState extends State<NodeGraphView>
                       height: extent,
                       child: _GraphNode(
                         node: node,
+                        colorRule: _matchedRules[node.id],
+                        ruleColor: _ruleColors[node.id],
                         selected: node.id == widget.selectedNodeId,
                         onTap: () => widget.onNodeSelected(node),
                       ),
@@ -154,11 +189,15 @@ class _NodeGraphViewState extends State<NodeGraphView>
 class _GraphNode extends StatelessWidget {
   const _GraphNode({
     required this.node,
+    required this.colorRule,
+    required this.ruleColor,
     required this.selected,
     required this.onTap,
   });
 
   final Node node;
+  final NodeColorRule? colorRule;
+  final Color? ruleColor;
   final bool selected;
   final VoidCallback onTap;
 
@@ -167,14 +206,23 @@ class _GraphNode extends StatelessWidget {
     final label = node.slug.trim().isEmpty ? node.displayLabel : node.slug;
     final emoji = node.primaryEmojiCharacter;
     final scheme = Theme.of(context).colorScheme;
+    final fill = ruleColor ?? const Color(0xFF203849);
+    final textColor = ruleColor == null
+        ? const Color(0xFFFFD54F)
+        : ThemeData.estimateBrightnessForColor(fill) == Brightness.dark
+        ? Colors.white
+        : Colors.black;
     return Tooltip(
-      message: node.title.trim().isEmpty ? label : node.title,
+      message: [
+        node.title.trim().isEmpty ? label : node.title,
+        if (colorRule != null) 'Color rule: ${colorRule!.name}',
+      ].join('\n'),
       child: Semantics(
         button: true,
         selected: selected,
         label: 'Node $label',
         child: Material(
-          color: selected ? scheme.primaryContainer : const Color(0xFF203849),
+          color: fill,
           shape: CircleBorder(
             side: BorderSide(
               color: selected ? scheme.primary : const Color(0xFF7694A9),
@@ -197,9 +245,7 @@ class _GraphNode extends StatelessWidget {
                     Text(
                       '[[$label]]',
                       style: TextStyle(
-                        color: selected
-                            ? scheme.onPrimaryContainer
-                            : const Color(0xFFFFD54F),
+                        color: textColor,
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                       ),

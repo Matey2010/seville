@@ -9,6 +9,7 @@ import 'package:seville_proto/seville_proto.dart';
 
 import '../state/node_store.dart';
 import '../widgets/create_node_dialog.dart';
+import '../widgets/color_rules_dialog.dart';
 import '../widgets/node_graph_view.dart';
 
 /// The macOS knowledge workspace, composed entirely from Flutter widgets.
@@ -39,6 +40,15 @@ class _KnowledgeWorkspaceState extends ConsumerState<KnowledgeWorkspace> {
       context: context,
       barrierDismissible: false,
       builder: (context) => _LocalGraphDialog(initialNode: node),
+    );
+  }
+
+  Future<void> _openColorRules() async {
+    ref.invalidate(nodeColorRulesProvider);
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const ColorRulesDialog(),
     );
   }
 
@@ -97,6 +107,7 @@ class _KnowledgeWorkspaceState extends ConsumerState<KnowledgeWorkspace> {
 
   void _refresh() {
     ref.invalidate(nodeGraphProvider);
+    ref.invalidate(nodeColorRulesProvider);
     if (_submittedSearch.isNotEmpty) ref.invalidate(nodeSearchProvider);
   }
 
@@ -125,6 +136,12 @@ class _KnowledgeWorkspaceState extends ConsumerState<KnowledgeWorkspace> {
       child: Focus(
         autofocus: true,
         child: Scaffold(
+          floatingActionButton: FloatingActionButton.small(
+            heroTag: 'color-rules',
+            tooltip: 'Node color rules',
+            onPressed: () => unawaited(_openColorRules()),
+            child: const Icon(Icons.palette_outlined),
+          ),
           appBar: _graphOnly
               ? null
               : AppBar(
@@ -718,7 +735,7 @@ class _LocalGraphDialogState extends ConsumerState<_LocalGraphDialog> {
   }
 }
 
-class _GraphContent extends StatelessWidget {
+class _GraphContent extends ConsumerWidget {
   const _GraphContent({
     required this.graphState,
     required this.selectedNodeId,
@@ -738,11 +755,17 @@ class _GraphContent extends StatelessWidget {
   final bool overlayMoreMessage;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final rulesState = ref.watch(nodeColorRulesProvider);
+    final colorRules = switch (rulesState) {
+      AsyncData(:final value) => value.rules,
+      _ => <NodeColorRule>[],
+    };
     final graph = switch (graphState) {
       AsyncData(:final value) => NodeGraphView(
         key: graphKey,
         graph: value,
+        colorRules: colorRules,
         selectedNodeId: selectedNodeId,
         onNodeSelected: onNodeSelected,
       ),

@@ -15,6 +15,10 @@ contract used by `QUERY /api/v1/node/search`. It also owns the typed
 initial Markdown body together with the required slug.
 `seville/notification/v1/notification.proto` defines shared notification
 severity vocabulary without prescribing a renderer or transport endpoint.
+`seville/presentation/v1/color_rules.proto` defines the ordered, revisioned
+Node color ruleset used by `GET` and `PUT /api/v1/graph/color-rules`. A rule
+has a match field, operator, value, integer weight, enabled state, and hex
+color. It is presentation configuration and does not mutate canonical Nodes.
 `Node` remains the primary data unit rather than an abstract knowledge
 container. Its typed `update_count` records canonical backend mutations and is
 never advanced by reads. Generated Go and Dart code is committed under `gen/`.

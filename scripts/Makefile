@@ -29,8 +29,6 @@ export SEVILLE_GIT_VAULT_SUBPATH
 
 .PHONY: help interface start build serve serve-built stop restart status logs
 .PHONY: proto migrate-obsidian set-default-icon setDefaultIcon
-.PHONY: build-font buildFont check-font checkFont
-.PHONY: build-body buildBody check-body checkBody
 .PHONY: set-app-name setAppName generate-macos-app-names
 .PHONY: generate-macos-icons generate-platform-icons
 
@@ -44,10 +42,6 @@ help:
 	@echo "  make -C scripts logs               Follow the API log"
 	@echo "  make -C scripts proto              Regenerate protobuf code"
 	@echo "  make -C scripts migrate-obsidian   Run the manual vault migration"
-	@echo "  make -C scripts buildFont          Build Sevifont from its SVG manifest"
-	@echo "  make -C scripts checkFont          Validate Sevifont without writing output"
-	@echo "  make -C scripts buildBody          Build the basic SVG character rig"
-	@echo "  make -C scripts checkBody          Validate the character rig inputs"
 	@echo "  make -C scripts setDefaultIcon path=PATH"
 	@echo "                                      Set Debug and production macOS icons"
 	@echo "    or: debug_path=PATH production_path=PATH"
@@ -425,46 +419,6 @@ generate-platform-icons: generate-macos-icons
 	sed -i.bak 's/ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = AppIcon;/ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;/g' ios/Runner.xcodeproj/project.pbxproj; \
 	rm -f ios/Runner.xcodeproj/project.pbxproj.bak
 
-buildFont: build-font
-
-build-font:
-	@set -eu; \
-	if ! command -v fontforge >/dev/null 2>&1; then \
-		echo "FontForge is required. Install it with: brew install fontforge" >&2; \
-		exit 69; \
-	fi; \
-	font_manifest='$(if $(manifest),$(manifest),$(FLUTTER_DIR)/assets/fonts/sevifont/sevifont.font.json)'; \
-	case "$$font_manifest" in /*) ;; *) font_manifest="$(ROOT)/$$font_manifest" ;; esac; \
-	fontforge -lang=py -script "$(SCRIPTS_DIR)/fonts/build_font.py" "$$font_manifest"
-
-checkFont: check-font
-
-check-font:
-	@set -eu; \
-	if ! command -v fontforge >/dev/null 2>&1; then \
-		echo "FontForge is required. Install it with: brew install fontforge" >&2; \
-		exit 69; \
-	fi; \
-	font_manifest='$(if $(manifest),$(manifest),$(FLUTTER_DIR)/assets/fonts/sevifont/sevifont.font.json)'; \
-	case "$$font_manifest" in /*) ;; *) font_manifest="$(ROOT)/$$font_manifest" ;; esac; \
-	fontforge -lang=py -script "$(SCRIPTS_DIR)/fonts/build_font.py" "$$font_manifest" --check
-
-buildBody: build-body
-
-build-body:
-	@set -eu; \
-	body_manifest='$(if $(manifest),$(manifest),$(FLUTTER_DIR)/assets/icons/vector/body-parts/basic-human.body.json)'; \
-	case "$$body_manifest" in /*) ;; *) body_manifest="$(ROOT)/$$body_manifest" ;; esac; \
-	python3 "$(SCRIPTS_DIR)/body/build_body.py" "$$body_manifest"
-
-checkBody: check-body
-
-check-body:
-	@set -eu; \
-	body_manifest='$(if $(manifest),$(manifest),$(FLUTTER_DIR)/assets/icons/vector/body-parts/basic-human.body.json)'; \
-	case "$$body_manifest" in /*) ;; *) body_manifest="$(ROOT)/$$body_manifest" ;; esac; \
-	python3 "$(SCRIPTS_DIR)/body/build_body.py" "$$body_manifest" --check
-
 proto:
 	@cd "$(ROOT)" && protoc \
 		--proto_path=proto \
@@ -473,6 +427,7 @@ proto:
 		--dart_out=proto/gen/dart/lib/src \
 		proto/seville/node/v2/node.proto \
 		proto/seville/nodes/v1/tree.proto \
+		proto/seville/presentation/v1/color_rules.proto \
 		proto/seville/notification/v1/notification.proto \
 		proto/seville/system/v1/system.proto
 

@@ -22,3 +22,7 @@ final nodeGraphProvider = FutureProvider.family<NodeGraph, NodeGraphRequest>(
 final nodeSearchProvider = FutureProvider.family<NodeSearchResult, String>(
   (ref, search) => ref.watch(sevilleApiProvider).searchNodes(search),
 );
+
+final nodeColorRulesProvider = FutureProvider<NodeColorRuleSet>(
+  (ref) => ref.watch(sevilleApiProvider).nodeColorRules(),
+);
