@@ -1,0 +1,3 @@
+macos_app_names:
+  debug_name: "Obsivilian"
+  production_name: "Obsivilian"

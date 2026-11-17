@@ -1,7 +1,7 @@
 # Seville TODO
 
 1. Verify the native Flutter graph, search, creation, and body editor in the
-   macOS application; inspect the experimental Pixel landscape layout.
+   macOS application.
 2. Add pagination or clustering for broad graph exploration beyond the current
    bounded global view.
 3. Add visible graph filters and optional `PART_OF`/`FAMILY` relationship layers.

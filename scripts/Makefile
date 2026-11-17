@@ -6,7 +6,7 @@ LOCAL_DIR := $(ROOT)/.local
 PID_FILE := $(LOCAL_DIR)/seville.pid
 LOG_FILE := $(LOCAL_DIR)/seville.log
 BACKEND_BINARY := $(LOCAL_DIR)/seville-backend
-FLUTTER_DIR := $(ROOT)/frontend/seville7
+FLUTTER_DIR := $(ROOT)/frontend/obsivilian
 
 SEVILLE_ADDR ?= 127.0.0.1:8787
 SEVILLE_BASE_URL ?= http://127.0.0.1:8787
@@ -52,7 +52,7 @@ help:
 	@echo "                                      Set Debug and production macOS icons"
 	@echo "    or: debug_path=PATH production_path=PATH"
 	@echo "                                      Set distinct macOS build icons"
-	@echo "  make -C scripts setAppName name='Seville 7'"
+	@echo "  make -C scripts setAppName name='Obsivilian'"
 	@echo "                                      Set Debug and production macOS names"
 	@echo "    or: debug_name=NAME production_name=NAME"
 	@echo "                                      Set distinct macOS build names"
@@ -185,14 +185,19 @@ interface: start
 	fi; \
 	cd "$(FLUTTER_DIR)"; \
 	stale_macos_bundle=false; \
-	debug_info_plist='build/macos/Build/Products/Debug/seville.app/Contents/Info.plist'; \
-	release_info_plist='build/macos/Build/Products/Release/seville.app/Contents/Info.plist'; \
+	debug_info_plist='build/macos/Build/Products/Debug/Obsivilian.app/Contents/Info.plist'; \
+	release_info_plist='build/macos/Build/Products/Release/Obsivilian.app/Contents/Info.plist'; \
+	if [ -d 'build/macos/Build/Products/Debug/seville.app' ] || \
+		[ -d 'build/macos/Build/Products/Profile/seville.app' ] || \
+		[ -d 'build/macos/Build/Products/Release/seville.app' ]; then \
+		stale_macos_bundle=true; \
+	fi; \
 	if [ -f "$$debug_info_plist" ] && \
-		[ "$$(plutil -extract CFBundleIdentifier raw -o - "$$debug_info_plist")" != 'io.github.matey2010.seville.debug' ]; then \
+		[ "$$(plutil -extract CFBundleIdentifier raw -o - "$$debug_info_plist")" != 'io.github.matey2010.obsivilian.debug' ]; then \
 		stale_macos_bundle=true; \
 	fi; \
 	if [ -f "$$release_info_plist" ] && \
-		[ "$$(plutil -extract CFBundleIdentifier raw -o - "$$release_info_plist")" != 'io.github.matey2010.seville' ]; then \
+		[ "$$(plutil -extract CFBundleIdentifier raw -o - "$$release_info_plist")" != 'io.github.matey2010.obsivilian' ]; then \
 		stale_macos_bundle=true; \
 	fi; \
 	if [ "$$stale_macos_bundle" = true ]; then flutter clean; fi; \
@@ -211,7 +216,7 @@ set-default-icon:
 		debug_path="$$icon_path"; \
 		production_path="$$icon_path"; \
 	elif [ -z "$$debug_path" ] || [ -z "$$production_path" ]; then \
-		echo "Usage: make -C scripts setDefaultIcon path=./frontend/seville7/assets/legal/mascot-ska.png" >&2; \
+		echo "Usage: make -C scripts setDefaultIcon path=./frontend/obsivilian/assets/legal/mascot-ska.png" >&2; \
 		echo "   or: make -C scripts setDefaultIcon debug_path=PATH production_path=PATH" >&2; \
 		exit 64; \
 	fi; \
@@ -280,7 +285,7 @@ set-app-name:
 		debug_name="$$app_name"; \
 		production_name="$$app_name"; \
 	elif [ -z "$$debug_name" ] || [ -z "$$production_name" ]; then \
-		echo "Usage: make -C scripts setAppName name='Seville 7'" >&2; \
+			echo "Usage: make -C scripts setAppName name='Obsivilian'" >&2; \
 		echo "   or: make -C scripts setAppName debug_name=NAME production_name=NAME" >&2; \
 		exit 64; \
 	fi; \
@@ -347,7 +352,7 @@ generate-macos-app-names:
 	else \
 		mv "$$output_tmp" "$$output"; \
 		if [ "$$previous_debug" != "$$debug_name" ]; then \
-			debug_bundle='build/macos/Build/Products/Debug/seville.app'; \
+			debug_bundle='build/macos/Build/Products/Debug/Obsivilian.app'; \
 			if [ -d "$$debug_bundle" ]; then \
 				rm -R "$$debug_bundle"; \
 				echo "Removed stale generated Debug bundle: $$debug_bundle"; \
@@ -355,8 +360,8 @@ generate-macos-app-names:
 		fi; \
 		if [ "$$previous_production" != "$$production_name" ]; then \
 			for production_bundle in \
-				build/macos/Build/Products/Profile/seville.app \
-				build/macos/Build/Products/Release/seville.app; do \
+				build/macos/Build/Products/Profile/Obsivilian.app \
+				build/macos/Build/Products/Release/Obsivilian.app; do \
 				if [ -d "$$production_bundle" ]; then \
 					rm -R "$$production_bundle"; \
 					echo "Removed stale generated production bundle: $$production_bundle"; \
@@ -396,7 +401,7 @@ generate-macos-icons:
 		production_changed=true; \
 	fi; \
 	if [ "$$debug_changed" = true ]; then \
-		debug_bundle='build/macos/Build/Products/Debug/seville.app'; \
+		debug_bundle='build/macos/Build/Products/Debug/Obsivilian.app'; \
 		if [ -d "$$debug_bundle" ]; then \
 			rm -R "$$debug_bundle"; \
 			echo "Removed stale generated Debug bundle: $$debug_bundle"; \
@@ -404,8 +409,8 @@ generate-macos-icons:
 	fi; \
 	if [ "$$production_changed" = true ]; then \
 		for production_bundle in \
-			build/macos/Build/Products/Profile/seville.app \
-			build/macos/Build/Products/Release/seville.app; do \
+			build/macos/Build/Products/Profile/Obsivilian.app \
+			build/macos/Build/Products/Release/Obsivilian.app; do \
 			if [ -d "$$production_bundle" ]; then \
 				rm -R "$$production_bundle"; \
 				echo "Removed stale generated production bundle: $$production_bundle"; \

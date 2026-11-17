@@ -45,6 +45,8 @@ Sources do not silently overwrite canonical Neo4j content.
 
 Flutter widgets own screens, text, controls, interaction, and accessibility.
 The graph uses Flutter's `InteractiveViewer` for pan and zoom, positioned Node
-widgets for interaction, and `CustomPaint` for connections. Riverpod holds
-asynchronous API request state. The former declarative Layout and Flame layers
-are retired from the active client.
+widgets for interaction, and `CustomPaint` for connections. Forge2D supplies
+circular Node collisions and gentle drift in both graph views; connections do
+not constrain the physics yet. Riverpod holds asynchronous API request state.
+The former declarative Layout and Flame layers are retired from the active
+client.

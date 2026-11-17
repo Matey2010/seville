@@ -1,0 +1,44 @@
+# Repository guidance. AGENTS.md points Codex here for automatic discovery.
+
+[project]
+app_name = "Obsivilian"
+repository_name = "seville"
+description = "Native Flutter knowledge graph client"
+vocabulary = "docs/vocabulary.md"
+
+[vocabulary]
+rules = [
+  "Read docs/vocabulary.md before naming a domain entity or API contract.",
+  "Node is the primary domain and API unit. Neo4j labels classify Nodes but do not identify them. Do not introduce a parallel Note or Knowledge entity.",
+  "Do not restore Flame, GameWidget, the declarative Layout library, or LG Ergo presets.",
+  "Keep Go, Neo4j, and protobuf contracts unchanged until the project owner explicitly reopens backend development. The existing graph, search, create, and body update endpoints are the client baseline.",
+]
+
+[runtime]
+rules = [
+  "macOS is the supported production runtime. Other platforms are out of scope until the owner reopens them.",
+  "When giving run or process-control instructions, use make -C scripts interface. The owner performs all application runtime verification.",
+]
+
+[http]
+rules = [
+  "Use QUERY for safe structured reads with a request body, including Node search and graph traversal.",
+  "Use POST to create a Node with a server-assigned ID, PATCH for partial mutation, PUT for complete replacement at a known URI, and DELETE for removal. Do not introduce CREATE or MUTATE HTTP methods.",
+]
+
+[client]
+rules = [
+  "Flutter widgets own layout, text input, accessibility, gestures, and the visible graph. Riverpod owns API request state; Dio and generated protobuf types cross the existing Go API boundary.",
+  "Global and local graphs share a Forge2D simulation with circular Node collisions and gentle drift. Physics is independent of widgets; its normalized positions drive both connection paint and positioned Node widgets. Rebuild bodies when graph membership or viewport size changes, and advance motion on a fixed time step rather than pointer events. API connections are visual until their physics rules are defined.",
+  "Pin Forge2D 0.15.1 while the owner's Flutter SDK pins meta 1.18.0. Its Box2D v3 API resolves with older native build hooks; Forge2D 0.15.2+ does not resolve with that Flutter SDK.",
+  "The workspace shows the bounded global graph, optionally narrowed by a submitted search. Selecting a canonical Node opens a split modal with its details and body editor on the left and its local graph on the right. Closing the modal returns to the global graph.",
+  "The global graph has a graph-only mode that hides the app bar, search, and Node list so the graph fills the window; a visible control and Cmd+backslash restore the interface.",
+  "Node creation keeps its draft in the native form until the API accepts it. Body editing preserves unsaved text on API failure and uses the Node's last observed update_count for conflict detection.",
+]
+
+[development]
+rules = [
+  "Codex must not launch, build-run, or runtime-debug the application, and must not ask permission to do so. The owner exclusively runs and debugs the final app.",
+  "Applications and services do not use automated tests. Do not add test files, test dependencies, test runners, or CI steps that run tests.",
+  "Non-interactive formatting, dependency resolution, and static analysis are permitted. Do not treat static checks as runtime verification.",
+]

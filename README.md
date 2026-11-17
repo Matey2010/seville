@@ -43,8 +43,6 @@ boundaries:
   versioning, field naming, transport, and the planned system information API.
 - [`seville-architecture-plan.md`](docs/seville-architecture-plan.md) defines
   the graph-centered knowledge client and its Go/Neo4j boundary.
-- [`android-landscape.md`](docs/android-landscape.md) describes the experimental
-  Android-phone landscape client and Pixel API connection requirements.
 - [`TODO.md`](TODO.md) records the repository-wide near-term product goals.
 
 ## Architecture at a glance

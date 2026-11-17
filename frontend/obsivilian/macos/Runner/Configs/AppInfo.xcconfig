@@ -6,11 +6,11 @@
 
 #include "AppName.xcconfig"
 
-// The product filename remains stable; Info.plist owns the user-facing name.
-PRODUCT_NAME = seville
+// Keep the bundle filename aligned with the app's user-facing name.
+PRODUCT_NAME = Obsivilian
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = io.github.matey2010.seville
+PRODUCT_BUNDLE_IDENTIFIER = io.github.matey2010.obsivilian
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2026 Seville. All rights reserved.
+PRODUCT_COPYRIGHT = Copyright © 2026 Obsivilian. All rights reserved.

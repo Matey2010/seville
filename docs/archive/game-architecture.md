@@ -176,6 +176,6 @@ before exposing remote play.
 5. Add client interpolation first; add prediction and reconciliation only for
    movement that needs it.
 
-The project owner continues to run and verify the macOS application and the
-experimental Android-phone landscape preset. The Sims 3 for Windows is a design
-reference, not a declaration that Seville currently supports Windows.
+The project owner continues to run and verify the macOS application. The Sims 3
+for Windows is a design reference, not a declaration that Seville currently
+supports Windows.

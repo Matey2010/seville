@@ -1,9 +1,11 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:seville_proto/seville_proto.dart';
 
 import '../domain/node.dart';
+import 'node_graph_physics.dart';
 
 /// Native Flutter view of one bounded NodeGraph response.
 class NodeGraphView extends StatefulWidget {
@@ -22,21 +24,34 @@ class NodeGraphView extends StatefulWidget {
   State<NodeGraphView> createState() => _NodeGraphViewState();
 }
 
-class _NodeGraphViewState extends State<NodeGraphView> {
+class _NodeGraphViewState extends State<NodeGraphView>
+    with SingleTickerProviderStateMixin {
   final TransformationController _transformation = TransformationController();
-  final Map<String, Offset> _positions = {};
-  String _graphKey = '';
+  late final Ticker _ticker;
+  NodeGraphPhysics? _physics;
+  Duration? _lastFrame;
+  double _accumulator = 0;
+  double _simulationTime = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _ticker = createTicker(_onFrame)..start();
+  }
 
   @override
   void dispose() {
+    _ticker.dispose();
+    _physics?.dispose();
     _transformation.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    _settlePositions();
     if (widget.graph.nodes.isEmpty) {
+      _physics?.dispose();
+      _physics = null;
       return const Center(child: Text('No Nodes in this graph view.'));
     }
     return LayoutBuilder(
@@ -47,15 +62,8 @@ class _NodeGraphViewState extends State<NodeGraphView> {
         final extent =
             (math.sqrt(width * height / widget.graph.nodes.length) * 0.55)
                 .clamp(32.0, 88.0);
-        final insetX = math.min(0.45, extent / (2 * width) + 0.01);
-        final insetY = math.min(0.45, extent / (2 * height) + 0.01);
-        final displayPositions = {
-          for (final entry in _positions.entries)
-            entry.key: Offset(
-              insetX + entry.value.dx * (1 - 2 * insetX),
-              insetY + entry.value.dy * (1 - 2 * insetY),
-            ),
-        };
+        _ensurePhysics(Size(width, height), extent);
+        final displayPositions = _physics!.positions;
         return InteractiveViewer(
           transformationController: _transformation,
           boundaryMargin: const EdgeInsets.all(double.infinity),
@@ -96,70 +104,50 @@ class _NodeGraphViewState extends State<NodeGraphView> {
     );
   }
 
-  void _settlePositions() {
-    final nodes = widget.graph.nodes;
-    final keys = [for (final node in nodes) node.id];
-    final edges = <String>{
-      for (final edge in widget.graph.connections)
-        if (edge.hasTargetNodeId())
-          _edgeKey(edge.sourceNodeId, edge.targetNodeId),
-    }.toList()..sort();
-    final fingerprint = '${keys.join('|')}#${edges.join('|')}';
-    if (fingerprint == _graphKey) return;
-    _graphKey = fingerprint;
-    final keySet = keys.toSet();
-    _positions.removeWhere((key, _) => !keySet.contains(key));
-    for (var index = 0; index < keys.length; index++) {
-      final angle = index * math.pi * (3 - math.sqrt(5));
-      final radius = 0.08 + 0.36 * math.sqrt((index + 1) / keys.length);
-      _positions.putIfAbsent(
-        keys[index],
-        () => Offset(
-          0.5 + math.cos(angle) * radius,
-          0.5 + math.sin(angle) * radius,
-        ),
-      );
+  void _ensurePhysics(Size viewport, double extent) {
+    final ids = {for (final node in widget.graph.nodes) node.id};
+    final current = _physics;
+    if (current != null &&
+        current.viewport == viewport &&
+        current.nodeDiameter == extent &&
+        current.nodeIds.length == ids.length &&
+        current.nodeIds.containsAll(ids)) {
+      return;
     }
-    final linked = <String, (String, String)>{
-      for (final edge in widget.graph.connections)
-        if (edge.hasTargetNodeId() &&
-            _positions.containsKey(edge.sourceNodeId) &&
-            _positions.containsKey(edge.targetNodeId))
-          _edgeKey(edge.sourceNodeId, edge.targetNodeId): (
-            edge.sourceNodeId,
-            edge.targetNodeId,
-          ),
-    }.values;
-    for (var step = 0; step < 60; step++) {
-      final forces = {for (final key in keys) key: Offset.zero};
-      for (var i = 0; i < keys.length; i++) {
-        for (var j = i + 1; j < keys.length; j++) {
-          final delta = _positions[keys[i]]! - _positions[keys[j]]!;
-          final distanceSquared = math.max(0.0004, delta.distanceSquared);
-          final force =
-              delta / math.sqrt(distanceSquared) * (0.00018 / distanceSquared);
-          forces[keys[i]] = forces[keys[i]]! + force;
-          forces[keys[j]] = forces[keys[j]]! - force;
-        }
-      }
-      for (final (source, target) in linked) {
-        final force = (_positions[target]! - _positions[source]!) * 0.018;
-        forces[source] = forces[source]! + force;
-        forces[target] = forces[target]! - force;
-      }
-      for (final key in keys) {
-        final current = _positions[key]!;
-        final movement =
-            forces[key]! + (const Offset(0.5, 0.5) - current) * 0.012;
-        final bounded = movement.distance > 0.025
-            ? movement / movement.distance * 0.025
-            : movement;
-        _positions[key] = Offset(
-          (current.dx + bounded.dx).clamp(0.06, 0.94),
-          (current.dy + bounded.dy).clamp(0.06, 0.94),
-        );
-      }
+    final previousPositions = current?.positions ?? const <String, Offset>{};
+    current?.dispose();
+    _physics = NodeGraphPhysics(
+      viewport: viewport,
+      nodeDiameter: extent,
+      nodeIds: ids,
+      initialPositions: previousPositions,
+    );
+    _accumulator = 0;
+  }
+
+  void _onFrame(Duration elapsed) {
+    final previous = _lastFrame;
+    _lastFrame = elapsed;
+    if (previous == null ||
+        _physics == null ||
+        !TickerMode.valuesOf(context).enabled ||
+        !(ModalRoute.of(context)?.isCurrent ?? true)) {
+      _accumulator = 0;
+      return;
     }
+    const step = 1 / 30;
+    _accumulator = math.min(
+      _accumulator + (elapsed - previous).inMicroseconds / 1000000,
+      step * 2,
+    );
+    var changed = false;
+    while (_accumulator >= step) {
+      _simulationTime += step;
+      _physics!.step(step, _simulationTime);
+      _accumulator -= step;
+      changed = true;
+    }
+    if (changed) setState(() {});
   }
 }
 

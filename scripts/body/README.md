@@ -17,7 +17,7 @@ make -C scripts checkBody
 ```
 
 To adjust anatomy, edit only
-`frontend/seville7/assets/icons/vector/body-parts/basic-human.body.json`:
+`frontend/obsivilian/assets/icons/vector/body-parts/basic-human.body.json`:
 
 - `frame` positions and sizes a cropped source on the `1024×2048` rig canvas.
 - `mirrorX` reuses a left-side prototype on the right side.

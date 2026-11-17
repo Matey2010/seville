@@ -1,5 +1,5 @@
-name: seville
-description: Seville's native Flutter knowledge graph client.
+name: obsivilian
+description: Obsivilian's native Flutter knowledge graph client.
 publish_to: none
 version: 3.3.5+27
 
@@ -12,6 +12,8 @@ dependencies:
   dio: ^5.9.0
   fixnum: ^1.1.1
   flutter_riverpod: ^3.0.0
+  # 0.15.2+ requires build hooks incompatible with Flutter's meta 1.18.0.
+  forge2d: 0.15.1
   seville_proto:
     path: ../../proto/gen/dart
 
