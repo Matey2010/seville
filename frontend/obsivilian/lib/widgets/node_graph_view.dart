@@ -1,11 +1,14 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:seville_proto/seville_proto.dart';
 
 import '../domain/node.dart';
 import '../domain/node_color_rules.dart';
+import '../domain/node_temporal.dart';
+import '../state/node_store.dart';
 import 'graph_world_layout.dart';
 import 'node_graph_physics.dart';
 
@@ -15,6 +18,7 @@ class NodeGraphView extends StatefulWidget {
     required this.graph,
     required this.selectedNodeSlug,
     required this.onNodeSelected,
+    required this.onCalendarDateSelected,
     required this.colorRules,
     super.key,
   });
@@ -22,6 +26,7 @@ class NodeGraphView extends StatefulWidget {
   final NodeGraph graph;
   final String? selectedNodeSlug;
   final void Function(Node node, Offset globalAnchor) onNodeSelected;
+  final ValueChanged<DateTime> onCalendarDateSelected;
   final List<NodeColorRule> colorRules;
 
   @override
@@ -101,80 +106,109 @@ class _NodeGraphViewState extends State<NodeGraphView>
 
   @override
   Widget build(BuildContext context) {
-    if (widget.graph.nodes.isEmpty) {
-      _physics?.dispose();
-      _physics = null;
-      return const Center(child: Text('No Nodes in this graph view.'));
-    }
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
         final height = constraints.maxHeight;
         if (width <= 0 || height <= 0) return const SizedBox.shrink();
+        final graphNodes = widget.graph.nodes
+            .where((node) => !_isCalendarDateNode(node))
+            .toList(growable: false);
         final baseExtent =
-            (math.sqrt(width * height / widget.graph.nodes.length) * 0.55)
+            (math.sqrt(width * height / math.max(1, graphNodes.length)) * 0.55)
                 .clamp(32.0, 88.0);
         final diameters = <String, double>{
-          for (final node in widget.graph.nodes)
+          for (final node in graphNodes)
             node.slug: (baseExtent * (_sizeScales[node.slug] ?? 1)).clamp(
               16.0,
               176.0,
             ),
         };
-        final layout = _ensureLayout(Size(width, height), diameters);
+        final layout = _ensureLayout(
+          Size(width, height),
+          diameters,
+          graphNodes,
+        );
         _ensurePhysics(layout, diameters);
         final displayPositions = _physics!.positions;
         final visible = Rect.fromPoints(
           _transformation.toScene(Offset.zero),
           _transformation.toScene(Offset(width, height)),
         ).inflate(190);
-        return InteractiveViewer(
-          transformationController: _transformation,
-          boundaryMargin: const EdgeInsets.all(double.infinity),
-          constrained: false,
-          minScale: 0.15,
-          maxScale: 8,
-          child: SizedBox(
-            width: layout.size.width,
-            height: layout.size.height,
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: CustomPaint(
-                    painter: _ConnectionPainter(
-                      layout: layout,
-                      connections: widget.graph.connections,
-                      positions: displayPositions,
-                      selectedNodeSlug: widget.selectedNodeSlug,
-                    ),
-                  ),
+        final todayScreenY =
+            layout.todayY * _cameraScale + _transformation.value.entry(1, 3);
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: IgnorePointer(
+                child: CustomPaint(
+                  painter: _NowLinePainter(nowY: todayScreenY),
                 ),
-                for (final node in widget.graph.nodes)
-                  if (displayPositions[node.slug] case final position?)
-                    if (visible.contains(position))
-                      Positioned(
-                        left: position.dx - diameters[node.slug]! / 2,
-                        top: position.dy - diameters[node.slug]! / 2,
-                        width: diameters[node.slug]!,
-                        height: diameters[node.slug]!,
-                        child: _GraphNode(
-                          node: node,
-                          colorRule: _matchedRules[node.slug],
-                          ruleColor: _ruleColors[node.slug],
-                          selected: node.slug == widget.selectedNodeSlug,
-                          onTap: (anchor) =>
-                              widget.onNodeSelected(node, anchor),
+              ),
+            ),
+            Positioned.fill(
+              child: InteractiveViewer(
+                transformationController: _transformation,
+                boundaryMargin: const EdgeInsets.all(double.infinity),
+                constrained: false,
+                minScale: 0.05,
+                maxScale: 8,
+                child: SizedBox(
+                  width: layout.size.width,
+                  height: layout.size.height,
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: CustomPaint(
+                          painter: _ConnectionPainter(
+                            layout: layout,
+                            connections: widget.graph.connections,
+                            positions: displayPositions,
+                            selectedNodeSlug: widget.selectedNodeSlug,
+                          ),
                         ),
                       ),
-              ],
+                      for (final node in graphNodes)
+                        if (displayPositions[node.slug] case final position?)
+                          if (visible.contains(position))
+                            Positioned(
+                              left: position.dx - diameters[node.slug]! / 2,
+                              top: position.dy - diameters[node.slug]! / 2,
+                              width: diameters[node.slug]!,
+                              height: diameters[node.slug]!,
+                              child: _GraphNode(
+                                node: node,
+                                colorRule: _matchedRules[node.slug],
+                                ruleColor: _ruleColors[node.slug],
+                                selected: node.slug == widget.selectedNodeSlug,
+                                onTap: (anchor) =>
+                                    widget.onNodeSelected(node, anchor),
+                              ),
+                            ),
+                    ],
+                  ),
+                ),
+              ),
             ),
-          ),
+            Positioned.fill(
+              child: _CalendarHud(
+                scale: _cameraScale,
+                todayScreenY: todayScreenY,
+                nodes: widget.graph.nodes,
+                onDateSelected: widget.onCalendarDateSelected,
+              ),
+            ),
+          ],
         );
       },
     );
   }
 
-  GraphWorldLayout _ensureLayout(Size viewport, Map<String, double> diameters) {
+  GraphWorldLayout _ensureLayout(
+    Size viewport,
+    Map<String, double> diameters,
+    List<Node> graphNodes,
+  ) {
     final current = _layout;
     if (current != null &&
         _layoutGraph == widget.graph &&
@@ -183,7 +217,7 @@ class _NodeGraphViewState extends State<NodeGraphView>
       return current;
     }
     final next = GraphWorldLayout.compute(
-      nodes: widget.graph.nodes,
+      nodes: graphNodes,
       viewport: viewport,
       diameters: diameters,
     );
@@ -196,8 +230,7 @@ class _NodeGraphViewState extends State<NodeGraphView>
       final matrix = _transformation.value.clone();
       if (!_cameraInitialized) {
         matrix.setTranslationRaw(
-          viewport.width * (next.timeIntervals.isEmpty ? 0.5 : 0.74) -
-              next.origin.dx,
+          viewport.width / 2 - next.origin.dx,
           viewport.height / 2 - next.origin.dy,
           0,
         );
@@ -228,7 +261,9 @@ class _NodeGraphViewState extends State<NodeGraphView>
     final oldOrigin = current == null ? null : _previousPhysicsOrigin;
     final shift = oldOrigin == null ? Offset.zero : layout.origin - oldOrigin;
     final previousPositions = {
-      for (final entry in oldPositions.entries) entry.key: entry.value + shift,
+      for (final entry in oldPositions.entries)
+        if (current?.planes[entry.key] == layout.planes[entry.key])
+          entry.key: entry.value + shift,
     };
     current?.dispose();
     _physics = NodeGraphPhysics(
@@ -244,6 +279,8 @@ class _NodeGraphViewState extends State<NodeGraphView>
   }
 
   Offset? _previousPhysicsOrigin;
+
+  double get _cameraScale => _transformation.value.getMaxScaleOnAxis();
 
   bool _sameValues(Map<String, double> a, Map<String, double> b) =>
       a.length == b.length &&
@@ -281,6 +318,476 @@ class _NodeGraphViewState extends State<NodeGraphView>
     }
     if (changed) setState(() {});
   }
+}
+
+bool _isCalendarDateNode(Node node) =>
+    node.labels.contains('Date') && TemporalInterval.fromNode(node) != null;
+
+class _CalendarHud extends ConsumerWidget {
+  const _CalendarHud({
+    required this.scale,
+    required this.todayScreenY,
+    required this.nodes,
+    required this.onDateSelected,
+  });
+
+  final double scale;
+  final double todayScreenY;
+  final List<Node> nodes;
+  final ValueChanged<DateTime> onDateSelected;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => LayoutBuilder(
+    builder: (context, constraints) {
+      final size = Size(constraints.maxWidth, constraints.maxHeight);
+      final now = DateTime.now();
+      final safeScale = scale.clamp(0.05, 8.0);
+      final topTime = _timeAtHudY(0, now, todayScreenY, size.height, safeScale);
+      final bottomTime = _timeAtHudY(
+        size.height,
+        now,
+        todayScreenY,
+        size.height,
+        safeScale,
+      );
+      final windowStart = bottomTime.isBefore(topTime) ? bottomTime : topTime;
+      final windowEnd = topTime.isAfter(bottomTime) ? topTime : bottomTime;
+      final visibleHours =
+          windowEnd.difference(windowStart).inMinutes.abs() / 60;
+      final hourStep = switch (visibleHours) {
+        <= 36 => 1,
+        <= 96 => 3,
+        <= 240 => 6,
+        _ => 24,
+      };
+      final hourTicks = <({double y, String label})>[];
+      if (visibleHours <= 24 * 31) {
+        final firstHour = windowStart;
+        var tick = DateTime(
+          firstHour.year,
+          firstHour.month,
+          firstHour.day,
+          firstHour.hour - firstHour.hour % hourStep,
+        );
+        while (!tick.isAfter(windowEnd) && hourTicks.length < 240) {
+          hourTicks.add((
+            y: _hudY(tick, now, todayScreenY, size.height, safeScale),
+            label: '${tick.hour.toString().padLeft(2, '0')}:00',
+          ));
+          tick = tick.add(Duration(hours: hourStep));
+        }
+      }
+
+      final firstDay = DateTime(
+        windowStart.year,
+        windowStart.month,
+        windowStart.day,
+      );
+      final lastDay = DateTime(windowEnd.year, windowEnd.month, windowEnd.day);
+      final visibleDayCount = lastDay.difference(firstDay).inDays + 1;
+      final dayStep = math.max(1, (visibleDayCount / 32).ceil());
+      final loadedDateNodes = <String, Node>{
+        for (final node in nodes)
+          if (_isCalendarDateNode(node)) node.slug: node,
+      };
+      final visibleDates =
+          <({DateTime date, double lineY, double centerY, String slug})>[];
+      var day = firstDay;
+      while (!day.isAfter(lastDay) && visibleDates.length < 40) {
+        final slug = _dateSlug(day);
+        final lineY = _hudY(day, now, todayScreenY, size.height, safeScale);
+        final nextLineY = _hudY(
+          day.add(const Duration(days: 1)),
+          now,
+          todayScreenY,
+          size.height,
+          safeScale,
+        );
+        visibleDates.add((
+          date: day,
+          lineY: lineY,
+          centerY: (lineY + nextLineY) / 2,
+          slug: slug,
+        ));
+        day = day.add(Duration(days: dayStep));
+      }
+      final exactState = ref.watch(
+        nodesByExactSlugsProvider(
+          visibleDates.map((item) => item.slug).join('\n'),
+        ),
+      );
+      final exactDateNodes = switch (exactState) {
+        AsyncData(:final value) => value,
+        _ => const <String, Node>{},
+      };
+      final days = [
+        for (final item in visibleDates)
+          _HudDay(
+            date: item.date,
+            lineY: item.lineY,
+            centerY: item.centerY,
+            exists:
+                loadedDateNodes.containsKey(item.slug) ||
+                exactDateNodes.containsKey(item.slug),
+            checking:
+                exactState is AsyncLoading &&
+                !loadedDateNodes.containsKey(item.slug),
+          ),
+      ];
+
+      return Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(
+                painter: _CalendarHudPainter(
+                  hourLines: hourTicks
+                      .map((tick) => tick.y)
+                      .toList(growable: false),
+                  dayLines: days
+                      .map((day) => day.lineY)
+                      .toList(growable: false),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 12,
+            left: 0,
+            right: 0,
+            child: IgnorePointer(
+              child: Center(
+                child: _TimeWindowLabel(
+                  start: windowStart,
+                  end: windowEnd,
+                  now: now,
+                  nowVisible: todayScreenY >= 0 && todayScreenY <= size.height,
+                ),
+              ),
+            ),
+          ),
+          for (final tick in hourTicks)
+            if (visibleHours <= 96 && tick.y > 16 && tick.y < size.height - 16)
+              Positioned(
+                left: 52,
+                top: tick.y - 8,
+                child: IgnorePointer(
+                  child: Text(
+                    tick.label,
+                    style: const TextStyle(
+                      color: Color(0x887FA3AF),
+                      fontSize: 9,
+                    ),
+                  ),
+                ),
+              ),
+          if (todayScreenY > 16 && todayScreenY < size.height - 16)
+            Positioned(
+              left: 52,
+              top: todayScreenY - 22,
+              child: const IgnorePointer(
+                child: Text(
+                  'NOW',
+                  style: TextStyle(
+                    color: Color(0xFFE45656),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ),
+          for (final day in days)
+            if (day.centerY > 72 && day.centerY < size.height - 28)
+              Positioned(
+                left: 12,
+                top: day.centerY - 54,
+                width: 28,
+                height: 108,
+                child: Center(
+                  child: _CalendarDateButton(
+                    day: day,
+                    onPressed: () => onDateSelected(day.date),
+                  ),
+                ),
+              ),
+        ],
+      );
+    },
+  );
+}
+
+class _HudDay {
+  const _HudDay({
+    required this.date,
+    required this.lineY,
+    required this.centerY,
+    required this.exists,
+    required this.checking,
+  });
+
+  final DateTime date;
+  final double lineY;
+  final double centerY;
+  final bool exists;
+  final bool checking;
+}
+
+class _CalendarDateButton extends StatelessWidget {
+  const _CalendarDateButton({required this.day, required this.onPressed});
+
+  final _HudDay day;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = day.exists
+        ? Theme.of(context).colorScheme.primary
+        : Theme.of(context).colorScheme.onSurfaceVariant.withAlpha(150);
+    return Tooltip(
+      message: day.checking
+          ? 'Checking Date Node'
+          : day.exists
+          ? 'Edit Date Node'
+          : 'Create Date Node',
+      child: RotatedBox(
+        quarterTurns: 3,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: day.checking ? null : onPressed,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: day.exists
+                  ? color.withAlpha(45)
+                  : Theme.of(context).colorScheme.surface.withAlpha(120),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: color, width: day.exists ? 1.4 : 0.8),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  day.checking
+                      ? Icons.more_horiz
+                      : day.exists
+                      ? Icons.event
+                      : Icons.add,
+                  size: 12,
+                  color: color,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  _dateSlug(day.date),
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 10,
+                    fontWeight: day.exists ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CalendarHudPainter extends CustomPainter {
+  const _CalendarHudPainter({required this.hourLines, required this.dayLines});
+
+  final List<double> hourLines;
+  final List<double> dayLines;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (final y in hourLines) {
+      _dottedLine(
+        canvas,
+        Offset(0, y),
+        Offset(size.width, y),
+        Paint()
+          ..color = const Color(0x287FA3AF)
+          ..strokeWidth = 1,
+        dash: 2,
+        gap: 7,
+      );
+    }
+    for (final y in dayLines) {
+      canvas.drawLine(
+        Offset(0, y),
+        Offset(size.width, y),
+        Paint()
+          ..color = const Color(0x467FA3AF)
+          ..strokeWidth = 1,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_CalendarHudPainter oldDelegate) =>
+      oldDelegate.hourLines != hourLines || oldDelegate.dayLines != dayLines;
+}
+
+class _NowLinePainter extends CustomPainter {
+  const _NowLinePainter({required this.nowY});
+
+  final double nowY;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    _dottedLine(
+      canvas,
+      Offset(0, nowY),
+      Offset(size.width, nowY),
+      Paint()
+        ..color = const Color(0xFFE45656)
+        ..strokeWidth = 2,
+      dash: 12,
+      gap: 7,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_NowLinePainter oldDelegate) => oldDelegate.nowY != nowY;
+}
+
+void _dottedLine(
+  Canvas canvas,
+  Offset start,
+  Offset end,
+  Paint paint, {
+  required double dash,
+  required double gap,
+}) {
+  var x = start.dx;
+  while (x < end.dx) {
+    canvas.drawLine(
+      Offset(x, start.dy),
+      Offset(math.min(x + dash, end.dx), end.dy),
+      paint,
+    );
+    x += dash + gap;
+  }
+}
+
+double _hudY(
+  DateTime value,
+  DateTime now,
+  double todayScreenY,
+  double height,
+  double scale,
+) {
+  final hours = value.difference(now).inMinutes / 60;
+  if (hours == 0) return todayScreenY;
+  final distance = height / 2 * (math.log(1 + hours.abs() / 12) / math.ln2);
+  return todayScreenY + (hours > 0 ? -distance : distance) * scale;
+}
+
+DateTime _timeAtHudY(
+  double y,
+  DateTime now,
+  double todayScreenY,
+  double height,
+  double scale,
+) {
+  final virtualDistance = (y - todayScreenY) / scale;
+  final hours = 12 * (math.pow(2, virtualDistance.abs() / (height / 2)) - 1);
+  final signedHours = virtualDistance < 0 ? hours : -hours;
+  return now.add(Duration(minutes: (signedHours * 60).round()));
+}
+
+String _dateSlug(DateTime date) =>
+    '${date.day.toString().padLeft(2, '0')}-'
+    '${date.month.toString().padLeft(2, '0')}-'
+    '${date.year.toString().padLeft(4, '0')}';
+
+class _TimeWindowLabel extends StatelessWidget {
+  const _TimeWindowLabel({
+    required this.start,
+    required this.end,
+    required this.now,
+    required this.nowVisible,
+  });
+
+  final DateTime start;
+  final DateTime end;
+  final DateTime now;
+  final bool nowVisible;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      color: Theme.of(context).colorScheme.surfaceContainerHigh.withAlpha(220),
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      child: Text(
+        _timeWindowLabel(start, end, now, nowVisible),
+        style: Theme.of(context).textTheme.labelMedium,
+      ),
+    ),
+  );
+}
+
+String _timeWindowLabel(
+  DateTime start,
+  DateTime end,
+  DateTime now,
+  bool nowVisible,
+) {
+  if (nowVisible) {
+    final past = now.difference(start);
+    final future = end.difference(now);
+    final larger = math.max(past.inMinutes.abs(), future.inMinutes.abs());
+    final difference = (past.inMinutes - future.inMinutes).abs();
+    if (larger > 0 && difference / larger < 0.08) {
+      return 'TIME · NOW ±${_compactDuration(Duration(minutes: ((past.inMinutes + future.inMinutes) / 2).round()))}';
+    }
+    return 'TIME · NOW −${_compactDuration(past)} / +${_compactDuration(future)}';
+  }
+  final span = end.difference(start);
+  return 'TIME · ${_compactMoment(start, span)} → ${_compactMoment(end, span)}';
+}
+
+String _compactDuration(Duration duration) {
+  final minutes = duration.inMinutes.abs();
+  if (minutes < 120) return '${math.max(1, minutes)}m';
+  final hours = minutes / 60;
+  if (hours < 48) return '${hours.round()}h';
+  final days = hours / 24;
+  if (days < 730) return '${days.round()}d';
+  final years = days / 365.2425;
+  return years < 10 ? '${years.toStringAsFixed(1)}y' : '${years.round()}y';
+}
+
+String _compactMoment(DateTime value, Duration span) {
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  final day = value.day.toString().padLeft(2, '0');
+  final time =
+      '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
+  if (span.inHours.abs() <= 48) {
+    return '$day ${months[value.month - 1]} $time';
+  }
+  if (span.inDays.abs() <= 730) {
+    return '$day ${months[value.month - 1]} ${value.year}';
+  }
+  return value.year.toString();
 }
 
 class _GraphNode extends StatelessWidget {
@@ -380,7 +887,6 @@ class _ConnectionPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    _paintTimePlane(canvas);
     for (final link in layout.calendarLinks) {
       final child = positions[link.childSlug];
       final parent = positions[link.parentSlug];
@@ -416,105 +922,6 @@ class _ConnectionPainter extends CustomPainter {
       );
     }
   }
-
-  void _paintTimePlane(Canvas canvas) {
-    if (layout.timeIntervals.isEmpty) return;
-    final bounds = layout.timeBounds;
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(bounds, const Radius.circular(24)),
-      Paint()..color = const Color(0x181C6680),
-    );
-    for (final guide in layout.timeGuides) {
-      canvas.drawLine(
-        Offset(bounds.left + 12, guide.y),
-        Offset(bounds.right - 12, guide.y),
-        Paint()
-          ..color = const Color(0x3378A7B8)
-          ..strokeWidth = 1,
-      );
-      _paintText(
-        canvas,
-        guide.label,
-        Offset(bounds.left + 12, guide.y - 22),
-        const Color(0xFF9DB7C3),
-        12,
-      );
-    }
-    canvas.drawLine(
-      Offset(bounds.left + 12, layout.todayY),
-      Offset(bounds.right - 12, layout.todayY),
-      Paint()
-        ..color = const Color(0xAA74C9B1)
-        ..strokeWidth = 1.5,
-    );
-    _paintText(
-      canvas,
-      'NOW · ${layout.todayLabel}',
-      Offset(bounds.left + 12, layout.todayY - 23),
-      const Color(0xFFB6E8D8),
-      13,
-    );
-    for (final band in layout.timeBandX.entries) {
-      canvas.drawLine(
-        Offset(band.value, bounds.top + 12),
-        Offset(band.value, bounds.bottom - 12),
-        Paint()
-          ..color = const Color(0x2278A7B8)
-          ..strokeWidth = 1,
-      );
-      _paintText(
-        canvas,
-        _bandLabel(band.key),
-        Offset(band.value - 28, layout.timeHeaderY),
-        const Color(0xFF9DB7C3),
-        11,
-      );
-    }
-    _paintText(
-      canvas,
-      '↑ FUTURE',
-      Offset(bounds.left + 12, layout.todayY - 55),
-      const Color(0xFFAAD6DC),
-      13,
-    );
-    _paintText(
-      canvas,
-      '↓ PAST',
-      Offset(bounds.left + 12, layout.timeHeaderY),
-      const Color(0xFFAAD6DC),
-      13,
-    );
-  }
-
-  void _paintText(
-    Canvas canvas,
-    String text,
-    Offset at,
-    Color color,
-    double size,
-  ) {
-    final painter = TextPainter(
-      text: TextSpan(
-        text: text,
-        style: TextStyle(
-          color: color,
-          fontSize: size,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    painter.paint(canvas, at);
-  }
-
-  String _bandLabel(TemporalGranularity granularity) => switch (granularity) {
-    TemporalGranularity.TEMPORAL_GRANULARITY_YEAR => 'YEARS',
-    TemporalGranularity.TEMPORAL_GRANULARITY_SEASON => 'SEASONS',
-    TemporalGranularity.TEMPORAL_GRANULARITY_MONTH => 'MONTHS',
-    TemporalGranularity.TEMPORAL_GRANULARITY_WEEK => 'WEEKS',
-    TemporalGranularity.TEMPORAL_GRANULARITY_DAY => 'DAYS',
-    _ => '',
-  };
 
   @override
   bool shouldRepaint(_ConnectionPainter oldDelegate) =>

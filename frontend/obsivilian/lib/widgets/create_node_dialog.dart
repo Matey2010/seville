@@ -2,28 +2,43 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:seville_proto/seville_proto.dart';
 
-/// Keeps a creation draft open until the existing API accepts it.
-class CreateNodeDialog extends StatefulWidget {
-  const CreateNodeDialog({
-    required this.createNode,
+/// One draft form for creating a Node or editing an existing Node.
+class NodeEditorDialog extends StatefulWidget {
+  const NodeEditorDialog({
+    required this.saveNode,
+    this.node,
     this.suggestedSlug = '',
+    this.suggestedLabels = const [],
+    this.lockSlug = false,
     super.key,
   });
 
-  final Future<Node> Function(String slug, List<String> labels, String body)
-  createNode;
+  final Future<Node> Function(
+    Node? existing,
+    String slug,
+    List<String> labels,
+    String body,
+  )
+  saveNode;
+  final Node? node;
   final String suggestedSlug;
+  final List<String> suggestedLabels;
+  final bool lockSlug;
 
   @override
-  State<CreateNodeDialog> createState() => _CreateNodeDialogState();
+  State<NodeEditorDialog> createState() => _NodeEditorDialogState();
 }
 
-class _CreateNodeDialogState extends State<CreateNodeDialog> {
+class _NodeEditorDialogState extends State<NodeEditorDialog> {
   late final TextEditingController _slug = TextEditingController(
-    text: widget.suggestedSlug,
+    text: widget.node?.slug ?? widget.suggestedSlug,
   );
-  final TextEditingController _labels = TextEditingController();
-  final TextEditingController _body = TextEditingController();
+  late final TextEditingController _labels = TextEditingController(
+    text: (widget.node?.labels ?? widget.suggestedLabels).join(', '),
+  );
+  late final TextEditingController _body = TextEditingController(
+    text: widget.node?.body ?? '',
+  );
   bool _saving = false;
   String? _error;
 
@@ -60,17 +75,19 @@ class _CreateNodeDialogState extends State<CreateNodeDialog> {
       _error = null;
     });
     try {
-      final node = await widget.createNode(slug, labels, _body.text);
+      final node = await widget.saveNode(widget.node, slug, labels, _body.text);
       if (mounted) Navigator.of(context).pop(node);
     } on DioException catch (error) {
       if (!mounted) return;
       setState(() {
         _error = error.response?.statusCode == 409
-            ? 'A Node with this slug already exists.'
-            : 'The Node could not be created. Check the connection and try again.';
+            ? widget.node == null
+                  ? 'A Node with this slug already exists.'
+                  : 'This Node changed elsewhere. Reopen it before saving.'
+            : 'The Node could not be saved. Check the connection and try again.';
       });
     } catch (_) {
-      if (mounted) setState(() => _error = 'The Node could not be created.');
+      if (mounted) setState(() => _error = 'The Node could not be saved.');
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -78,7 +95,7 @@ class _CreateNodeDialogState extends State<CreateNodeDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Create Node'),
+    title: Text(widget.node == null ? 'Create Node' : 'Edit Node'),
     content: SizedBox(
       width: 520,
       child: SingleChildScrollView(
@@ -88,8 +105,8 @@ class _CreateNodeDialogState extends State<CreateNodeDialog> {
           children: [
             TextField(
               controller: _slug,
-              autofocus: true,
-              enabled: !_saving,
+              autofocus: widget.node == null,
+              enabled: !_saving && widget.node == null && !widget.lockSlug,
               maxLength: 512,
               decoration: const InputDecoration(
                 labelText: 'Slug',
@@ -141,7 +158,7 @@ class _CreateNodeDialogState extends State<CreateNodeDialog> {
                 dimension: 18,
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
-            : const Text('Create'),
+            : Text(widget.node == null ? 'Create' : 'Save'),
       ),
     ],
   );

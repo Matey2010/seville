@@ -42,7 +42,12 @@ rules = [
   "A Home button at the top left clears search and overlays and resets graph pan and zoom to the opening view, while preserving the Node data.",
   "Node creation keeps its draft in the native form until the API accepts it. Body editing preserves unsaved text on API failure and uses the Node's last observed update_count for conflict detection.",
   "The graph uses one shared, server-backed Node appearance ruleset. Highest matching weight wins; list order breaks ties. A rule supplies color, gravity scale, and size scale.",
-  "The virtual graph has independent planes. The time plane stands left of the graph: today's local calendar date is the central row, future dates go upward, and older dates go downward. Year, Season, Month, Week, and Day columns run from left to right, with Day nearest the graph. Do not show a Range column. Forge2D adds bounded motion around semantic anchors. Reserve the bottom plane for future location placement backed by Neo4j spatial POINT values, and keep top and right available for later dimensions.",
+  "The virtual graph has independent semantic dimensions. Time is a full-canvas HUD: the current moment is centered, future dates go upward, and older dates go downward. Do not restore the former left-side calendar columns or a Range lane. Forge2D adds bounded motion around semantic anchors. Reserve the bottom dimension for future location placement backed by Neo4j spatial POINT values, and keep other dimensions available for later structure.",
+  "Time is a HUD over the graph and the camera's scale basis. Home shows approximately twelve hours above and twelve hours below the current moment. Zooming out reveals progressively larger temporal spans. The HUD generates valid hour and date slots independently of Node existence; the graph is always drawn over those guides.",
+  "The time HUD follows both camera scale and vertical translation. Panning regenerates valid dates and hours for the visible window. When NOW is visible, the top bubble reports distance around NOW; otherwise it reports the compact chronological bottom-to-top interval.",
+  "A Date Node is represented by its HUD calendar label, never by a Forge2D graph body. Existing dates open the shared Node editor. Missing dates open the same editor in creation mode with DD-MM-YYYY slug, Date label, and native one-day temporal span supplied automatically.",
+  "Date labels are narrow vertical controls centered between their day's 00:00 boundary and the following 00:00 boundary.",
+  "Future viewport loading must query Nodes by canonical temporal placement or by the explicit absence of temporal placement. Do not substitute modified_at, last-opened activity, or another operational timestamp for semantic time.",
 ]
 
 [development]

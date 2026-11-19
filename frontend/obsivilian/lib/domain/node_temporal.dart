@@ -37,17 +37,40 @@ class TemporalInterval {
   final TemporalGranularity granularity;
 
   static TemporalInterval? fromNode(Node node) {
-    if (!node.hasTemporalSpan()) return null;
-    final span = node.temporalSpan;
-    final start = CalendarDay.parse(span.startDate);
-    final end = CalendarDay.parse(span.endDateExclusive);
+    final span = node.hasTemporalSpan() ? node.temporalSpan : null;
+    final start = span == null
+        ? _exactDateSlug(node)
+        : CalendarDay.parse(span.startDate);
+    final end = span == null
+        ? start == null
+              ? null
+              : CalendarDay(
+                  start.date.add(const Duration(days: 1)),
+                  start.epochDay + 1,
+                )
+        : CalendarDay.parse(span.endDateExclusive);
     if (start == null || end == null || end.epochDay <= start.epochDay) {
       return null;
     }
     return TemporalInterval(
       start: start,
       endExclusive: end,
-      granularity: span.granularity,
+      granularity:
+          span?.granularity ?? TemporalGranularity.TEMPORAL_GRANULARITY_DAY,
     );
   }
+}
+
+CalendarDay? _exactDateSlug(Node node) {
+  if (!node.labels.contains('Date')) return null;
+  final match = RegExp(r'^(\d{2})-(\d{2})-(\d{4})$').firstMatch(node.slug);
+  if (match == null) return null;
+  final day = int.parse(match[1]!);
+  final month = int.parse(match[2]!);
+  final year = int.parse(match[3]!);
+  return CalendarDay.parse(
+    '${year.toString().padLeft(4, '0')}-'
+    '${month.toString().padLeft(2, '0')}-'
+    '${day.toString().padLeft(2, '0')}',
+  );
 }

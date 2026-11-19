@@ -13,3 +13,7 @@
 8. Add the bottom location plane with a place hierarchy and native Neo4j
    spatial `POINT` properties. Reuse the virtual world and camera created for
    the time plane to the left of the graph; leave top and right for later dimensions.
+9. Replace the bounded chronological sample with a viewport query carrying the
+   visible temporal window and whether undated Nodes are requested. Debounce
+   camera changes, page large results, and keep `modified_at` separate from
+   semantic temporal placement.

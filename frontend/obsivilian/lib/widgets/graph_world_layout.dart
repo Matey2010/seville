@@ -36,10 +36,10 @@ class GraphWorldLayout {
     required this.timeIntervals,
     required this.timeRowY,
     required this.timeBandX,
-    required this.timeBounds,
     required this.todayY,
     required this.todayLabel,
     required this.timeHeaderY,
+    required this.homeHours,
   });
 
   final Size viewport;
@@ -52,13 +52,13 @@ class GraphWorldLayout {
   final Map<String, TemporalInterval> timeIntervals;
 
   /// Virtual Y coordinate for each dated start-day slot. Other graph regions
-  /// can align their own Nodes to these slots without entering calendar columns.
+  /// can align their own Nodes to the same HUD guide.
   final Map<int, double> timeRowY;
   final Map<TemporalGranularity, double> timeBandX;
-  final Rect timeBounds;
   final double todayY;
   final String todayLabel;
   final double timeHeaderY;
+  final double homeHours;
 
   static GraphWorldLayout compute({
     required Iterable<Node> nodes,
@@ -106,25 +106,18 @@ class GraphWorldLayout {
     final todayDay =
         DateTime.utc(now.year, now.month, now.day).millisecondsSinceEpoch ~/
         millisecondsPerDay;
-    // A date owns one horizontal row across all calendar columns. Crowded
-    // dates get a taller row without changing the order of other dates.
+    // A date owns one horizontal guide across the graph world.
     final rows = <int, List<String>>{};
     for (final slug in timeSlugs) {
       rows.putIfAbsent(intervals[slug]!.start.epochDay, () => []).add(slug);
     }
     final rowLanes = <int, Map<TemporalGranularity, List<String>>>{};
-    final rowHeights = <int, double>{};
     for (final row in rows.entries) {
       final byLane = <TemporalGranularity, List<String>>{};
       for (final slug in row.value) {
         byLane.putIfAbsent(intervals[slug]!.granularity, () => []).add(slug);
       }
-      final occupancy = byLane.values.fold<int>(
-        1,
-        (max, lane) => math.max(max, lane.length),
-      );
       rowLanes[row.key] = byLane;
-      rowHeights[row.key] = occupancy * (largestDiameter + 18);
     }
     final rowLocalY = <int, double>{};
     void placeRow(int day, double y) {
@@ -134,41 +127,19 @@ class GraphWorldLayout {
         for (var index = 0; index < laneSlugs.length; index++) {
           final slug = laneSlugs[index];
           final offset =
-              (index - (laneSlugs.length - 1) / 2) * (largestDiameter + 18);
-          local[slug] = Offset(_laneX(lane.key, coreRadius), y + offset);
+              (index - (laneSlugs.length - 1) / 2) * (largestDiameter * 0.42);
+          local[slug] = Offset(_timeNodeX(slug, coreRadius) + offset, y);
           planes[slug] = GraphPlane.time;
         }
       }
     }
 
-    if (rows.containsKey(todayDay)) placeRow(todayDay, 0);
-    final todayHeight = rowHeights[todayDay] ?? 0;
-    void placeSide(List<int> days, double direction) {
-      var previousDistance = 0.0;
-      var previousHeight = todayHeight;
-      for (final day in days) {
-        final rowHeight = rowHeights[day]!;
-        final yearsFromToday = (day - todayDay).abs() / 365.2425;
-        // Keep today centered. Compress distant history, then widen crowded
-        // calendar slots without reversing their chronological order.
-        final scaledDistance = 360 * math.log(1 + yearsFromToday / 8);
-        final minimumDistance =
-            previousDistance +
-            (previousHeight + rowHeight) / 2 +
-            (previousDistance == 0 ? 110 : 18);
-        final distance = math.max(scaledDistance, minimumDistance);
-        placeRow(day, direction * distance);
-        previousDistance = distance;
-        previousHeight = rowHeight;
-      }
+    final nowDay =
+        todayDay +
+        (now.hour * 3600 + now.minute * 60 + now.second) / (24 * 3600);
+    for (final day in rows.keys) {
+      placeRow(day, _timeY(day - nowDay, viewport.height));
     }
-
-    placeSide(rows.keys.where((day) => day > todayDay).toList()..sort(), -1);
-    placeSide(
-      rows.keys.where((day) => day < todayDay).toList()
-        ..sort((a, b) => b.compareTo(a)),
-      1,
-    );
 
     var minX = -math.max(viewport.width / 2, coreRadius + 140);
     var maxX = math.max(viewport.width / 2, coreRadius + 140);
@@ -211,34 +182,11 @@ class GraphWorldLayout {
         for (final granularity in _bandOrder)
           granularity: shift.dx + _laneX(granularity, coreRadius),
       }),
-      timeBounds: intervals.isEmpty
-          ? Rect.zero
-          : Rect.fromLTRB(
-              shift.dx +
-                  _laneX(_bandOrder.first, coreRadius) -
-                  largestDiameter / 2 -
-                  80,
-              math.min(
-                    shift.dy,
-                    timeSlugs.map((slug) => anchors[slug]!.dy).reduce(math.min),
-                  ) -
-                  largestDiameter / 2 -
-                  70,
-              shift.dx +
-                  _laneX(_bandOrder.last, coreRadius) +
-                  largestDiameter / 2 +
-                  80,
-              math.max(
-                    shift.dy,
-                    timeSlugs.map((slug) => anchors[slug]!.dy).reduce(math.max),
-                  ) +
-                  largestDiameter / 2 +
-                  70,
-            ),
       todayY: shift.dy,
       todayLabel:
           '${now.day.toString().padLeft(2, '0')}-${now.month.toString().padLeft(2, '0')}-${now.year}',
-      timeHeaderY: shift.dy + todayHeight / 2 + 40,
+      timeHeaderY: shift.dy + 44,
+      homeHours: 24,
     );
   }
 }
@@ -254,6 +202,26 @@ const _bandOrder = <TemporalGranularity>[
 double _laneX(TemporalGranularity granularity, double coreRadius) {
   final index = _bandOrder.indexOf(granularity);
   return -coreRadius - 250 - (_bandOrder.length - 1 - index) * 132;
+}
+
+double _timeNodeX(String slug, double coreRadius) {
+  var hash = 2166136261;
+  for (final codeUnit in slug.codeUnits) {
+    hash = ((hash ^ codeUnit) * 16777619) & 0xffffffff;
+  }
+  final normalized = hash / 0xffffffff;
+  return (normalized * 2 - 1) * coreRadius * 0.9;
+}
+
+/// Twelve hours from now occupy half of the Home viewport. Greater distances
+/// are compressed so zooming out can reveal days, years, and ancient dates in
+/// the same virtual world.
+double _timeY(double daysFromNow, double viewportHeight) {
+  final hours = daysFromNow * 24;
+  if (hours == 0) return 0;
+  final distance =
+      viewportHeight / 2 * (math.log(1 + hours.abs() / 12) / math.ln2);
+  return hours > 0 ? -distance : distance;
 }
 
 String _yearLabel(int astronomicalYear) =>

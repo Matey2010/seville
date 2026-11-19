@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -204,34 +205,134 @@ class _KnowledgeWorkspaceState extends ConsumerState<KnowledgeWorkspace> {
     }
   }
 
-  Future<void> _openCreate({String suggestedSlug = ''}) async {
+  Future<void> _openCreate({
+    String suggestedSlug = '',
+    List<String> suggestedLabels = const [],
+    DateTime? calendarDate,
+    Node? node,
+  }) async {
     if (_focusedNode != null &&
         !await (_detailsKey.currentState?.mayLeaveDraft() ??
             Future.value(true))) {
       return;
     }
     if (!mounted) return;
-    final api = ref.read(sevilleApiProvider);
     final created = await showDialog<Node>(
       context: context,
       barrierDismissible: false,
-      builder: (context) => CreateNodeDialog(
+      builder: (context) => NodeEditorDialog(
+        node: node,
         suggestedSlug: suggestedSlug,
-        createNode: (slug, labels, body) =>
-            api.createNode(slug: slug, labels: labels, body: body),
+        suggestedLabels: suggestedLabels,
+        lockSlug: calendarDate != null,
+        saveNode: (existing, slug, labels, body) => _saveNodeDraft(
+          existing: existing,
+          slug: slug,
+          labels: labels,
+          body: body,
+          calendarDate: calendarDate,
+        ),
       ),
     );
     if (created == null || !mounted) return;
     ref.invalidate(nodeGraphProvider);
     ref.invalidate(nodeSearchProvider);
+    ref.invalidate(nodesByExactSlugsProvider);
     _search.clear();
     setState(() {
       _submittedSearch = '';
       _findOpen = false;
     });
     _restoreWorkspaceFocus();
-    _message('Node created');
-    await _focusNode(created, checkDraft: false);
+    _message(node == null ? 'Node created' : 'Node saved');
+    if (calendarDate == null) {
+      await _focusNode(created, checkDraft: false);
+    }
+  }
+
+  Future<Node> _saveNodeDraft({
+    required Node? existing,
+    required String slug,
+    required List<String> labels,
+    required String body,
+    required DateTime? calendarDate,
+  }) async {
+    final api = ref.read(sevilleApiProvider);
+    final normalizedLabels = labels.toSet();
+    if (calendarDate != null) normalizedLabels.add('Date');
+    var saved = existing;
+    if (saved == null) {
+      saved = await api.createNode(
+        slug: slug,
+        labels: normalizedLabels,
+        body: body,
+      );
+    } else {
+      if (saved.body != body) {
+        saved = await api.updateNodeBody(
+          slug: saved.slug,
+          body: body,
+          expectedUpdateCount: saved.updateCount.toInt(),
+        );
+      }
+      if (!setEquals(saved.labels.toSet(), normalizedLabels)) {
+        saved = await api.replaceNodeLabels(
+          slug: saved.slug,
+          labels: normalizedLabels,
+          expectedUpdateCount: saved.updateCount.toInt(),
+        );
+      }
+    }
+    if (calendarDate != null) {
+      final start = DateTime.utc(
+        calendarDate.year,
+        calendarDate.month,
+        calendarDate.day,
+      );
+      final startText = _isoDay(start);
+      final endText = _isoDay(start.add(const Duration(days: 1)));
+      if (!saved.hasTemporalSpan() ||
+          saved.temporalSpan.startDate != startText ||
+          saved.temporalSpan.endDateExclusive != endText ||
+          saved.temporalSpan.granularity !=
+              TemporalGranularity.TEMPORAL_GRANULARITY_DAY) {
+        saved = await api.replaceNodeTemporalSpan(
+          slug: saved.slug,
+          span: NodeTemporalSpan(
+            startDate: startText,
+            endDateExclusive: endText,
+            granularity: TemporalGranularity.TEMPORAL_GRANULARITY_DAY,
+          ),
+          expectedUpdateCount: saved.updateCount.toInt(),
+        );
+      }
+    }
+    return saved;
+  }
+
+  Future<void> _openCalendarDate(DateTime date) async {
+    final slug = _dateSlug(date);
+    NodeSearchResult result;
+    try {
+      result = await ref.read(sevilleApiProvider).nodesByExactSlugs([slug]);
+    } catch (_) {
+      if (mounted) _message('Could not check the Date Node.');
+      return;
+    }
+    Node? existing;
+    for (final node in result.nodes) {
+      if (node.slug == slug) {
+        existing = node;
+        break;
+      }
+    }
+    if (!mounted) return;
+    await _openCreate(
+      suggestedSlug: slug,
+      suggestedLabels: const ['Date'],
+      calendarDate: date,
+      node: existing,
+    );
   }
 
   void _refresh() {
@@ -463,6 +564,7 @@ class _KnowledgeWorkspaceState extends ConsumerState<KnowledgeWorkspace> {
     selectedNodeSlug: _focusedNode?.slug,
     onNodeSelected: (node, anchor) =>
         unawaited(_focusNode(node, globalAnchor: anchor)),
+    onCalendarDateSelected: (date) => unawaited(_openCalendarDate(date)),
     onRetry: _refresh,
     moreMessage: '',
     overlayMoreMessage: true,
@@ -641,6 +743,16 @@ class _KnowledgeWorkspaceState extends ConsumerState<KnowledgeWorkspace> {
     );
   }
 }
+
+String _dateSlug(DateTime date) =>
+    '${date.day.toString().padLeft(2, '0')}-'
+    '${date.month.toString().padLeft(2, '0')}-'
+    '${date.year.toString().padLeft(4, '0')}';
+
+String _isoDay(DateTime date) =>
+    '${date.year.toString().padLeft(4, '0')}-'
+    '${date.month.toString().padLeft(2, '0')}-'
+    '${date.day.toString().padLeft(2, '0')}';
 
 class _NodeDetailsPopup extends ConsumerStatefulWidget {
   const _NodeDetailsPopup({
@@ -1056,6 +1168,7 @@ class _GraphContent extends ConsumerWidget {
     required this.graphState,
     required this.selectedNodeSlug,
     required this.onNodeSelected,
+    required this.onCalendarDateSelected,
     required this.onRetry,
     required this.moreMessage,
     this.graphKey,
@@ -1065,6 +1178,7 @@ class _GraphContent extends ConsumerWidget {
   final AsyncValue<NodeGraph> graphState;
   final String? selectedNodeSlug;
   final void Function(Node node, Offset globalAnchor) onNodeSelected;
+  final ValueChanged<DateTime> onCalendarDateSelected;
   final VoidCallback onRetry;
   final String moreMessage;
   final Key? graphKey;
@@ -1084,6 +1198,7 @@ class _GraphContent extends ConsumerWidget {
         colorRules: colorRules,
         selectedNodeSlug: selectedNodeSlug,
         onNodeSelected: onNodeSelected,
+        onCalendarDateSelected: onCalendarDateSelected,
       ),
       AsyncError() => Center(
         child: Column(

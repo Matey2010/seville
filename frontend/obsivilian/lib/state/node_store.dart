@@ -23,6 +23,18 @@ final nodeSearchProvider = FutureProvider.family<NodeSearchResult, String>(
   (ref, search) => ref.watch(sevilleApiProvider).searchNodes(search),
 );
 
+final nodesByExactSlugsProvider =
+    FutureProvider.family<Map<String, Node>, String>((ref, joinedSlugs) async {
+      final slugs = joinedSlugs
+          .split('\n')
+          .where((slug) => slug.isNotEmpty)
+          .toList(growable: false);
+      final result = await ref
+          .watch(sevilleApiProvider)
+          .nodesByExactSlugs(slugs);
+      return {for (final node in result.nodes) node.slug: node};
+    });
+
 final nodeColorRulesProvider = FutureProvider<NodeColorRuleSet>(
   (ref) => ref.watch(sevilleApiProvider).nodeColorRules(),
 );

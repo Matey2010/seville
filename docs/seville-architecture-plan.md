@@ -79,22 +79,41 @@ canonical data.
 
 ## Time plane and future dimensions
 
-The time plane stands to the left of the central graph. Native Neo4j `DATE`
-spans place calendar Nodes on shared start-date rows. Today's local date is
-the central reference, future dates go above it, and older dates go below.
-Its columns run Year, Season, Month, Week, Day toward the graph;
-Day is nearest. There is no visible Range column. The timeline compresses
-distant history logarithmically and gives crowded dates taller rows. The
-camera can pan and zoom across the resulting virtual world. Calendar links
-are display-only, chosen by span overlap; weeks
+Native Neo4j `DATE` spans place temporal graph Nodes on start-date rows. The
+current moment is the central reference, future dates go above it, and older
+dates go below. There are no separate calendar columns or Range lane. The
+timeline compresses distant history logarithmically. The camera can pan and
+zoom across the resulting virtual world. Calendar links are display-only,
+chosen by span overlap; weeks
 that cross months are joined to the month with the most overlap. Forge2D
 resolves nearby collisions and adds gentle motion around those slots.
 Placement is separate from Node identity and from color rules so future
-planes can contribute their own anchors. The layout exposes dated row
-coordinates for future process Nodes to align beside the calendar without
-becoming calendar Nodes. Recurring seasons and months without
+dimensions can contribute their own anchors. The layout exposes dated row
+coordinates for future process Nodes to align with the HUD without becoming
+calendar Nodes. Recurring seasons and months without
 a specific year remain in the central graph until given a dated span. Legacy
 general range spans also remain in the central graph.
+
+Time is a fixed HUD over the graph instead of a separate panel. Home centers
+the current moment with an approximate 24-hour window. The time-to-Y mapping
+is continuous and logarithmically compressed away from now, so camera zoom
+defines the visible temporal span from hours through deep history. A red
+dashed NOW line, translucent dotted hour guides, day boundaries, and clickable
+date labels are generated from the calendar even when Neo4j has no matching
+Node. Graph Nodes render over these guides.
+The HUD derives its visible start and end from the complete camera transform,
+including vertical translation. It regenerates tick labels and Date slots as
+the user pans. Its top bubble shows a NOW-relative span while NOW is visible,
+then changes to a compact earlier-bottom → later-top interval outside that
+window.
+
+Exact Date Node existence is resolved in one batched slug search for the
+visible labels. Existing dates show an edit affordance; missing dates show an
+add affordance. Date Nodes never receive Forge2D bodies. Both affordances open
+the shared Node editor. A missing date is created with its locked
+`DD-MM-YYYY` slug, `Date` label, and native one-day `DATE` span. Because
+canonical placement currently uses Neo4j `DATE`, Node precision is one day
+even when the HUD window is described in hours.
 
 **TODO — bottom location plane:** add a location hierarchy and positioning
 backed by native Neo4j spatial `POINT` values. It should share the virtual
@@ -105,7 +124,9 @@ semantics from research use before assigning them.
 **TODO — full timeline navigation:** add date-range paging or viewport queries
 so the time plane can load every matching Node on demand. The current
 200-Node graph is a chronological overview and `has_more` signals omitted
-Nodes. Add scale-aware guide density when browsing large spans.
+Nodes. The query must accept the visible temporal window and an explicit
+include-undated choice; it must not reinterpret `modified_at` as semantic
+time. Add scale-aware guide density when browsing large spans.
 
 ## Next product work
 

@@ -111,6 +111,43 @@ class SevilleApi {
     return NodeSearchResult.fromBuffer(bytes);
   }
 
+  Future<NodeSearchResult> nodesByExactSlugs(Iterable<String> values) async {
+    final slugs = values
+        .map((value) => value.trim())
+        .where((value) => value.isNotEmpty)
+        .toSet()
+        .toList();
+    if (slugs.isEmpty) return NodeSearchResult();
+    if (slugs.length > 100) {
+      throw ArgumentError.value(slugs.length, 'values', 'at most 100 slugs');
+    }
+    final request = NodeSearchQuery(
+      nodeFilter: NodeSearchFilter(
+        includeMatchMode: NodeSearchMatchMode.NODE_SEARCH_MATCH_MODE_ANY,
+        includeNodesMatching: [
+          for (final slug in slugs)
+            NodeSearchParameter(
+              parameter: NodeParameterType.NODE_PARAMETER_TYPE_SLUG,
+              operator:
+                  NodeSearchMatchOperator.NODE_SEARCH_MATCH_OPERATOR_EXACT,
+              stringValue: slug,
+            ),
+        ],
+      ),
+      limit: slugs.length,
+    );
+    final response = await _dio.request<List<int>>(
+      '/api/v1/node/search',
+      data: request.writeToBuffer(),
+      options: Options(method: 'QUERY', contentType: 'application/x-protobuf'),
+    );
+    final bytes = response.data;
+    if (bytes == null) {
+      throw const FormatException('The backend returned empty Node search.');
+    }
+    return NodeSearchResult.fromBuffer(bytes);
+  }
+
   Future<Node> createNode({
     required String slug,
     Iterable<String> labels = const [],

@@ -108,7 +108,7 @@ class _NodeTemporalDialogState extends ConsumerState<NodeTemporalDialog> {
                   TemporalGranularity.TEMPORAL_GRANULARITY_RANGE) ...[
             const SizedBox(height: 12),
             const Text(
-              'This legacy range is outside the calendar columns. Choose a calendar scale or clear it.',
+              'This legacy range has no dedicated HUD lane. Choose a calendar scale or clear it.',
             ),
           ],
           const SizedBox(height: 16),
