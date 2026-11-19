@@ -5,14 +5,19 @@ app_name = "Obsivilian"
 repository_name = "seville"
 description = "Native Flutter knowledge graph client"
 vocabulary = "docs/vocabulary.md"
+primary_goal = "Build a personal, extended digital atlas of reality across space and time for research projects and self-development. Calculating Empires is a reference for layered, zoomable historical research, not a prescribed layout or content source."
 
 [vocabulary]
 rules = [
   "Read docs/vocabulary.md before naming a domain entity or API contract.",
   "Node is the primary domain and API unit. Neo4j labels classify Nodes but do not identify them. Do not introduce a parallel Note or Knowledge entity.",
+  "A Node's unique, human-readable slug is its only application identifier across Neo4j, Go, protobuf, and Flutter. Do not add Node id or UUID properties or use Neo4j internal elementId as persistent identity.",
   "Do not restore Flame, GameWidget, the declarative Layout library, or LG Ergo presets.",
   "Keep Go, Neo4j, and protobuf contracts unchanged until the project owner explicitly reopens backend development. The existing graph, search, create, and body update endpoints are the client baseline.",
   "The owner reopened the backend for shared Node color presentation rules. Keep those settings separate from canonical Nodes and preserve weights and order during database transfer.",
+  "The owner reopened the backend and protobuf contracts to make slugs the unique Node identity. Reject ambiguous duplicate slugs rather than choosing a record arbitrarily. Direct Neo4j edits must preserve slug uniqueness.",
+  "Every canonical Node has the reserved Neo4j :Node label. The slug_unique constraint on :Node(slug) enforces slug uniqueness. Hide :Node from user-facing labels and prohibit editing it; user labels such as Science remain classifiers.",
+  "A Node may carry a native Neo4j DATE interval for temporal placement. Slug remains its identity; calendar labels classify it. Do not infer an ambiguous calendar date from a slug.",
 ]
 
 [runtime]
@@ -24,18 +29,20 @@ rules = [
 [http]
 rules = [
   "Use QUERY for safe structured reads with a request body, including Node search and graph traversal.",
-  "Use POST to create a Node with a server-assigned ID, PATCH for partial mutation, PUT for complete replacement at a known URI, and DELETE for removal. Do not introduce CREATE or MUTATE HTTP methods.",
+  "Use POST to create a Node with a caller-selected unique slug, PATCH for partial mutation, PUT for complete replacement at a known URI, and DELETE for removal. Do not introduce CREATE or MUTATE HTTP methods.",
 ]
 
 [client]
 rules = [
   "Flutter widgets own layout, text input, accessibility, gestures, and the visible graph. Riverpod owns API request state; Dio and generated protobuf types cross the existing Go API boundary.",
-  "Global and local graphs share a Forge2D simulation with circular Node collisions and gentle drift. Physics is independent of widgets; its normalized positions drive both connection paint and positioned Node widgets. Rebuild bodies when graph membership or viewport size changes, and advance motion on a fixed time step rather than pointer events. API connections are visual until their physics rules are defined.",
+  "The global graph uses a Forge2D simulation with circular Node collisions and gentle drift. Physics is independent of widgets; its normalized positions drive both connection paint and positioned Node widgets. Rebuild bodies when graph membership or viewport size changes, and advance motion on a fixed time step rather than pointer events. API connections are visual until their physics rules are defined.",
   "The client currently pins Forge2D 0.15.1. Revisit dependency compatibility before upgrading the engine.",
-  "The workspace shows the bounded global graph, optionally narrowed by a submitted search. Selecting a canonical Node opens a split modal with its details and body editor on the left and its local graph on the right. Closing the modal returns to the global graph.",
-  "The global graph has a graph-only mode that hides the app bar, search, and Node list so the graph fills the window; a visible control and Cmd+backslash restore the interface.",
+  "The workspace shows the bounded global graph, optionally narrowed by a submitted search. Selecting a canonical Node opens a floating details window without changing graph membership or positions.",
+  "The global graph fills the window. Floating buttons open Find, create, label and appearance controls, and the Node list sidebar.",
+  "A Home button at the top left clears search and overlays and resets graph pan and zoom to the opening view, while preserving the Node data.",
   "Node creation keeps its draft in the native form until the API accepts it. Body editing preserves unsaved text on API failure and uses the Node's last observed update_count for conflict detection.",
-  "Global and local graphs use one shared, server-backed Node color ruleset. Highest matching weight wins; list order breaks ties. Color selection is independent of Forge2D physics.",
+  "The graph uses one shared, server-backed Node appearance ruleset. Highest matching weight wins; list order breaks ties. A rule supplies color, gravity scale, and size scale.",
+  "The virtual graph has independent planes. The time plane stands left of the graph: today's local calendar date is the central row, future dates go upward, and older dates go downward. Year, Season, Month, Week, and Day columns run from left to right, with Day nearest the graph. Do not show a Range column. Forge2D adds bounded motion around semantic anchors. Reserve the bottom plane for future location placement backed by Neo4j spatial POINT values, and keep top and right available for later dimensions.",
 ]
 
 [development]

@@ -1,7 +1,13 @@
-# Seville
+# Obsivilian
 
 This README is an index to the repository. Detailed documentation belongs in
 [`docs/`](docs/) or in the README of the workspace it describes.
+
+Obsivilian's primary goal is a personal, extended digital atlas of reality
+across space and time for research projects and self-development. The
+[Calculating Empires](https://calculatingempires.net/about) project inspires
+its layered, zoomable reading of history; Obsivilian uses the owner's own
+Neo4j graph and layout.
 
 ## Repository responsibilities
 
@@ -51,7 +57,7 @@ Neo4j is Seville's canonical live graph. Git checkouts and Markdown folders are
 input sources, Go owns parsing and application policy, and clients access data
 through the authenticated Go API. SQLite is not part of the system.
 
-The current product is a graph-centered knowledge base. Native Flutter displays
+The current product is a graph-centered knowledge client. Native Flutter displays
 and handles the graph; gameplay development is delegated outside this client. See
 the [architecture document](docs/seville-architecture-plan.md) for the current
 boundary and delivery priorities.

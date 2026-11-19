@@ -15,17 +15,35 @@ message NodeSnapshot {
 }
 
 message Node {
-  string id = 1;
+  reserved 1, 5;
+  reserved "id", "tags";
   string path = 2;
   string title = 3;
   string body = 4;
-  repeated string tags = 5;
   map<string, string> frontmatter = 6;
   google.protobuf.Timestamp modified_at = 7;
   repeated Emoji emojis = 8;
   repeated string labels = 9;
   string slug = 10;
   uint64 update_count = 11;
+  NodeTemporalSpan temporal_span = 12;
+}
+
+// Calendar interval [start_date, end_date_exclusive), stored as native Neo4j DATE values.
+message NodeTemporalSpan {
+  string start_date = 1;
+  string end_date_exclusive = 2;
+  TemporalGranularity granularity = 3;
+}
+
+enum TemporalGranularity {
+  TEMPORAL_GRANULARITY_UNSPECIFIED = 0;
+  TEMPORAL_GRANULARITY_YEAR = 1;
+  TEMPORAL_GRANULARITY_SEASON = 2;
+  TEMPORAL_GRANULARITY_MONTH = 3;
+  TEMPORAL_GRANULARITY_WEEK = 4;
+  TEMPORAL_GRANULARITY_DAY = 5;
+  TEMPORAL_GRANULARITY_RANGE = 6;
 }
 
 message Emoji {
@@ -43,9 +61,9 @@ message Emoji {
 }
 
 message NodeConnection {
-  string source_node_id = 1;
+  string source_node_slug = 1;
   string target_text = 2;
-  optional string target_node_id = 3;
+  optional string target_node_slug = 3;
   optional string display_text = 4;
   NodeConnectionKind kind = 5;
   optional string fragment = 6;

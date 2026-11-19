@@ -7,11 +7,13 @@ used.
 
 ## Legacy import model
 
-Every Markdown source file must define a stable Node `id` in YAML frontmatter:
+Each imported Node uses its readable `slug` as its unique identity. A Markdown
+file may set it in YAML frontmatter; otherwise the importer uses its relative
+path without the `.md` extension:
 
 ```md
 ---
-id: 6ca5c09c-38a8-8ab3-a8b2-93450516d229
+slug: cortex
 title: Cortex
 components:
   - "[[science]]"
@@ -19,20 +21,47 @@ components:
 ---
 ```
 
+Every canonical Node also carries the reserved Neo4j `:Node` label. It is an
+internal marker, omitted from user-facing labels. The `slug_unique` constraint
+on `:Node(slug)` enforces unique Node slugs; user labels remain editable
+classifiers. Startup backfills `:Node` on existing slugged records after
+checking for duplicates. It removes only five inspected legacy shells
+(`armor`, `career`, `game`, `science`, `weapon`) when each still has exactly the
+`slug` and `counter: 1` properties, no label or relationship, and a titled
+counterpart. If any other duplicate remains, startup stops with its slug.
+Back up Neo4j before the first startup with this migration, since removing
+those five shells is a database deletion.
+
 The manual Obsidian migration tool:
 
 1. parses Markdown and typed YAML frontmatter using a YAML 1.2 parser;
-2. normalizes frontmatter and inline tags into canonical lowercase tag IDs;
-3. stores tags as `(node)-[:TAGGED_WITH {weight: 1.0}]->(:Tag)`;
-4. rejects duplicate IDs and reports source records without IDs as import warnings;
-5. creates only IDs that do not already exist in Neo4j;
-6. creates resolved `LINKS_TO` relationships for newly imported nodes; and
-7. serves subsequent reads from live Neo4j data.
+2. ignores source tag metadata, keeping Neo4j labels as the classification system;
+3. rejects duplicate slugs within the source;
+4. creates only slugs that do not already exist in Neo4j;
+5. creates resolved `LINKS_TO` relationships for newly imported nodes; and
+6. serves subsequent reads from live Neo4j data.
 
-An existing ID is deliberately not overwritten by a later source scan. Once a
-source file has been imported, Seville/Neo4j is authoritative for that Node. This makes
-repeated migrations conservative, but changed source IDs can still create
-apparent duplicates.
+An existing slug is deliberately not overwritten by a later source scan. Once
+a source file has been imported, Obsivilian/Neo4j is authoritative for that
+Node. Changing a source slug can create an apparent duplicate.
+
+On startup, the backend backfills native `DATE` intervals for calendar Nodes
+whose exact slug identifies a day (`DD-MM-YYYY` or ISO), year (`YYYY`), month
+(`YYYY-MM`), or ISO week (`YYYY-Wnn`). Explicit BCE Year titles are also
+recognized using astronomical years (`1 BCE` is year zero). A pre-existing
+native `date` property on a calendar Node supplies a day interval. Recurring
+Month and Season Nodes without a year remain unplaced. The migration is
+idempotent and increments `update_count` only for Nodes it changes. Review a
+Neo4j backup before first startup with this migration.
+It also accepts the observed `cortex-time-calendar-YYYY-MM-*` plus matching
+`YYYY MM DD: MM` title format, and dated Event slugs whose date agrees with
+their `Event YYYY-MM-DD` title. Generic `Time` topics remain unplaced.
+Clearing time placement records an internal opt-out so a later startup does
+not infer the same span again; manually saving a span removes that opt-out.
+
+On backend startup, this version discards legacy `TAGGED_WITH` assignments,
+legacy tag records and properties, and tag-based color rules. It does not turn
+those assignments into Neo4j labels.
 
 ## Quick start
 
@@ -96,7 +125,7 @@ reports the selected root and these timings:
 - `server_available_after`: Neo4j server time until results became available;
 - `server_consumed_after`: Neo4j server result-consumption time.
 
-Disable the flag after diagnosis because query parameters can contain Node IDs
+Disable the flag after diagnosis because query parameters can contain Node slugs
 and search values and the output is intentionally verbose.
 
 ## API
@@ -109,7 +138,7 @@ and search values and the output is intentionally verbose.
   `SystemInfo`. Label frequency is descending, with label name as the stable
   tie-breaker.
 - `QUERY /api/v1/node/tree`: depth-limited incoming relationship tree as binary
-  `NodeTree`; either `root_node_id` or a structured `root_node_filter` selects
+  `NodeTree`; either `root_node_slug` or a structured `root_node_filter` selects
   the root set, while the allowlisted `traverse_by` selects `PART_OF` or
   `FAMILY`. Every filter match becomes a depth-zero occurrence.
   Filter includes support explicit `any` (default) or `all` matching; excludes
@@ -120,24 +149,42 @@ and search values and the output is intentionally verbose.
 - `QUERY /api/v1/node/search`: structured flat Node search as binary
   `NodeSearchResult`. The protobuf body carries a required `node_filter` and an
   optional limit from 1 through 100; the default limit is 20. Search returns
-  complete Nodes, including labels, tags, frontmatter, and assigned Emoji.
+  complete Nodes, including labels, frontmatter, and assigned Emoji.
 - `QUERY /api/v1/node/graph`: bounded `LINKS_TO` graph as binary `NodeGraph`.
-  An optional stable root ID requests a local graph; without it the endpoint
+  An optional root slug requests a local graph; without it the endpoint
   returns a bounded global view that can filter by a search term. Depth is at
   most two and the Node limit is at most 200. `has_more` reports truncation;
-  the response includes only connections whose endpoints are present.
+  the response includes only connections whose endpoints are present. Records
+  sharing a slug are omitted until the duplicate is resolved in Neo4j.
+  An unfiltered global view samples up to half its limit from the full dated
+  range so a bounded overview can show the time plane.
+- `PUT /api/v1/node/{slug}/temporal`: replace or clear the Node's time span
+  with an expected `update_count`. Its start and exclusive end are stored as
+  native Neo4j `DATE` properties; stale writes return 409. The API accepts
+  signed ISO calendar years for BCE dates.
+- `QUERY /api/v1/label/search`: native Neo4j labels on canonical Nodes, with
+  usage counts, as binary `LabelSearchResult`.
+- `PUT /api/v1/node/{slug}/labels`: replaces one Node's complete label set when
+  `expected_update_count` matches; returns the updated Node.
+- `PATCH /api/v1/label/{name}`: renames a label across all canonical Nodes.
+  It rejects a name already in use and updates exact label color rules.
+- `DELETE /api/v1/label/{name}`: removes a label from all canonical Nodes and
+  deletes its exact label color rules.
 - `GET /api/v1/graph/color-rules`: the shared binary `NodeColorRuleSet` and
   its revision. An unset database returns an empty ruleset at revision zero.
 - `PUT /api/v1/graph/color-rules`: replace the complete ordered ruleset as
   protobuf. The supplied revision must match the stored revision; a stale
   save returns 409. Up to 100 validated rules are stored atomically. Higher
-  weight wins, and list order resolves equal weights.
+  weight wins, and list order resolves equal weights. Each rule can also set
+  gravity scale (0–3×) and circle size scale (0.5–2×); older rules use 1×.
+  Legacy exact-ID rules are read as slug rules when they resolve to one unique
+  Node; other ID rules cannot be translated and are omitted from the editor.
 - `POST /api/v1/node/`: create one Node from a protobuf `NodeCreateRequest`.
-  The backend assigns its stable ID, initializes `update_count` to zero, safely
+  The caller chooses its unique slug. The backend initializes `update_count` to zero, safely
   applies validated Neo4j labels, reconciles connections from its Markdown
   body in the same transaction, and returns the complete Node with status 201.
   An existing slug returns 409.
-- `PATCH /api/v1/node/{id}`: update one known Node body using
+- `PATCH /api/v1/node/{slug}`: update one known Node body using
   `NodeBodyUpdateRequest`. An expected `update_count` guards against stale
   edits. Body, timestamp, counter, and outgoing connections change in one
   transaction; a stale edit returns 409.
@@ -152,9 +199,10 @@ identity, provenance, and duplicate/conflict reporting.
 
 Clients use the Go protobuf HTTP API and never connect directly to Neo4j.
 
-### Moving color rules to another server
+### Moving appearance rules to another server
 
-Color rules, their integer weights, list positions, and revision live in the
+Appearance rules, their colors, gravity and size scales, integer weights, list
+positions, and revision live in the
 same Neo4j database as canonical Nodes, under `ObsivilianColorRuleSet` and
 `ObsivilianColorRule` labels. A full Neo4j database backup and restore moves
 them together. The Node-only Markdown importer and `NodeSnapshot` export do

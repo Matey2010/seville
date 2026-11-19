@@ -15,6 +15,28 @@ import 'dart:convert' as $convert;
 import 'dart:core' as $core;
 import 'dart:typed_data' as $typed_data;
 
+@$core.Deprecated('Use temporalGranularityDescriptor instead')
+const TemporalGranularity$json = {
+  '1': 'TemporalGranularity',
+  '2': [
+    {'1': 'TEMPORAL_GRANULARITY_UNSPECIFIED', '2': 0},
+    {'1': 'TEMPORAL_GRANULARITY_YEAR', '2': 1},
+    {'1': 'TEMPORAL_GRANULARITY_SEASON', '2': 2},
+    {'1': 'TEMPORAL_GRANULARITY_MONTH', '2': 3},
+    {'1': 'TEMPORAL_GRANULARITY_WEEK', '2': 4},
+    {'1': 'TEMPORAL_GRANULARITY_DAY', '2': 5},
+    {'1': 'TEMPORAL_GRANULARITY_RANGE', '2': 6},
+  ],
+};
+
+/// Descriptor for `TemporalGranularity`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List temporalGranularityDescriptor = $convert.base64Decode(
+    'ChNUZW1wb3JhbEdyYW51bGFyaXR5EiQKIFRFTVBPUkFMX0dSQU5VTEFSSVRZX1VOU1BFQ0lGSU'
+    'VEEAASHQoZVEVNUE9SQUxfR1JBTlVMQVJJVFlfWUVBUhABEh8KG1RFTVBPUkFMX0dSQU5VTEFS'
+    'SVRZX1NFQVNPThACEh4KGlRFTVBPUkFMX0dSQU5VTEFSSVRZX01PTlRIEAMSHQoZVEVNUE9SQU'
+    'xfR1JBTlVMQVJJVFlfV0VFSxAEEhwKGFRFTVBPUkFMX0dSQU5VTEFSSVRZX0RBWRAFEh4KGlRF'
+    'TVBPUkFMX0dSQU5VTEFSSVRZX1JBTkdFEAY=');
+
 @$core.Deprecated('Use nodeConnectionKindDescriptor instead')
 const NodeConnectionKind$json = {
   '1': 'NodeConnectionKind',
@@ -85,11 +107,9 @@ final $typed_data.Uint8List nodeSnapshotDescriptor = $convert.base64Decode(
 const Node$json = {
   '1': 'Node',
   '2': [
-    {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
     {'1': 'path', '3': 2, '4': 1, '5': 9, '10': 'path'},
     {'1': 'title', '3': 3, '4': 1, '5': 9, '10': 'title'},
     {'1': 'body', '3': 4, '4': 1, '5': 9, '10': 'body'},
-    {'1': 'tags', '3': 5, '4': 3, '5': 9, '10': 'tags'},
     {
       '1': 'frontmatter',
       '3': 6,
@@ -117,8 +137,21 @@ const Node$json = {
     {'1': 'labels', '3': 9, '4': 3, '5': 9, '10': 'labels'},
     {'1': 'slug', '3': 10, '4': 1, '5': 9, '10': 'slug'},
     {'1': 'update_count', '3': 11, '4': 1, '5': 4, '10': 'updateCount'},
+    {
+      '1': 'temporal_span',
+      '3': 12,
+      '4': 1,
+      '5': 11,
+      '6': '.seville.node.v2.NodeTemporalSpan',
+      '10': 'temporalSpan'
+    },
   ],
   '3': [Node_FrontmatterEntry$json],
+  '9': [
+    {'1': 1, '2': 2},
+    {'1': 5, '2': 6},
+  ],
+  '10': ['id', 'tags'],
 };
 
 @$core.Deprecated('Use nodeDescriptor instead')
@@ -133,14 +166,45 @@ const Node_FrontmatterEntry$json = {
 
 /// Descriptor for `Node`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List nodeDescriptor = $convert.base64Decode(
-    'CgROb2RlEg4KAmlkGAEgASgJUgJpZBISCgRwYXRoGAIgASgJUgRwYXRoEhQKBXRpdGxlGAMgAS'
-    'gJUgV0aXRsZRISCgRib2R5GAQgASgJUgRib2R5EhIKBHRhZ3MYBSADKAlSBHRhZ3MSSAoLZnJv'
-    'bnRtYXR0ZXIYBiADKAsyJi5zZXZpbGxlLm5vZGUudjIuTm9kZS5Gcm9udG1hdHRlckVudHJ5Ug'
-    'tmcm9udG1hdHRlchI7Cgttb2RpZmllZF9hdBgHIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1l'
-    'c3RhbXBSCm1vZGlmaWVkQXQSLgoGZW1vamlzGAggAygLMhYuc2V2aWxsZS5ub2RlLnYyLkVtb2'
-    'ppUgZlbW9qaXMSFgoGbGFiZWxzGAkgAygJUgZsYWJlbHMSEgoEc2x1ZxgKIAEoCVIEc2x1ZxIh'
-    'Cgx1cGRhdGVfY291bnQYCyABKARSC3VwZGF0ZUNvdW50Gj4KEEZyb250bWF0dGVyRW50cnkSEA'
-    'oDa2V5GAEgASgJUgNrZXkSFAoFdmFsdWUYAiABKAlSBXZhbHVlOgI4AQ==');
+    'CgROb2RlEhIKBHBhdGgYAiABKAlSBHBhdGgSFAoFdGl0bGUYAyABKAlSBXRpdGxlEhIKBGJvZH'
+    'kYBCABKAlSBGJvZHkSSAoLZnJvbnRtYXR0ZXIYBiADKAsyJi5zZXZpbGxlLm5vZGUudjIuTm9k'
+    'ZS5Gcm9udG1hdHRlckVudHJ5Ugtmcm9udG1hdHRlchI7Cgttb2RpZmllZF9hdBgHIAEoCzIaLm'
+    'dvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBSCm1vZGlmaWVkQXQSLgoGZW1vamlzGAggAygLMhYu'
+    'c2V2aWxsZS5ub2RlLnYyLkVtb2ppUgZlbW9qaXMSFgoGbGFiZWxzGAkgAygJUgZsYWJlbHMSEg'
+    'oEc2x1ZxgKIAEoCVIEc2x1ZxIhCgx1cGRhdGVfY291bnQYCyABKARSC3VwZGF0ZUNvdW50EkYK'
+    'DXRlbXBvcmFsX3NwYW4YDCABKAsyIS5zZXZpbGxlLm5vZGUudjIuTm9kZVRlbXBvcmFsU3Bhbl'
+    'IMdGVtcG9yYWxTcGFuGj4KEEZyb250bWF0dGVyRW50cnkSEAoDa2V5GAEgASgJUgNrZXkSFAoF'
+    'dmFsdWUYAiABKAlSBXZhbHVlOgI4AUoECAEQAkoECAUQBlICaWRSBHRhZ3M=');
+
+@$core.Deprecated('Use nodeTemporalSpanDescriptor instead')
+const NodeTemporalSpan$json = {
+  '1': 'NodeTemporalSpan',
+  '2': [
+    {'1': 'start_date', '3': 1, '4': 1, '5': 9, '10': 'startDate'},
+    {
+      '1': 'end_date_exclusive',
+      '3': 2,
+      '4': 1,
+      '5': 9,
+      '10': 'endDateExclusive'
+    },
+    {
+      '1': 'granularity',
+      '3': 3,
+      '4': 1,
+      '5': 14,
+      '6': '.seville.node.v2.TemporalGranularity',
+      '10': 'granularity'
+    },
+  ],
+};
+
+/// Descriptor for `NodeTemporalSpan`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List nodeTemporalSpanDescriptor = $convert.base64Decode(
+    'ChBOb2RlVGVtcG9yYWxTcGFuEh0KCnN0YXJ0X2RhdGUYASABKAlSCXN0YXJ0RGF0ZRIsChJlbm'
+    'RfZGF0ZV9leGNsdXNpdmUYAiABKAlSEGVuZERhdGVFeGNsdXNpdmUSRgoLZ3JhbnVsYXJpdHkY'
+    'AyABKA4yJC5zZXZpbGxlLm5vZGUudjIuVGVtcG9yYWxHcmFudWxhcml0eVILZ3JhbnVsYXJpdH'
+    'k=');
 
 @$core.Deprecated('Use emojiDescriptor instead')
 const Emoji$json = {
@@ -188,15 +252,15 @@ final $typed_data.Uint8List emojiDescriptor = $convert.base64Decode(
 const NodeConnection$json = {
   '1': 'NodeConnection',
   '2': [
-    {'1': 'source_node_id', '3': 1, '4': 1, '5': 9, '10': 'sourceNodeId'},
+    {'1': 'source_node_slug', '3': 1, '4': 1, '5': 9, '10': 'sourceNodeSlug'},
     {'1': 'target_text', '3': 2, '4': 1, '5': 9, '10': 'targetText'},
     {
-      '1': 'target_node_id',
+      '1': 'target_node_slug',
       '3': 3,
       '4': 1,
       '5': 9,
       '9': 0,
-      '10': 'targetNodeId',
+      '10': 'targetNodeSlug',
       '17': true
     },
     {
@@ -227,7 +291,7 @@ const NodeConnection$json = {
     },
   ],
   '8': [
-    {'1': '_target_node_id'},
+    {'1': '_target_node_slug'},
     {'1': '_display_text'},
     {'1': '_fragment'},
   ],
@@ -235,12 +299,12 @@ const NodeConnection$json = {
 
 /// Descriptor for `NodeConnection`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List nodeConnectionDescriptor = $convert.base64Decode(
-    'Cg5Ob2RlQ29ubmVjdGlvbhIkCg5zb3VyY2Vfbm9kZV9pZBgBIAEoCVIMc291cmNlTm9kZUlkEh'
-    '8KC3RhcmdldF90ZXh0GAIgASgJUgp0YXJnZXRUZXh0EikKDnRhcmdldF9ub2RlX2lkGAMgASgJ'
-    'SABSDHRhcmdldE5vZGVJZIgBARImCgxkaXNwbGF5X3RleHQYBCABKAlIAVILZGlzcGxheVRleH'
-    'SIAQESNwoEa2luZBgFIAEoDjIjLnNldmlsbGUubm9kZS52Mi5Ob2RlQ29ubmVjdGlvbktpbmRS'
-    'BGtpbmQSHwoIZnJhZ21lbnQYBiABKAlIAlIIZnJhZ21lbnSIAQFCEQoPX3RhcmdldF9ub2RlX2'
-    'lkQg8KDV9kaXNwbGF5X3RleHRCCwoJX2ZyYWdtZW50');
+    'Cg5Ob2RlQ29ubmVjdGlvbhIoChBzb3VyY2Vfbm9kZV9zbHVnGAEgASgJUg5zb3VyY2VOb2RlU2'
+    'x1ZxIfCgt0YXJnZXRfdGV4dBgCIAEoCVIKdGFyZ2V0VGV4dBItChB0YXJnZXRfbm9kZV9zbHVn'
+    'GAMgASgJSABSDnRhcmdldE5vZGVTbHVniAEBEiYKDGRpc3BsYXlfdGV4dBgEIAEoCUgBUgtkaX'
+    'NwbGF5VGV4dIgBARI3CgRraW5kGAUgASgOMiMuc2V2aWxsZS5ub2RlLnYyLk5vZGVDb25uZWN0'
+    'aW9uS2luZFIEa2luZBIfCghmcmFnbWVudBgGIAEoCUgCUghmcmFnbWVudIgBAUITChFfdGFyZ2'
+    'V0X25vZGVfc2x1Z0IPCg1fZGlzcGxheV90ZXh0QgsKCV9mcmFnbWVudA==');
 
 @$core.Deprecated('Use importWarningDescriptor instead')
 const ImportWarning$json = {

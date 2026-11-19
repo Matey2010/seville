@@ -9,14 +9,14 @@ final sevilleApiProvider = Provider<SevilleApi>((ref) {
   return api;
 });
 
-/// A root ID selects a local neighborhood; an empty root selects the global
+/// A root slug selects a local neighborhood; an empty root selects the global
 /// graph, optionally narrowed by the submitted search term.
-typedef NodeGraphRequest = ({String? rootNodeId, String search});
+typedef NodeGraphRequest = ({String? rootNodeSlug, String search});
 
 final nodeGraphProvider = FutureProvider.family<NodeGraph, NodeGraphRequest>(
   (ref, request) => ref
       .watch(sevilleApiProvider)
-      .nodeGraph(rootNodeId: request.rootNodeId, search: request.search),
+      .nodeGraph(rootNodeSlug: request.rootNodeSlug, search: request.search),
 );
 
 final nodeSearchProvider = FutureProvider.family<NodeSearchResult, String>(

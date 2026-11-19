@@ -10,9 +10,7 @@ import 'package:seville_proto/seville_proto.dart';
 import '../state/node_store.dart';
 
 const _fields = <(ColorRuleField, String)>[
-  (ColorRuleField.COLOR_RULE_FIELD_ID, 'ID'),
   (ColorRuleField.COLOR_RULE_FIELD_LABEL, 'Label'),
-  (ColorRuleField.COLOR_RULE_FIELD_TAG, 'Tag'),
   (ColorRuleField.COLOR_RULE_FIELD_SLUG, 'Slug'),
   (ColorRuleField.COLOR_RULE_FIELD_TITLE, 'Title'),
   (ColorRuleField.COLOR_RULE_FIELD_FRONTMATTER, 'Frontmatter'),
@@ -69,7 +67,7 @@ class _ColorRulesDialogState extends ConsumerState<ColorRulesDialog> {
       final discard = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Discard color rule changes?'),
+          title: const Text('Discard appearance rule changes?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -109,13 +107,13 @@ class _ColorRulesDialogState extends ConsumerState<ColorRulesDialog> {
       setState(
         () => _error = error.response?.statusCode == 409
             ? 'Rules changed on another device. Your draft is still here. Close and reopen to load the latest version.'
-            : 'Could not save color rules. Your draft is still here.',
+            : 'Could not save appearance rules. Your draft is still here.',
       );
     } catch (_) {
       if (mounted) {
         setState(
-          () =>
-              _error = 'Could not save color rules. Your draft is still here.',
+          () => _error =
+              'Could not save appearance rules. Your draft is still here.',
         );
       }
     } finally {
@@ -134,6 +132,8 @@ class _ColorRulesDialogState extends ConsumerState<ColorRulesDialog> {
           field_4: ColorRuleField.COLOR_RULE_FIELD_LABEL,
           operator: ColorRuleOperator.COLOR_RULE_OPERATOR_EXACT,
           colorHex: _palette[_rules.length % _palette.length],
+          gravityScale: 1,
+          sizeScale: 1,
         ),
       );
       _dirty = true;
@@ -174,14 +174,14 @@ class _ColorRulesDialogState extends ConsumerState<ColorRulesDialog> {
                 child: Row(
                   children: [
                     IconButton(
-                      tooltip: 'Close color rules',
+                      tooltip: 'Close appearance rules',
                       onPressed: _saving ? null : () => unawaited(_close()),
                       icon: const Icon(Icons.arrow_back),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Node color rules',
+                        'Node appearance rules',
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                     ),
@@ -197,7 +197,7 @@ class _ColorRulesDialogState extends ConsumerState<ColorRulesDialog> {
                           AsyncError() => Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Text('Could not load color rules.'),
+                              const Text('Could not load appearance rules.'),
                               TextButton(
                                 onPressed: () =>
                                     ref.invalidate(nodeColorRulesProvider),
@@ -218,14 +218,14 @@ class _ColorRulesDialogState extends ConsumerState<ColorRulesDialog> {
                               const Text(
                                 'Higher weight wins when several enabled rules match. '
                                 'Rules with equal weight use the first rule in this list. '
-                                'Matching ignores letter case.',
+                                'Matching ignores letter case. Gravity scales the pull to a Node’s resting position; size scales its circle and collision body.',
                               ),
                               const SizedBox(height: 12),
                               if (_rules.isEmpty)
                                 const Padding(
                                   padding: EdgeInsets.all(24),
                                   child: Center(
-                                    child: Text('No color rules yet.'),
+                                    child: Text('No appearance rules yet.'),
                                   ),
                                 ),
                               for (
@@ -322,16 +322,27 @@ class _RuleEditor extends StatefulWidget {
 
 class _RuleEditorState extends State<_RuleEditor> {
   late final TextEditingController _color;
+  late final TextEditingController _gravity;
+  late final TextEditingController _size;
 
   @override
   void initState() {
     super.initState();
     _color = TextEditingController(text: widget.rule.colorHex);
+    _gravity = TextEditingController(
+      text: (widget.rule.hasGravityScale() ? widget.rule.gravityScale : 1)
+          .toString(),
+    );
+    _size = TextEditingController(
+      text: (widget.rule.hasSizeScale() ? widget.rule.sizeScale : 1).toString(),
+    );
   }
 
   @override
   void dispose() {
     _color.dispose();
+    _gravity.dispose();
+    _size.dispose();
     super.dispose();
   }
 
@@ -506,6 +517,64 @@ class _RuleEditorState extends State<_RuleEditor> {
                         : 'Use #RRGGBB',
                     onChanged: (value) {
                       setState(() => rule.colorHex = value);
+                      widget.onChanged();
+                    },
+                  ),
+                ),
+                SizedBox(
+                  width: 140,
+                  child: TextFormField(
+                    controller: _gravity,
+                    decoration: const InputDecoration(
+                      labelText: 'Gravity ×',
+                      helperText: '0–3',
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    validator: (value) {
+                      final number = double.tryParse((value ?? '').trim());
+                      return number == null ||
+                              !number.isFinite ||
+                              number < 0 ||
+                              number > 3
+                          ? 'Use 0–3'
+                          : null;
+                    },
+                    onChanged: (value) {
+                      final number = double.tryParse(value.trim());
+                      if (number != null && number.isFinite) {
+                        rule.gravityScale = number;
+                      }
+                      widget.onChanged();
+                    },
+                  ),
+                ),
+                SizedBox(
+                  width: 140,
+                  child: TextFormField(
+                    controller: _size,
+                    decoration: const InputDecoration(
+                      labelText: 'Size ×',
+                      helperText: '0.5–2',
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    validator: (value) {
+                      final number = double.tryParse((value ?? '').trim());
+                      return number == null ||
+                              !number.isFinite ||
+                              number < 0.5 ||
+                              number > 2
+                          ? 'Use 0.5–2'
+                          : null;
+                    },
+                    onChanged: (value) {
+                      final number = double.tryParse(value.trim());
+                      if (number != null && number.isFinite) {
+                        rule.sizeScale = number;
+                      }
                       widget.onChanged();
                     },
                   ),

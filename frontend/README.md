@@ -1,19 +1,25 @@
 # Obsivilian frontend
 
 Obsivilian is the native Flutter knowledge client for macOS. It opens on a
-bounded global Node graph. Selecting a Node opens a split modal with its
-details and Markdown body on the left and its local `LINKS_TO` graph on the
-right. Search, Node creation, and body editing use the existing Go API and
-protobuf contracts.
+bounded global Node graph. Selecting a Node opens a floating detail window
+without moving the graph. Search, Node creation, body editing, and time
+placement use the Go API and protobuf contracts.
 
 Flutter widgets own the workspace, graph interaction, text, and accessibility.
-Forge2D moves circular Nodes with gentle drift and collisions in both graph
-views. Connections remain visual until their physics rules are defined.
+Forge2D moves circular Nodes around stable anchors with gentle drift and
+collisions. The left time plane uses intervals carried from native Neo4j
+`DATE` values. Today is the central row, future dates go upward, and older
+start dates go downward; columns run Year, Season,
+Month, Week, Day from left to right, with Day nearest the graph. Older dates
+are compressed logarithmically, while crowded date rows gain space. Legacy
+general ranges are not shown in the plane. Calendar nesting links are derived from interval
+overlap for display and are not stored relationships. The global API response
+is a bounded overview, so omitted Nodes are not yet shown on the time plane.
 Riverpod manages asynchronous API requests. The active client has no Flame
-engine or declarative Layout layer. The global workspace shows a Node list
-beside the graph.
-The full-window graph mode hides the app bar, search, and Node list; use its
-overlay button or Command-backslash to restore the interface.
+engine or declarative Layout layer. Search and Node lists open from floating
+controls over the graph. The bottom location plane remains planned.
+Home in the top-left clears search and open panels and resets the graph camera
+to its opening view.
 
 The project owner runs and verifies the macOS app with:
 

@@ -25,9 +25,7 @@ type ColorRuleField int32
 
 const (
 	ColorRuleField_COLOR_RULE_FIELD_UNSPECIFIED ColorRuleField = 0
-	ColorRuleField_COLOR_RULE_FIELD_ID          ColorRuleField = 1
 	ColorRuleField_COLOR_RULE_FIELD_LABEL       ColorRuleField = 2
-	ColorRuleField_COLOR_RULE_FIELD_TAG         ColorRuleField = 3
 	ColorRuleField_COLOR_RULE_FIELD_SLUG        ColorRuleField = 4
 	ColorRuleField_COLOR_RULE_FIELD_TITLE       ColorRuleField = 5
 	ColorRuleField_COLOR_RULE_FIELD_FRONTMATTER ColorRuleField = 6
@@ -37,18 +35,14 @@ const (
 var (
 	ColorRuleField_name = map[int32]string{
 		0: "COLOR_RULE_FIELD_UNSPECIFIED",
-		1: "COLOR_RULE_FIELD_ID",
 		2: "COLOR_RULE_FIELD_LABEL",
-		3: "COLOR_RULE_FIELD_TAG",
 		4: "COLOR_RULE_FIELD_SLUG",
 		5: "COLOR_RULE_FIELD_TITLE",
 		6: "COLOR_RULE_FIELD_FRONTMATTER",
 	}
 	ColorRuleField_value = map[string]int32{
 		"COLOR_RULE_FIELD_UNSPECIFIED": 0,
-		"COLOR_RULE_FIELD_ID":          1,
 		"COLOR_RULE_FIELD_LABEL":       2,
-		"COLOR_RULE_FIELD_TAG":         3,
 		"COLOR_RULE_FIELD_SLUG":        4,
 		"COLOR_RULE_FIELD_TITLE":       5,
 		"COLOR_RULE_FIELD_FRONTMATTER": 6,
@@ -145,8 +139,12 @@ type NodeColorRule struct {
 	Value          string                 `protobuf:"bytes,6,opt,name=value,proto3" json:"value,omitempty"`
 	FrontmatterKey string                 `protobuf:"bytes,7,opt,name=frontmatter_key,json=frontmatterKey,proto3" json:"frontmatter_key,omitempty"`
 	ColorHex       string                 `protobuf:"bytes,8,opt,name=color_hex,json=colorHex,proto3" json:"color_hex,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Multiplies the pull toward a Node's resting position. 1 is the default.
+	GravityScale *float64 `protobuf:"fixed64,9,opt,name=gravity_scale,json=gravityScale,proto3,oneof" json:"gravity_scale,omitempty"`
+	// Multiplies the rendered and colliding circle diameter. 1 is the default.
+	SizeScale     *float64 `protobuf:"fixed64,10,opt,name=size_scale,json=sizeScale,proto3,oneof" json:"size_scale,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *NodeColorRule) Reset() {
@@ -235,6 +233,20 @@ func (x *NodeColorRule) GetColorHex() string {
 	return ""
 }
 
+func (x *NodeColorRule) GetGravityScale() float64 {
+	if x != nil && x.GravityScale != nil {
+		return *x.GravityScale
+	}
+	return 0
+}
+
+func (x *NodeColorRule) GetSizeScale() float64 {
+	if x != nil && x.SizeScale != nil {
+		return *x.SizeScale
+	}
+	return 0
+}
+
 // PUT replaces the complete shared ruleset when revision matches the server.
 type NodeColorRuleSet struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -292,7 +304,7 @@ var File_seville_presentation_v1_color_rules_proto protoreflect.FileDescriptor
 
 const file_seville_presentation_v1_color_rules_proto_rawDesc = "" +
 	"\n" +
-	")seville/presentation/v1/color_rules.proto\x12\x17seville.presentation.v1\"\xb8\x02\n" +
+	")seville/presentation/v1/color_rules.proto\x12\x17seville.presentation.v1\"\xa7\x03\n" +
 	"\rNodeColorRule\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
 	"\aenabled\x18\x02 \x01(\bR\aenabled\x12\x16\n" +
@@ -301,18 +313,22 @@ const file_seville_presentation_v1_color_rules_proto_rawDesc = "" +
 	"\boperator\x18\x05 \x01(\x0e2*.seville.presentation.v1.ColorRuleOperatorR\boperator\x12\x14\n" +
 	"\x05value\x18\x06 \x01(\tR\x05value\x12'\n" +
 	"\x0ffrontmatter_key\x18\a \x01(\tR\x0efrontmatterKey\x12\x1b\n" +
-	"\tcolor_hex\x18\b \x01(\tR\bcolorHex\"l\n" +
+	"\tcolor_hex\x18\b \x01(\tR\bcolorHex\x12(\n" +
+	"\rgravity_scale\x18\t \x01(\x01H\x00R\fgravityScale\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"size_scale\x18\n" +
+	" \x01(\x01H\x01R\tsizeScale\x88\x01\x01B\x10\n" +
+	"\x0e_gravity_scaleB\r\n" +
+	"\v_size_scale\"l\n" +
 	"\x10NodeColorRuleSet\x12\x1a\n" +
 	"\brevision\x18\x01 \x01(\x04R\brevision\x12<\n" +
-	"\x05rules\x18\x02 \x03(\v2&.seville.presentation.v1.NodeColorRuleR\x05rules*\xda\x01\n" +
+	"\x05rules\x18\x02 \x03(\v2&.seville.presentation.v1.NodeColorRuleR\x05rules*\xde\x01\n" +
 	"\x0eColorRuleField\x12 \n" +
-	"\x1cCOLOR_RULE_FIELD_UNSPECIFIED\x10\x00\x12\x17\n" +
-	"\x13COLOR_RULE_FIELD_ID\x10\x01\x12\x1a\n" +
-	"\x16COLOR_RULE_FIELD_LABEL\x10\x02\x12\x18\n" +
-	"\x14COLOR_RULE_FIELD_TAG\x10\x03\x12\x19\n" +
+	"\x1cCOLOR_RULE_FIELD_UNSPECIFIED\x10\x00\x12\x1a\n" +
+	"\x16COLOR_RULE_FIELD_LABEL\x10\x02\x12\x19\n" +
 	"\x15COLOR_RULE_FIELD_SLUG\x10\x04\x12\x1a\n" +
 	"\x16COLOR_RULE_FIELD_TITLE\x10\x05\x12 \n" +
-	"\x1cCOLOR_RULE_FIELD_FRONTMATTER\x10\x06*\x9e\x01\n" +
+	"\x1cCOLOR_RULE_FIELD_FRONTMATTER\x10\x06\"\x04\b\x01\x10\x01\"\x04\b\x03\x10\x03*\x13COLOR_RULE_FIELD_ID*\x14COLOR_RULE_FIELD_TAG*\x9e\x01\n" +
 	"\x11ColorRuleOperator\x12#\n" +
 	"\x1fCOLOR_RULE_OPERATOR_UNSPECIFIED\x10\x00\x12\x1d\n" +
 	"\x19COLOR_RULE_OPERATOR_EXACT\x10\x01\x12 \n" +
@@ -355,6 +371,7 @@ func file_seville_presentation_v1_color_rules_proto_init() {
 	if File_seville_presentation_v1_color_rules_proto != nil {
 		return
 	}
+	file_seville_presentation_v1_color_rules_proto_msgTypes[0].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

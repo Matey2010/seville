@@ -13,24 +13,24 @@ import (
 
 // NodeGraph returns a bounded set of canonical Nodes and the connections whose
 // endpoints are both in that set. An empty root requests a bounded global view.
-func (s *Neo4jStore) NodeGraph(ctx context.Context, rootID, search string, depth, limit uint32) (*nodesv1.NodeGraph, error) {
+func (s *Neo4jStore) NodeGraph(ctx context.Context, rootSlug, search string, depth, limit uint32) (*nodesv1.NodeGraph, error) {
 	session := s.session(ctx, neo4j.AccessModeRead)
 	defer session.Close(ctx)
 
-	ids := make([]string, 0, limit)
+	slugs := make([]string, 0, limit)
 	hasMore := false
 	seen := make(map[string]struct{}, limit)
-	appendIDs := func(result neo4j.Result) error {
+	appendSlugs := func(result neo4j.Result) error {
 		for result.Next(ctx) {
-			id, ok := recordString(result.Record(), "id")
-			if !ok || id == "" {
+			slug, ok := recordString(result.Record(), "slug")
+			if !ok || slug == "" {
 				continue
 			}
-			if _, exists := seen[id]; exists {
+			if _, exists := seen[slug]; exists {
 				continue
 			}
-			seen[id] = struct{}{}
-			ids = append(ids, id)
+			seen[slug] = struct{}{}
+			slugs = append(slugs, slug)
 		}
 		if err := result.Err(); err != nil {
 			return err
@@ -39,71 +39,127 @@ func (s *Neo4jStore) NodeGraph(ctx context.Context, rootID, search string, depth
 		return err
 	}
 
-	if rootID == "" {
-		result, err := session.Run(ctx, `MATCH (node)
-WHERE node.id IS NOT NULL AND node.slug IS NOT NULL
-  AND NOT node:Tag AND NOT node:Emoji
-  AND ($search = '' OR toLower(node.slug) CONTAINS $search
+	if rootSlug == "" {
+		// The global overview must include the time plane even when calendar
+		// slugs sort after the first page of ordinary Nodes. Sample the full
+		// dated range; the response remains bounded by the requested limit.
+		if search == "" && limit > 1 {
+			result, err := session.Run(ctx, `MATCH (node:Node)
+WHERE node.slug IS NOT NULL AND node.temporal_start IS NOT NULL
+  AND node.temporal_end_exclusive IS NOT NULL
+  AND node.temporal_granularity IN ['year', 'season', 'month', 'week', 'day']
+RETURN node.slug AS slug
+ORDER BY node.temporal_start, node.slug`, nil)
+			if err != nil {
+				return nil, fmt.Errorf("query time plane overview: %w", err)
+			}
+			allDated := make([]string, 0)
+			for result.Next(ctx) {
+				if slug, ok := recordString(result.Record(), "slug"); ok && slug != "" {
+					allDated = append(allDated, slug)
+				}
+			}
+			if err := result.Err(); err != nil {
+				return nil, fmt.Errorf("read time plane overview: %w", err)
+			}
+			if _, err := result.Consume(ctx); err != nil {
+				return nil, fmt.Errorf("consume time plane overview: %w", err)
+			}
+			budget := int(limit) / 2
+			if len(allDated) < budget {
+				budget = len(allDated)
+			}
+			for index := 0; index < budget; index++ {
+				// Include both chronological endpoints when sampling a long span.
+				at := 0
+				if budget > 1 {
+					at = index * (len(allDated) - 1) / (budget - 1)
+				}
+				slug := allDated[at]
+				if _, exists := seen[slug]; !exists {
+					seen[slug] = struct{}{}
+					slugs = append(slugs, slug)
+				}
+			}
+			if len(allDated) > budget {
+				hasMore = true
+			}
+		}
+		result, err := session.Run(ctx, `MATCH (candidate:Node)
+WHERE candidate.slug IS NOT NULL AND trim(toString(candidate.slug)) <> ''
+  AND NOT candidate.slug IN $selected
+WITH candidate.slug AS slug, collect(candidate) AS matches
+WHERE size(matches) = 1
+WITH matches[0] AS node
+WHERE ($search = '' OR toLower(node.slug) CONTAINS $search
        OR toLower(coalesce(node.title, '')) CONTAINS $search
        OR toLower(coalesce(node.body, '')) CONTAINS $search
-       OR any(label IN labels(node) WHERE toLower(label) CONTAINS $search)
-       OR any(tag IN coalesce(node.tags, []) WHERE toLower(tag) CONTAINS $search)
-       OR EXISTS { MATCH (node)-[:TAGGED_WITH]->(tag:Tag)
-                   WHERE toLower(tag.id) CONTAINS $search })
-RETURN node.id AS id
-ORDER BY node.slug, node.id
+       OR any(label IN labels(node) WHERE label <> 'Node' AND toLower(label) CONTAINS $search))
+RETURN node.slug AS slug
+ORDER BY node.slug
 LIMIT $limit`, map[string]any{
-			"limit":  int64(limit) + 1,
-			"search": strings.ToLower(strings.TrimSpace(search)),
+			"limit":    int64(limit) + 1,
+			"search":   strings.ToLower(strings.TrimSpace(search)),
+			"selected": slugs,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("query global Node graph: %w", err)
 		}
-		if err := appendIDs(result); err != nil {
+		if err := appendSlugs(result); err != nil {
 			return nil, fmt.Errorf("read global Node graph: %w", err)
 		}
-		if len(ids) > int(limit) {
+		if len(slugs) > int(limit) {
 			hasMore = true
-			ids = ids[:limit]
+			slugs = slugs[:limit]
 		}
 	} else {
-		result, err := session.Run(ctx, `MATCH (node {id: $id})
-WHERE node.slug IS NOT NULL AND NOT node:Tag AND NOT node:Emoji
-RETURN node.id AS id LIMIT 1`, map[string]any{"id": rootID})
+		result, err := session.Run(ctx, `MATCH (node:Node {slug: $slug})
+RETURN count(node) AS matches`, map[string]any{"slug": rootSlug})
 		if err != nil {
 			return nil, fmt.Errorf("query graph root: %w", err)
 		}
-		if err := appendIDs(result); err != nil {
-			return nil, fmt.Errorf("read graph root: %w", err)
-		}
-		if len(ids) == 0 {
+		if !result.Next(ctx) {
+			if err := result.Err(); err != nil {
+				return nil, fmt.Errorf("read graph root: %w", err)
+			}
 			return nil, ErrNodeNotFound
 		}
-		frontier := []string{rootID}
-		for level := uint32(0); level < depth && len(frontier) > 0 && len(ids) < int(limit); level++ {
-			result, err := session.Run(ctx, `MATCH (node)-[:LINKS_TO]-(neighbor)
-WHERE node.id IN $frontier AND NOT neighbor.id IN $seen
-  AND neighbor.id IS NOT NULL
-  AND neighbor.slug IS NOT NULL AND NOT neighbor:Tag AND NOT neighbor:Emoji
-RETURN DISTINCT neighbor.id AS id
-ORDER BY id
+		matches, ok := recordInt64(result.Record(), "matches")
+		if _, err := result.Consume(ctx); err != nil {
+			return nil, fmt.Errorf("read graph root: %w", err)
+		}
+		if !ok || matches == 0 {
+			return nil, ErrNodeNotFound
+		}
+		if matches > 1 {
+			return nil, ErrAmbiguousNodeSlug
+		}
+		slugs = append(slugs, rootSlug)
+		seen[rootSlug] = struct{}{}
+		frontier := []string{rootSlug}
+		for level := uint32(0); level < depth && len(frontier) > 0 && len(slugs) < int(limit); level++ {
+			result, err := session.Run(ctx, `MATCH (node:Node)-[:LINKS_TO]-(neighbor:Node)
+WHERE node.slug IN $frontier AND NOT neighbor.slug IN $seen
+  AND neighbor.slug IS NOT NULL
+RETURN DISTINCT neighbor.slug AS slug
+ORDER BY slug
 LIMIT $remaining`, map[string]any{
 				"frontier":  frontier,
-				"seen":      ids,
-				"remaining": int64(limit) - int64(len(ids)) + 1,
+				"seen":      slugs,
+				"remaining": int64(limit) - int64(len(slugs)) + 1,
 			})
 			if err != nil {
 				return nil, fmt.Errorf("query graph neighbors: %w", err)
 			}
-			start := len(ids)
-			if err := appendIDs(result); err != nil {
+			start := len(slugs)
+			if err := appendSlugs(result); err != nil {
 				return nil, fmt.Errorf("read graph neighbors: %w", err)
 			}
-			if len(ids) > int(limit) {
+			if len(slugs) > int(limit) {
 				hasMore = true
-				ids = ids[:limit]
+				slugs = slugs[:limit]
 			}
-			frontier = ids[start:]
+			frontier = slugs[start:]
 			if hasMore {
 				break
 			}
@@ -111,25 +167,25 @@ LIMIT $remaining`, map[string]any{
 	}
 
 	graph := &nodesv1.NodeGraph{HasMore: hasMore}
-	if len(ids) == 0 {
+	if len(slugs) == 0 {
 		return graph, nil
 	}
-	sort.Strings(ids)
-	result, err := session.Run(ctx, `MATCH (node)
-WHERE node.id IN $ids
-OPTIONAL MATCH (node)-[:TAGGED_WITH]->(tag:Tag)
-WITH node, [tagId IN collect(tag.id) WHERE tagId IS NOT NULL] AS graphTags
+	sort.Strings(slugs)
+	result, err := session.Run(ctx, `MATCH (candidate:Node)
+WHERE candidate.slug IN $slugs
+WITH candidate.slug AS slug, collect(candidate) AS matches
+WHERE size(matches) = 1
+WITH matches[0] AS node
 OPTIONAL MATCH (node)-[:HAS_EMOJI]->(emoji)
-WITH node, graphTags, emoji
+WITH node, emoji
 ORDER BY emoji.id
-WITH node, graphTags,
+WITH node,
      [emojiProperties IN collect(properties(emoji)) WHERE emojiProperties IS NOT NULL] AS emojis
-RETURN node.id AS id, node.slug AS slug, node.path AS path,
+RETURN node.slug AS slug, node.path AS path,
        node.title AS title, node.body AS body, labels(node) AS labels,
-       CASE WHEN size(graphTags) > 0 THEN graphTags ELSE node.tags END AS tags,
        node.frontmatter_json AS frontmatter_json, node.modified_at AS modified_at,
        properties(node) AS properties, emojis
-ORDER BY node.slug, node.id`, map[string]any{"ids": ids})
+ORDER BY node.slug`, map[string]any{"slugs": slugs})
 	if err != nil {
 		return nil, fmt.Errorf("query graph Nodes: %w", err)
 	}
@@ -142,13 +198,17 @@ ORDER BY node.slug, node.id`, map[string]any{"ids": ids})
 	if _, err := result.Consume(ctx); err != nil {
 		return nil, fmt.Errorf("consume graph Nodes: %w", err)
 	}
-	result, err = session.Run(ctx, `MATCH (source)-[connection:LINKS_TO]->(target)
-WHERE source.id IN $ids AND target.id IN $ids
-RETURN source.id AS source, target.id AS target,
+	slugs = slugs[:0]
+	for _, node := range graph.Nodes {
+		slugs = append(slugs, node.Slug)
+	}
+	result, err = session.Run(ctx, `MATCH (source:Node)-[connection:LINKS_TO]->(target:Node)
+WHERE source.slug IN $slugs AND target.slug IN $slugs
+RETURN source.slug AS source, target.slug AS target,
        connection.target_text AS target_text,
        connection.display_text AS display_text,
        connection.kind AS kind, connection.fragment AS fragment
-ORDER BY source, target, elementId(connection)`, map[string]any{"ids": ids})
+ORDER BY source, target, elementId(connection)`, map[string]any{"slugs": slugs})
 	if err != nil {
 		return nil, fmt.Errorf("query graph connections: %w", err)
 	}
@@ -158,7 +218,7 @@ ORDER BY source, target, elementId(connection)`, map[string]any{"ids": ids})
 		target, _ := recordString(record, "target")
 		targetText, _ := recordString(record, "target_text")
 		connection := &nodev2.NodeConnection{
-			SourceNodeId: source, TargetNodeId: &target, TargetText: targetText,
+			SourceNodeSlug: source, TargetNodeSlug: &target, TargetText: targetText,
 		}
 		if value, ok := recordString(record, "display_text"); ok {
 			connection.DisplayText = &value

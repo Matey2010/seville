@@ -38,11 +38,16 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /system/v1/info", s.auth(http.HandlerFunc(s.systemInfo)))
 	mux.Handle("QUERY /api/v1/node/search", s.auth(http.HandlerFunc(s.nodeSearch)))
 	mux.Handle("QUERY /api/v1/node/graph", s.auth(http.HandlerFunc(s.nodeGraph)))
+	mux.Handle("QUERY /api/v1/label/search", s.auth(http.HandlerFunc(s.searchLabels)))
+	mux.Handle("PUT /api/v1/node/{slug}/labels", s.auth(http.HandlerFunc(s.replaceNodeLabels)))
+	mux.Handle("PUT /api/v1/node/{slug}/temporal", s.auth(http.HandlerFunc(s.replaceNodeTemporalSpan)))
+	mux.Handle("PATCH /api/v1/label/{name}", s.auth(http.HandlerFunc(s.renameLabel)))
+	mux.Handle("DELETE /api/v1/label/{name}", s.auth(http.HandlerFunc(s.deleteLabel)))
 	mux.Handle("GET /api/v1/graph/color-rules", s.auth(http.HandlerFunc(s.nodeColorRules)))
 	mux.Handle("PUT /api/v1/graph/color-rules", s.auth(http.HandlerFunc(s.replaceNodeColorRules)))
 	mux.Handle("POST /api/v1/node/{$}", s.auth(http.HandlerFunc(s.createNode)))
 	mux.Handle("PATCH /api/v1/node/{$}", s.auth(http.HandlerFunc(s.mutateNodes)))
-	mux.Handle("PATCH /api/v1/node/{id}", s.auth(http.HandlerFunc(s.updateNodeBody)))
+	mux.Handle("PATCH /api/v1/node/{slug}", s.auth(http.HandlerFunc(s.updateNodeBody)))
 	nodeTreeHandler := s.auth(http.HandlerFunc(s.nodeTree))
 	mux.Handle("QUERY /api/v1/node/tree", nodeTreeHandler)
 	mux.Handle("GET /api/v1/node/tree", nodeTreeHandler)
@@ -82,12 +87,12 @@ func (s *Server) updateNodeBody(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusBadRequest, "invalid_node_body", err.Error())
 		return
 	}
-	id := strings.TrimSpace(r.PathValue("id"))
-	if id == "" {
-		s.writeError(w, http.StatusBadRequest, "invalid_node_id", "Node id is required.")
+	slug := strings.TrimSpace(r.PathValue("slug"))
+	if slug == "" {
+		s.writeError(w, http.StatusBadRequest, "invalid_node_slug", "Node slug is required.")
 		return
 	}
-	node, err := s.store.UpdateNodeBody(r.Context(), id, request.GetBody(), request.GetExpectedUpdateCount())
+	node, err := s.store.UpdateNodeBody(r.Context(), slug, request.GetBody(), request.GetExpectedUpdateCount())
 	if errors.Is(err, store.ErrNodeNotFound) {
 		s.writeError(w, http.StatusNotFound, "node_not_found", "The Node does not exist.")
 		return
@@ -96,8 +101,12 @@ func (s *Server) updateNodeBody(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusConflict, "node_conflict", "The Node changed since it was opened.")
 		return
 	}
+	if errors.Is(err, store.ErrAmbiguousNodeSlug) {
+		s.writeError(w, http.StatusConflict, "ambiguous_node_slug", "More than one Node has this slug.")
+		return
+	}
 	if err != nil {
-		slog.Error("update Node body failed", "error", err, "node_id", id)
+		slog.Error("update Node body failed", "error", err, "node_slug", slug)
 		s.writeError(w, http.StatusInternalServerError, "storage_error", "The Node body could not be saved.")
 		return
 	}
@@ -220,11 +229,15 @@ func (s *Server) nodeGraph(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	graph, err := s.store.NodeGraph(
-		r.Context(), strings.TrimSpace(query.GetRootNodeId()),
+		r.Context(), strings.TrimSpace(query.GetRootNodeSlug()),
 		strings.TrimSpace(query.GetSearch()), query.GetDepth(), query.GetLimit(),
 	)
 	if errors.Is(err, store.ErrNodeNotFound) {
 		s.writeError(w, http.StatusNotFound, "root_node_not_found", "The requested root Node does not exist.")
+		return
+	}
+	if errors.Is(err, store.ErrAmbiguousNodeSlug) {
+		s.writeError(w, http.StatusConflict, "ambiguous_node_slug", "More than one Node has this slug.")
 		return
 	}
 	if err != nil {
@@ -282,9 +295,9 @@ func (s *Server) nodeTree(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rootNodeID := strings.TrimSpace(query.GetRootNodeId())
-	if query.RootNodeId == nil {
-		rootNodeID = strings.TrimSpace(r.URL.Query().Get("root_node_id"))
+	rootNodeSlug := strings.TrimSpace(query.GetRootNodeSlug())
+	if query.RootNodeSlug == nil {
+		rootNodeSlug = strings.TrimSpace(r.URL.Query().Get("root_node_slug"))
 	}
 	relationshipType := query.GetTraverseBy()
 	ok := supportedNodeTreeRelationshipType(relationshipType)
@@ -301,8 +314,8 @@ func (s *Server) nodeTree(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	rootNodeFilter := query.GetRootNodeFilter()
-	if rootNodeID == "" && nodeSearchFilterEmpty(rootNodeFilter) {
-		s.writeError(w, http.StatusBadRequest, "root_node_selector_required", "root_node_id or root_node_filter is required.")
+	if rootNodeSlug == "" && nodeSearchFilterEmpty(rootNodeFilter) {
+		s.writeError(w, http.StatusBadRequest, "root_node_selector_required", "root_node_slug or root_node_filter is required.")
 		return
 	}
 
@@ -319,7 +332,7 @@ func (s *Server) nodeTree(w http.ResponseWriter, r *http.Request) {
 	}
 	tree, err := s.store.NodeTree(
 		r.Context(),
-		rootNodeID,
+		rootNodeSlug,
 		rootNodeFilter,
 		relationshipType,
 		query.GetNodeFilter(),
@@ -327,6 +340,10 @@ func (s *Server) nodeTree(w http.ResponseWriter, r *http.Request) {
 	)
 	if errors.Is(err, store.ErrNodeNotFound) {
 		s.writeError(w, http.StatusNotFound, "root_node_not_found", "The requested root Node does not exist.")
+		return
+	}
+	if errors.Is(err, store.ErrAmbiguousNodeSlug) {
+		s.writeError(w, http.StatusConflict, "ambiguous_node_slug", "More than one Node has this slug.")
 		return
 	}
 	if errors.Is(err, store.ErrInvalidNodeSearchParameter) {
@@ -337,7 +354,7 @@ func (s *Server) nodeTree(w http.ResponseWriter, r *http.Request) {
 		slog.Error(
 			"read node tree failed",
 			"error", err,
-			"root_node_id", rootNodeID,
+			"root_node_slug", rootNodeSlug,
 			"root_filter_parameter_count", len(rootNodeFilter.GetIncludeNodesMatching())+len(rootNodeFilter.GetExcludeNodesMatching()),
 			"traverse_by", relationshipType,
 			"included_parameter_count", len(query.GetNodeFilter().GetIncludeNodesMatching()),

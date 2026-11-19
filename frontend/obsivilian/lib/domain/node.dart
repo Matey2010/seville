@@ -15,6 +15,6 @@ extension NodeMetadata on Node {
     final normalizedSlug = slug.trim();
     if (normalizedSlug.isNotEmpty) return normalizedSlug;
     final normalizedTitle = title.trim();
-    return normalizedTitle.isNotEmpty ? normalizedTitle : id;
+    return normalizedTitle.isNotEmpty ? normalizedTitle : slug;
   }
 }

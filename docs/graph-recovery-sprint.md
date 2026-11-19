@@ -37,34 +37,41 @@ make -C scripts stop
 For local development, Neo4j Browser is available through the loopback-bound
 HTTP port configured by Compose, normally `http://127.0.0.1:7474`.
 
-Query by Seville's stable ID:
+Query by a Node's unique slug:
 
 ```cypher
-MATCH (n {id: $id})
+MATCH (n:Node {slug: $slug})
 RETURN n, labels(n);
 ```
 
-Do not query a frontmatter ID with `elementId(n)`. `elementId()` is a Neo4j
-internal locator and is not Seville identity.
+`elementId()` is a Neo4j internal locator and is not Obsivilian identity. The
+reserved `:Node` label marks canonical Nodes and is covered by the
+`slug_unique` constraint on `slug`; editable labels are separate classifiers.
 
 Useful checks:
 
 ```cypher
-MATCH (n)
-WHERE n.id IS NOT NULL
-  AND NOT n:Tag
-  AND NOT n:Emoji
-  AND NOT EXISTS { MATCH ()-[:TAGGED_WITH]->(n) }
-  AND NOT EXISTS { MATCH ()-[:HAS_EMOJI]->(n) }
-RETURN count(n);
+MATCH (n:Node)
+WHERE n.slug IS NOT NULL AND trim(toString(n.slug)) <> ''
+WITH n.slug AS slug, count(n) AS copies
+WHERE copies = 1
+RETURN count(*) AS readable_node_count;
 
-MATCH (n)-[r:TAGGED_WITH]->(t:Tag)
-RETURN n.id, t.name, r.weight
+MATCH (n:Node)
+WHERE n.slug IS NOT NULL
+UNWIND labels(n) AS label
+WITH label, n WHERE label <> 'Node'
+RETURN label, count(*) AS node_count
 LIMIT 100;
 
 MATCH (a)-[:LINKS_TO]->(b)
-RETURN a.id, b.id
+RETURN a.slug, b.slug
 LIMIT 100;
+
+MATCH (n) WHERE n.slug IS NOT NULL
+WITH n.slug AS slug, count(*) AS copies
+WHERE copies > 1
+RETURN slug, copies ORDER BY slug;
 ```
 
 ## Legacy migration semantics
@@ -72,21 +79,21 @@ LIMIT 100;
 The manual `make -C scripts migrate-obsidian` target
 discovers source state but is not a destructive mirror operation:
 
-- new stable IDs are imported;
+- new unique slugs are imported;
 - existing canonical nodes are preserved;
 - source disappearance does not delete a graph node;
-- duplicate IDs fail the scan;
-- missing IDs produce warnings and are skipped.
+- duplicate slugs fail the scan;
+- a missing frontmatter slug uses the relative Markdown path without `.md`.
 
 Migration diagnostics are written to the command's standard output and error.
-Duplicate-ID errors include both paths so the source can be repaired safely.
+Duplicate-slug errors include both paths so the source can be repaired safely.
 
 ## What is protected today
 
 - Docker preserves Neo4j data in its named volume across container restarts.
 - Git can preserve source Markdown history and help merge independent file
   changes.
-- Stable frontmatter IDs let repeated scans recognize records.
+- Stable slugs let repeated scans recognize records.
 - Conservative ingestion prevents a stale source file from overwriting an
   existing Neo4j record.
 
@@ -112,7 +119,7 @@ restore missing material.
 
 Recovery success should eventually mean:
 
-1. compare stable-ID and content-hash inventories;
+1. compare stable-slug and content-hash inventories;
 2. identify missing nodes, relationships, events, and attachments;
 3. retrieve them from authorized surviving peers;
 4. verify signatures and hashes;

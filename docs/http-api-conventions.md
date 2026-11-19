@@ -74,17 +74,18 @@ message SystemInfo {
 ```
 
 `node_count` is the number of graph Nodes that have a non-empty unique `slug`.
-It does not count `Tag` nodes, alias records, unresolved
+It does not count alias records, unresolved
 connection records, or relationships.
 
 `node_property_count` is the total number of stored Neo4j property assignments
-across those same stable Nodes. If one stable Node has `id`, `title`, and
+across those same stable Nodes. If one stable Node has `slug`, `title`, and
 `body`, it contributes three. The metric counts assignments, not distinct
-property keys. Relationship properties and properties attached to Tag or Emoji
-metadata graph roles are excluded. Neo4j labels classify Nodes but do not
-determine whether a graph entity is a Seville Node.
+property keys. Relationship properties and properties attached to Emoji
+metadata graph roles are excluded. The reserved Neo4j `:Node` label identifies
+canonical records for the `slug_unique` constraint. Other labels classify Nodes.
 
-`neo4j_labels` is the sorted list returned by Neo4j's label catalog.
+`neo4j_labels` is the sorted list of user-facing labels on canonical Nodes;
+the internal `Node` marker is excluded.
 `go_version` comes from the running Go process, and `neo4j_version` comes from
 the connected Neo4j DBMS. These are administrative runtime facts rather than
 Node properties.
@@ -93,12 +94,11 @@ The storage query should compute both values from one graph view so they
 describe the same instant:
 
 ```cypher
-MATCH (node)
-WHERE node.slug IS NOT NULL AND trim(toString(node.slug)) <> ''
-  AND NOT node:Tag
-  AND NOT node:Emoji
-  AND NOT EXISTS { MATCH ()-[:TAGGED_WITH]->(node) }
-  AND NOT EXISTS { MATCH ()-[:HAS_EMOJI]->(node) }
+MATCH (candidate)
+WHERE candidate.slug IS NOT NULL AND trim(toString(candidate.slug)) <> ''
+WITH candidate.slug AS slug, collect(candidate) AS matches
+WHERE size(matches) = 1
+WITH matches[0] AS node
 RETURN count(node) AS node_count,
        sum(size(keys(node))) AS node_property_count
 ```
@@ -111,7 +111,7 @@ A distinct count of property names would be a different future metric named
 
 Seville uses the registered HTTP methods according to their protocol semantics:
 `QUERY` for safe, idempotent reads whose structured request belongs in a body,
-`POST` for server-identified creation, `PUT` for complete idempotent replacement,
+`POST` for creation with a caller-selected unique slug, `PUT` for complete idempotent replacement,
 `PATCH` for partial mutation, and `DELETE` for removal. Neither `CREATE` nor
 `MUTATE` is an HTTP method in the Seville API; those words remain domain
 operations rather than custom transport verbs.
@@ -121,25 +121,45 @@ operations rather than custom transport verbs.
 `NodeSearchResult`. Its `node_filter` is required. `limit` defaults to 20 and
 must be between 1 and 100. The endpoint returns complete Nodes in deterministic
 slug/path order and does not traverse relationships. Flutter's interactive
-search builds an OR filter across slug, title, tags, and Neo4j labels with an
+search builds an OR filter across slug, title, and Neo4j labels with an
 escaped case-insensitive regular expression, so user text remains data rather
 than query syntax. Search does not increment `Node.update_count`.
 
 `QUERY /api/v1/node/graph` accepts `NodeGraphQuery`. An optional stable
-`root_node_id` selects a local `LINKS_TO` neighborhood; otherwise a search term
+`root_node_slug` selects a local `LINKS_TO` neighborhood; otherwise a search term
 filters the bounded global view. `depth` is at most two and `limit` is between
 one and 200. The response returns complete Nodes, connections whose endpoints
 are both present, and `has_more` when the Node limit truncates a view. Reads do
-not mutate Node counters.
+not mutate Node counters. The unfiltered global overview reserves up to half
+its slots for a chronological sample of Nodes with native temporal spans,
+covering both ends of the dated range. Remaining slots show other Nodes in
+slug order. This is an overview, not a complete timeline; `has_more` indicates
+that some Nodes were omitted. A submitted search still selects by its search
+term without time sampling.
+
+`PUT /api/v1/node/{slug}/temporal` replaces one Node's optional
+`NodeTemporalSpan` using `NodeTemporalUpdateRequest` and an
+`expected_update_count` conflict guard. The backend stores
+`temporal_start` and `temporal_end_exclusive` as native Neo4j `DATE` values,
+with inclusive start and exclusive end. `temporal_granularity` records year,
+season, month, week, day, or range. Omitting the span clears this placement.
+The route returns the updated Node; stale writes return 409. Ordinary scalar
+mutation cannot edit these reserved fields.
+
+`QUERY /api/v1/label/search` returns Neo4j labels used by canonical Nodes and
+their usage counts. `PUT /api/v1/node/{slug}/labels` replaces one Node's labels
+with `expected_update_count` conflict detection. `PATCH /api/v1/label/{name}`
+renames a label across all canonical Nodes; `DELETE` at the same URI removes it
+from all of them. A label is created by assigning it to a Node. Exact label
+color rules follow a rename and are removed when their label is deleted.
 
 `QUERY /api/v1/node/tree` accepts an `application/x-protobuf`
 `seville.nodes.v1.NodeTreeQuery` body and returns a
-`seville.nodes.v1.NodeTree`. A request must provide either `root_node_id` or a
-structured `root_node_filter`. A root filter permits discovery even when the
-root has no stable Node ID; Neo4j's internal element ID remains store-private
+`seville.nodes.v1.NodeTree`. A request must provide either `root_node_slug` or a
+structured `root_node_filter`. Neo4j's internal element ID remains store-private
 while traversal is evaluated. Every matching root is returned as a depth-zero
 occurrence in deterministic order: shortest stringified `slug`, then `slug`,
-`path`, stable Node ID, and finally the internal locator. `root_node_id` in the
+`path`, and finally the internal locator. `root_node_slug` in the
 response is populated only when exactly one root is returned. The
 optional unsigned `depth` defaults to `3`, with the root at depth zero. The
 optional `traverse_by` field defaults to `part_of` and accepts only `part_of`
@@ -163,15 +183,15 @@ Neo4j label plus an exact slug. When `negated` is true, the complete predicate
 is inverted after include and exclude composition; this is the transport form
 of Flutter's `NodeSearchFilter.reverseOf(...)` and `.reversed()` APIs.
 Supported parameters are
-`name`, `id`, `path`, `title`, `tag`, `slug`, and Neo4j `label`; supported operators are
+`name`, `path`, `title`, `slug`, and Neo4j `label`; supported operators are
 case-sensitive exact, starts-with, ends-with, contains, and regular-expression
 matching. Regular expressions are validated before they are passed to Neo4j's
 parameterized `=~` operator. `name` addresses the
 additional Neo4j `name` property transported in `Node.frontmatter`; it is not a
-second identity field and does not replace `Node.id` or `Node.title`. `label`
-matches values returned by Neo4j's `labels(node)`. Every returned Node also
-transports those values through `Node.labels`; labels are never flattened into
-frontmatter.
+second identity field and does not replace `Node.slug` or `Node.title`. `label`
+matches editable Neo4j labels returned by `labels(node)`. The internal `:Node`
+marker is excluded. Every returned Node transports its editable labels through
+`Node.labels`; labels are never flattened into frontmatter.
 
 `root_node_filter` applies only to root discovery; `node_filter` applies to
 traversed children. Rejecting an
@@ -201,14 +221,15 @@ requests never mutate a Node or increment `update_count`.
 
 `POST /api/v1/node/` creates one canonical Node from a protobuf
 `NodeCreateRequest`. The request contains a required `slug`, zero or more
-Neo4j labels, and initial Markdown `body` content. The backend assigns a stable random `id`, initializes
+Neo4j labels, and initial Markdown `body` content. The backend initializes
 `update_count` to zero, records `modified_at`, and returns the complete Node with
 `201 Created`. An existing slug returns `409 node_already_exists`. Slugs remain
 Cypher parameters. Labels are trimmed, deduplicated, sorted, and accepted as
 Cypher identifiers only when they match `[A-Za-z_][A-Za-z0-9_]*`; the request
 therefore cannot inject Cypher through either field. The body remains a Cypher
 parameter. Creation parses the body and writes outgoing connections in the
-same transaction. It does not add labels that were not explicitly requested.
+same transaction. It adds only the required internal `:Node` marker and the
+user-facing labels explicitly requested by the caller.
 
 `PUT` and `DELETE` retain their standard meanings, but no Node replacement or
 deletion route is exposed until relationship handling and deletion policy have
@@ -223,7 +244,7 @@ as an ordinary property mutation. Source import remains ingestion rather than a
 canonical Node update and does not increment it. The legacy `counter` property
 is not read, written, migrated, or removed by this policy.
 
-`PATCH /api/v1/node/{id}` edits a known Node body. `NodeBodyUpdateRequest`
+`PATCH /api/v1/node/{slug}` edits a known Node body. `NodeBodyUpdateRequest`
 includes the last observed `update_count`; a stale value returns 409 and
 preserves the client's draft. Body, timestamp, counter, and outgoing
 connections update in one transaction.
@@ -231,7 +252,7 @@ connections update in one transaction.
 `PATCH /api/v1/node/` is the filter-driven mutation API. Its protobuf
 `NodeMutationRequest` contains a required `node_filter`, typed scalar
 `set_properties`, and explicit `remove_properties`. A property cannot be set
-and removed in the same request. `counter`, `update_count`, `id`, `slug`, and
+and removed in the same request. `counter`, `update_count`, `slug`, and
 `body` are reserved and
 cannot be supplied by clients. The response is `NodeMutationResult`, containing
 `mutated_node_count`. Because every successful application increments

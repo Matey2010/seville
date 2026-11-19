@@ -20,21 +20,24 @@ const ColorRuleField$json = {
   '1': 'ColorRuleField',
   '2': [
     {'1': 'COLOR_RULE_FIELD_UNSPECIFIED', '2': 0},
-    {'1': 'COLOR_RULE_FIELD_ID', '2': 1},
     {'1': 'COLOR_RULE_FIELD_LABEL', '2': 2},
-    {'1': 'COLOR_RULE_FIELD_TAG', '2': 3},
     {'1': 'COLOR_RULE_FIELD_SLUG', '2': 4},
     {'1': 'COLOR_RULE_FIELD_TITLE', '2': 5},
     {'1': 'COLOR_RULE_FIELD_FRONTMATTER', '2': 6},
   ],
+  '4': [
+    {'1': 1, '2': 1},
+    {'1': 3, '2': 3},
+  ],
+  '5': ['COLOR_RULE_FIELD_ID', 'COLOR_RULE_FIELD_TAG'],
 };
 
 /// Descriptor for `ColorRuleField`. Decode as a `google.protobuf.EnumDescriptorProto`.
 final $typed_data.Uint8List colorRuleFieldDescriptor = $convert.base64Decode(
-    'Cg5Db2xvclJ1bGVGaWVsZBIgChxDT0xPUl9SVUxFX0ZJRUxEX1VOU1BFQ0lGSUVEEAASFwoTQ0'
-    '9MT1JfUlVMRV9GSUVMRF9JRBABEhoKFkNPTE9SX1JVTEVfRklFTERfTEFCRUwQAhIYChRDT0xP'
-    'Ul9SVUxFX0ZJRUxEX1RBRxADEhkKFUNPTE9SX1JVTEVfRklFTERfU0xVRxAEEhoKFkNPTE9SX1'
-    'JVTEVfRklFTERfVElUTEUQBRIgChxDT0xPUl9SVUxFX0ZJRUxEX0ZST05UTUFUVEVSEAY=');
+    'Cg5Db2xvclJ1bGVGaWVsZBIgChxDT0xPUl9SVUxFX0ZJRUxEX1VOU1BFQ0lGSUVEEAASGgoWQ0'
+    '9MT1JfUlVMRV9GSUVMRF9MQUJFTBACEhkKFUNPTE9SX1JVTEVfRklFTERfU0xVRxAEEhoKFkNP'
+    'TE9SX1JVTEVfRklFTERfVElUTEUQBRIgChxDT0xPUl9SVUxFX0ZJRUxEX0ZST05UTUFUVEVSEA'
+    'YiBAgBEAEiBAgDEAMqE0NPTE9SX1JVTEVfRklFTERfSUQqFENPTE9SX1JVTEVfRklFTERfVEFH');
 
 @$core.Deprecated('Use colorRuleOperatorDescriptor instead')
 const ColorRuleOperator$json = {
@@ -79,6 +82,28 @@ const NodeColorRule$json = {
     {'1': 'value', '3': 6, '4': 1, '5': 9, '10': 'value'},
     {'1': 'frontmatter_key', '3': 7, '4': 1, '5': 9, '10': 'frontmatterKey'},
     {'1': 'color_hex', '3': 8, '4': 1, '5': 9, '10': 'colorHex'},
+    {
+      '1': 'gravity_scale',
+      '3': 9,
+      '4': 1,
+      '5': 1,
+      '9': 0,
+      '10': 'gravityScale',
+      '17': true
+    },
+    {
+      '1': 'size_scale',
+      '3': 10,
+      '4': 1,
+      '5': 1,
+      '9': 1,
+      '10': 'sizeScale',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_gravity_scale'},
+    {'1': '_size_scale'},
   ],
 };
 
@@ -89,7 +114,9 @@ final $typed_data.Uint8List nodeColorRuleDescriptor = $convert.base64Decode(
     'cHJlc2VudGF0aW9uLnYxLkNvbG9yUnVsZUZpZWxkUgVmaWVsZBJGCghvcGVyYXRvchgFIAEoDj'
     'IqLnNldmlsbGUucHJlc2VudGF0aW9uLnYxLkNvbG9yUnVsZU9wZXJhdG9yUghvcGVyYXRvchIU'
     'CgV2YWx1ZRgGIAEoCVIFdmFsdWUSJwoPZnJvbnRtYXR0ZXJfa2V5GAcgASgJUg5mcm9udG1hdH'
-    'RlcktleRIbCgljb2xvcl9oZXgYCCABKAlSCGNvbG9ySGV4');
+    'RlcktleRIbCgljb2xvcl9oZXgYCCABKAlSCGNvbG9ySGV4EigKDWdyYXZpdHlfc2NhbGUYCSAB'
+    'KAFIAFIMZ3Jhdml0eVNjYWxliAEBEiIKCnNpemVfc2NhbGUYCiABKAFIAVIJc2l6ZVNjYWxliA'
+    'EBQhAKDl9ncmF2aXR5X3NjYWxlQg0KC19zaXplX3NjYWxl');
 
 @$core.Deprecated('Use nodeColorRuleSetDescriptor instead')
 const NodeColorRuleSet$json = {

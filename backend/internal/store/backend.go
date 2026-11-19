@@ -12,16 +12,21 @@ import (
 
 var ErrSnapshotUnavailable = errors.New("snapshot unavailable")
 var ErrNodeNotFound = errors.New("node not found")
+var ErrAmbiguousNodeSlug = errors.New("more than one Node has this slug")
 var ErrNodeAlreadyExists = errors.New("Node already exists")
 var ErrInvalidNodeCreate = errors.New("invalid Node creation")
 var ErrInvalidNodeSearchParameter = errors.New("invalid Node search parameter")
 var ErrInvalidNodeMutation = errors.New("invalid Node mutation")
 var ErrNodeConflict = errors.New("Node changed since it was opened")
+var ErrInvalidTemporalSpan = errors.New("invalid Node temporal span")
 var ErrInvalidColorRules = errors.New("invalid Node color rules")
 var ErrColorRulesConflict = errors.New("Node color rules changed since they were opened")
+var ErrInvalidLabel = errors.New("invalid Neo4j label")
+var ErrLabelConflict = errors.New("label already exists")
+var ErrLabelNotFound = errors.New("label not found")
 
 // NodeCreate describes the caller-owned fields accepted when creating a Node.
-// Stable identity and canonical defaults remain owned by the store.
+// The slug is the Node identity; canonical defaults remain owned by the store.
 type NodeCreate struct {
 	Slug   string
 	Labels []string
@@ -66,6 +71,17 @@ type NodeBodyUpdater interface {
 	UpdateNodeBody(context.Context, string, string, uint64) (*nodev2.Node, error)
 }
 
+type NodeTemporalUpdater interface {
+	ReplaceNodeTemporalSpan(context.Context, string, *nodev2.NodeTemporalSpan, uint64) (*nodev2.Node, error)
+}
+
+type LabelStore interface {
+	SearchLabels(context.Context, string, uint32) (*nodesv1.LabelSearchResult, error)
+	ReplaceNodeLabels(context.Context, string, []string, uint64) (*nodev2.Node, error)
+	RenameLabel(context.Context, string, string) (uint64, error)
+	DeleteLabel(context.Context, string) (uint64, error)
+}
+
 type ColorRuleStore interface {
 	NodeColorRules(context.Context) (*presentationv1.NodeColorRuleSet, error)
 	ReplaceNodeColorRules(context.Context, *presentationv1.NodeColorRuleSet) (*presentationv1.NodeColorRuleSet, error)
@@ -84,7 +100,9 @@ type NodeService interface {
 	NodeCreator
 	NodeMutator
 	NodeBodyUpdater
+	NodeTemporalUpdater
 	ColorRuleStore
+	LabelStore
 }
 
 type Importer interface {

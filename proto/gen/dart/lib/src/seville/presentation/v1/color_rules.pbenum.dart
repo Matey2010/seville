@@ -17,12 +17,8 @@ import 'package:protobuf/protobuf.dart' as $pb;
 class ColorRuleField extends $pb.ProtobufEnum {
   static const ColorRuleField COLOR_RULE_FIELD_UNSPECIFIED =
       ColorRuleField._(0, _omitEnumNames ? '' : 'COLOR_RULE_FIELD_UNSPECIFIED');
-  static const ColorRuleField COLOR_RULE_FIELD_ID =
-      ColorRuleField._(1, _omitEnumNames ? '' : 'COLOR_RULE_FIELD_ID');
   static const ColorRuleField COLOR_RULE_FIELD_LABEL =
       ColorRuleField._(2, _omitEnumNames ? '' : 'COLOR_RULE_FIELD_LABEL');
-  static const ColorRuleField COLOR_RULE_FIELD_TAG =
-      ColorRuleField._(3, _omitEnumNames ? '' : 'COLOR_RULE_FIELD_TAG');
   static const ColorRuleField COLOR_RULE_FIELD_SLUG =
       ColorRuleField._(4, _omitEnumNames ? '' : 'COLOR_RULE_FIELD_SLUG');
   static const ColorRuleField COLOR_RULE_FIELD_TITLE =
@@ -32,9 +28,7 @@ class ColorRuleField extends $pb.ProtobufEnum {
 
   static const $core.List<ColorRuleField> values = <ColorRuleField>[
     COLOR_RULE_FIELD_UNSPECIFIED,
-    COLOR_RULE_FIELD_ID,
     COLOR_RULE_FIELD_LABEL,
-    COLOR_RULE_FIELD_TAG,
     COLOR_RULE_FIELD_SLUG,
     COLOR_RULE_FIELD_TITLE,
     COLOR_RULE_FIELD_FRONTMATTER,

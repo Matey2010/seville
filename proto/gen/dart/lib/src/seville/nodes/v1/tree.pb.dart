@@ -652,14 +652,14 @@ class NodeMutationResult extends $pb.GeneratedMessage {
 
 class NodeTreeQuery extends $pb.GeneratedMessage {
   factory NodeTreeQuery({
-    $core.String? rootNodeId,
+    $core.String? rootNodeSlug,
     $core.int? depth,
     NodeRelationshipType? traverseBy,
     NodeSearchFilter? nodeFilter,
     NodeSearchFilter? rootNodeFilter,
   }) {
     final result = create();
-    if (rootNodeId != null) result.rootNodeId = rootNodeId;
+    if (rootNodeSlug != null) result.rootNodeSlug = rootNodeSlug;
     if (depth != null) result.depth = depth;
     if (traverseBy != null) result.traverseBy = traverseBy;
     if (nodeFilter != null) result.nodeFilter = nodeFilter;
@@ -681,7 +681,7 @@ class NodeTreeQuery extends $pb.GeneratedMessage {
       package:
           const $pb.PackageName(_omitMessageNames ? '' : 'seville.nodes.v1'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'rootNodeId')
+    ..aOS(1, _omitFieldNames ? '' : 'rootNodeSlug')
     ..aI(2, _omitFieldNames ? '' : 'depth', fieldType: $pb.PbFieldType.OU3)
     ..aE<NodeRelationshipType>(3, _omitFieldNames ? '' : 'traverseBy',
         enumValues: NodeRelationshipType.values)
@@ -711,13 +711,13 @@ class NodeTreeQuery extends $pb.GeneratedMessage {
   static NodeTreeQuery? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.String get rootNodeId => $_getSZ(0);
+  $core.String get rootNodeSlug => $_getSZ(0);
   @$pb.TagNumber(1)
-  set rootNodeId($core.String value) => $_setString(0, value);
+  set rootNodeSlug($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
-  $core.bool hasRootNodeId() => $_has(0);
+  $core.bool hasRootNodeSlug() => $_has(0);
   @$pb.TagNumber(1)
-  void clearRootNodeId() => $_clearField(1);
+  void clearRootNodeSlug() => $_clearField(1);
 
   @$pb.TagNumber(2)
   $core.int get depth => $_getIZ(1);
@@ -856,13 +856,13 @@ class NodeTreeOccurrence extends $pb.GeneratedMessage {
 
 class NodeTree extends $pb.GeneratedMessage {
   factory NodeTree({
-    $core.String? rootNodeId,
+    $core.String? rootNodeSlug,
     NodeRelationshipType? relationship,
     $core.int? depth,
     $core.Iterable<NodeTreeOccurrence>? occurrences,
   }) {
     final result = create();
-    if (rootNodeId != null) result.rootNodeId = rootNodeId;
+    if (rootNodeSlug != null) result.rootNodeSlug = rootNodeSlug;
     if (relationship != null) result.relationship = relationship;
     if (depth != null) result.depth = depth;
     if (occurrences != null) result.occurrences.addAll(occurrences);
@@ -883,7 +883,7 @@ class NodeTree extends $pb.GeneratedMessage {
       package:
           const $pb.PackageName(_omitMessageNames ? '' : 'seville.nodes.v1'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'rootNodeId')
+    ..aOS(1, _omitFieldNames ? '' : 'rootNodeSlug')
     ..aE<NodeRelationshipType>(2, _omitFieldNames ? '' : 'relationship',
         enumValues: NodeRelationshipType.values)
     ..aI(3, _omitFieldNames ? '' : 'depth', fieldType: $pb.PbFieldType.OU3)
@@ -910,13 +910,13 @@ class NodeTree extends $pb.GeneratedMessage {
   static NodeTree? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.String get rootNodeId => $_getSZ(0);
+  $core.String get rootNodeSlug => $_getSZ(0);
   @$pb.TagNumber(1)
-  set rootNodeId($core.String value) => $_setString(0, value);
+  set rootNodeSlug($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
-  $core.bool hasRootNodeId() => $_has(0);
+  $core.bool hasRootNodeSlug() => $_has(0);
   @$pb.TagNumber(1)
-  void clearRootNodeId() => $_clearField(1);
+  void clearRootNodeSlug() => $_clearField(1);
 
   @$pb.TagNumber(2)
   NodeRelationshipType get relationship => $_getN(1);
@@ -943,13 +943,13 @@ class NodeTree extends $pb.GeneratedMessage {
 /// A bounded view of the canonical Node connection graph.
 class NodeGraphQuery extends $pb.GeneratedMessage {
   factory NodeGraphQuery({
-    $core.String? rootNodeId,
+    $core.String? rootNodeSlug,
     $core.int? depth,
     $core.int? limit,
     $core.String? search,
   }) {
     final result = create();
-    if (rootNodeId != null) result.rootNodeId = rootNodeId;
+    if (rootNodeSlug != null) result.rootNodeSlug = rootNodeSlug;
     if (depth != null) result.depth = depth;
     if (limit != null) result.limit = limit;
     if (search != null) result.search = search;
@@ -970,7 +970,7 @@ class NodeGraphQuery extends $pb.GeneratedMessage {
       package:
           const $pb.PackageName(_omitMessageNames ? '' : 'seville.nodes.v1'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'rootNodeId')
+    ..aOS(1, _omitFieldNames ? '' : 'rootNodeSlug')
     ..aI(2, _omitFieldNames ? '' : 'depth', fieldType: $pb.PbFieldType.OU3)
     ..aI(3, _omitFieldNames ? '' : 'limit', fieldType: $pb.PbFieldType.OU3)
     ..aOS(4, _omitFieldNames ? '' : 'search')
@@ -996,13 +996,13 @@ class NodeGraphQuery extends $pb.GeneratedMessage {
   static NodeGraphQuery? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.String get rootNodeId => $_getSZ(0);
+  $core.String get rootNodeSlug => $_getSZ(0);
   @$pb.TagNumber(1)
-  set rootNodeId($core.String value) => $_setString(0, value);
+  set rootNodeSlug($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
-  $core.bool hasRootNodeId() => $_has(0);
+  $core.bool hasRootNodeSlug() => $_has(0);
   @$pb.TagNumber(1)
-  void clearRootNodeId() => $_clearField(1);
+  void clearRootNodeSlug() => $_clearField(1);
 
   @$pb.TagNumber(2)
   $core.int get depth => $_getIZ(1);
@@ -1169,6 +1169,445 @@ class NodeBodyUpdateRequest extends $pb.GeneratedMessage {
   $core.bool hasExpectedUpdateCount() => $_has(1);
   @$pb.TagNumber(2)
   void clearExpectedUpdateCount() => $_clearField(2);
+}
+
+/// PUT replaces one Node's complete temporal span; an absent span clears it.
+class NodeTemporalUpdateRequest extends $pb.GeneratedMessage {
+  factory NodeTemporalUpdateRequest({
+    $0.NodeTemporalSpan? span,
+    $fixnum.Int64? expectedUpdateCount,
+  }) {
+    final result = create();
+    if (span != null) result.span = span;
+    if (expectedUpdateCount != null)
+      result.expectedUpdateCount = expectedUpdateCount;
+    return result;
+  }
+
+  NodeTemporalUpdateRequest._();
+
+  factory NodeTemporalUpdateRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory NodeTemporalUpdateRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'NodeTemporalUpdateRequest',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'seville.nodes.v1'),
+      createEmptyInstance: create)
+    ..aOM<$0.NodeTemporalSpan>(1, _omitFieldNames ? '' : 'span',
+        subBuilder: $0.NodeTemporalSpan.create)
+    ..a<$fixnum.Int64>(
+        2, _omitFieldNames ? '' : 'expectedUpdateCount', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  NodeTemporalUpdateRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  NodeTemporalUpdateRequest copyWith(
+          void Function(NodeTemporalUpdateRequest) updates) =>
+      super.copyWith((message) => updates(message as NodeTemporalUpdateRequest))
+          as NodeTemporalUpdateRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static NodeTemporalUpdateRequest create() => NodeTemporalUpdateRequest._();
+  @$core.override
+  NodeTemporalUpdateRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static NodeTemporalUpdateRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<NodeTemporalUpdateRequest>(create);
+  static NodeTemporalUpdateRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $0.NodeTemporalSpan get span => $_getN(0);
+  @$pb.TagNumber(1)
+  set span($0.NodeTemporalSpan value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSpan() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSpan() => $_clearField(1);
+  @$pb.TagNumber(1)
+  $0.NodeTemporalSpan ensureSpan() => $_ensure(0);
+
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get expectedUpdateCount => $_getI64(1);
+  @$pb.TagNumber(2)
+  set expectedUpdateCount($fixnum.Int64 value) => $_setInt64(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasExpectedUpdateCount() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearExpectedUpdateCount() => $_clearField(2);
+}
+
+/// PUT replaces one canonical Node's complete set of Neo4j labels.
+class NodeLabelsUpdateRequest extends $pb.GeneratedMessage {
+  factory NodeLabelsUpdateRequest({
+    $core.Iterable<$core.String>? labels,
+    $fixnum.Int64? expectedUpdateCount,
+  }) {
+    final result = create();
+    if (labels != null) result.labels.addAll(labels);
+    if (expectedUpdateCount != null)
+      result.expectedUpdateCount = expectedUpdateCount;
+    return result;
+  }
+
+  NodeLabelsUpdateRequest._();
+
+  factory NodeLabelsUpdateRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory NodeLabelsUpdateRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'NodeLabelsUpdateRequest',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'seville.nodes.v1'),
+      createEmptyInstance: create)
+    ..pPS(1, _omitFieldNames ? '' : 'labels')
+    ..a<$fixnum.Int64>(
+        2, _omitFieldNames ? '' : 'expectedUpdateCount', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  NodeLabelsUpdateRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  NodeLabelsUpdateRequest copyWith(
+          void Function(NodeLabelsUpdateRequest) updates) =>
+      super.copyWith((message) => updates(message as NodeLabelsUpdateRequest))
+          as NodeLabelsUpdateRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static NodeLabelsUpdateRequest create() => NodeLabelsUpdateRequest._();
+  @$core.override
+  NodeLabelsUpdateRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static NodeLabelsUpdateRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<NodeLabelsUpdateRequest>(create);
+  static NodeLabelsUpdateRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<$core.String> get labels => $_getList(0);
+
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get expectedUpdateCount => $_getI64(1);
+  @$pb.TagNumber(2)
+  set expectedUpdateCount($fixnum.Int64 value) => $_setInt64(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasExpectedUpdateCount() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearExpectedUpdateCount() => $_clearField(2);
+}
+
+class LabelSearchQuery extends $pb.GeneratedMessage {
+  factory LabelSearchQuery({
+    $core.String? prefix,
+    $core.int? limit,
+  }) {
+    final result = create();
+    if (prefix != null) result.prefix = prefix;
+    if (limit != null) result.limit = limit;
+    return result;
+  }
+
+  LabelSearchQuery._();
+
+  factory LabelSearchQuery.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory LabelSearchQuery.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'LabelSearchQuery',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'seville.nodes.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'prefix')
+    ..aI(2, _omitFieldNames ? '' : 'limit', fieldType: $pb.PbFieldType.OU3)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  LabelSearchQuery clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  LabelSearchQuery copyWith(void Function(LabelSearchQuery) updates) =>
+      super.copyWith((message) => updates(message as LabelSearchQuery))
+          as LabelSearchQuery;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static LabelSearchQuery create() => LabelSearchQuery._();
+  @$core.override
+  LabelSearchQuery createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static LabelSearchQuery getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<LabelSearchQuery>(create);
+  static LabelSearchQuery? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get prefix => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set prefix($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasPrefix() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearPrefix() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get limit => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set limit($core.int value) => $_setUnsignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasLimit() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearLimit() => $_clearField(2);
+}
+
+class LabelSummary extends $pb.GeneratedMessage {
+  factory LabelSummary({
+    $core.String? name,
+    $fixnum.Int64? nodeCount,
+  }) {
+    final result = create();
+    if (name != null) result.name = name;
+    if (nodeCount != null) result.nodeCount = nodeCount;
+    return result;
+  }
+
+  LabelSummary._();
+
+  factory LabelSummary.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory LabelSummary.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'LabelSummary',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'seville.nodes.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..a<$fixnum.Int64>(
+        2, _omitFieldNames ? '' : 'nodeCount', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  LabelSummary clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  LabelSummary copyWith(void Function(LabelSummary) updates) =>
+      super.copyWith((message) => updates(message as LabelSummary))
+          as LabelSummary;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static LabelSummary create() => LabelSummary._();
+  @$core.override
+  LabelSummary createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static LabelSummary getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<LabelSummary>(create);
+  static LabelSummary? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get name => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set name($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearName() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get nodeCount => $_getI64(1);
+  @$pb.TagNumber(2)
+  set nodeCount($fixnum.Int64 value) => $_setInt64(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasNodeCount() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearNodeCount() => $_clearField(2);
+}
+
+class LabelSearchResult extends $pb.GeneratedMessage {
+  factory LabelSearchResult({
+    $core.Iterable<LabelSummary>? labels,
+  }) {
+    final result = create();
+    if (labels != null) result.labels.addAll(labels);
+    return result;
+  }
+
+  LabelSearchResult._();
+
+  factory LabelSearchResult.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory LabelSearchResult.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'LabelSearchResult',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'seville.nodes.v1'),
+      createEmptyInstance: create)
+    ..pPM<LabelSummary>(1, _omitFieldNames ? '' : 'labels',
+        subBuilder: LabelSummary.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  LabelSearchResult clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  LabelSearchResult copyWith(void Function(LabelSearchResult) updates) =>
+      super.copyWith((message) => updates(message as LabelSearchResult))
+          as LabelSearchResult;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static LabelSearchResult create() => LabelSearchResult._();
+  @$core.override
+  LabelSearchResult createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static LabelSearchResult getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<LabelSearchResult>(create);
+  static LabelSearchResult? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<LabelSummary> get labels => $_getList(0);
+}
+
+class LabelRenameRequest extends $pb.GeneratedMessage {
+  factory LabelRenameRequest({
+    $core.String? newName,
+  }) {
+    final result = create();
+    if (newName != null) result.newName = newName;
+    return result;
+  }
+
+  LabelRenameRequest._();
+
+  factory LabelRenameRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory LabelRenameRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'LabelRenameRequest',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'seville.nodes.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'newName')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  LabelRenameRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  LabelRenameRequest copyWith(void Function(LabelRenameRequest) updates) =>
+      super.copyWith((message) => updates(message as LabelRenameRequest))
+          as LabelRenameRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static LabelRenameRequest create() => LabelRenameRequest._();
+  @$core.override
+  LabelRenameRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static LabelRenameRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<LabelRenameRequest>(create);
+  static LabelRenameRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get newName => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set newName($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasNewName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearNewName() => $_clearField(1);
+}
+
+class LabelMutationResult extends $pb.GeneratedMessage {
+  factory LabelMutationResult({
+    $fixnum.Int64? changedNodeCount,
+  }) {
+    final result = create();
+    if (changedNodeCount != null) result.changedNodeCount = changedNodeCount;
+    return result;
+  }
+
+  LabelMutationResult._();
+
+  factory LabelMutationResult.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory LabelMutationResult.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'LabelMutationResult',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'seville.nodes.v1'),
+      createEmptyInstance: create)
+    ..a<$fixnum.Int64>(
+        1, _omitFieldNames ? '' : 'changedNodeCount', $pb.PbFieldType.OU6,
+        defaultOrMaker: $fixnum.Int64.ZERO)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  LabelMutationResult clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  LabelMutationResult copyWith(void Function(LabelMutationResult) updates) =>
+      super.copyWith((message) => updates(message as LabelMutationResult))
+          as LabelMutationResult;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static LabelMutationResult create() => LabelMutationResult._();
+  @$core.override
+  LabelMutationResult createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static LabelMutationResult getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<LabelMutationResult>(create);
+  static LabelMutationResult? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get changedNodeCount => $_getI64(0);
+  @$pb.TagNumber(1)
+  set changedNodeCount($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasChangedNodeCount() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearChangedNodeCount() => $_clearField(1);
 }
 
 const $core.bool _omitFieldNames =

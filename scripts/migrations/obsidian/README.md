@@ -23,19 +23,22 @@ macOS client. The target Neo4j service must already be reachable.
 - `SEVILLE_SOURCE=git` reads the local checkout at
   `SEVILLE_GIT_REPOSITORY_PATH` and the relative
   `SEVILLE_GIT_VAULT_SUBPATH`.
-- Markdown files need a stable Node `id` in YAML frontmatter.
+- A Markdown file may set its Node `slug` in YAML frontmatter; otherwise its
+  relative path without `.md` becomes the slug.
 - Hidden directories, including `.obsidian`, are skipped.
-- Duplicate IDs abort the migration. Files without IDs and malformed files are
-  reported as warnings and skipped.
+- Duplicate slugs abort the migration. Malformed files are reported as warnings
+  and skipped.
 
 ## Write behavior and limitations
 
-The importer creates previously unseen Node IDs and their tags and connections.
+The importer creates previously unseen Node slugs and their connections.
 It deliberately does not overwrite an existing Node or delete a Node whose
 source file disappeared. It is a legacy bootstrap migration, not a general
 synchronization system, and it does not maintain source provenance or conflict
 records. Review the migration output and target graph before running it again;
-changing source IDs can create apparent duplicates.
+changing source slugs can create apparent duplicates.
+If an older imported record has the same path but no slug, the importer stops
+instead of creating a second Node for that file.
 
 The reusable implementation lives in
 `backend/internal/migration/obsidian_vault.go`; parsing remains in

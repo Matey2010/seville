@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"math"
 	"regexp"
 	"strings"
 
@@ -25,7 +26,8 @@ OPTIONAL MATCH (settings)-[:HAS_COLOR_RULE]->(rule:ObsivilianColorRule)
 RETURN coalesce(settings.revision, 0) AS revision,
        rule.name AS name, rule.enabled AS enabled, rule.weight AS weight,
        rule.field AS field, rule.operator AS operator, rule.value AS value,
-       rule.frontmatter_key AS frontmatter_key, rule.color_hex AS color_hex
+       rule.frontmatter_key AS frontmatter_key, rule.color_hex AS color_hex,
+       rule.gravity_scale AS gravity_scale, rule.size_scale AS size_scale
 ORDER BY rule.position`, nil)
 	if err != nil {
 		return nil, fmt.Errorf("query Node color rules: %w", err)
@@ -65,11 +67,28 @@ ORDER BY rule.position`, nil)
 		value, _ := recordString(record, "value")
 		frontmatterKey, _ := recordString(record, "frontmatter_key")
 		colorHex, _ := recordString(record, "color_hex")
+		gravity := 1.0
+		if stored, _ := record.Get("gravity_scale"); stored != nil {
+			value, ok := stored.(float64)
+			if !ok {
+				return nil, fmt.Errorf("stored rule gravity scale is invalid")
+			}
+			gravity = value
+		}
+		size := 1.0
+		if stored, _ := record.Get("size_scale"); stored != nil {
+			value, ok := stored.(float64)
+			if !ok {
+				return nil, fmt.Errorf("stored rule size scale is invalid")
+			}
+			size = value
+		}
 		rules.Rules = append(rules.Rules, &presentationv1.NodeColorRule{
 			Name: name, Enabled: enabledBool, Weight: int32(weight),
 			Field:    presentationv1.ColorRuleField(field),
 			Operator: presentationv1.ColorRuleOperator(operator),
 			Value:    value, FrontmatterKey: frontmatterKey, ColorHex: colorHex,
+			GravityScale: &gravity, SizeScale: &size,
 		})
 	}
 	if err := result.Err(); err != nil {
@@ -78,6 +97,56 @@ ORDER BY rule.position`, nil)
 	if _, err := result.Consume(ctx); err != nil {
 		return nil, fmt.Errorf("consume Node color rules: %w", err)
 	}
+	// A legacy exact ID rule can be represented by the same Node's slug.
+	// Other ID match operators cannot be translated without changing meaning.
+	converted := make([]*presentationv1.NodeColorRule, 0, len(rules.Rules))
+	for _, rule := range rules.Rules {
+		if rule.Field != presentationv1.ColorRuleField(1) {
+			converted = append(converted, rule)
+			continue
+		}
+		if rule.Operator != presentationv1.ColorRuleOperator_COLOR_RULE_OPERATOR_EXACT {
+			continue
+		}
+		match, err := session.Run(ctx, `MATCH (node:Node {id: $legacy_id})
+WHERE node.slug IS NOT NULL AND trim(toString(node.slug)) <> ''
+RETURN node.slug AS slug LIMIT 2`, map[string]any{"legacy_id": rule.Value})
+		if err != nil {
+			return nil, fmt.Errorf("resolve legacy ID color rule: %w", err)
+		}
+		var slug string
+		matches := 0
+		for match.Next(ctx) {
+			slug, _ = recordString(match.Record(), "slug")
+			matches++
+		}
+		if err := match.Err(); err != nil {
+			return nil, fmt.Errorf("read legacy ID color rule: %w", err)
+		}
+		if _, err := match.Consume(ctx); err != nil {
+			return nil, fmt.Errorf("consume legacy ID color rule: %w", err)
+		}
+		if matches != 1 || slug == "" {
+			continue
+		}
+		unique, err := session.Run(ctx, `MATCH (node:Node {slug: $slug}) RETURN count(node) AS copies`, map[string]any{"slug": slug})
+		if err != nil {
+			return nil, fmt.Errorf("check legacy rule slug: %w", err)
+		}
+		if !unique.Next(ctx) {
+			return nil, fmt.Errorf("check legacy rule slug: no result")
+		}
+		copies, _ := recordInt64(unique.Record(), "copies")
+		if _, err := unique.Consume(ctx); err != nil {
+			return nil, fmt.Errorf("consume legacy rule slug: %w", err)
+		}
+		if copies == 1 {
+			rule.Field = presentationv1.ColorRuleField_COLOR_RULE_FIELD_SLUG
+			rule.Value = slug
+			converted = append(converted, rule)
+		}
+	}
+	rules.Rules = converted
 	return rules, nil
 }
 
@@ -98,6 +167,7 @@ func (s *Neo4jStore) ReplaceNodeColorRules(ctx context.Context, request *present
 			"weight": int64(rule.Weight), "field": int64(rule.Field),
 			"operator": int64(rule.Operator), "value": rule.Value,
 			"frontmatter_key": rule.FrontmatterKey, "color_hex": rule.ColorHex,
+			"gravity_scale": rule.GetGravityScale(), "size_scale": rule.GetSizeScale(),
 		})
 	}
 
@@ -142,7 +212,8 @@ CREATE (rule:ObsivilianColorRule {
   position: row.position, name: row.name, enabled: row.enabled,
   weight: row.weight, field: row.field, operator: row.operator,
   value: row.value, frontmatter_key: row.frontmatter_key,
-  color_hex: row.color_hex
+  color_hex: row.color_hex, gravity_scale: row.gravity_scale,
+  size_scale: row.size_scale
 })
 CREATE (settings)-[:HAS_COLOR_RULE]->(rule)`, map[string]any{"rules": rows})
 		if err != nil {
@@ -172,14 +243,22 @@ func normalizeColorRules(request *presentationv1.NodeColorRuleSet) ([]*presentat
 		value := strings.TrimSpace(rule.GetValue())
 		key := strings.TrimSpace(rule.GetFrontmatterKey())
 		color := strings.ToUpper(strings.TrimSpace(rule.GetColorHex()))
+		gravity := 1.0
+		if rule.GravityScale != nil {
+			gravity = rule.GetGravityScale()
+		}
+		size := 1.0
+		if rule.SizeScale != nil {
+			size = rule.GetSizeScale()
+		}
 		if name == "" || len(name) > 80 || value == "" || len(value) > 256 ||
-			rule.GetWeight() < -10000 || rule.GetWeight() > 10000 || !colorHexPattern.MatchString(color) {
-			return nil, fmt.Errorf("%w: rule %d has an invalid name, value, weight, or color", ErrInvalidColorRules, index+1)
+			rule.GetWeight() < -10000 || rule.GetWeight() > 10000 || !colorHexPattern.MatchString(color) ||
+			math.IsNaN(gravity) || math.IsInf(gravity, 0) || gravity < 0 || gravity > 3 ||
+			math.IsNaN(size) || math.IsInf(size, 0) || size < 0.5 || size > 2 {
+			return nil, fmt.Errorf("%w: rule %d has an invalid name, value, weight, color, gravity, or size", ErrInvalidColorRules, index+1)
 		}
 		switch rule.GetField() {
-		case presentationv1.ColorRuleField_COLOR_RULE_FIELD_ID,
-			presentationv1.ColorRuleField_COLOR_RULE_FIELD_LABEL,
-			presentationv1.ColorRuleField_COLOR_RULE_FIELD_TAG,
+		case presentationv1.ColorRuleField_COLOR_RULE_FIELD_LABEL,
 			presentationv1.ColorRuleField_COLOR_RULE_FIELD_SLUG,
 			presentationv1.ColorRuleField_COLOR_RULE_FIELD_TITLE:
 			key = ""
@@ -201,6 +280,7 @@ func normalizeColorRules(request *presentationv1.NodeColorRuleSet) ([]*presentat
 			Name: name, Enabled: rule.GetEnabled(), Weight: rule.GetWeight(),
 			Field: rule.GetField(), Operator: rule.GetOperator(), Value: value,
 			FrontmatterKey: key, ColorHex: color,
+			GravityScale: &gravity, SizeScale: &size,
 		})
 	}
 	return normalized, nil

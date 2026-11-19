@@ -37,22 +37,25 @@ const NodeParameterType$json = {
   '2': [
     {'1': 'NODE_PARAMETER_TYPE_UNSPECIFIED', '2': 0},
     {'1': 'NODE_PARAMETER_TYPE_NAME', '2': 1},
-    {'1': 'NODE_PARAMETER_TYPE_ID', '2': 2},
     {'1': 'NODE_PARAMETER_TYPE_PATH', '2': 3},
     {'1': 'NODE_PARAMETER_TYPE_TITLE', '2': 4},
-    {'1': 'NODE_PARAMETER_TYPE_TAG', '2': 5},
     {'1': 'NODE_PARAMETER_TYPE_LABEL', '2': 6},
     {'1': 'NODE_PARAMETER_TYPE_SLUG', '2': 7},
   ],
+  '4': [
+    {'1': 2, '2': 2},
+    {'1': 5, '2': 5},
+  ],
+  '5': ['NODE_PARAMETER_TYPE_ID', 'NODE_PARAMETER_TYPE_TAG'],
 };
 
 /// Descriptor for `NodeParameterType`. Decode as a `google.protobuf.EnumDescriptorProto`.
 final $typed_data.Uint8List nodeParameterTypeDescriptor = $convert.base64Decode(
     'ChFOb2RlUGFyYW1ldGVyVHlwZRIjCh9OT0RFX1BBUkFNRVRFUl9UWVBFX1VOU1BFQ0lGSUVEEA'
-    'ASHAoYTk9ERV9QQVJBTUVURVJfVFlQRV9OQU1FEAESGgoWTk9ERV9QQVJBTUVURVJfVFlQRV9J'
-    'RBACEhwKGE5PREVfUEFSQU1FVEVSX1RZUEVfUEFUSBADEh0KGU5PREVfUEFSQU1FVEVSX1RZUE'
-    'VfVElUTEUQBBIbChdOT0RFX1BBUkFNRVRFUl9UWVBFX1RBRxAFEh0KGU5PREVfUEFSQU1FVEVS'
-    'X1RZUEVfTEFCRUwQBhIcChhOT0RFX1BBUkFNRVRFUl9UWVBFX1NMVUcQBw==');
+    'ASHAoYTk9ERV9QQVJBTUVURVJfVFlQRV9OQU1FEAESHAoYTk9ERV9QQVJBTUVURVJfVFlQRV9Q'
+    'QVRIEAMSHQoZTk9ERV9QQVJBTUVURVJfVFlQRV9USVRMRRAEEh0KGU5PREVfUEFSQU1FVEVSX1'
+    'RZUEVfTEFCRUwQBhIcChhOT0RFX1BBUkFNRVRFUl9UWVBFX1NMVUcQByIECAIQAiIECAUQBSoW'
+    'Tk9ERV9QQVJBTUVURVJfVFlQRV9JRCoXTk9ERV9QQVJBTUVURVJfVFlQRV9UQUc=');
 
 @$core.Deprecated('Use nodeSearchMatchOperatorDescriptor instead')
 const NodeSearchMatchOperator$json = {
@@ -344,12 +347,12 @@ const NodeTreeQuery$json = {
   '1': 'NodeTreeQuery',
   '2': [
     {
-      '1': 'root_node_id',
+      '1': 'root_node_slug',
       '3': 1,
       '4': 1,
       '5': 9,
       '9': 0,
-      '10': 'rootNodeId',
+      '10': 'rootNodeSlug',
       '17': true
     },
     {'1': 'depth', '3': 2, '4': 1, '5': 13, '9': 1, '10': 'depth', '17': true},
@@ -383,7 +386,7 @@ const NodeTreeQuery$json = {
     },
   ],
   '8': [
-    {'1': '_root_node_id'},
+    {'1': '_root_node_slug'},
     {'1': '_depth'},
     {'1': '_node_filter'},
     {'1': '_root_node_filter'},
@@ -392,13 +395,13 @@ const NodeTreeQuery$json = {
 
 /// Descriptor for `NodeTreeQuery`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List nodeTreeQueryDescriptor = $convert.base64Decode(
-    'Cg1Ob2RlVHJlZVF1ZXJ5EiUKDHJvb3Rfbm9kZV9pZBgBIAEoCUgAUgpyb290Tm9kZUlkiAEBEh'
-    'kKBWRlcHRoGAIgASgNSAFSBWRlcHRoiAEBEkcKC3RyYXZlcnNlX2J5GAMgASgOMiYuc2V2aWxs'
-    'ZS5ub2Rlcy52MS5Ob2RlUmVsYXRpb25zaGlwVHlwZVIKdHJhdmVyc2VCeRJICgtub2RlX2ZpbH'
-    'RlchgEIAEoCzIiLnNldmlsbGUubm9kZXMudjEuTm9kZVNlYXJjaEZpbHRlckgCUgpub2RlRmls'
-    'dGVyiAEBElEKEHJvb3Rfbm9kZV9maWx0ZXIYBSABKAsyIi5zZXZpbGxlLm5vZGVzLnYxLk5vZG'
-    'VTZWFyY2hGaWx0ZXJIA1IOcm9vdE5vZGVGaWx0ZXKIAQFCDwoNX3Jvb3Rfbm9kZV9pZEIICgZf'
-    'ZGVwdGhCDgoMX25vZGVfZmlsdGVyQhMKEV9yb290X25vZGVfZmlsdGVy');
+    'Cg1Ob2RlVHJlZVF1ZXJ5EikKDnJvb3Rfbm9kZV9zbHVnGAEgASgJSABSDHJvb3ROb2RlU2x1Z4'
+    'gBARIZCgVkZXB0aBgCIAEoDUgBUgVkZXB0aIgBARJHCgt0cmF2ZXJzZV9ieRgDIAEoDjImLnNl'
+    'dmlsbGUubm9kZXMudjEuTm9kZVJlbGF0aW9uc2hpcFR5cGVSCnRyYXZlcnNlQnkSSAoLbm9kZV'
+    '9maWx0ZXIYBCABKAsyIi5zZXZpbGxlLm5vZGVzLnYxLk5vZGVTZWFyY2hGaWx0ZXJIAlIKbm9k'
+    'ZUZpbHRlcogBARJRChByb290X25vZGVfZmlsdGVyGAUgASgLMiIuc2V2aWxsZS5ub2Rlcy52MS'
+    '5Ob2RlU2VhcmNoRmlsdGVySANSDnJvb3ROb2RlRmlsdGVyiAEBQhEKD19yb290X25vZGVfc2x1'
+    'Z0IICgZfZGVwdGhCDgoMX25vZGVfZmlsdGVyQhMKEV9yb290X25vZGVfZmlsdGVy');
 
 @$core.Deprecated('Use nodeTreeOccurrenceDescriptor instead')
 const NodeTreeOccurrence$json = {
@@ -440,7 +443,7 @@ final $typed_data.Uint8List nodeTreeOccurrenceDescriptor = $convert.base64Decode
 const NodeTree$json = {
   '1': 'NodeTree',
   '2': [
-    {'1': 'root_node_id', '3': 1, '4': 1, '5': 9, '10': 'rootNodeId'},
+    {'1': 'root_node_slug', '3': 1, '4': 1, '5': 9, '10': 'rootNodeSlug'},
     {
       '1': 'relationship',
       '3': 2,
@@ -463,22 +466,22 @@ const NodeTree$json = {
 
 /// Descriptor for `NodeTree`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List nodeTreeDescriptor = $convert.base64Decode(
-    'CghOb2RlVHJlZRIgCgxyb290X25vZGVfaWQYASABKAlSCnJvb3ROb2RlSWQSSgoMcmVsYXRpb2'
-    '5zaGlwGAIgASgOMiYuc2V2aWxsZS5ub2Rlcy52MS5Ob2RlUmVsYXRpb25zaGlwVHlwZVIMcmVs'
-    'YXRpb25zaGlwEhQKBWRlcHRoGAMgASgNUgVkZXB0aBJGCgtvY2N1cnJlbmNlcxgEIAMoCzIkLn'
-    'NldmlsbGUubm9kZXMudjEuTm9kZVRyZWVPY2N1cnJlbmNlUgtvY2N1cnJlbmNlcw==');
+    'CghOb2RlVHJlZRIkCg5yb290X25vZGVfc2x1ZxgBIAEoCVIMcm9vdE5vZGVTbHVnEkoKDHJlbG'
+    'F0aW9uc2hpcBgCIAEoDjImLnNldmlsbGUubm9kZXMudjEuTm9kZVJlbGF0aW9uc2hpcFR5cGVS'
+    'DHJlbGF0aW9uc2hpcBIUCgVkZXB0aBgDIAEoDVIFZGVwdGgSRgoLb2NjdXJyZW5jZXMYBCADKA'
+    'syJC5zZXZpbGxlLm5vZGVzLnYxLk5vZGVUcmVlT2NjdXJyZW5jZVILb2NjdXJyZW5jZXM=');
 
 @$core.Deprecated('Use nodeGraphQueryDescriptor instead')
 const NodeGraphQuery$json = {
   '1': 'NodeGraphQuery',
   '2': [
     {
-      '1': 'root_node_id',
+      '1': 'root_node_slug',
       '3': 1,
       '4': 1,
       '5': 9,
       '9': 0,
-      '10': 'rootNodeId',
+      '10': 'rootNodeSlug',
       '17': true
     },
     {'1': 'depth', '3': 2, '4': 1, '5': 13, '10': 'depth'},
@@ -486,15 +489,15 @@ const NodeGraphQuery$json = {
     {'1': 'search', '3': 4, '4': 1, '5': 9, '10': 'search'},
   ],
   '8': [
-    {'1': '_root_node_id'},
+    {'1': '_root_node_slug'},
   ],
 };
 
 /// Descriptor for `NodeGraphQuery`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List nodeGraphQueryDescriptor = $convert.base64Decode(
-    'Cg5Ob2RlR3JhcGhRdWVyeRIlCgxyb290X25vZGVfaWQYASABKAlIAFIKcm9vdE5vZGVJZIgBAR'
-    'IUCgVkZXB0aBgCIAEoDVIFZGVwdGgSFAoFbGltaXQYAyABKA1SBWxpbWl0EhYKBnNlYXJjaBgE'
-    'IAEoCVIGc2VhcmNoQg8KDV9yb290X25vZGVfaWQ=');
+    'Cg5Ob2RlR3JhcGhRdWVyeRIpCg5yb290X25vZGVfc2x1ZxgBIAEoCUgAUgxyb290Tm9kZVNsdW'
+    'eIAQESFAoFZGVwdGgYAiABKA1SBWRlcHRoEhQKBWxpbWl0GAMgASgNUgVsaW1pdBIWCgZzZWFy'
+    'Y2gYBCABKAlSBnNlYXJjaEIRCg9fcm9vdF9ub2RlX3NsdWc=');
 
 @$core.Deprecated('Use nodeGraphDescriptor instead')
 const NodeGraph$json = {
@@ -545,3 +548,132 @@ const NodeBodyUpdateRequest$json = {
 final $typed_data.Uint8List nodeBodyUpdateRequestDescriptor = $convert.base64Decode(
     'ChVOb2RlQm9keVVwZGF0ZVJlcXVlc3QSEgoEYm9keRgBIAEoCVIEYm9keRIyChVleHBlY3RlZF'
     '91cGRhdGVfY291bnQYAiABKARSE2V4cGVjdGVkVXBkYXRlQ291bnQ=');
+
+@$core.Deprecated('Use nodeTemporalUpdateRequestDescriptor instead')
+const NodeTemporalUpdateRequest$json = {
+  '1': 'NodeTemporalUpdateRequest',
+  '2': [
+    {
+      '1': 'span',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.seville.node.v2.NodeTemporalSpan',
+      '10': 'span'
+    },
+    {
+      '1': 'expected_update_count',
+      '3': 2,
+      '4': 1,
+      '5': 4,
+      '10': 'expectedUpdateCount'
+    },
+  ],
+};
+
+/// Descriptor for `NodeTemporalUpdateRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List nodeTemporalUpdateRequestDescriptor = $convert.base64Decode(
+    'ChlOb2RlVGVtcG9yYWxVcGRhdGVSZXF1ZXN0EjUKBHNwYW4YASABKAsyIS5zZXZpbGxlLm5vZG'
+    'UudjIuTm9kZVRlbXBvcmFsU3BhblIEc3BhbhIyChVleHBlY3RlZF91cGRhdGVfY291bnQYAiAB'
+    'KARSE2V4cGVjdGVkVXBkYXRlQ291bnQ=');
+
+@$core.Deprecated('Use nodeLabelsUpdateRequestDescriptor instead')
+const NodeLabelsUpdateRequest$json = {
+  '1': 'NodeLabelsUpdateRequest',
+  '2': [
+    {'1': 'labels', '3': 1, '4': 3, '5': 9, '10': 'labels'},
+    {
+      '1': 'expected_update_count',
+      '3': 2,
+      '4': 1,
+      '5': 4,
+      '10': 'expectedUpdateCount'
+    },
+  ],
+};
+
+/// Descriptor for `NodeLabelsUpdateRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List nodeLabelsUpdateRequestDescriptor =
+    $convert.base64Decode(
+        'ChdOb2RlTGFiZWxzVXBkYXRlUmVxdWVzdBIWCgZsYWJlbHMYASADKAlSBmxhYmVscxIyChVleH'
+        'BlY3RlZF91cGRhdGVfY291bnQYAiABKARSE2V4cGVjdGVkVXBkYXRlQ291bnQ=');
+
+@$core.Deprecated('Use labelSearchQueryDescriptor instead')
+const LabelSearchQuery$json = {
+  '1': 'LabelSearchQuery',
+  '2': [
+    {'1': 'prefix', '3': 1, '4': 1, '5': 9, '10': 'prefix'},
+    {'1': 'limit', '3': 2, '4': 1, '5': 13, '10': 'limit'},
+  ],
+};
+
+/// Descriptor for `LabelSearchQuery`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List labelSearchQueryDescriptor = $convert.base64Decode(
+    'ChBMYWJlbFNlYXJjaFF1ZXJ5EhYKBnByZWZpeBgBIAEoCVIGcHJlZml4EhQKBWxpbWl0GAIgAS'
+    'gNUgVsaW1pdA==');
+
+@$core.Deprecated('Use labelSummaryDescriptor instead')
+const LabelSummary$json = {
+  '1': 'LabelSummary',
+  '2': [
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'node_count', '3': 2, '4': 1, '5': 4, '10': 'nodeCount'},
+  ],
+};
+
+/// Descriptor for `LabelSummary`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List labelSummaryDescriptor = $convert.base64Decode(
+    'CgxMYWJlbFN1bW1hcnkSEgoEbmFtZRgBIAEoCVIEbmFtZRIdCgpub2RlX2NvdW50GAIgASgEUg'
+    'lub2RlQ291bnQ=');
+
+@$core.Deprecated('Use labelSearchResultDescriptor instead')
+const LabelSearchResult$json = {
+  '1': 'LabelSearchResult',
+  '2': [
+    {
+      '1': 'labels',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.seville.nodes.v1.LabelSummary',
+      '10': 'labels'
+    },
+  ],
+};
+
+/// Descriptor for `LabelSearchResult`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List labelSearchResultDescriptor = $convert.base64Decode(
+    'ChFMYWJlbFNlYXJjaFJlc3VsdBI2CgZsYWJlbHMYASADKAsyHi5zZXZpbGxlLm5vZGVzLnYxLk'
+    'xhYmVsU3VtbWFyeVIGbGFiZWxz');
+
+@$core.Deprecated('Use labelRenameRequestDescriptor instead')
+const LabelRenameRequest$json = {
+  '1': 'LabelRenameRequest',
+  '2': [
+    {'1': 'new_name', '3': 1, '4': 1, '5': 9, '10': 'newName'},
+  ],
+};
+
+/// Descriptor for `LabelRenameRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List labelRenameRequestDescriptor =
+    $convert.base64Decode(
+        'ChJMYWJlbFJlbmFtZVJlcXVlc3QSGQoIbmV3X25hbWUYASABKAlSB25ld05hbWU=');
+
+@$core.Deprecated('Use labelMutationResultDescriptor instead')
+const LabelMutationResult$json = {
+  '1': 'LabelMutationResult',
+  '2': [
+    {
+      '1': 'changed_node_count',
+      '3': 1,
+      '4': 1,
+      '5': 4,
+      '10': 'changedNodeCount'
+    },
+  ],
+};
+
+/// Descriptor for `LabelMutationResult`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List labelMutationResultDescriptor = $convert.base64Decode(
+    'ChNMYWJlbE11dGF0aW9uUmVzdWx0EiwKEmNoYW5nZWRfbm9kZV9jb3VudBgBIAEoBFIQY2hhbm'
+    'dlZE5vZGVDb3VudA==');

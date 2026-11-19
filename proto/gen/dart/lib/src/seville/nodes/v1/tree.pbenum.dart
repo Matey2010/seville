@@ -45,14 +45,10 @@ class NodeParameterType extends $pb.ProtobufEnum {
           0, _omitEnumNames ? '' : 'NODE_PARAMETER_TYPE_UNSPECIFIED');
   static const NodeParameterType NODE_PARAMETER_TYPE_NAME =
       NodeParameterType._(1, _omitEnumNames ? '' : 'NODE_PARAMETER_TYPE_NAME');
-  static const NodeParameterType NODE_PARAMETER_TYPE_ID =
-      NodeParameterType._(2, _omitEnumNames ? '' : 'NODE_PARAMETER_TYPE_ID');
   static const NodeParameterType NODE_PARAMETER_TYPE_PATH =
       NodeParameterType._(3, _omitEnumNames ? '' : 'NODE_PARAMETER_TYPE_PATH');
   static const NodeParameterType NODE_PARAMETER_TYPE_TITLE =
       NodeParameterType._(4, _omitEnumNames ? '' : 'NODE_PARAMETER_TYPE_TITLE');
-  static const NodeParameterType NODE_PARAMETER_TYPE_TAG =
-      NodeParameterType._(5, _omitEnumNames ? '' : 'NODE_PARAMETER_TYPE_TAG');
   static const NodeParameterType NODE_PARAMETER_TYPE_LABEL =
       NodeParameterType._(6, _omitEnumNames ? '' : 'NODE_PARAMETER_TYPE_LABEL');
   static const NodeParameterType NODE_PARAMETER_TYPE_SLUG =
@@ -61,10 +57,8 @@ class NodeParameterType extends $pb.ProtobufEnum {
   static const $core.List<NodeParameterType> values = <NodeParameterType>[
     NODE_PARAMETER_TYPE_UNSPECIFIED,
     NODE_PARAMETER_TYPE_NAME,
-    NODE_PARAMETER_TYPE_ID,
     NODE_PARAMETER_TYPE_PATH,
     NODE_PARAMETER_TYPE_TITLE,
-    NODE_PARAMETER_TYPE_TAG,
     NODE_PARAMETER_TYPE_LABEL,
     NODE_PARAMETER_TYPE_SLUG,
   ];

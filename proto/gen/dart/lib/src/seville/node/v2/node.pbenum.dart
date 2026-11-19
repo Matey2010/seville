@@ -14,6 +14,47 @@ import 'dart:core' as $core;
 
 import 'package:protobuf/protobuf.dart' as $pb;
 
+class TemporalGranularity extends $pb.ProtobufEnum {
+  static const TemporalGranularity TEMPORAL_GRANULARITY_UNSPECIFIED =
+      TemporalGranularity._(
+          0, _omitEnumNames ? '' : 'TEMPORAL_GRANULARITY_UNSPECIFIED');
+  static const TemporalGranularity TEMPORAL_GRANULARITY_YEAR =
+      TemporalGranularity._(
+          1, _omitEnumNames ? '' : 'TEMPORAL_GRANULARITY_YEAR');
+  static const TemporalGranularity TEMPORAL_GRANULARITY_SEASON =
+      TemporalGranularity._(
+          2, _omitEnumNames ? '' : 'TEMPORAL_GRANULARITY_SEASON');
+  static const TemporalGranularity TEMPORAL_GRANULARITY_MONTH =
+      TemporalGranularity._(
+          3, _omitEnumNames ? '' : 'TEMPORAL_GRANULARITY_MONTH');
+  static const TemporalGranularity TEMPORAL_GRANULARITY_WEEK =
+      TemporalGranularity._(
+          4, _omitEnumNames ? '' : 'TEMPORAL_GRANULARITY_WEEK');
+  static const TemporalGranularity TEMPORAL_GRANULARITY_DAY =
+      TemporalGranularity._(
+          5, _omitEnumNames ? '' : 'TEMPORAL_GRANULARITY_DAY');
+  static const TemporalGranularity TEMPORAL_GRANULARITY_RANGE =
+      TemporalGranularity._(
+          6, _omitEnumNames ? '' : 'TEMPORAL_GRANULARITY_RANGE');
+
+  static const $core.List<TemporalGranularity> values = <TemporalGranularity>[
+    TEMPORAL_GRANULARITY_UNSPECIFIED,
+    TEMPORAL_GRANULARITY_YEAR,
+    TEMPORAL_GRANULARITY_SEASON,
+    TEMPORAL_GRANULARITY_MONTH,
+    TEMPORAL_GRANULARITY_WEEK,
+    TEMPORAL_GRANULARITY_DAY,
+    TEMPORAL_GRANULARITY_RANGE,
+  ];
+
+  static final $core.List<TemporalGranularity?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 6);
+  static TemporalGranularity? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const TemporalGranularity._(super.value, super.name);
+}
+
 class NodeConnectionKind extends $pb.ProtobufEnum {
   static const NodeConnectionKind NODE_CONNECTION_KIND_UNSPECIFIED =
       NodeConnectionKind._(

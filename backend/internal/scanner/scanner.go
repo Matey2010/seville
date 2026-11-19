@@ -20,7 +20,6 @@ import (
 
 var (
 	headingPattern     = regexp.MustCompile(`(?m)^#\s+(.+?)\s*$`)
-	inlineTagPattern   = regexp.MustCompile(`(?:^|[\s(])#([\pL\pN_/-]+)`)
 	wikiPattern        = regexp.MustCompile(`(!?)\[\[([^\]]+)\]\]`)
 	markdownPattern    = regexp.MustCompile(`!?\[([^\]]*)\]\(([^)]+)\)`)
 	frontmatterPattern = regexp.MustCompile(`(?s)\A---\r?\n(.*?)\r?\n---(?:\r?\n|$)`)
@@ -79,12 +78,12 @@ func Scan(root string) (*nodev2.NodeSnapshot, error) {
 	slices.SortFunc(candidates, func(a, b candidate) int {
 		return strings.Compare(a.node.Path, b.node.Path)
 	})
-	ids := make(map[string]string, len(candidates))
+	slugs := make(map[string]string, len(candidates))
 	for _, item := range candidates {
-		if previous, exists := ids[item.node.Id]; exists {
-			return nil, fmt.Errorf("duplicate frontmatter id %q in %s and %s", item.node.Id, previous, item.node.Path)
+		if previous, exists := slugs[item.node.Slug]; exists {
+			return nil, fmt.Errorf("duplicate slug %q in %s and %s", item.node.Slug, previous, item.node.Path)
 		}
-		ids[item.node.Id] = item.node.Path
+		slugs[item.node.Slug] = item.node.Path
 	}
 	resolveConnections(candidates)
 
@@ -112,10 +111,15 @@ func parseFile(path, relative string) (candidate, string, error) {
 
 	body := string(content)
 	typedFrontmatter, bodyWithoutFrontmatter, warning := parseFrontmatter(body)
+	for key := range typedFrontmatter {
+		if strings.EqualFold(key, "id") || strings.EqualFold(key, "tags") || strings.EqualFold(key, "tags_json") {
+			delete(typedFrontmatter, key)
+		}
+	}
 	frontmatter := flattenFrontmatter(typedFrontmatter)
-	id := scalarString(typedFrontmatter["id"])
-	if id == "" {
-		return candidate{}, warning, fmt.Errorf("frontmatter id is required")
+	slug := scalarString(typedFrontmatter["slug"])
+	if slug == "" {
+		slug = strings.TrimSuffix(relative, filepath.Ext(relative))
 	}
 	title := scalarString(typedFrontmatter["title"])
 	if title == "" {
@@ -127,17 +131,15 @@ func parseFile(path, relative string) (candidate, string, error) {
 		title = strings.TrimSuffix(filepath.Base(relative), filepath.Ext(relative))
 	}
 
-	tags := collectTags(typedFrontmatter["tags"], bodyWithoutFrontmatter)
 	node := &nodev2.Node{
-		Id:          id,
+		Slug:        slug,
 		Path:        relative,
 		Title:       title,
 		Body:        body,
-		Tags:        tags,
 		Frontmatter: frontmatter,
 		ModifiedAt:  timestamppb.New(info.ModTime().UTC()),
 	}
-	return candidate{node: node, connections: extractConnections(node.Id, bodyWithoutFrontmatter)}, warning, nil
+	return candidate{node: node, connections: extractConnections(node.Slug, bodyWithoutFrontmatter)}, warning, nil
 }
 
 func parseFrontmatter(body string) (map[string]any, string, string) {
@@ -200,45 +202,7 @@ func scalarString(value any) string {
 	}
 }
 
-func collectTags(frontmatterTags any, body string) []string {
-	set := make(map[string]struct{})
-	add := func(value string) {
-		for _, tag := range strings.FieldsFunc(strings.Trim(value, "[]"), func(r rune) bool {
-			return r == ',' || r == ' '
-		}) {
-			if tag = normalizeTag(tag); tag != "" {
-				set[tag] = struct{}{}
-			}
-		}
-	}
-	switch values := frontmatterTags.(type) {
-	case []any:
-		for _, value := range values {
-			add(scalarString(value))
-		}
-	case []string:
-		for _, value := range values {
-			add(value)
-		}
-	default:
-		add(scalarString(values))
-	}
-	for _, match := range inlineTagPattern.FindAllStringSubmatch(body, -1) {
-		add(match[1])
-	}
-	tags := make([]string, 0, len(set))
-	for tag := range set {
-		tags = append(tags, tag)
-	}
-	slices.Sort(tags)
-	return tags
-}
-
-func normalizeTag(value string) string {
-	return strings.ToLower(strings.Trim(strings.TrimSpace(value), `"'#`))
-}
-
-func extractConnections(sourceID, body string) []*nodev2.NodeConnection {
+func extractConnections(sourceSlug, body string) []*nodev2.NodeConnection {
 	var connections []*nodev2.NodeConnection
 	for _, match := range wikiPattern.FindAllStringSubmatch(body, -1) {
 		target, display := splitAlias(match[2])
@@ -247,7 +211,7 @@ func extractConnections(sourceID, body string) []*nodev2.NodeConnection {
 		if match[1] == "!" {
 			kind = nodev2.NodeConnectionKind_NODE_CONNECTION_KIND_EMBED
 		}
-		connection := &nodev2.NodeConnection{SourceNodeId: sourceID, TargetText: target, Kind: kind}
+		connection := &nodev2.NodeConnection{SourceNodeSlug: sourceSlug, TargetText: target, Kind: kind}
 		if display != "" {
 			connection.DisplayText = &display
 		}
@@ -262,9 +226,9 @@ func extractConnections(sourceID, body string) []*nodev2.NodeConnection {
 			continue
 		}
 		connection := &nodev2.NodeConnection{
-			SourceNodeId: sourceID,
-			TargetText:   strings.TrimSuffix(target, ".md"),
-			Kind:         nodev2.NodeConnectionKind_NODE_CONNECTION_KIND_MARKDOWN,
+			SourceNodeSlug: sourceSlug,
+			TargetText:     strings.TrimSuffix(target, ".md"),
+			Kind:           nodev2.NodeConnectionKind_NODE_CONNECTION_KIND_MARKDOWN,
 		}
 		if match[1] != "" {
 			display := match[1]
@@ -280,8 +244,8 @@ func extractConnections(sourceID, body string) []*nodev2.NodeConnection {
 
 // ExtractConnections uses the same Markdown connection syntax for imported
 // source documents and canonical Node body edits.
-func ExtractConnections(sourceID, body string) []*nodev2.NodeConnection {
-	return extractConnections(sourceID, body)
+func ExtractConnections(sourceSlug, body string) []*nodev2.NodeConnection {
+	return extractConnections(sourceSlug, body)
 }
 
 func resolveConnections(candidates []candidate) {
@@ -289,9 +253,9 @@ func resolveConnections(candidates []candidate) {
 	byName := make(map[string][]string)
 	for _, item := range candidates {
 		withoutExtension := strings.TrimSuffix(item.node.Path, ".md")
-		byPath[strings.ToLower(withoutExtension)] = item.node.Id
+		byPath[strings.ToLower(withoutExtension)] = item.node.Slug
 		name := strings.ToLower(filepath.Base(withoutExtension))
-		byName[name] = append(byName[name], item.node.Id)
+		byName[name] = append(byName[name], item.node.Slug)
 	}
 
 	for _, item := range candidates {
@@ -303,14 +267,14 @@ func resolveConnections(candidates []candidate) {
 				keys = append(keys, strings.ToLower(filepath.ToSlash(filepath.Clean(filepath.Join(sourceDir, target)))))
 			}
 			for _, key := range keys {
-				if id, ok := byPath[key]; ok {
-					connection.TargetNodeId = &id
+				if slug, ok := byPath[key]; ok {
+					connection.TargetNodeSlug = &slug
 					break
 				}
 			}
-			if connection.TargetNodeId == nil {
-				if ids := byName[strings.ToLower(filepath.Base(target))]; len(ids) == 1 {
-					connection.TargetNodeId = &ids[0]
+			if connection.TargetNodeSlug == nil {
+				if slugs := byName[strings.ToLower(filepath.Base(target))]; len(slugs) == 1 {
+					connection.TargetNodeSlug = &slugs[0]
 				}
 			}
 		}
@@ -336,13 +300,10 @@ func splitFragment(value string) (string, string) {
 func revision(snapshot *nodev2.NodeSnapshot) string {
 	hash := sha256.New()
 	for _, node := range snapshot.Nodes {
-		fmt.Fprintf(hash, "n\x00%s\x00%s\x00%s\x00%s\x00", node.Id, node.Path, node.Title, node.Body)
-		for _, tag := range node.Tags {
-			fmt.Fprintf(hash, "t\x00%s\x00", tag)
-		}
+		fmt.Fprintf(hash, "n\x00%s\x00%s\x00%s\x00%s\x00", node.Slug, node.Path, node.Title, node.Body)
 	}
 	for _, connection := range snapshot.Connections {
-		fmt.Fprintf(hash, "l\x00%s\x00%s\x00%s\x00%d\x00", connection.SourceNodeId, connection.TargetText, connection.GetTargetNodeId(), connection.Kind)
+		fmt.Fprintf(hash, "l\x00%s\x00%s\x00%s\x00%d\x00", connection.SourceNodeSlug, connection.TargetText, connection.GetTargetNodeSlug(), connection.Kind)
 	}
 	return hex.EncodeToString(hash.Sum(nil))
 }

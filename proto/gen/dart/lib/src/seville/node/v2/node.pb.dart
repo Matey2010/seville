@@ -115,30 +115,28 @@ class NodeSnapshot extends $pb.GeneratedMessage {
 
 class Node extends $pb.GeneratedMessage {
   factory Node({
-    $core.String? id,
     $core.String? path,
     $core.String? title,
     $core.String? body,
-    $core.Iterable<$core.String>? tags,
     $core.Iterable<$core.MapEntry<$core.String, $core.String>>? frontmatter,
     $0.Timestamp? modifiedAt,
     $core.Iterable<Emoji>? emojis,
     $core.Iterable<$core.String>? labels,
     $core.String? slug,
     $fixnum.Int64? updateCount,
+    NodeTemporalSpan? temporalSpan,
   }) {
     final result = create();
-    if (id != null) result.id = id;
     if (path != null) result.path = path;
     if (title != null) result.title = title;
     if (body != null) result.body = body;
-    if (tags != null) result.tags.addAll(tags);
     if (frontmatter != null) result.frontmatter.addEntries(frontmatter);
     if (modifiedAt != null) result.modifiedAt = modifiedAt;
     if (emojis != null) result.emojis.addAll(emojis);
     if (labels != null) result.labels.addAll(labels);
     if (slug != null) result.slug = slug;
     if (updateCount != null) result.updateCount = updateCount;
+    if (temporalSpan != null) result.temporalSpan = temporalSpan;
     return result;
   }
 
@@ -156,11 +154,9 @@ class Node extends $pb.GeneratedMessage {
       package:
           const $pb.PackageName(_omitMessageNames ? '' : 'seville.node.v2'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'id')
     ..aOS(2, _omitFieldNames ? '' : 'path')
     ..aOS(3, _omitFieldNames ? '' : 'title')
     ..aOS(4, _omitFieldNames ? '' : 'body')
-    ..pPS(5, _omitFieldNames ? '' : 'tags')
     ..m<$core.String, $core.String>(6, _omitFieldNames ? '' : 'frontmatter',
         entryClassName: 'Node.FrontmatterEntry',
         keyFieldType: $pb.PbFieldType.OS,
@@ -174,6 +170,8 @@ class Node extends $pb.GeneratedMessage {
     ..a<$fixnum.Int64>(
         11, _omitFieldNames ? '' : 'updateCount', $pb.PbFieldType.OU6,
         defaultOrMaker: $fixnum.Int64.ZERO)
+    ..aOM<NodeTemporalSpan>(12, _omitFieldNames ? '' : 'temporalSpan',
+        subBuilder: NodeTemporalSpan.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -194,82 +192,162 @@ class Node extends $pb.GeneratedMessage {
       _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Node>(create);
   static Node? _defaultInstance;
 
-  @$pb.TagNumber(1)
-  $core.String get id => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set id($core.String value) => $_setString(0, value);
-  @$pb.TagNumber(1)
-  $core.bool hasId() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearId() => $_clearField(1);
-
   @$pb.TagNumber(2)
-  $core.String get path => $_getSZ(1);
+  $core.String get path => $_getSZ(0);
   @$pb.TagNumber(2)
-  set path($core.String value) => $_setString(1, value);
+  set path($core.String value) => $_setString(0, value);
   @$pb.TagNumber(2)
-  $core.bool hasPath() => $_has(1);
+  $core.bool hasPath() => $_has(0);
   @$pb.TagNumber(2)
   void clearPath() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  $core.String get title => $_getSZ(2);
+  $core.String get title => $_getSZ(1);
   @$pb.TagNumber(3)
-  set title($core.String value) => $_setString(2, value);
+  set title($core.String value) => $_setString(1, value);
   @$pb.TagNumber(3)
-  $core.bool hasTitle() => $_has(2);
+  $core.bool hasTitle() => $_has(1);
   @$pb.TagNumber(3)
   void clearTitle() => $_clearField(3);
 
   @$pb.TagNumber(4)
-  $core.String get body => $_getSZ(3);
+  $core.String get body => $_getSZ(2);
   @$pb.TagNumber(4)
-  set body($core.String value) => $_setString(3, value);
+  set body($core.String value) => $_setString(2, value);
   @$pb.TagNumber(4)
-  $core.bool hasBody() => $_has(3);
+  $core.bool hasBody() => $_has(2);
   @$pb.TagNumber(4)
   void clearBody() => $_clearField(4);
 
-  @$pb.TagNumber(5)
-  $pb.PbList<$core.String> get tags => $_getList(4);
-
   @$pb.TagNumber(6)
-  $pb.PbMap<$core.String, $core.String> get frontmatter => $_getMap(5);
+  $pb.PbMap<$core.String, $core.String> get frontmatter => $_getMap(3);
 
   @$pb.TagNumber(7)
-  $0.Timestamp get modifiedAt => $_getN(6);
+  $0.Timestamp get modifiedAt => $_getN(4);
   @$pb.TagNumber(7)
   set modifiedAt($0.Timestamp value) => $_setField(7, value);
   @$pb.TagNumber(7)
-  $core.bool hasModifiedAt() => $_has(6);
+  $core.bool hasModifiedAt() => $_has(4);
   @$pb.TagNumber(7)
   void clearModifiedAt() => $_clearField(7);
   @$pb.TagNumber(7)
-  $0.Timestamp ensureModifiedAt() => $_ensure(6);
+  $0.Timestamp ensureModifiedAt() => $_ensure(4);
 
   @$pb.TagNumber(8)
-  $pb.PbList<Emoji> get emojis => $_getList(7);
+  $pb.PbList<Emoji> get emojis => $_getList(5);
 
   @$pb.TagNumber(9)
-  $pb.PbList<$core.String> get labels => $_getList(8);
+  $pb.PbList<$core.String> get labels => $_getList(6);
 
   @$pb.TagNumber(10)
-  $core.String get slug => $_getSZ(9);
+  $core.String get slug => $_getSZ(7);
   @$pb.TagNumber(10)
-  set slug($core.String value) => $_setString(9, value);
+  set slug($core.String value) => $_setString(7, value);
   @$pb.TagNumber(10)
-  $core.bool hasSlug() => $_has(9);
+  $core.bool hasSlug() => $_has(7);
   @$pb.TagNumber(10)
   void clearSlug() => $_clearField(10);
 
   @$pb.TagNumber(11)
-  $fixnum.Int64 get updateCount => $_getI64(10);
+  $fixnum.Int64 get updateCount => $_getI64(8);
   @$pb.TagNumber(11)
-  set updateCount($fixnum.Int64 value) => $_setInt64(10, value);
+  set updateCount($fixnum.Int64 value) => $_setInt64(8, value);
   @$pb.TagNumber(11)
-  $core.bool hasUpdateCount() => $_has(10);
+  $core.bool hasUpdateCount() => $_has(8);
   @$pb.TagNumber(11)
   void clearUpdateCount() => $_clearField(11);
+
+  @$pb.TagNumber(12)
+  NodeTemporalSpan get temporalSpan => $_getN(9);
+  @$pb.TagNumber(12)
+  set temporalSpan(NodeTemporalSpan value) => $_setField(12, value);
+  @$pb.TagNumber(12)
+  $core.bool hasTemporalSpan() => $_has(9);
+  @$pb.TagNumber(12)
+  void clearTemporalSpan() => $_clearField(12);
+  @$pb.TagNumber(12)
+  NodeTemporalSpan ensureTemporalSpan() => $_ensure(9);
+}
+
+/// Calendar interval [start_date, end_date_exclusive), stored as native Neo4j DATE values.
+class NodeTemporalSpan extends $pb.GeneratedMessage {
+  factory NodeTemporalSpan({
+    $core.String? startDate,
+    $core.String? endDateExclusive,
+    TemporalGranularity? granularity,
+  }) {
+    final result = create();
+    if (startDate != null) result.startDate = startDate;
+    if (endDateExclusive != null) result.endDateExclusive = endDateExclusive;
+    if (granularity != null) result.granularity = granularity;
+    return result;
+  }
+
+  NodeTemporalSpan._();
+
+  factory NodeTemporalSpan.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory NodeTemporalSpan.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'NodeTemporalSpan',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'seville.node.v2'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'startDate')
+    ..aOS(2, _omitFieldNames ? '' : 'endDateExclusive')
+    ..aE<TemporalGranularity>(3, _omitFieldNames ? '' : 'granularity',
+        enumValues: TemporalGranularity.values)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  NodeTemporalSpan clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  NodeTemporalSpan copyWith(void Function(NodeTemporalSpan) updates) =>
+      super.copyWith((message) => updates(message as NodeTemporalSpan))
+          as NodeTemporalSpan;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static NodeTemporalSpan create() => NodeTemporalSpan._();
+  @$core.override
+  NodeTemporalSpan createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static NodeTemporalSpan getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<NodeTemporalSpan>(create);
+  static NodeTemporalSpan? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get startDate => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set startDate($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasStartDate() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearStartDate() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get endDateExclusive => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set endDateExclusive($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasEndDateExclusive() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearEndDateExclusive() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  TemporalGranularity get granularity => $_getN(2);
+  @$pb.TagNumber(3)
+  set granularity(TemporalGranularity value) => $_setField(3, value);
+  @$pb.TagNumber(3)
+  $core.bool hasGranularity() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearGranularity() => $_clearField(3);
 }
 
 class Emoji extends $pb.GeneratedMessage {
@@ -455,17 +533,17 @@ class Emoji extends $pb.GeneratedMessage {
 
 class NodeConnection extends $pb.GeneratedMessage {
   factory NodeConnection({
-    $core.String? sourceNodeId,
+    $core.String? sourceNodeSlug,
     $core.String? targetText,
-    $core.String? targetNodeId,
+    $core.String? targetNodeSlug,
     $core.String? displayText,
     NodeConnectionKind? kind,
     $core.String? fragment,
   }) {
     final result = create();
-    if (sourceNodeId != null) result.sourceNodeId = sourceNodeId;
+    if (sourceNodeSlug != null) result.sourceNodeSlug = sourceNodeSlug;
     if (targetText != null) result.targetText = targetText;
-    if (targetNodeId != null) result.targetNodeId = targetNodeId;
+    if (targetNodeSlug != null) result.targetNodeSlug = targetNodeSlug;
     if (displayText != null) result.displayText = displayText;
     if (kind != null) result.kind = kind;
     if (fragment != null) result.fragment = fragment;
@@ -486,9 +564,9 @@ class NodeConnection extends $pb.GeneratedMessage {
       package:
           const $pb.PackageName(_omitMessageNames ? '' : 'seville.node.v2'),
       createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'sourceNodeId')
+    ..aOS(1, _omitFieldNames ? '' : 'sourceNodeSlug')
     ..aOS(2, _omitFieldNames ? '' : 'targetText')
-    ..aOS(3, _omitFieldNames ? '' : 'targetNodeId')
+    ..aOS(3, _omitFieldNames ? '' : 'targetNodeSlug')
     ..aOS(4, _omitFieldNames ? '' : 'displayText')
     ..aE<NodeConnectionKind>(5, _omitFieldNames ? '' : 'kind',
         enumValues: NodeConnectionKind.values)
@@ -515,13 +593,13 @@ class NodeConnection extends $pb.GeneratedMessage {
   static NodeConnection? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.String get sourceNodeId => $_getSZ(0);
+  $core.String get sourceNodeSlug => $_getSZ(0);
   @$pb.TagNumber(1)
-  set sourceNodeId($core.String value) => $_setString(0, value);
+  set sourceNodeSlug($core.String value) => $_setString(0, value);
   @$pb.TagNumber(1)
-  $core.bool hasSourceNodeId() => $_has(0);
+  $core.bool hasSourceNodeSlug() => $_has(0);
   @$pb.TagNumber(1)
-  void clearSourceNodeId() => $_clearField(1);
+  void clearSourceNodeSlug() => $_clearField(1);
 
   @$pb.TagNumber(2)
   $core.String get targetText => $_getSZ(1);
@@ -533,13 +611,13 @@ class NodeConnection extends $pb.GeneratedMessage {
   void clearTargetText() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  $core.String get targetNodeId => $_getSZ(2);
+  $core.String get targetNodeSlug => $_getSZ(2);
   @$pb.TagNumber(3)
-  set targetNodeId($core.String value) => $_setString(2, value);
+  set targetNodeSlug($core.String value) => $_setString(2, value);
   @$pb.TagNumber(3)
-  $core.bool hasTargetNodeId() => $_has(2);
+  $core.bool hasTargetNodeSlug() => $_has(2);
   @$pb.TagNumber(3)
-  void clearTargetNodeId() => $_clearField(3);
+  void clearTargetNodeSlug() => $_clearField(3);
 
   @$pb.TagNumber(4)
   $core.String get displayText => $_getSZ(3);

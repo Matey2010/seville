@@ -32,6 +32,8 @@ class NodeColorRule extends $pb.GeneratedMessage {
     $core.String? value,
     $core.String? frontmatterKey,
     $core.String? colorHex,
+    $core.double? gravityScale,
+    $core.double? sizeScale,
   }) {
     final result = create();
     if (name != null) result.name = name;
@@ -42,6 +44,8 @@ class NodeColorRule extends $pb.GeneratedMessage {
     if (value != null) result.value = value;
     if (frontmatterKey != null) result.frontmatterKey = frontmatterKey;
     if (colorHex != null) result.colorHex = colorHex;
+    if (gravityScale != null) result.gravityScale = gravityScale;
+    if (sizeScale != null) result.sizeScale = sizeScale;
     return result;
   }
 
@@ -69,6 +73,8 @@ class NodeColorRule extends $pb.GeneratedMessage {
     ..aOS(6, _omitFieldNames ? '' : 'value')
     ..aOS(7, _omitFieldNames ? '' : 'frontmatterKey')
     ..aOS(8, _omitFieldNames ? '' : 'colorHex')
+    ..aD(9, _omitFieldNames ? '' : 'gravityScale')
+    ..aD(10, _omitFieldNames ? '' : 'sizeScale')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -161,6 +167,26 @@ class NodeColorRule extends $pb.GeneratedMessage {
   $core.bool hasColorHex() => $_has(7);
   @$pb.TagNumber(8)
   void clearColorHex() => $_clearField(8);
+
+  /// Multiplies the pull toward a Node's resting position. 1 is the default.
+  @$pb.TagNumber(9)
+  $core.double get gravityScale => $_getN(8);
+  @$pb.TagNumber(9)
+  set gravityScale($core.double value) => $_setDouble(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasGravityScale() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearGravityScale() => $_clearField(9);
+
+  /// Multiplies the rendered and colliding circle diameter. 1 is the default.
+  @$pb.TagNumber(10)
+  $core.double get sizeScale => $_getN(9);
+  @$pb.TagNumber(10)
+  set sizeScale($core.double value) => $_setDouble(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasSizeScale() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearSizeScale() => $_clearField(10);
 }
 
 /// PUT replaces the complete shared ruleset when revision matches the server.

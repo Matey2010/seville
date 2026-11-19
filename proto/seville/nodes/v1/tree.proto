@@ -13,12 +13,12 @@ enum NodeRelationshipType {
 }
 
 enum NodeParameterType {
+  reserved 2, 5;
+  reserved "NODE_PARAMETER_TYPE_ID", "NODE_PARAMETER_TYPE_TAG";
   NODE_PARAMETER_TYPE_UNSPECIFIED = 0;
   NODE_PARAMETER_TYPE_NAME = 1;
-  NODE_PARAMETER_TYPE_ID = 2;
   NODE_PARAMETER_TYPE_PATH = 3;
   NODE_PARAMETER_TYPE_TITLE = 4;
-  NODE_PARAMETER_TYPE_TAG = 5;
   NODE_PARAMETER_TYPE_LABEL = 6;
   NODE_PARAMETER_TYPE_SLUG = 7;
 }
@@ -89,7 +89,7 @@ message NodeMutationResult {
 }
 
 message NodeTreeQuery {
-  optional string root_node_id = 1;
+  optional string root_node_slug = 1;
   optional uint32 depth = 2;
   NodeRelationshipType traverse_by = 3;
   optional NodeSearchFilter node_filter = 4;
@@ -104,7 +104,7 @@ message NodeTreeOccurrence {
 }
 
 message NodeTree {
-  string root_node_id = 1;
+  string root_node_slug = 1;
   NodeRelationshipType relationship = 2;
   uint32 depth = 3;
   repeated NodeTreeOccurrence occurrences = 4;
@@ -112,7 +112,7 @@ message NodeTree {
 
 // A bounded view of the canonical Node connection graph.
 message NodeGraphQuery {
-  optional string root_node_id = 1;
+  optional string root_node_slug = 1;
   uint32 depth = 2;
   uint32 limit = 3;
   string search = 4;
@@ -127,4 +127,38 @@ message NodeGraph {
 message NodeBodyUpdateRequest {
   string body = 1;
   uint64 expected_update_count = 2;
+}
+
+// PUT replaces one Node's complete temporal span; an absent span clears it.
+message NodeTemporalUpdateRequest {
+  seville.node.v2.NodeTemporalSpan span = 1;
+  uint64 expected_update_count = 2;
+}
+
+// PUT replaces one canonical Node's complete set of Neo4j labels.
+message NodeLabelsUpdateRequest {
+  repeated string labels = 1;
+  uint64 expected_update_count = 2;
+}
+
+message LabelSearchQuery {
+  string prefix = 1;
+  uint32 limit = 2;
+}
+
+message LabelSummary {
+  string name = 1;
+  uint64 node_count = 2;
+}
+
+message LabelSearchResult {
+  repeated LabelSummary labels = 1;
+}
+
+message LabelRenameRequest {
+  string new_name = 1;
+}
+
+message LabelMutationResult {
+  uint64 changed_node_count = 1;
 }

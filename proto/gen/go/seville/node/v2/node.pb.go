@@ -22,6 +22,67 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type TemporalGranularity int32
+
+const (
+	TemporalGranularity_TEMPORAL_GRANULARITY_UNSPECIFIED TemporalGranularity = 0
+	TemporalGranularity_TEMPORAL_GRANULARITY_YEAR        TemporalGranularity = 1
+	TemporalGranularity_TEMPORAL_GRANULARITY_SEASON      TemporalGranularity = 2
+	TemporalGranularity_TEMPORAL_GRANULARITY_MONTH       TemporalGranularity = 3
+	TemporalGranularity_TEMPORAL_GRANULARITY_WEEK        TemporalGranularity = 4
+	TemporalGranularity_TEMPORAL_GRANULARITY_DAY         TemporalGranularity = 5
+	TemporalGranularity_TEMPORAL_GRANULARITY_RANGE       TemporalGranularity = 6
+)
+
+// Enum value maps for TemporalGranularity.
+var (
+	TemporalGranularity_name = map[int32]string{
+		0: "TEMPORAL_GRANULARITY_UNSPECIFIED",
+		1: "TEMPORAL_GRANULARITY_YEAR",
+		2: "TEMPORAL_GRANULARITY_SEASON",
+		3: "TEMPORAL_GRANULARITY_MONTH",
+		4: "TEMPORAL_GRANULARITY_WEEK",
+		5: "TEMPORAL_GRANULARITY_DAY",
+		6: "TEMPORAL_GRANULARITY_RANGE",
+	}
+	TemporalGranularity_value = map[string]int32{
+		"TEMPORAL_GRANULARITY_UNSPECIFIED": 0,
+		"TEMPORAL_GRANULARITY_YEAR":        1,
+		"TEMPORAL_GRANULARITY_SEASON":      2,
+		"TEMPORAL_GRANULARITY_MONTH":       3,
+		"TEMPORAL_GRANULARITY_WEEK":        4,
+		"TEMPORAL_GRANULARITY_DAY":         5,
+		"TEMPORAL_GRANULARITY_RANGE":       6,
+	}
+)
+
+func (x TemporalGranularity) Enum() *TemporalGranularity {
+	p := new(TemporalGranularity)
+	*p = x
+	return p
+}
+
+func (x TemporalGranularity) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (TemporalGranularity) Descriptor() protoreflect.EnumDescriptor {
+	return file_seville_node_v2_node_proto_enumTypes[0].Descriptor()
+}
+
+func (TemporalGranularity) Type() protoreflect.EnumType {
+	return &file_seville_node_v2_node_proto_enumTypes[0]
+}
+
+func (x TemporalGranularity) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use TemporalGranularity.Descriptor instead.
+func (TemporalGranularity) EnumDescriptor() ([]byte, []int) {
+	return file_seville_node_v2_node_proto_rawDescGZIP(), []int{0}
+}
+
 type NodeConnectionKind int32
 
 const (
@@ -58,11 +119,11 @@ func (x NodeConnectionKind) String() string {
 }
 
 func (NodeConnectionKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_seville_node_v2_node_proto_enumTypes[0].Descriptor()
+	return file_seville_node_v2_node_proto_enumTypes[1].Descriptor()
 }
 
 func (NodeConnectionKind) Type() protoreflect.EnumType {
-	return &file_seville_node_v2_node_proto_enumTypes[0]
+	return &file_seville_node_v2_node_proto_enumTypes[1]
 }
 
 func (x NodeConnectionKind) Number() protoreflect.EnumNumber {
@@ -71,7 +132,7 @@ func (x NodeConnectionKind) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use NodeConnectionKind.Descriptor instead.
 func (NodeConnectionKind) EnumDescriptor() ([]byte, []int) {
-	return file_seville_node_v2_node_proto_rawDescGZIP(), []int{0}
+	return file_seville_node_v2_node_proto_rawDescGZIP(), []int{1}
 }
 
 type NodeSnapshot struct {
@@ -152,17 +213,16 @@ func (x *NodeSnapshot) GetWarnings() []*ImportWarning {
 
 type Node struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	Path          string                 `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
 	Title         string                 `protobuf:"bytes,3,opt,name=title,proto3" json:"title,omitempty"`
 	Body          string                 `protobuf:"bytes,4,opt,name=body,proto3" json:"body,omitempty"`
-	Tags          []string               `protobuf:"bytes,5,rep,name=tags,proto3" json:"tags,omitempty"`
 	Frontmatter   map[string]string      `protobuf:"bytes,6,rep,name=frontmatter,proto3" json:"frontmatter,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	ModifiedAt    *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=modified_at,json=modifiedAt,proto3" json:"modified_at,omitempty"`
 	Emojis        []*Emoji               `protobuf:"bytes,8,rep,name=emojis,proto3" json:"emojis,omitempty"`
 	Labels        []string               `protobuf:"bytes,9,rep,name=labels,proto3" json:"labels,omitempty"`
 	Slug          string                 `protobuf:"bytes,10,opt,name=slug,proto3" json:"slug,omitempty"`
 	UpdateCount   uint64                 `protobuf:"varint,11,opt,name=update_count,json=updateCount,proto3" json:"update_count,omitempty"`
+	TemporalSpan  *NodeTemporalSpan      `protobuf:"bytes,12,opt,name=temporal_span,json=temporalSpan,proto3" json:"temporal_span,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -197,13 +257,6 @@ func (*Node) Descriptor() ([]byte, []int) {
 	return file_seville_node_v2_node_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *Node) GetId() string {
-	if x != nil {
-		return x.Id
-	}
-	return ""
-}
-
 func (x *Node) GetPath() string {
 	if x != nil {
 		return x.Path
@@ -223,13 +276,6 @@ func (x *Node) GetBody() string {
 		return x.Body
 	}
 	return ""
-}
-
-func (x *Node) GetTags() []string {
-	if x != nil {
-		return x.Tags
-	}
-	return nil
 }
 
 func (x *Node) GetFrontmatter() map[string]string {
@@ -274,6 +320,74 @@ func (x *Node) GetUpdateCount() uint64 {
 	return 0
 }
 
+func (x *Node) GetTemporalSpan() *NodeTemporalSpan {
+	if x != nil {
+		return x.TemporalSpan
+	}
+	return nil
+}
+
+// Calendar interval [start_date, end_date_exclusive), stored as native Neo4j DATE values.
+type NodeTemporalSpan struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	StartDate        string                 `protobuf:"bytes,1,opt,name=start_date,json=startDate,proto3" json:"start_date,omitempty"`
+	EndDateExclusive string                 `protobuf:"bytes,2,opt,name=end_date_exclusive,json=endDateExclusive,proto3" json:"end_date_exclusive,omitempty"`
+	Granularity      TemporalGranularity    `protobuf:"varint,3,opt,name=granularity,proto3,enum=seville.node.v2.TemporalGranularity" json:"granularity,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *NodeTemporalSpan) Reset() {
+	*x = NodeTemporalSpan{}
+	mi := &file_seville_node_v2_node_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NodeTemporalSpan) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NodeTemporalSpan) ProtoMessage() {}
+
+func (x *NodeTemporalSpan) ProtoReflect() protoreflect.Message {
+	mi := &file_seville_node_v2_node_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NodeTemporalSpan.ProtoReflect.Descriptor instead.
+func (*NodeTemporalSpan) Descriptor() ([]byte, []int) {
+	return file_seville_node_v2_node_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *NodeTemporalSpan) GetStartDate() string {
+	if x != nil {
+		return x.StartDate
+	}
+	return ""
+}
+
+func (x *NodeTemporalSpan) GetEndDateExclusive() string {
+	if x != nil {
+		return x.EndDateExclusive
+	}
+	return ""
+}
+
+func (x *NodeTemporalSpan) GetGranularity() TemporalGranularity {
+	if x != nil {
+		return x.Granularity
+	}
+	return TemporalGranularity_TEMPORAL_GRANULARITY_UNSPECIFIED
+}
+
 type Emoji struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -293,7 +407,7 @@ type Emoji struct {
 
 func (x *Emoji) Reset() {
 	*x = Emoji{}
-	mi := &file_seville_node_v2_node_proto_msgTypes[2]
+	mi := &file_seville_node_v2_node_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -305,7 +419,7 @@ func (x *Emoji) String() string {
 func (*Emoji) ProtoMessage() {}
 
 func (x *Emoji) ProtoReflect() protoreflect.Message {
-	mi := &file_seville_node_v2_node_proto_msgTypes[2]
+	mi := &file_seville_node_v2_node_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -318,7 +432,7 @@ func (x *Emoji) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Emoji.ProtoReflect.Descriptor instead.
 func (*Emoji) Descriptor() ([]byte, []int) {
-	return file_seville_node_v2_node_proto_rawDescGZIP(), []int{2}
+	return file_seville_node_v2_node_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *Emoji) GetId() string {
@@ -399,20 +513,20 @@ func (x *Emoji) GetUpdatedAt() *timestamppb.Timestamp {
 }
 
 type NodeConnection struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	SourceNodeId  string                 `protobuf:"bytes,1,opt,name=source_node_id,json=sourceNodeId,proto3" json:"source_node_id,omitempty"`
-	TargetText    string                 `protobuf:"bytes,2,opt,name=target_text,json=targetText,proto3" json:"target_text,omitempty"`
-	TargetNodeId  *string                `protobuf:"bytes,3,opt,name=target_node_id,json=targetNodeId,proto3,oneof" json:"target_node_id,omitempty"`
-	DisplayText   *string                `protobuf:"bytes,4,opt,name=display_text,json=displayText,proto3,oneof" json:"display_text,omitempty"`
-	Kind          NodeConnectionKind     `protobuf:"varint,5,opt,name=kind,proto3,enum=seville.node.v2.NodeConnectionKind" json:"kind,omitempty"`
-	Fragment      *string                `protobuf:"bytes,6,opt,name=fragment,proto3,oneof" json:"fragment,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	SourceNodeSlug string                 `protobuf:"bytes,1,opt,name=source_node_slug,json=sourceNodeSlug,proto3" json:"source_node_slug,omitempty"`
+	TargetText     string                 `protobuf:"bytes,2,opt,name=target_text,json=targetText,proto3" json:"target_text,omitempty"`
+	TargetNodeSlug *string                `protobuf:"bytes,3,opt,name=target_node_slug,json=targetNodeSlug,proto3,oneof" json:"target_node_slug,omitempty"`
+	DisplayText    *string                `protobuf:"bytes,4,opt,name=display_text,json=displayText,proto3,oneof" json:"display_text,omitempty"`
+	Kind           NodeConnectionKind     `protobuf:"varint,5,opt,name=kind,proto3,enum=seville.node.v2.NodeConnectionKind" json:"kind,omitempty"`
+	Fragment       *string                `protobuf:"bytes,6,opt,name=fragment,proto3,oneof" json:"fragment,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *NodeConnection) Reset() {
 	*x = NodeConnection{}
-	mi := &file_seville_node_v2_node_proto_msgTypes[3]
+	mi := &file_seville_node_v2_node_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -424,7 +538,7 @@ func (x *NodeConnection) String() string {
 func (*NodeConnection) ProtoMessage() {}
 
 func (x *NodeConnection) ProtoReflect() protoreflect.Message {
-	mi := &file_seville_node_v2_node_proto_msgTypes[3]
+	mi := &file_seville_node_v2_node_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -437,12 +551,12 @@ func (x *NodeConnection) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeConnection.ProtoReflect.Descriptor instead.
 func (*NodeConnection) Descriptor() ([]byte, []int) {
-	return file_seville_node_v2_node_proto_rawDescGZIP(), []int{3}
+	return file_seville_node_v2_node_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *NodeConnection) GetSourceNodeId() string {
+func (x *NodeConnection) GetSourceNodeSlug() string {
 	if x != nil {
-		return x.SourceNodeId
+		return x.SourceNodeSlug
 	}
 	return ""
 }
@@ -454,9 +568,9 @@ func (x *NodeConnection) GetTargetText() string {
 	return ""
 }
 
-func (x *NodeConnection) GetTargetNodeId() string {
-	if x != nil && x.TargetNodeId != nil {
-		return *x.TargetNodeId
+func (x *NodeConnection) GetTargetNodeSlug() string {
+	if x != nil && x.TargetNodeSlug != nil {
+		return *x.TargetNodeSlug
 	}
 	return ""
 }
@@ -492,7 +606,7 @@ type ImportWarning struct {
 
 func (x *ImportWarning) Reset() {
 	*x = ImportWarning{}
-	mi := &file_seville_node_v2_node_proto_msgTypes[4]
+	mi := &file_seville_node_v2_node_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -504,7 +618,7 @@ func (x *ImportWarning) String() string {
 func (*ImportWarning) ProtoMessage() {}
 
 func (x *ImportWarning) ProtoReflect() protoreflect.Message {
-	mi := &file_seville_node_v2_node_proto_msgTypes[4]
+	mi := &file_seville_node_v2_node_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -517,7 +631,7 @@ func (x *ImportWarning) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImportWarning.ProtoReflect.Descriptor instead.
 func (*ImportWarning) Descriptor() ([]byte, []int) {
-	return file_seville_node_v2_node_proto_rawDescGZIP(), []int{4}
+	return file_seville_node_v2_node_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ImportWarning) GetPath() string {
@@ -547,7 +661,7 @@ type ImportStatus struct {
 
 func (x *ImportStatus) Reset() {
 	*x = ImportStatus{}
-	mi := &file_seville_node_v2_node_proto_msgTypes[5]
+	mi := &file_seville_node_v2_node_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -559,7 +673,7 @@ func (x *ImportStatus) String() string {
 func (*ImportStatus) ProtoMessage() {}
 
 func (x *ImportStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_seville_node_v2_node_proto_msgTypes[5]
+	mi := &file_seville_node_v2_node_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -572,7 +686,7 @@ func (x *ImportStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImportStatus.ProtoReflect.Descriptor instead.
 func (*ImportStatus) Descriptor() ([]byte, []int) {
-	return file_seville_node_v2_node_proto_rawDescGZIP(), []int{5}
+	return file_seville_node_v2_node_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *ImportStatus) GetRevision() string {
@@ -620,7 +734,7 @@ type ApiError struct {
 
 func (x *ApiError) Reset() {
 	*x = ApiError{}
-	mi := &file_seville_node_v2_node_proto_msgTypes[6]
+	mi := &file_seville_node_v2_node_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -632,7 +746,7 @@ func (x *ApiError) String() string {
 func (*ApiError) ProtoMessage() {}
 
 func (x *ApiError) ProtoReflect() protoreflect.Message {
-	mi := &file_seville_node_v2_node_proto_msgTypes[6]
+	mi := &file_seville_node_v2_node_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -645,7 +759,7 @@ func (x *ApiError) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApiError.ProtoReflect.Descriptor instead.
 func (*ApiError) Descriptor() ([]byte, []int) {
-	return file_seville_node_v2_node_proto_rawDescGZIP(), []int{6}
+	return file_seville_node_v2_node_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ApiError) GetCode() string {
@@ -672,13 +786,11 @@ const file_seville_node_v2_node_proto_rawDesc = "" +
 	"\fgenerated_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\vgeneratedAt\x12+\n" +
 	"\x05nodes\x18\x03 \x03(\v2\x15.seville.node.v2.NodeR\x05nodes\x12A\n" +
 	"\vconnections\x18\x04 \x03(\v2\x1f.seville.node.v2.NodeConnectionR\vconnections\x12:\n" +
-	"\bwarnings\x18\x05 \x03(\v2\x1e.seville.node.v2.ImportWarningR\bwarnings\"\xae\x03\n" +
-	"\x04Node\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
+	"\bwarnings\x18\x05 \x03(\v2\x1e.seville.node.v2.ImportWarningR\bwarnings\"\xe8\x03\n" +
+	"\x04Node\x12\x12\n" +
 	"\x04path\x18\x02 \x01(\tR\x04path\x12\x14\n" +
 	"\x05title\x18\x03 \x01(\tR\x05title\x12\x12\n" +
-	"\x04body\x18\x04 \x01(\tR\x04body\x12\x12\n" +
-	"\x04tags\x18\x05 \x03(\tR\x04tags\x12H\n" +
+	"\x04body\x18\x04 \x01(\tR\x04body\x12H\n" +
 	"\vfrontmatter\x18\x06 \x03(\v2&.seville.node.v2.Node.FrontmatterEntryR\vfrontmatter\x12;\n" +
 	"\vmodified_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\n" +
 	"modifiedAt\x12.\n" +
@@ -686,10 +798,16 @@ const file_seville_node_v2_node_proto_rawDesc = "" +
 	"\x06labels\x18\t \x03(\tR\x06labels\x12\x12\n" +
 	"\x04slug\x18\n" +
 	" \x01(\tR\x04slug\x12!\n" +
-	"\fupdate_count\x18\v \x01(\x04R\vupdateCount\x1a>\n" +
+	"\fupdate_count\x18\v \x01(\x04R\vupdateCount\x12F\n" +
+	"\rtemporal_span\x18\f \x01(\v2!.seville.node.v2.NodeTemporalSpanR\ftemporalSpan\x1a>\n" +
 	"\x10FrontmatterEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xe0\x02\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01J\x04\b\x01\x10\x02J\x04\b\x05\x10\x06R\x02idR\x04tags\"\xa7\x01\n" +
+	"\x10NodeTemporalSpan\x12\x1d\n" +
+	"\n" +
+	"start_date\x18\x01 \x01(\tR\tstartDate\x12,\n" +
+	"\x12end_date_exclusive\x18\x02 \x01(\tR\x10endDateExclusive\x12F\n" +
+	"\vgranularity\x18\x03 \x01(\x0e2$.seville.node.v2.TemporalGranularityR\vgranularity\"\xe0\x02\n" +
 	"\x05Emoji\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1c\n" +
 	"\tcharacter\x18\x02 \x01(\tR\tcharacter\x12\x14\n" +
@@ -705,16 +823,16 @@ const file_seville_node_v2_node_proto_rawDesc = "" +
 	"created_at\x18\n" +
 	" \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xb5\x02\n" +
-	"\x0eNodeConnection\x12$\n" +
-	"\x0esource_node_id\x18\x01 \x01(\tR\fsourceNodeId\x12\x1f\n" +
+	"updated_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xbf\x02\n" +
+	"\x0eNodeConnection\x12(\n" +
+	"\x10source_node_slug\x18\x01 \x01(\tR\x0esourceNodeSlug\x12\x1f\n" +
 	"\vtarget_text\x18\x02 \x01(\tR\n" +
-	"targetText\x12)\n" +
-	"\x0etarget_node_id\x18\x03 \x01(\tH\x00R\ftargetNodeId\x88\x01\x01\x12&\n" +
+	"targetText\x12-\n" +
+	"\x10target_node_slug\x18\x03 \x01(\tH\x00R\x0etargetNodeSlug\x88\x01\x01\x12&\n" +
 	"\fdisplay_text\x18\x04 \x01(\tH\x01R\vdisplayText\x88\x01\x01\x127\n" +
 	"\x04kind\x18\x05 \x01(\x0e2#.seville.node.v2.NodeConnectionKindR\x04kind\x12\x1f\n" +
-	"\bfragment\x18\x06 \x01(\tH\x02R\bfragment\x88\x01\x01B\x11\n" +
-	"\x0f_target_node_idB\x0f\n" +
+	"\bfragment\x18\x06 \x01(\tH\x02R\bfragment\x88\x01\x01B\x13\n" +
+	"\x11_target_node_slugB\x0f\n" +
 	"\r_display_textB\v\n" +
 	"\t_fragment\"=\n" +
 	"\rImportWarning\x12\x12\n" +
@@ -730,7 +848,15 @@ const file_seville_node_v2_node_proto_rawDesc = "" +
 	"\rwarning_count\x18\x05 \x01(\rR\fwarningCount\"8\n" +
 	"\bApiError\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\tR\x04code\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage*\x9c\x01\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage*\xf8\x01\n" +
+	"\x13TemporalGranularity\x12$\n" +
+	" TEMPORAL_GRANULARITY_UNSPECIFIED\x10\x00\x12\x1d\n" +
+	"\x19TEMPORAL_GRANULARITY_YEAR\x10\x01\x12\x1f\n" +
+	"\x1bTEMPORAL_GRANULARITY_SEASON\x10\x02\x12\x1e\n" +
+	"\x1aTEMPORAL_GRANULARITY_MONTH\x10\x03\x12\x1d\n" +
+	"\x19TEMPORAL_GRANULARITY_WEEK\x10\x04\x12\x1c\n" +
+	"\x18TEMPORAL_GRANULARITY_DAY\x10\x05\x12\x1e\n" +
+	"\x1aTEMPORAL_GRANULARITY_RANGE\x10\x06*\x9c\x01\n" +
 	"\x12NodeConnectionKind\x12$\n" +
 	" NODE_CONNECTION_KIND_UNSPECIFIED\x10\x00\x12\x1d\n" +
 	"\x19NODE_CONNECTION_KIND_WIKI\x10\x01\x12!\n" +
@@ -749,37 +875,41 @@ func file_seville_node_v2_node_proto_rawDescGZIP() []byte {
 	return file_seville_node_v2_node_proto_rawDescData
 }
 
-var file_seville_node_v2_node_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_seville_node_v2_node_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_seville_node_v2_node_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_seville_node_v2_node_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_seville_node_v2_node_proto_goTypes = []any{
-	(NodeConnectionKind)(0),       // 0: seville.node.v2.NodeConnectionKind
-	(*NodeSnapshot)(nil),          // 1: seville.node.v2.NodeSnapshot
-	(*Node)(nil),                  // 2: seville.node.v2.Node
-	(*Emoji)(nil),                 // 3: seville.node.v2.Emoji
-	(*NodeConnection)(nil),        // 4: seville.node.v2.NodeConnection
-	(*ImportWarning)(nil),         // 5: seville.node.v2.ImportWarning
-	(*ImportStatus)(nil),          // 6: seville.node.v2.ImportStatus
-	(*ApiError)(nil),              // 7: seville.node.v2.ApiError
-	nil,                           // 8: seville.node.v2.Node.FrontmatterEntry
-	(*timestamppb.Timestamp)(nil), // 9: google.protobuf.Timestamp
+	(TemporalGranularity)(0),      // 0: seville.node.v2.TemporalGranularity
+	(NodeConnectionKind)(0),       // 1: seville.node.v2.NodeConnectionKind
+	(*NodeSnapshot)(nil),          // 2: seville.node.v2.NodeSnapshot
+	(*Node)(nil),                  // 3: seville.node.v2.Node
+	(*NodeTemporalSpan)(nil),      // 4: seville.node.v2.NodeTemporalSpan
+	(*Emoji)(nil),                 // 5: seville.node.v2.Emoji
+	(*NodeConnection)(nil),        // 6: seville.node.v2.NodeConnection
+	(*ImportWarning)(nil),         // 7: seville.node.v2.ImportWarning
+	(*ImportStatus)(nil),          // 8: seville.node.v2.ImportStatus
+	(*ApiError)(nil),              // 9: seville.node.v2.ApiError
+	nil,                           // 10: seville.node.v2.Node.FrontmatterEntry
+	(*timestamppb.Timestamp)(nil), // 11: google.protobuf.Timestamp
 }
 var file_seville_node_v2_node_proto_depIdxs = []int32{
-	9,  // 0: seville.node.v2.NodeSnapshot.generated_at:type_name -> google.protobuf.Timestamp
-	2,  // 1: seville.node.v2.NodeSnapshot.nodes:type_name -> seville.node.v2.Node
-	4,  // 2: seville.node.v2.NodeSnapshot.connections:type_name -> seville.node.v2.NodeConnection
-	5,  // 3: seville.node.v2.NodeSnapshot.warnings:type_name -> seville.node.v2.ImportWarning
-	8,  // 4: seville.node.v2.Node.frontmatter:type_name -> seville.node.v2.Node.FrontmatterEntry
-	9,  // 5: seville.node.v2.Node.modified_at:type_name -> google.protobuf.Timestamp
-	3,  // 6: seville.node.v2.Node.emojis:type_name -> seville.node.v2.Emoji
-	9,  // 7: seville.node.v2.Emoji.created_at:type_name -> google.protobuf.Timestamp
-	9,  // 8: seville.node.v2.Emoji.updated_at:type_name -> google.protobuf.Timestamp
-	0,  // 9: seville.node.v2.NodeConnection.kind:type_name -> seville.node.v2.NodeConnectionKind
-	9,  // 10: seville.node.v2.ImportStatus.imported_at:type_name -> google.protobuf.Timestamp
-	11, // [11:11] is the sub-list for method output_type
-	11, // [11:11] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	11, // 0: seville.node.v2.NodeSnapshot.generated_at:type_name -> google.protobuf.Timestamp
+	3,  // 1: seville.node.v2.NodeSnapshot.nodes:type_name -> seville.node.v2.Node
+	6,  // 2: seville.node.v2.NodeSnapshot.connections:type_name -> seville.node.v2.NodeConnection
+	7,  // 3: seville.node.v2.NodeSnapshot.warnings:type_name -> seville.node.v2.ImportWarning
+	10, // 4: seville.node.v2.Node.frontmatter:type_name -> seville.node.v2.Node.FrontmatterEntry
+	11, // 5: seville.node.v2.Node.modified_at:type_name -> google.protobuf.Timestamp
+	5,  // 6: seville.node.v2.Node.emojis:type_name -> seville.node.v2.Emoji
+	4,  // 7: seville.node.v2.Node.temporal_span:type_name -> seville.node.v2.NodeTemporalSpan
+	0,  // 8: seville.node.v2.NodeTemporalSpan.granularity:type_name -> seville.node.v2.TemporalGranularity
+	11, // 9: seville.node.v2.Emoji.created_at:type_name -> google.protobuf.Timestamp
+	11, // 10: seville.node.v2.Emoji.updated_at:type_name -> google.protobuf.Timestamp
+	1,  // 11: seville.node.v2.NodeConnection.kind:type_name -> seville.node.v2.NodeConnectionKind
+	11, // 12: seville.node.v2.ImportStatus.imported_at:type_name -> google.protobuf.Timestamp
+	13, // [13:13] is the sub-list for method output_type
+	13, // [13:13] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_seville_node_v2_node_proto_init() }
@@ -787,14 +917,14 @@ func file_seville_node_v2_node_proto_init() {
 	if File_seville_node_v2_node_proto != nil {
 		return
 	}
-	file_seville_node_v2_node_proto_msgTypes[3].OneofWrappers = []any{}
+	file_seville_node_v2_node_proto_msgTypes[4].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_seville_node_v2_node_proto_rawDesc), len(file_seville_node_v2_node_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   8,
+			NumEnums:      2,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

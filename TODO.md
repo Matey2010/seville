@@ -1,4 +1,4 @@
-# Seville TODO
+# Obsivilian TODO
 
 1. Verify the native Flutter graph, search, creation, and body editor in the
    macOS application.
@@ -10,3 +10,6 @@
 6. Extend canonical Node editing beyond the body with the same conflict policy.
 7. Introduce source checkpoints and provenance before synchronizing changes
    from Markdown or Git back into canonical Nodes.
+8. Add the bottom location plane with a place hierarchy and native Neo4j
+   spatial `POINT` properties. Reuse the virtual world and camera created for
+   the time plane to the left of the graph; leave top and right for later dimensions.
