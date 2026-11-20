@@ -27,19 +27,18 @@ Small items that protect data or remove noise. Do these first.
 3. ~~**Remove dead API surface.**~~ Done 2026-11-20: the status, snapshot,
    system info, Node tree, and filter-mutation routes and their protobuf
    messages are gone.
-4. **Read-flow bugs** (client; found by reading code, not yet seen in the app):
-   - R-01: the Node list shows "No Nodes yet" while the graph is loading or has
-     failed. It needs separate loading, error-with-retry, and empty states.
-   - R-02: with a search submitted, the list falls back to graph Nodes when
-     search is loading, empty, or failed, which hides search errors.
-   - R-03: graph search matches body text; sidebar search matches only slug,
-     title, and label. Unify them or explain the difference.
-   - R-04: the search field allows 256 characters; the API allows 256 UTF-8
-     bytes.
-   - R-05: check in the app whether refresh resets pan/zoom or flickers.
-5. **Static-check baseline.** `golangci-lint` is clean (2026-11-20). Remaining:
-   migrate `package:flutter/material.dart` to `package:material_ui` (7
-   `flutter analyze` infos).
+4. **Read-flow bugs.** Done 2026-11-20 except R-05:
+   - R-01 and R-02 were already fixed in the code: the list has its own
+     loading, error, and empty states, and Find results never fall back to the
+     graph.
+   - R-03: Find results are now the Nodes of the filtered canvas graph, so both
+     match slug, title, label, and body.
+   - R-04: the search field limits UTF-8 bytes, not characters.
+   - R-05 (check in the app): code reading says Refresh keeps the graph and
+     camera, while submitting or clearing a search shows a spinner and resets
+     the camera.
+5. ~~**Static-check baseline.**~~ Done 2026-11-20: `golangci-lint` and
+   `flutter analyze` are clean; the client imports `package:material_ui`.
 
 ## P1 — Objectives
 
@@ -48,6 +47,12 @@ The next feature. The design is below.
 1. **Objectives v1.**
    - Settle the open decisions below and record the names in
      [vocabulary.md](vocabulary.md).
+   - Start **SevilleUi**, a local Flutter package (`frontend/seville_ui`,
+     imported as `package:seville_ui`). It holds every shared control
+     (`SevilleButton`, `SevilleDialog`, `SevilleField`, …) with Seville's own
+     colors and shapes. The controls wrap Material at first; each can be
+     redrawn later without touching screens. New Objective screens use only
+     SevilleUi; existing screens move over when next edited.
    - Reopen the backend for Objective state endpoints.
    - Add an Objective log pane, and show the one tracked Objective on the HUD.
 2. **Slug rename policy.** Objectives get renamed. Decide between an alias and

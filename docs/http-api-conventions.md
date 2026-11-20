@@ -54,5 +54,6 @@
   exclude match rejects. `negated` inverts the composed predicate.
 - **Errors:** invalid input returns `400 invalid_node_search_parameter`.
 
-Interactive search builds an OR over slug, title, and label with an escaped
-case-insensitive regex.
+The client's Find uses `node/graph` with `search`: a case-insensitive
+substring match over slug, title, body, and labels. It uses `node/search` only
+for exact-slug lookups.

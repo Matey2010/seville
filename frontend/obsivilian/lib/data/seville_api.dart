@@ -73,44 +73,6 @@ class SevilleApi {
     return NodeGraph.fromBuffer(bytes);
   }
 
-  Future<NodeSearchResult> searchNodes(String value, {int limit = 12}) async {
-    final search = value.trim();
-    if (search.isEmpty) return NodeSearchResult();
-    if (limit < 1 || limit > 100) {
-      throw ArgumentError.value(limit, 'limit', 'must be between 1 and 100');
-    }
-    final pattern = '(?i).*${RegExp.escape(search)}.*';
-    final request = NodeSearchQuery(
-      nodeFilter: NodeSearchFilter(
-        includeMatchMode: NodeSearchMatchMode.NODE_SEARCH_MATCH_MODE_ANY,
-        includeNodesMatching: [
-          for (final parameter in [
-            NodeParameterType.NODE_PARAMETER_TYPE_SLUG,
-            NodeParameterType.NODE_PARAMETER_TYPE_TITLE,
-            NodeParameterType.NODE_PARAMETER_TYPE_LABEL,
-          ])
-            NodeSearchParameter(
-              parameter: parameter,
-              operator: NodeSearchMatchOperator
-                  .NODE_SEARCH_MATCH_OPERATOR_REGULAR_EXPRESSION,
-              stringValue: pattern,
-            ),
-        ],
-      ),
-      limit: limit,
-    );
-    final response = await _dio.request<List<int>>(
-      '/api/v1/node/search',
-      data: request.writeToBuffer(),
-      options: Options(method: 'QUERY', contentType: 'application/x-protobuf'),
-    );
-    final bytes = response.data;
-    if (bytes == null) {
-      throw const FormatException('The backend returned empty Node search.');
-    }
-    return NodeSearchResult.fromBuffer(bytes);
-  }
-
   Future<NodeSearchResult> nodesByExactSlugs(Iterable<String> values) async {
     final slugs = values
         .map((value) => value.trim())

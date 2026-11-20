@@ -1,9 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:seville_proto/seville_proto.dart';
@@ -236,7 +237,6 @@ class _KnowledgeWorkspaceState extends ConsumerState<KnowledgeWorkspace> {
     );
     if (created == null || !mounted) return;
     ref.invalidate(nodeGraphProvider);
-    ref.invalidate(nodeSearchProvider);
     ref.invalidate(nodesByExactSlugsProvider);
     _search.clear();
     setState(() {
@@ -338,7 +338,6 @@ class _KnowledgeWorkspaceState extends ConsumerState<KnowledgeWorkspace> {
   void _refresh() {
     ref.invalidate(nodeGraphProvider);
     ref.invalidate(nodeColorRulesProvider);
-    if (_submittedSearch.isNotEmpty) ref.invalidate(nodeSearchProvider);
   }
 
   void _message(String message) {
@@ -581,12 +580,12 @@ class _KnowledgeWorkspaceState extends ConsumerState<KnowledgeWorkspace> {
               child: TextField(
                 controller: _search,
                 focusNode: _searchFocus,
-                maxLength: 256,
+                inputFormatters: const [_Utf8ByteLimit(256)],
                 textInputAction: TextInputAction.search,
                 onSubmitted: (value) => unawaited(_submitSearch(value)),
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.search),
-                  hintText: 'Find Nodes by slug, title, or label',
+                  hintText: 'Find Nodes by slug, title, label, or body',
                   border: const OutlineInputBorder(),
                   isDense: true,
                   counterText: '',
@@ -618,8 +617,12 @@ class _KnowledgeWorkspaceState extends ConsumerState<KnowledgeWorkspace> {
     ),
   );
 
+  /// Find results are the Nodes of the filtered graph on the canvas, so the
+  /// list and the canvas always agree on what matches.
   Widget _searchResults() {
-    final result = ref.watch(nodeSearchProvider(_submittedSearch));
+    final result = ref.watch(
+      nodeGraphProvider((rootNodeSlug: null, search: _submittedSearch)),
+    );
     return ConstrainedBox(
       constraints: const BoxConstraints(maxHeight: 320),
       child: switch (result) {
@@ -630,8 +633,7 @@ class _KnowledgeWorkspaceState extends ConsumerState<KnowledgeWorkspace> {
         AsyncError() => Padding(
           padding: const EdgeInsets.all(12),
           child: TextButton(
-            onPressed: () =>
-                ref.invalidate(nodeSearchProvider(_submittedSearch)),
+            onPressed: _refresh,
             child: const Text('Search failed. Retry'),
           ),
         ),
@@ -643,18 +645,37 @@ class _KnowledgeWorkspaceState extends ConsumerState<KnowledgeWorkspace> {
             child: Text('No matches. Create [[$_submittedSearch]]'),
           ),
         ),
-        AsyncData(:final value) => ListView.builder(
-          shrinkWrap: true,
-          itemCount: value.nodes.length,
-          itemBuilder: (context, index) {
-            final node = value.nodes[index];
-            return ListTile(
-              dense: true,
-              title: Text('[[${node.slug}]]'),
-              subtitle: node.title.trim().isEmpty ? null : Text(node.title),
-              onTap: () => unawaited(_selectSearchResult(node)),
-            );
-          },
+        AsyncData(:final value) => Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: value.nodes.length,
+                itemBuilder: (context, index) {
+                  final node = value.nodes[index];
+                  return ListTile(
+                    dense: true,
+                    title: Text('[[${node.slug}]]'),
+                    subtitle: node.title.trim().isEmpty
+                        ? null
+                        : Text(node.title),
+                    onTap: () => unawaited(_selectSearchResult(node)),
+                  );
+                },
+              ),
+            ),
+            if (value.hasMore)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                child: Text(
+                  'First ${value.nodes.length} matches shown. '
+                  'Refine the search to see the rest.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+          ],
         ),
       },
     );
@@ -690,12 +711,12 @@ class _KnowledgeWorkspaceState extends ConsumerState<KnowledgeWorkspace> {
                         'Nodes',
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
-                      Text(
-                        graph == null
-                            ? 'Loading count…'
-                            : '${nodes.length} shown${graph.hasMore ? ' · more available' : ''}',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
+                      Text(switch (graphState) {
+                        AsyncError() => 'Could not load Nodes',
+                        _ when graph == null => 'Loading count…',
+                        _ =>
+                          '${nodes.length} shown${graph.hasMore ? ' · more available' : ''}',
+                      }, style: Theme.of(context).textTheme.bodySmall),
                     ],
                   ),
                 ),
@@ -753,6 +774,35 @@ String _isoDay(DateTime date) =>
     '${date.year.toString().padLeft(4, '0')}-'
     '${date.month.toString().padLeft(2, '0')}-'
     '${date.day.toString().padLeft(2, '0')}';
+
+/// Limits a field to [maxBytes] of UTF-8, matching the API's byte limits.
+/// Flutter's `maxLength` counts characters, which lets longer text through.
+class _Utf8ByteLimit extends TextInputFormatter {
+  const _Utf8ByteLimit(this.maxBytes);
+
+  final int maxBytes;
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    if (utf8.encode(newValue.text).length <= maxBytes) return newValue;
+    final kept = StringBuffer();
+    var bytes = 0;
+    for (final rune in newValue.text.runes) {
+      final char = String.fromCharCode(rune);
+      bytes += utf8.encode(char).length;
+      if (bytes > maxBytes) break;
+      kept.write(char);
+    }
+    final text = kept.toString();
+    return TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+  }
+}
 
 class _NodeDetailsPopup extends ConsumerStatefulWidget {
   const _NodeDetailsPopup({
@@ -860,7 +910,6 @@ class _NodeDetailsPopupState extends ConsumerState<_NodeDetailsPopup> {
           );
       if (!mounted) return;
       ref.invalidate(nodeGraphProvider);
-      ref.invalidate(nodeSearchProvider);
       setState(() {
         _root = updated;
         _bodyBaseline = updated.body;
@@ -897,7 +946,6 @@ class _NodeDetailsPopupState extends ConsumerState<_NodeDetailsPopup> {
     );
     if (updated == null || !mounted) return;
     ref.invalidate(nodeGraphProvider);
-    ref.invalidate(nodeSearchProvider);
     setState(() {
       _root = updated;
       _bodyBaseline = updated.body;
@@ -916,7 +964,6 @@ class _NodeDetailsPopupState extends ConsumerState<_NodeDetailsPopup> {
     );
     if (updated == null || !mounted) return;
     ref.invalidate(nodeGraphProvider);
-    ref.invalidate(nodeSearchProvider);
     setState(() {
       _root = updated;
       _bodyBaseline = updated.body;

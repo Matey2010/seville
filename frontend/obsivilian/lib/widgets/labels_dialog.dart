@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:seville_proto/seville_proto.dart';
 
@@ -295,7 +295,6 @@ class _LabelsManagerDialogState extends ConsumerState<LabelsManagerDialog> {
     try {
       await action();
       ref.invalidate(nodeGraphProvider);
-      ref.invalidate(nodeSearchProvider);
       ref.invalidate(nodeColorRulesProvider);
       await _reload();
     } on DioException catch (error) {

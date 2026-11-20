@@ -19,10 +19,6 @@ final nodeGraphProvider = FutureProvider.family<NodeGraph, NodeGraphRequest>(
       .nodeGraph(rootNodeSlug: request.rootNodeSlug, search: request.search),
 );
 
-final nodeSearchProvider = FutureProvider.family<NodeSearchResult, String>(
-  (ref, search) => ref.watch(sevilleApiProvider).searchNodes(search),
-);
-
 final nodesByExactSlugsProvider =
     FutureProvider.family<Map<String, Node>, String>((ref, joinedSlugs) async {
       final slugs = joinedSlugs
