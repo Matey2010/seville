@@ -3,9 +3,6 @@
 ## Boundary
 
 ```text
-Markdown folder / Git checkout --manual import--> Go migration tool
-                                                        |
-                                                        v
                                              Neo4j (canonical data)
                                                         |
                                        Go API (protobuf over HTTP, bearer token)
@@ -35,7 +32,7 @@ Markdown folder / Git checkout --manual import--> Go migration tool
 
 ## Backend startup migrations
 
-Startup is idempotent and never imports sources. It:
+Startup is idempotent. It:
 
 - applies `:Node` to slugged records, aborting on duplicate slugs and removing
   five known legacy shells (`armor`, `career`, `game`, `science`, `weapon`);

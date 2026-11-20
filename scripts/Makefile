@@ -16,19 +16,25 @@ SEVILLE_NEO4J_USERNAME ?= neo4j
 SEVILLE_NEO4J_PASSWORD ?= seville-local-password
 SEVILLE_NEO4J_DATABASE ?= neo4j
 SEVILLE_NEO4J_QUERY_LOG ?= false
+SEVILLE_BACKUP_DIR ?= /Volumes/Memoria/Backups/seville
+SEVILLE_BACKUP_AGE_KEY ?= $(HOME)/.config/seville/backup-age-key.txt
+SEVILLE_BACKUP_KEEP ?= 14
+SEVILLE_BACKUP_HOUR ?= 4
 
 -include $(ROOT)/.env
 
 export SEVILLE_ADDR SEVILLE_BASE_URL SEVILLE_TOKEN
 export SEVILLE_NEO4J_URI SEVILLE_NEO4J_USERNAME SEVILLE_NEO4J_PASSWORD
 export SEVILLE_NEO4J_DATABASE SEVILLE_NEO4J_QUERY_LOG
-export SEVILLE_SOURCE SEVILLE_VAULT_PATH SEVILLE_GIT_REPOSITORY_PATH
-export SEVILLE_GIT_VAULT_SUBPATH
+export SEVILLE_BACKUP_DIR SEVILLE_BACKUP_AGE_KEY SEVILLE_BACKUP_KEEP
+export SEVILLE_BACKUP_HOUR
 
 .DEFAULT_GOAL := help
 
 .PHONY: help interface start build serve serve-built stop restart status logs
-.PHONY: proto migrate-obsidian set-default-icon setDefaultIcon
+.PHONY: backup backup-setup backup-verify backup-restore
+.PHONY: backup-schedule backup-unschedule
+.PHONY: proto set-default-icon setDefaultIcon
 .PHONY: set-app-name setAppName generate-macos-app-names
 .PHONY: generate-macos-icons generate-platform-icons
 
@@ -41,7 +47,14 @@ help:
 	@echo "  make -C scripts restart            Restart the Go API"
 	@echo "  make -C scripts logs               Follow the API log"
 	@echo "  make -C scripts proto              Regenerate protobuf code"
-	@echo "  make -C scripts migrate-obsidian   Run the manual vault migration"
+	@echo "  make -C scripts backup-setup       Create the age key and backup folder"
+	@echo "  make -C scripts backup             Encrypted Neo4j dump to the backup drive"
+	@echo "  make -C scripts backup-verify [FILE=PATH]"
+	@echo "                                      Test-restore a backup in a throwaway container"
+	@echo "  make -C scripts backup-restore FILE=PATH"
+	@echo "                                      Replace the live database (asks first)"
+	@echo "  make -C scripts backup-schedule    Install the daily launchd backup"
+	@echo "  make -C scripts backup-unschedule  Remove the daily launchd backup"
 	@echo "  make -C scripts setDefaultIcon path=PATH"
 	@echo "                                      Set Debug and production macOS icons"
 	@echo "    or: debug_path=PATH production_path=PATH"
@@ -431,5 +444,8 @@ proto:
 		proto/seville/notification/v1/notification.proto \
 		proto/seville/system/v1/system.proto
 
-migrate-obsidian:
-	@cd "$(ROOT)" && go run ./backend/cmd/migrate-obsidian-vault
+backup-setup backup backup-schedule backup-unschedule:
+	@"$(SCRIPTS_DIR)/backup.sh" $(patsubst backup-%,%,$@)
+
+backup-verify backup-restore:
+	@"$(SCRIPTS_DIR)/backup.sh" $(patsubst backup-%,%,$@) "$(FILE)"

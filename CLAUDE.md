@@ -40,7 +40,7 @@ gofmt -l backend
 make -C scripts proto    # only after editing .proto files
 ```
 
-Baseline as of 2026-11-19: 13 `golangci-lint` issues and 7 `flutter analyze`
+Baseline as of 2026-11-19: 10 `golangci-lint` issues and 7 `flutter analyze`
 infos (deprecated `package:flutter/material.dart`). New work must not add any.
 
 ## Map
@@ -48,6 +48,6 @@ infos (deprecated `package:flutter/material.dart`). New work must not add any.
 | Path | Contents |
 | --- | --- |
 | `frontend/obsivilian/` | Flutter client (Riverpod, Dio, Forge2D 0.15.1) |
-| `backend/` | Go API, Neo4j store, Markdown import |
+| `backend/` | Go API, Neo4j store |
 | `proto/` | Contracts; generated `gen/` is committed |
 | `docs/` | roadmap, architecture, vocabulary, HTTP API, data runbook |

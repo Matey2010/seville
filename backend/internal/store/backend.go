@@ -105,12 +105,7 @@ type NodeService interface {
 	LabelStore
 }
 
-type Importer interface {
-	ImportNew(context.Context, *nodev2.NodeSnapshot) error
-}
-
 type Backend interface {
 	NodeService
-	Importer
 	Close() error
 }

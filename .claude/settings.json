@@ -25,6 +25,8 @@
       "Bash(flutter test *)",
       "Bash(go test *)",
       "Bash(docker compose up *)",
+      "Bash(make -C scripts backup-restore*)",
+      "Bash(*backup.sh restore*)",
       "Read(./.env)"
     ]
   }

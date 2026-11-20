@@ -1,14 +1,70 @@
 # Data runbook
 
-Neo4j's `neo4j-data` Docker volume is the only complete copy of Seville data.
-Markdown sources and Git do not contain edits made in Seville. Appearance rules
-live in the same database (`ObsivilianColorRuleSet` / `ObsivilianColorRule`).
+Neo4j's `neo4j-data` Docker volume is the live copy of all Seville data,
+including appearance rules (`ObsivilianColorRuleSet` / `ObsivilianColorRule`).
+Backups are the only other copy.
+
+## Backups
+
+[`scripts/backup.sh`](../scripts/backup.sh), driven by Make, works like this:
+
+1. Stop Neo4j for a few seconds.
+2. Take a `neo4j-admin database dump` (the faithful format: constraints, `DATE`
+   values, and rules included).
+3. Restart Neo4j.
+4. Encrypt the dump with `age` to the backup drive.
+5. Prune old backups: keep the 14 newest plus the first of each of the last 12
+   months.
+
+The plaintext dump exists only in a private temp folder on the Mac's
+FileVault disk.
+
+| Setting (`.env`) | Default |
+| --- | --- |
+| `SEVILLE_BACKUP_DIR` | `/Volumes/Memoria/Backups/seville` (external SSD) |
+| `SEVILLE_BACKUP_AGE_KEY` | `~/.config/seville/backup-age-key.txt` |
+| `SEVILLE_BACKUP_KEEP` | `14` |
+| `SEVILLE_BACKUP_HOUR` | `4` (daily run hour) |
+
+**The age key is the only way to decrypt.** Keep a copy in a password manager
+and never on the backup drive. Losing it makes every backup unreadable.
+
+```sh
+make -C scripts backup-setup        # once: key + folder (done 2026-11-19)
+make -C scripts backup              # back up now
+make -C scripts backup-verify       # test-restore the newest backup in a throwaway container
+make -C scripts backup-schedule     # daily LaunchAgent; log: ~/Library/Logs/seville-backup.log
+make -C scripts backup-unschedule
+make -C scripts backup-restore FILE=/Volumes/Memoria/Backups/seville/<file>.dump.age
+```
+
+- **Drive unplugged:** the run is skipped. A macOS notification appears once
+  the last success, recorded in `~/.config/seville/last-backup`, is more than
+  3 days old.
+- **Verify** loads a backup into a temporary volume and container and reports
+  Node, `LINKS_TO`, and color-rule counts. It never touches live data. Run it
+  monthly and after changing the backup setup.
+- **Restore** asks for confirmation, takes a fresh backup first, replaces the
+  live database, then needs `make -C scripts restart` for the Go API.
+- **Permissions (scheduled runs):** macOS grants removable-volume access per
+  app, and command-line tools started by launchd can't ask for it.
+  - `backup-schedule` therefore builds a background app,
+    `~/Applications/Seville Backup.app`, which launchd opens daily. Allow it
+    once when macOS asks about removable volumes; everything it runs inherits
+    that permission.
+  - The app is rebuilt only when its script changes, which would trigger the
+    prompt again.
+  - Each run checks that it can write before stopping Neo4j, and sends a
+    notification if it can't.
 
 ## Before risky operations
 
-Volume deletion, Compose project renames, Neo4j upgrades, a backend version
-with a new startup migration, and manual Cypher writes are data operations.
-Take and verify a backup first. Automated backups are a P0 roadmap item.
+Run `make -C scripts backup` before:
+
+- volume deletion or a Compose project rename;
+- a Neo4j upgrade;
+- a backend version with a new startup migration;
+- manual Cypher writes.
 
 Never commit `.env`, database dumps, or credentials.
 
@@ -41,8 +97,3 @@ rules:
 3. `PUT` the source rules to the destination with that revision.
 
 `PUT` replaces the whole destination ruleset and keeps weights and order.
-
-## Obsidian import
-
-Run `make -C scripts migrate-obsidian` manually. See
-[scripts/migrations/obsidian/README.md](../scripts/migrations/obsidian/README.md).

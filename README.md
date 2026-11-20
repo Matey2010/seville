@@ -9,7 +9,7 @@ atlas of Nodes placed in time and, soon, space.
 | [`frontend/`](frontend/) | Flutter macOS client |
 | [`backend/`](backend/) | Go API over Neo4j |
 | [`proto/`](proto/) | Protobuf contracts and generated code |
-| [`scripts/`](scripts/) | Makefile: process control, codegen, migrations |
+| [`scripts/`](scripts/) | Makefile: process control, codegen, app icon and name |
 | [`docs/`](docs/) | [Roadmap](docs/roadmap.md), [architecture](docs/architecture.md), [vocabulary](docs/vocabulary.md), [HTTP API](docs/http-api-conventions.md), [data runbook](docs/data-runbook.md) |
 
 Run on macOS:

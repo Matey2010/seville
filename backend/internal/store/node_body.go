@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Matey2010/seville/backend/internal/scanner"
+	"github.com/Matey2010/seville/backend/internal/markdown"
 	nodev2 "github.com/Matey2010/seville/proto/gen/go/seville/node/v2"
 	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
 )
@@ -74,7 +74,7 @@ RETURN node.slug AS slug`, map[string]any{
 // This is shared by Node creation and body editing. An unresolved or ambiguous
 // target stays represented in Neo4j instead of becoming a misleading edge.
 func replaceOutgoingConnections(ctx context.Context, tx neo4j.ManagedTransaction, slug, sourcePath, body string) error {
-	connections := scanner.ExtractConnections(slug, body)
+	connections := markdown.ExtractConnections(slug, body)
 	for _, connection := range connections {
 		targetText := strings.TrimSpace(strings.TrimSuffix(connection.TargetText, ".md"))
 		relative := targetText

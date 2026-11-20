@@ -16,8 +16,8 @@ Every canonical Node carries the reserved `:Node` label, which backs the
 other labels (e.g. `Science`) are the only user-facing classification. Renaming
 or deleting a label affects every Node carrying it.
 
-Don't call it Note, SevilleNote, or Knowledge. Markdown files are an import
-format, not the live database.
+Don't call it Note, SevilleNote, or Knowledge. Neo4j is the live database;
+there is no Markdown or file mirror.
 
 `update_count` is a store-managed counter incremented by every canonical write
 and never by reads. Clients send their last observed value to detect stale
@@ -71,8 +71,3 @@ field (label, slug, title, or a named frontmatter value) by case-insensitive
 exact, contains, or starts-with matching. Among enabled matches, the highest
 weight wins and list order breaks ties. A rule supplies a `#RRGGBB` color, a
 gravity scale (0–3×), and a size scale (0.5–2×).
-
-## Source adapter
-
-Reads a Git checkout or Markdown folder for explicit, manual import. It never
-overwrites existing Nodes.

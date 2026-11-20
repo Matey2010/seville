@@ -2,7 +2,6 @@
 paths:
   - "backend/**"
   - "proto/**"
-  - "scripts/migrations/**"
 ---
 
 # Backend and protobuf

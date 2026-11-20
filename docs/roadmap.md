@@ -18,9 +18,9 @@ uses. Use each shipped feature for about a week before starting the next.
 
 Small items that protect data or remove noise. Do these first.
 
-1. **Neo4j backups.** The `neo4j-data` volume is the only copy of
-   Seville-native edits. Add a scheduled dump to an encrypted location and test
-   one restore. See [data-runbook.md](data-runbook.md).
+1. ~~**Neo4j backups.**~~ Done 2026-11-19: age-encrypted daily dumps to the
+   external SSD at 04:00, with a restore test passed (8,977 Nodes). See
+   [data-runbook.md](data-runbook.md#backups). Run `backup-verify` monthly.
 2. **API exposure.**
    - [compose.yaml](../compose.yaml) publishes Caddy on all interfaces
      (`8787:8787`); bind it to `127.0.0.1`.
@@ -33,7 +33,6 @@ Small items that protect data or remove noise. Do these first.
    - filter-driven `PATCH /api/v1/node/`
    - `seville/notification/v1`
 
-   Keep anything the Obsidian migration still needs, such as `NodeSnapshot`.
 4. **Read-flow bugs** (client; found by reading code, not yet seen in the app):
    - R-01: the Node list shows "No Nodes yet" while the graph is loading or has
      failed. It needs separate loading, error-with-retry, and empty states.
@@ -45,7 +44,7 @@ Small items that protect data or remove noise. Do these first.
      bytes.
    - R-05: check in the app whether refresh resets pan/zoom or flickers.
 5. **Static-check baseline.**
-   - 13 `golangci-lint` issues, fixed when the backend is next reopened.
+   - 10 `golangci-lint` issues, fixed when the backend is next reopened.
    - Migrate `package:flutter/material.dart` to `package:material_ui`.
 
 ## P1 — Objectives
@@ -88,10 +87,11 @@ Unordered. Pick these up when they serve Objectives or daily use.
 - Backlinks, connection suggestions, and navigation to unresolved targets.
 - **Latest** view of recently changed Nodes. This needs server-side ordering;
   confirm that `modified_at` means what "recent" should mean.
-- Import Concepts (`.concepts`/`.concept`) exports. Inspect sample files first,
-  then define identity and duplicate handling.
-- Source checkpoints, content hashes, and provenance before any Markdown/Git
-  synchronization back into Nodes. Multi-peer recovery comes later.
+- Importers for new external sources (e.g. Concepts `.concepts`/`.concept`
+  exports, new Obsidian vaults). Inspect real sample files first, then define
+  identity, duplicate handling, and provenance. The old Obsidian importer was
+  removed on 2026-11-19 because its format no longer matches.
+- Multi-peer recovery (content hashes, signed change events), after backups.
 
 ## Engineering practice
 

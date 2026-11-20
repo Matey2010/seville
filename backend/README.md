@@ -12,7 +12,7 @@ cp .env.example .env              # then set real credentials
 make -C scripts start | status | stop
 ```
 
-Normal startup connects to Neo4j and serves the API. It never imports sources.
+Startup connects to Neo4j, applies the idempotent startup migrations, and serves the API.
 
 ## Configuration (`.env` at the repository root)
 
@@ -25,7 +25,6 @@ Normal startup connects to Neo4j and serves the API. It never imports sources.
 | `SEVILLE_NEO4J_DATABASE` | `neo4j` | |
 | `SEVILLE_TOKEN` | `local-seville-token` (to become required; roadmap P0) | Client bearer token |
 | `SEVILLE_NEO4J_QUERY_LOG` | `false` | Logs Cypher, parameters, and timings. It can leak slugs and search terms, so enable it only while diagnosing. |
-| `SEVILLE_SOURCE`, `SEVILLE_VAULT_PATH`, `SEVILLE_GIT_REPOSITORY_PATH`, `SEVILLE_GIT_VAULT_SUBPATH` | | Obsidian migration only; see [../scripts/migrations/obsidian/](../scripts/migrations/obsidian/) |
 
 `compose.yaml` holds wiring only. Credentials belong in the ignored `.env`.
 
@@ -34,8 +33,7 @@ Normal startup connects to Neo4j and serves the API. It never imports sources.
 | Package | Role |
 | --- | --- |
 | `cmd/seville` | API server |
-| `cmd/migrate-obsidian-vault` | Manual Markdown import |
 | `internal/server` | HTTP handlers and auth |
 | `internal/store` | Neo4j queries; all canonical writes go through `MutateNodes` |
-| `internal/scanner` | Markdown and frontmatter parsing, connection extraction |
+| `internal/markdown` | Extracts connections from Node bodies |
 | `internal/config` | Environment configuration |
