@@ -19,7 +19,7 @@ const maxColorRules = 100
 // separate from canonical Nodes and survive a full Neo4j database transfer.
 func (s *Neo4jStore) NodeColorRules(ctx context.Context) (*presentationv1.NodeColorRuleSet, error) {
 	session := s.session(ctx, neo4j.AccessModeRead)
-	defer session.Close(ctx)
+	defer closeSession(ctx, session)
 
 	result, err := session.Run(ctx, `OPTIONAL MATCH (settings:ObsivilianColorRuleSet {key: 'global'})
 OPTIONAL MATCH (settings)-[:HAS_COLOR_RULE]->(rule:ObsivilianColorRule)
@@ -172,7 +172,7 @@ func (s *Neo4jStore) ReplaceNodeColorRules(ctx context.Context, request *present
 	}
 
 	session := s.session(ctx, neo4j.AccessModeWrite)
-	defer session.Close(ctx)
+	defer closeSession(ctx, session)
 	value, err := session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
 		result, err := tx.Run(ctx, `MERGE (settings:ObsivilianColorRuleSet {key: 'global'})
 ON CREATE SET settings.revision = 0

@@ -40,7 +40,7 @@ help:
 	@echo "Seville commands"
 	@echo "  make -C scripts interface          Start the complete macOS application"
 	@echo "  make -C scripts start              Start Neo4j and the Go API"
-	@echo "  make -C scripts status             Check the API and save its status"
+	@echo "  make -C scripts status             Check that the API is healthy"
 	@echo "  make -C scripts stop               Stop the Go API"
 	@echo "  make -C scripts restart            Restart the Go API"
 	@echo "  make -C scripts logs               Follow the API log"
@@ -169,12 +169,7 @@ status:
 		echo "Seville API is not running or unhealthy."; \
 		exit 1; \
 	fi; \
-	echo "Seville process is running (PID $$(cat "$(PID_FILE)"))."; \
-	curl --fail --silent --show-error \
-		-H "Authorization: Bearer $(SEVILLE_TOKEN)" \
-		"http://$(SEVILLE_ADDR)/v2/status" \
-		--output "$(LOCAL_DIR)/status.pb"; \
-	echo "API is healthy. Protobuf status saved to .local/status.pb"
+	echo "Seville API is healthy (PID $$(cat "$(PID_FILE)"))."
 
 logs:
 	@mkdir -p "$(LOCAL_DIR)"
@@ -441,10 +436,8 @@ proto:
 		--go_opt=paths=source_relative \
 		--dart_out=proto/gen/dart/lib/src \
 		proto/seville/node/v2/node.proto \
-		proto/seville/nodes/v1/tree.proto \
-		proto/seville/presentation/v1/color_rules.proto \
-		proto/seville/notification/v1/notification.proto \
-		proto/seville/system/v1/system.proto
+		proto/seville/nodes/v1/nodes.proto \
+		proto/seville/presentation/v1/color_rules.proto
 
 backup-setup backup backup-schedule backup-unschedule:
 	@"$(SCRIPTS_DIR)/backup.sh" $(patsubst backup-%,%,$@)

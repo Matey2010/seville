@@ -12,9 +12,7 @@
   - `PUT`: complete replacement at a known URI.
   - `DELETE`: removal.
 
-  Never `CREATE` or `MUTATE`. `GET` is accepted on `QUERY` routes only as a
-  compatibility alias. The client falls back to it only after a 404, 405, or
-  501 and only for unfiltered requests.
+  Never `CREATE` or `MUTATE`, and no `GET` aliases for `QUERY` routes.
 - **Wire format:** `application/x-protobuf` using messages from
   `proto/seville/`. JSON is not a contract. Fields are `snake_case`; generated
   Dart and Go names follow their language conventions. Counts use the `_count`
@@ -28,7 +26,7 @@
   allowlisted enums. Labels must match `[A-Za-z_][A-Za-z0-9_]*`. Regular
   expressions are validated before use.
 
-## Endpoints used by the client
+## Endpoints
 
 | Route | Purpose |
 | --- | --- |
@@ -58,10 +56,3 @@
 
 Interactive search builds an OR over slug, title, and label with an escaped
 case-insensitive regex.
-
-## Legacy routes (no client caller; removal planned)
-
-`GET /v2/status`, `GET /v2/snapshot`, `GET /system/v1/info`, filter-driven
-`PATCH /api/v1/node/`, and `QUERY|GET /api/v1/node/tree` (the tree of
-`PART_OF`/`FAMILY` occurrences used by the retired Fan layout). The roadmap
-(P0) lists them for removal. Don't build on them.

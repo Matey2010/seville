@@ -54,55 +54,6 @@ final $typed_data.Uint8List nodeConnectionKindDescriptor = $convert.base64Decode
     'QQABIdChlOT0RFX0NPTk5FQ1RJT05fS0lORF9XSUtJEAESIQodTk9ERV9DT05ORUNUSU9OX0tJ'
     'TkRfTUFSS0RPV04QAhIeChpOT0RFX0NPTk5FQ1RJT05fS0lORF9FTUJFRBAD');
 
-@$core.Deprecated('Use nodeSnapshotDescriptor instead')
-const NodeSnapshot$json = {
-  '1': 'NodeSnapshot',
-  '2': [
-    {'1': 'revision', '3': 1, '4': 1, '5': 9, '10': 'revision'},
-    {
-      '1': 'generated_at',
-      '3': 2,
-      '4': 1,
-      '5': 11,
-      '6': '.google.protobuf.Timestamp',
-      '10': 'generatedAt'
-    },
-    {
-      '1': 'nodes',
-      '3': 3,
-      '4': 3,
-      '5': 11,
-      '6': '.seville.node.v2.Node',
-      '10': 'nodes'
-    },
-    {
-      '1': 'connections',
-      '3': 4,
-      '4': 3,
-      '5': 11,
-      '6': '.seville.node.v2.NodeConnection',
-      '10': 'connections'
-    },
-    {
-      '1': 'warnings',
-      '3': 5,
-      '4': 3,
-      '5': 11,
-      '6': '.seville.node.v2.ImportWarning',
-      '10': 'warnings'
-    },
-  ],
-};
-
-/// Descriptor for `NodeSnapshot`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List nodeSnapshotDescriptor = $convert.base64Decode(
-    'CgxOb2RlU25hcHNob3QSGgoIcmV2aXNpb24YASABKAlSCHJldmlzaW9uEj0KDGdlbmVyYXRlZF'
-    '9hdBgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBSC2dlbmVyYXRlZEF0EisKBW5v'
-    'ZGVzGAMgAygLMhUuc2V2aWxsZS5ub2RlLnYyLk5vZGVSBW5vZGVzEkEKC2Nvbm5lY3Rpb25zGA'
-    'QgAygLMh8uc2V2aWxsZS5ub2RlLnYyLk5vZGVDb25uZWN0aW9uUgtjb25uZWN0aW9ucxI6Cgh3'
-    'YXJuaW5ncxgFIAMoCzIeLnNldmlsbGUubm9kZS52Mi5JbXBvcnRXYXJuaW5nUgh3YXJuaW5ncw'
-    '==');
-
 @$core.Deprecated('Use nodeDescriptor instead')
 const Node$json = {
   '1': 'Node',
@@ -305,46 +256,6 @@ final $typed_data.Uint8List nodeConnectionDescriptor = $convert.base64Decode(
     'NwbGF5VGV4dIgBARI3CgRraW5kGAUgASgOMiMuc2V2aWxsZS5ub2RlLnYyLk5vZGVDb25uZWN0'
     'aW9uS2luZFIEa2luZBIfCghmcmFnbWVudBgGIAEoCUgCUghmcmFnbWVudIgBAUITChFfdGFyZ2'
     'V0X25vZGVfc2x1Z0IPCg1fZGlzcGxheV90ZXh0QgsKCV9mcmFnbWVudA==');
-
-@$core.Deprecated('Use importWarningDescriptor instead')
-const ImportWarning$json = {
-  '1': 'ImportWarning',
-  '2': [
-    {'1': 'path', '3': 1, '4': 1, '5': 9, '10': 'path'},
-    {'1': 'message', '3': 2, '4': 1, '5': 9, '10': 'message'},
-  ],
-};
-
-/// Descriptor for `ImportWarning`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List importWarningDescriptor = $convert.base64Decode(
-    'Cg1JbXBvcnRXYXJuaW5nEhIKBHBhdGgYASABKAlSBHBhdGgSGAoHbWVzc2FnZRgCIAEoCVIHbW'
-    'Vzc2FnZQ==');
-
-@$core.Deprecated('Use importStatusDescriptor instead')
-const ImportStatus$json = {
-  '1': 'ImportStatus',
-  '2': [
-    {'1': 'revision', '3': 1, '4': 1, '5': 9, '10': 'revision'},
-    {
-      '1': 'imported_at',
-      '3': 2,
-      '4': 1,
-      '5': 11,
-      '6': '.google.protobuf.Timestamp',
-      '10': 'importedAt'
-    },
-    {'1': 'node_count', '3': 3, '4': 1, '5': 13, '10': 'nodeCount'},
-    {'1': 'connection_count', '3': 4, '4': 1, '5': 13, '10': 'connectionCount'},
-    {'1': 'warning_count', '3': 5, '4': 1, '5': 13, '10': 'warningCount'},
-  ],
-};
-
-/// Descriptor for `ImportStatus`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List importStatusDescriptor = $convert.base64Decode(
-    'CgxJbXBvcnRTdGF0dXMSGgoIcmV2aXNpb24YASABKAlSCHJldmlzaW9uEjsKC2ltcG9ydGVkX2'
-    'F0GAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcFIKaW1wb3J0ZWRBdBIdCgpub2Rl'
-    'X2NvdW50GAMgASgNUglub2RlQ291bnQSKQoQY29ubmVjdGlvbl9jb3VudBgEIAEoDVIPY29ubm'
-    'VjdGlvbkNvdW50EiMKDXdhcm5pbmdfY291bnQYBSABKA1SDHdhcm5pbmdDb3VudA==');
 
 @$core.Deprecated('Use apiErrorDescriptor instead')
 const ApiError$json = {

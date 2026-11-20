@@ -16,7 +16,7 @@ import (
 // in one transaction. The open editor supplies the last observed update count.
 func (s *Neo4jStore) UpdateNodeBody(ctx context.Context, slug, body string, expectedCount uint64) (*nodev2.Node, error) {
 	session := s.session(ctx, neo4j.AccessModeWrite)
-	defer session.Close(ctx)
+	defer closeSession(ctx, session)
 	value, err := session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
 		result, err := tx.Run(ctx, `MATCH (node:Node {slug: $slug})
 RETURN node.path AS path, coalesce(toInteger(node.update_count), 0) AS update_count`, map[string]any{"slug": slug})

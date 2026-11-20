@@ -335,7 +335,7 @@ func (s *Neo4jStore) ReplaceNodeTemporalSpan(ctx context.Context, slug string, s
 		return nil, err
 	}
 	session := s.session(ctx, neo4j.AccessModeWrite)
-	defer session.Close(ctx)
+	defer closeSession(ctx, session)
 	value, err := session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
 		result, err := tx.Run(ctx, `MATCH (node:Node {slug: $slug})
 RETURN coalesce(toInteger(node.update_count), 0) AS update_count`, map[string]any{"slug": slug})

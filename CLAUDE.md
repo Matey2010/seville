@@ -40,7 +40,7 @@ gofmt -l backend
 make -C scripts proto    # only after editing .proto files
 ```
 
-Baseline as of 2026-11-19: 10 `golangci-lint` issues and 7 `flutter analyze`
+Baseline as of 2026-11-20: 0 `golangci-lint` issues and 7 `flutter analyze`
 infos (deprecated `package:flutter/material.dart`). New work must not add any.
 
 ## Map

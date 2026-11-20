@@ -34,6 +34,6 @@ Startup connects to Neo4j, applies the idempotent startup migrations, and serves
 | --- | --- |
 | `cmd/seville` | API server |
 | `internal/server` | HTTP handlers and auth |
-| `internal/store` | Neo4j queries; all canonical writes go through `MutateNodes` |
+| `internal/store` | Neo4j queries and startup migrations |
 | `internal/markdown` | Extracts connections from Node bodies |
 | `internal/config` | Environment configuration |

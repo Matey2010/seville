@@ -30,7 +30,11 @@ func main() {
 		slog.Error("database failed", "error", err)
 		os.Exit(1)
 	}
-	defer database.Close()
+	defer func() {
+		if err := database.Close(); err != nil {
+			slog.Error("close database failed", "error", err)
+		}
+	}()
 
 	app := server.New(database, cfg.Token)
 

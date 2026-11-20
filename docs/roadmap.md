@@ -24,13 +24,9 @@ Small items that protect data or remove noise. Do these first.
 2. ~~**API exposure.**~~ Done 2026-11-20: the API and Neo4j listen only on
    `127.0.0.1`. The server, client, and Makefile have no default token or Neo4j
    password. The unused Caddy proxy and API container were removed.
-3. **Remove dead API surface** (needs backend reopened). The client never calls:
-   - `GET /v2/status` and `GET /v2/snapshot`
-   - `GET /system/v1/info`
-   - `QUERY|GET /api/v1/node/tree`, which served the retired Fan layout
-   - filter-driven `PATCH /api/v1/node/`
-   - `seville/notification/v1`
-
+3. ~~**Remove dead API surface.**~~ Done 2026-11-20: the status, snapshot,
+   system info, Node tree, and filter-mutation routes and their protobuf
+   messages are gone.
 4. **Read-flow bugs** (client; found by reading code, not yet seen in the app):
    - R-01: the Node list shows "No Nodes yet" while the graph is loading or has
      failed. It needs separate loading, error-with-retry, and empty states.
@@ -41,9 +37,9 @@ Small items that protect data or remove noise. Do these first.
    - R-04: the search field allows 256 characters; the API allows 256 UTF-8
      bytes.
    - R-05: check in the app whether refresh resets pan/zoom or flickers.
-5. **Static-check baseline.**
-   - 10 `golangci-lint` issues, fixed when the backend is next reopened.
-   - Migrate `package:flutter/material.dart` to `package:material_ui`.
+5. **Static-check baseline.** `golangci-lint` is clean (2026-11-20). Remaining:
+   migrate `package:flutter/material.dart` to `package:material_ui` (7
+   `flutter analyze` infos).
 
 ## P1 — Objectives
 

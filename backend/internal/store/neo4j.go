@@ -9,9 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"regexp"
-	"runtime"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -19,14 +17,11 @@ import (
 
 	nodev2 "github.com/Matey2010/seville/proto/gen/go/seville/node/v2"
 	nodesv1 "github.com/Matey2010/seville/proto/gen/go/seville/nodes/v1"
-	systemv1 "github.com/Matey2010/seville/proto/gen/go/seville/system/v1"
 	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var neo4jNodeLabelPattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
-
-const systemInfoLabelLimit = 12
 
 type Neo4jStore struct {
 	driver          neo4j.Driver
@@ -49,12 +44,12 @@ func OpenNeo4j(
 		return nil, fmt.Errorf("create neo4j driver: %w", err)
 	}
 	if err := waitForConnectivity(ctx, driver, 30*time.Second); err != nil {
-		driver.Close(ctx)
+		_ = driver.Close(ctx) // the open error matters more
 		return nil, fmt.Errorf("connect neo4j: %w", err)
 	}
 	store := &Neo4jStore{driver: driver, database: database, queryLog: queryLog}
 	if err := store.migrate(ctx); err != nil {
-		driver.Close(ctx)
+		_ = driver.Close(ctx) // the open error matters more
 		return nil, err
 	}
 	return store, nil
@@ -82,6 +77,14 @@ func waitForConnectivity(ctx context.Context, driver neo4j.Driver, timeout time.
 
 func (s *Neo4jStore) Close() error {
 	return s.driver.Close(context.Background())
+}
+
+// closeSession closes a session from a defer. A close error comes after the
+// work's own result, so it is logged rather than returned.
+func closeSession(ctx context.Context, session neo4j.Session) {
+	if err := session.Close(ctx); err != nil {
+		slog.Warn("close Neo4j session failed", "error", err)
+	}
 }
 
 func (s *Neo4jStore) session(ctx context.Context, mode neo4j.AccessMode) neo4j.Session {
@@ -184,7 +187,7 @@ func (s *Neo4jStore) finishQueryTrace(
 
 func (s *Neo4jStore) migrate(ctx context.Context) error {
 	session := s.session(ctx, neo4j.AccessModeWrite)
-	defer session.Close(ctx)
+	defer closeSession(ctx, session)
 	statements := []string{
 		`DROP CONSTRAINT seville_tag_id IF EXISTS`,
 		`CREATE CONSTRAINT obsivilian_color_rule_set_key IF NOT EXISTS FOR (settings:ObsivilianColorRuleSet) REQUIRE settings.key IS UNIQUE`,
@@ -331,308 +334,6 @@ SET node.frontmatter_json = $frontmatter_json,
 	return nil
 }
 
-func (s *Neo4jStore) SystemInfo(ctx context.Context) (*systemv1.SystemInfo, error) {
-	session := s.session(ctx, neo4j.AccessModeRead)
-	defer session.Close(ctx)
-	result, err := session.Run(ctx, `CALL {
-  MATCH (candidate:Node)
-  WHERE candidate.slug IS NOT NULL AND trim(toString(candidate.slug)) <> ''
-  WITH candidate.slug AS slug, collect(candidate) AS matches
-  WHERE size(matches) = 1
-  WITH matches[0] AS labelled_node
-  UNWIND labels(labelled_node) AS label
-  WITH label WHERE label <> 'Node'
-  WITH label, count(*) AS frequency
-  ORDER BY frequency DESC, label
-  LIMIT $label_limit
-  RETURN collect(label) AS neo4j_labels
-}
-CALL {
-  CALL dbms.components() YIELD name, versions
-  WHERE name CONTAINS 'Neo4j'
-  RETURN head(collect(head(versions))) AS neo4j_version
-}
-CALL {
-MATCH (candidate:Node)
-WHERE candidate.slug IS NOT NULL AND trim(toString(candidate.slug)) <> ''
-WITH candidate.slug AS slug, collect(candidate) AS matches
-WHERE size(matches) = 1
-WITH matches[0] AS node
-RETURN count(node) AS node_count,
-       coalesce(sum(size(keys(node))), 0) AS node_property_count
-}
-RETURN node_count, node_property_count, neo4j_labels, neo4j_version`, map[string]any{
-		"label_limit": systemInfoLabelLimit,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("query neo4j system info: %w", err)
-	}
-	if !result.Next(ctx) {
-		if err := result.Err(); err != nil {
-			return nil, fmt.Errorf("read neo4j system info: %w", err)
-		}
-		return nil, fmt.Errorf("read neo4j system info: empty result")
-	}
-	record := result.Record()
-	nodeCount, ok := recordInt64(record, "node_count")
-	if !ok || nodeCount < 0 {
-		return nil, fmt.Errorf("read neo4j system info: invalid node_count")
-	}
-	nodePropertyCount, ok := recordInt64(record, "node_property_count")
-	if !ok || nodePropertyCount < 0 {
-		return nil, fmt.Errorf("read neo4j system info: invalid node_property_count")
-	}
-	neo4jVersion, ok := recordString(record, "neo4j_version")
-	if !ok || strings.TrimSpace(neo4jVersion) == "" {
-		return nil, fmt.Errorf("read neo4j system info: invalid neo4j_version")
-	}
-	return &systemv1.SystemInfo{
-		NodeCount:         uint64(nodeCount),
-		NodePropertyCount: uint64(nodePropertyCount),
-		Neo4JLabels:       recordStrings(record, "neo4j_labels"),
-		GoVersion:         runtime.Version(),
-		Neo4JVersion:      neo4jVersion,
-	}, nil
-}
-
-func (s *Neo4jStore) NodeTree(
-	ctx context.Context,
-	rootNodeSlug string,
-	rootNodeFilter *nodesv1.NodeSearchFilter,
-	relationshipType nodesv1.NodeRelationshipType,
-	nodeFilter *nodesv1.NodeSearchFilter,
-	depth uint32,
-) (*nodesv1.NodeTree, error) {
-	relationshipName, err := neo4jRelationshipName(relationshipType)
-	if err != nil {
-		return nil, err
-	}
-	compiledRootFilter, err := compileNodeSearchFilter(rootNodeFilter)
-	if err != nil {
-		return nil, fmt.Errorf("root_node_filter: %w", err)
-	}
-	compiledFilter, err := compileNodeSearchFilter(nodeFilter)
-	if err != nil {
-		return nil, err
-	}
-	childQuery := `MATCH (child:Node)-[relationship]->(parent:Node)
-WHERE elementId(parent) IN $parent_element_ids
-  AND type(relationship) = $relationship_type
-  AND child.slug IS NOT NULL
-  AND NOT EXISTS {
-    MATCH (duplicate:Node {slug: child.slug})
-    WHERE elementId(duplicate) <> elementId(child)
-  }
-WITH parent, child, relationship` +
-		compiledFilter.whereClause + `
-OPTIONAL MATCH (child)-[:HAS_EMOJI]->(emoji)
-WITH parent, child, relationship, emoji
-ORDER BY elementId(parent), child.slug, child.path, elementId(relationship), emoji.id
-WITH parent, child, relationship,
-     [emojiProperties IN collect(properties(emoji)) WHERE emojiProperties IS NOT NULL] AS emojis
-RETURN elementId(parent) AS parent_element_id,
-       elementId(child) AS child_element_id,
-       child.slug AS slug, child.path AS path,
-       child.title AS title, child.body AS body,
-       labels(child) AS labels,
-       child.frontmatter_json AS frontmatter_json,
-       child.modified_at AS modified_at, properties(child) AS properties,
-       emojis,
-       elementId(relationship) AS relationship_id
-ORDER BY parent_element_id, child.slug, child.path, relationship_id`
-	session := s.session(ctx, neo4j.AccessModeRead)
-	defer session.Close(ctx)
-
-	rootMatch := "MATCH (candidate:Node)"
-	rootParameters := make(map[string]any, len(compiledRootFilter.parameters))
-	rootFilterClause := compiledRootFilter.whereClause
-	for name, value := range compiledRootFilter.parameters {
-		rootParameters[name] = value
-	}
-	if rootNodeSlug != "" {
-		rootMatch = "MATCH (candidate:Node {slug: $root_node_slug})"
-		rootParameters = map[string]any{"root_node_slug": rootNodeSlug}
-		rootFilterClause = ""
-	}
-	rootQuery := rootMatch + `
-WHERE candidate.slug IS NOT NULL
-WITH candidate.slug AS slug, collect(candidate) AS matches
-WHERE size(matches) = 1
-WITH matches[0] AS child` +
-		rootFilterClause + `
-OPTIONAL MATCH (child)-[:HAS_EMOJI]->(emoji)
-WITH child, emoji
-ORDER BY emoji.id
-WITH child,
-     [emojiProperties IN collect(properties(emoji)) WHERE emojiProperties IS NOT NULL] AS emojis
-RETURN elementId(child) AS node_element_id,
-       child.slug AS slug, child.path AS path,
-       child.title AS title, child.body AS body,
-       labels(child) AS labels,
-       child.frontmatter_json AS frontmatter_json,
-       child.modified_at AS modified_at, properties(child) AS properties,
-       emojis
-ORDER BY size(coalesce(toString(child.slug), '')), child.slug, child.path,
-         node_element_id`
-	rootTraceStarted := s.startQueryTrace("node_tree.root", rootQuery, rootParameters)
-	rootResult, err := session.Run(ctx, rootQuery, rootParameters)
-	rootDispatchDuration := queryTraceDuration(rootTraceStarted)
-	if err != nil {
-		s.logQueryRunError("node_tree.root", rootTraceStarted, err)
-		return nil, fmt.Errorf("query radial tree root: %w", err)
-	}
-	type storedOccurrence struct {
-		occurrence *nodesv1.NodeTreeOccurrence
-		elementID  string
-	}
-	type storedChild struct {
-		node      *nodev2.Node
-		elementID string
-	}
-	tree := &nodesv1.NodeTree{
-		Relationship: relationshipType,
-		Depth:        depth,
-	}
-	current := make([]storedOccurrence, 0)
-	for rootResult.Next(ctx) {
-		rootRecord := rootResult.Record()
-		root := nodeFromRecord(rootRecord)
-		rootElementID, ok := recordString(rootRecord, "node_element_id")
-		if !ok || rootElementID == "" {
-			return nil, fmt.Errorf("read node tree root: invalid internal locator")
-		}
-		rootOccurrence := &nodesv1.NodeTreeOccurrence{
-			OccurrenceId: strconv.Itoa(len(current)),
-			Depth:        0,
-			Node:         root,
-		}
-		tree.Occurrences = append(tree.Occurrences, rootOccurrence)
-		current = append(current, storedOccurrence{
-			occurrence: rootOccurrence,
-			elementID:  rootElementID,
-		})
-		if s.queryLog {
-			slog.Info(
-				"neo4j node tree root selected",
-				"slug", root.GetSlug(),
-				"labels", root.GetLabels(),
-				"element_id", rootElementID,
-			)
-		}
-	}
-	if err := rootResult.Err(); err != nil {
-		s.logQueryRunError("node_tree.root", rootTraceStarted, err)
-		return nil, fmt.Errorf("read radial tree root: %w", err)
-	}
-	if err := s.finishQueryTrace(
-		ctx,
-		"node_tree.root",
-		rootTraceStarted,
-		rootDispatchDuration,
-		len(current),
-		rootResult,
-	); err != nil {
-		return nil, fmt.Errorf("read radial tree root summary: %w", err)
-	}
-	if len(current) == 0 {
-		if rootNodeSlug != "" {
-			result, err := session.Run(ctx, `MATCH (node:Node {slug: $slug}) RETURN count(node) AS matches`, map[string]any{"slug": rootNodeSlug})
-			if err != nil {
-				return nil, err
-			}
-			if !result.Next(ctx) {
-				if err := result.Err(); err != nil {
-					return nil, fmt.Errorf("read duplicate root slugs: %w", err)
-				}
-				return nil, ErrNodeNotFound
-			}
-			matches, _ := recordInt64(result.Record(), "matches")
-			if _, err := result.Consume(ctx); err != nil {
-				return nil, err
-			}
-			if matches > 1 {
-				return nil, ErrAmbiguousNodeSlug
-			}
-		}
-		return nil, ErrNodeNotFound
-	}
-	if len(current) == 1 {
-		tree.RootNodeSlug = current[0].occurrence.GetNode().GetSlug()
-	}
-
-	for level := uint32(1); level != 0 && level <= depth && len(current) > 0; level++ {
-		parentElementIDs := make([]string, 0, len(current))
-		seenParentElementIDs := make(map[string]struct{}, len(current))
-		for _, stored := range current {
-			if _, seen := seenParentElementIDs[stored.elementID]; seen {
-				continue
-			}
-			seenParentElementIDs[stored.elementID] = struct{}{}
-			parentElementIDs = append(parentElementIDs, stored.elementID)
-		}
-
-		parameters := map[string]any{
-			"parent_element_ids": parentElementIDs,
-			"relationship_type":  relationshipName,
-		}
-		for name, value := range compiledFilter.parameters {
-			parameters[name] = value
-		}
-		operation := fmt.Sprintf("node_tree.depth_%d", level)
-		traceStarted := s.startQueryTrace(operation, childQuery, parameters)
-		result, err := session.Run(ctx, childQuery, parameters)
-		dispatchDuration := queryTraceDuration(traceStarted)
-		if err != nil {
-			s.logQueryRunError(operation, traceStarted, err)
-			return nil, fmt.Errorf("query radial tree depth %d: %w", level, err)
-		}
-		childrenByParent := make(map[string][]storedChild)
-		recordCount := 0
-		for result.Next(ctx) {
-			recordCount++
-			record := result.Record()
-			parentElementID, _ := recordString(record, "parent_element_id")
-			childElementID, _ := recordString(record, "child_element_id")
-			childrenByParent[parentElementID] = append(
-				childrenByParent[parentElementID],
-				storedChild{node: nodeFromRecord(record), elementID: childElementID},
-			)
-		}
-		if err := result.Err(); err != nil {
-			s.logQueryRunError(operation, traceStarted, err)
-			return nil, fmt.Errorf("read radial tree depth %d: %w", level, err)
-		}
-		if err := s.finishQueryTrace(
-			ctx,
-			operation,
-			traceStarted,
-			dispatchDuration,
-			recordCount,
-			result,
-		); err != nil {
-			return nil, fmt.Errorf("read radial tree depth %d summary: %w", level, err)
-		}
-
-		next := make([]storedOccurrence, 0)
-		for _, storedParent := range current {
-			for childIndex, child := range childrenByParent[storedParent.elementID] {
-				parentOccurrenceID := storedParent.occurrence.OccurrenceId
-				occurrence := &nodesv1.NodeTreeOccurrence{
-					OccurrenceId:       fmt.Sprintf("%s/%d", parentOccurrenceID, childIndex),
-					ParentOccurrenceId: &parentOccurrenceID,
-					Depth:              level,
-					Node:               child.node,
-				}
-				tree.Occurrences = append(tree.Occurrences, occurrence)
-				next = append(next, storedOccurrence{occurrence: occurrence, elementID: child.elementID})
-			}
-		}
-		current = next
-	}
-
-	return tree, nil
-}
-
 func (s *Neo4jStore) NodeSearch(
 	ctx context.Context,
 	filter *nodesv1.NodeSearchFilter,
@@ -667,7 +368,7 @@ RETURN child.slug AS slug, child.path AS path,
 ORDER BY child.slug, child.path
 LIMIT $limit`
 	session := s.session(ctx, neo4j.AccessModeRead)
-	defer session.Close(ctx)
+	defer closeSession(ctx, session)
 	traceStarted := s.startQueryTrace("node_search", query, parameters)
 	result, err := session.Run(ctx, query, parameters)
 	dispatchDuration := queryTraceDuration(traceStarted)
@@ -696,55 +397,6 @@ LIMIT $limit`
 	return response, nil
 }
 
-// MutateNodes is the single store boundary for canonical Node updates. The
-// selection and mutation are compiled together so update_count changes in the
-// same transaction and cannot be accidentally added to a read query.
-func (s *Neo4jStore) MutateNodes(
-	ctx context.Context,
-	filter *nodesv1.NodeSearchFilter,
-	mutation NodeMutation,
-) (uint64, error) {
-	query, parameters, err := compileNodeMutation(filter, mutation)
-	if err != nil {
-		return 0, err
-	}
-	session := s.session(ctx, neo4j.AccessModeWrite)
-	defer session.Close(ctx)
-	traceStarted := s.startQueryTrace("node_mutation", query, parameters)
-	result, err := session.Run(ctx, query, parameters)
-	dispatchDuration := queryTraceDuration(traceStarted)
-	if err != nil {
-		s.logQueryRunError("node_mutation", traceStarted, err)
-		return 0, fmt.Errorf("mutate Nodes: %w", err)
-	}
-	if !result.Next(ctx) {
-		if err := result.Err(); err != nil {
-			s.logQueryRunError("node_mutation", traceStarted, err)
-			return 0, fmt.Errorf("read Node mutation result: %w", err)
-		}
-		return 0, fmt.Errorf("read Node mutation result: empty result")
-	}
-	mutatedNodeCount, ok := recordInt64(result.Record(), "mutated_node_count")
-	if !ok || mutatedNodeCount < 0 {
-		return 0, fmt.Errorf("read Node mutation result: invalid mutated_node_count")
-	}
-	if s.queryLog {
-		if err := s.finishQueryTrace(
-			ctx,
-			"node_mutation",
-			traceStarted,
-			dispatchDuration,
-			1,
-			result,
-		); err != nil {
-			return 0, fmt.Errorf("read Node mutation summary: %w", err)
-		}
-	} else if _, err := result.Consume(ctx); err != nil {
-		return 0, fmt.Errorf("consume Node mutation result: %w", err)
-	}
-	return uint64(mutatedNodeCount), nil
-}
-
 // CreateNode creates one canonical Node identified by slug. Labels are
 // validated before becoming Cypher syntax; all ordinary values stay query
 // parameters.
@@ -765,7 +417,7 @@ func (s *Neo4jStore) CreateNode(
 	parameters["create_token"] = hex.EncodeToString(tokenBytes)
 
 	session := s.session(ctx, neo4j.AccessModeWrite)
-	defer session.Close(ctx)
+	defer closeSession(ctx, session)
 	value, err := session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
 		traceStarted := s.startQueryTrace("node_create", query, parameters)
 		result, err := tx.Run(ctx, query, parameters)
@@ -781,7 +433,7 @@ func (s *Neo4jStore) CreateNode(
 			return nil, fmt.Errorf("read created Node: empty result")
 		}
 		record := result.Record()
-		createdValue, ok := record.Get("created")
+		createdValue, _ := record.Get("created")
 		created, ok := createdValue.(bool)
 		if !ok {
 			return nil, fmt.Errorf("read created Node: invalid created flag")
@@ -859,63 +511,6 @@ RETURN created,
 		"body":        create.Body,
 		"modified_at": time.Now().UTC().UnixNano(),
 	}, slug, nil
-}
-
-func compileNodeMutation(
-	filter *nodesv1.NodeSearchFilter,
-	mutation NodeMutation,
-) (string, map[string]any, error) {
-	if filter == nil ||
-		(len(filter.GetIncludeNodesMatching()) == 0 &&
-			len(filter.GetExcludeNodesMatching()) == 0) {
-		return "", nil, fmt.Errorf("%w: node_filter is required", ErrInvalidNodeMutation)
-	}
-	if len(mutation.SetProperties) == 0 {
-		return "", nil, fmt.Errorf("%w: set properties are required", ErrInvalidNodeMutation)
-	}
-	for property := range mutation.SetProperties {
-		if strings.TrimSpace(property) == "" {
-			return "", nil, fmt.Errorf("%w: property names must not be empty", ErrInvalidNodeMutation)
-		}
-		if property == "update_count" {
-			return "", nil, fmt.Errorf("%w: update_count is managed by the store", ErrInvalidNodeMutation)
-		}
-		if property == "body" {
-			return "", nil, fmt.Errorf("%w: edit body through the Node resource so connections stay synchronized", ErrInvalidNodeMutation)
-		}
-		if property == "temporal_start" || property == "temporal_end_exclusive" || property == "temporal_granularity" || property == "temporal_placement_disabled" {
-			return "", nil, fmt.Errorf("%w: edit temporal data through the Node temporal resource", ErrInvalidNodeMutation)
-		}
-		if property == "tags" || property == "tags_json" {
-			return "", nil, fmt.Errorf("%w: labels are the Node classification system", ErrInvalidNodeMutation)
-		}
-		if property == "id" || property == "slug" {
-			return "", nil, fmt.Errorf("%w: Node identity cannot be changed through a filter mutation", ErrInvalidNodeMutation)
-		}
-		if property == "counter" {
-			return "", nil, fmt.Errorf("%w: legacy counter is not mutable", ErrInvalidNodeMutation)
-		}
-	}
-	compiledFilter, err := compileNodeSearchFilter(filter)
-	if err != nil {
-		return "", nil, err
-	}
-	parameters := make(map[string]any, len(compiledFilter.parameters)+1)
-	for name, value := range compiledFilter.parameters {
-		parameters[name] = value
-	}
-	parameters["set_properties"] = mutation.SetProperties
-	query := `MATCH (candidate:Node)
-WHERE candidate.slug IS NOT NULL AND trim(toString(candidate.slug)) <> ''
-WITH candidate.slug AS slug, collect(candidate) AS matches
-WHERE size(matches) = 1
-WITH matches[0] AS child` +
-		compiledFilter.whereClause + `
-WITH DISTINCT child
-SET child += $set_properties,
-    child.update_count = coalesce(toInteger(child.update_count), 0) + 1
-RETURN count(child) AS mutated_node_count`
-	return query, parameters, nil
 }
 
 type compiledNodeSearchFilter struct {
@@ -1078,82 +673,6 @@ func nodeSearchOperatorPredicate(
 	}
 }
 
-func neo4jRelationshipName(relationshipType nodesv1.NodeRelationshipType) (string, error) {
-	switch relationshipType {
-	case nodesv1.NodeRelationshipType_NODE_RELATIONSHIP_TYPE_PART_OF:
-		return "PART_OF", nil
-	case nodesv1.NodeRelationshipType_NODE_RELATIONSHIP_TYPE_FAMILY:
-		return "FAMILY", nil
-	default:
-		return "", fmt.Errorf("unsupported Node tree relationship type: %s", relationshipType)
-	}
-}
-
-func (s *Neo4jStore) Snapshot(ctx context.Context) (*nodev2.NodeSnapshot, error) {
-	session := s.session(ctx, neo4j.AccessModeRead)
-	defer session.Close(ctx)
-	result, err := session.Run(ctx, `MATCH (state:SevilleScanState {singleton: true})
-RETURN state.revision AS revision, state.generated_at AS generated_at,
-       state.warnings_json AS warnings_json`, nil)
-	if err != nil {
-		return nil, fmt.Errorf("query neo4j snapshot: %w", err)
-	}
-	if !result.Next(ctx) {
-		if err := result.Err(); err != nil {
-			return nil, fmt.Errorf("read neo4j snapshot: %w", err)
-		}
-		return nil, ErrSnapshotUnavailable
-	}
-	record := result.Record()
-	revision, _ := record.Get("revision")
-	generatedAt, _ := record.Get("generated_at")
-	warningsJSON, _ := record.Get("warnings_json")
-	snapshot := &nodev2.NodeSnapshot{Revision: revision.(string)}
-	if nanos, ok := generatedAt.(int64); ok {
-		snapshot.GeneratedAt = timestamppb.New(time.Unix(0, nanos).UTC())
-	}
-	if raw, ok := warningsJSON.(string); ok {
-		_ = json.Unmarshal([]byte(raw), &snapshot.Warnings)
-	}
-	if err := s.readNodes(ctx, session, snapshot); err != nil {
-		return nil, err
-	}
-	if err := s.readLinks(ctx, session, snapshot); err != nil {
-		return nil, err
-	}
-	return snapshot, nil
-}
-
-func (s *Neo4jStore) readNodes(ctx context.Context, session neo4j.Session, snapshot *nodev2.NodeSnapshot) error {
-	result, err := session.Run(ctx, `MATCH (candidate:Node)
-WHERE candidate.slug IS NOT NULL AND trim(toString(candidate.slug)) <> ''
-WITH candidate.slug AS slug, collect(candidate) AS matches
-WHERE size(matches) = 1
-WITH matches[0] AS node
-OPTIONAL MATCH (node)-[:HAS_EMOJI]->(emoji)
-WITH node, emoji
-ORDER BY node.path, emoji.id
-WITH node,
-     [emojiProperties IN collect(properties(emoji)) WHERE emojiProperties IS NOT NULL] AS emojis
-RETURN node.slug AS slug, node.path AS path,
-       node.title AS title, node.body AS body,
-       labels(node) AS labels,
-       node.frontmatter_json AS frontmatter_json,
-       node.modified_at AS modified_at, properties(node) AS properties,
-       emojis
-ORDER BY node.path`, nil)
-	if err != nil {
-		return fmt.Errorf("query neo4j nodes: %w", err)
-	}
-	for result.Next(ctx) {
-		snapshot.Nodes = append(snapshot.Nodes, nodeFromRecord(result.Record()))
-	}
-	if err := result.Err(); err != nil {
-		return fmt.Errorf("read neo4j nodes: %w", err)
-	}
-	return nil
-}
-
 func nodeFromRecord(record *neo4j.Record) *nodev2.Node {
 	node := &nodev2.Node{}
 	node.Slug, _ = recordString(record, "slug")
@@ -1272,51 +791,6 @@ func isStoredNodeField(key string) bool {
 	default:
 		return false
 	}
-}
-
-func (s *Neo4jStore) readLinks(ctx context.Context, session neo4j.Session, snapshot *nodev2.NodeSnapshot) error {
-	result, err := session.Run(ctx, `MATCH (source:Node)-[connection:LINKS_TO]->(target:Node)
-RETURN source.slug AS source, target.slug AS target, connection.target_text AS target_text,
-       connection.display_text AS display_text, connection.kind AS kind, connection.fragment AS fragment, connection.index AS index
-UNION ALL
-MATCH (source:Node)-[:HAS_UNRESOLVED_LINK]->(connection:SevilleUnresolvedLink)
-RETURN source.slug AS source, null AS target, connection.target_text AS target_text,
-       connection.display_text AS display_text, connection.kind AS kind, connection.fragment AS fragment, connection.index AS index
-ORDER BY source, index`, nil)
-	if err != nil {
-		return fmt.Errorf("query neo4j connections: %w", err)
-	}
-	for result.Next(ctx) {
-		record := result.Record()
-		source, _ := recordString(record, "source")
-		targetText, _ := recordString(record, "target_text")
-		connection := &nodev2.NodeConnection{SourceNodeSlug: source, TargetText: targetText}
-		if value, ok := record.Get("target"); ok {
-			if target, ok := value.(string); ok {
-				connection.TargetNodeSlug = &target
-			}
-		}
-		if value, ok := record.Get("display_text"); ok {
-			if text, ok := value.(string); ok {
-				connection.DisplayText = &text
-			}
-		}
-		if value, ok := record.Get("fragment"); ok {
-			if text, ok := value.(string); ok {
-				connection.Fragment = &text
-			}
-		}
-		if value, ok := record.Get("kind"); ok {
-			if kind, ok := value.(int64); ok {
-				connection.Kind = nodev2.NodeConnectionKind(kind)
-			}
-		}
-		snapshot.Connections = append(snapshot.Connections, connection)
-	}
-	if err := result.Err(); err != nil {
-		return fmt.Errorf("read neo4j connections: %w", err)
-	}
-	return nil
 }
 
 func recordString(record *neo4j.Record, key string) (string, bool) {

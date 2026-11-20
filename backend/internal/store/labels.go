@@ -49,7 +49,7 @@ func (s *Neo4jStore) SearchLabels(ctx context.Context, prefix string, limit uint
 		return nil, ErrInvalidLabel
 	}
 	session := s.session(ctx, neo4j.AccessModeRead)
-	defer session.Close(ctx)
+	defer closeSession(ctx, session)
 	result, err := session.Run(ctx, `MATCH (candidate:Node)
 WHERE candidate.slug IS NOT NULL AND trim(toString(candidate.slug)) <> ''
 WITH candidate.slug AS slug, collect(candidate) AS matches
@@ -87,7 +87,7 @@ func (s *Neo4jStore) ReplaceNodeLabels(ctx context.Context, slug string, raw []s
 		return nil, ErrInvalidLabel
 	}
 	session := s.session(ctx, neo4j.AccessModeWrite)
-	defer session.Close(ctx)
+	defer closeSession(ctx, session)
 	value, err := session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
 		result, err := tx.Run(ctx, `MATCH (node:Node {slug: $slug})
 RETURN labels(node) AS labels, coalesce(toInteger(node.update_count), 0) AS update_count`, map[string]any{"slug": slug})
@@ -184,7 +184,7 @@ func (s *Neo4jStore) DeleteLabel(ctx context.Context, raw string) (uint64, error
 
 func (s *Neo4jStore) changeLabel(ctx context.Context, old, replacement string) (uint64, error) {
 	session := s.session(ctx, neo4j.AccessModeWrite)
-	defer session.Close(ctx)
+	defer closeSession(ctx, session)
 	value, err := session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
 		if replacement != "" {
 			result, err := tx.Run(ctx, `MATCH (candidate:Node) WHERE candidate.slug IS NOT NULL

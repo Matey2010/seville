@@ -1,6 +1,6 @@
 // This is a generated file - do not edit.
 //
-// Generated from seville/nodes/v1/tree.proto.
+// Generated from seville/nodes/v1/nodes.proto.
 
 // @dart = 3.3
 
@@ -13,31 +13,6 @@
 import 'dart:core' as $core;
 
 import 'package:protobuf/protobuf.dart' as $pb;
-
-class NodeRelationshipType extends $pb.ProtobufEnum {
-  static const NodeRelationshipType NODE_RELATIONSHIP_TYPE_UNSPECIFIED =
-      NodeRelationshipType._(
-          0, _omitEnumNames ? '' : 'NODE_RELATIONSHIP_TYPE_UNSPECIFIED');
-  static const NodeRelationshipType NODE_RELATIONSHIP_TYPE_PART_OF =
-      NodeRelationshipType._(
-          1, _omitEnumNames ? '' : 'NODE_RELATIONSHIP_TYPE_PART_OF');
-  static const NodeRelationshipType NODE_RELATIONSHIP_TYPE_FAMILY =
-      NodeRelationshipType._(
-          2, _omitEnumNames ? '' : 'NODE_RELATIONSHIP_TYPE_FAMILY');
-
-  static const $core.List<NodeRelationshipType> values = <NodeRelationshipType>[
-    NODE_RELATIONSHIP_TYPE_UNSPECIFIED,
-    NODE_RELATIONSHIP_TYPE_PART_OF,
-    NODE_RELATIONSHIP_TYPE_FAMILY,
-  ];
-
-  static final $core.List<NodeRelationshipType?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 2);
-  static NodeRelationshipType? valueOf($core.int value) =>
-      value < 0 || value >= _byValue.length ? null : _byValue[value];
-
-  const NodeRelationshipType._(super.value, super.name);
-}
 
 class NodeParameterType extends $pb.ProtobufEnum {
   static const NodeParameterType NODE_PARAMETER_TYPE_UNSPECIFIED =

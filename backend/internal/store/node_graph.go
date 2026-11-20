@@ -15,7 +15,7 @@ import (
 // endpoints are both in that set. An empty root requests a bounded global view.
 func (s *Neo4jStore) NodeGraph(ctx context.Context, rootSlug, search string, depth, limit uint32) (*nodesv1.NodeGraph, error) {
 	session := s.session(ctx, neo4j.AccessModeRead)
-	defer session.Close(ctx)
+	defer closeSession(ctx, session)
 
 	slugs := make([]string, 0, limit)
 	hasMore := false

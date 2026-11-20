@@ -6,12 +6,6 @@ option go_package = "github.com/Matey2010/seville/proto/gen/go/seville/nodes/v1;
 
 import "seville/node/v2/node.proto";
 
-enum NodeRelationshipType {
-  NODE_RELATIONSHIP_TYPE_UNSPECIFIED = 0;
-  NODE_RELATIONSHIP_TYPE_PART_OF = 1;
-  NODE_RELATIONSHIP_TYPE_FAMILY = 2;
-}
-
 enum NodeParameterType {
   reserved 2, 5;
   reserved "NODE_PARAMETER_TYPE_ID", "NODE_PARAMETER_TYPE_TAG";
@@ -67,47 +61,6 @@ message NodeCreateRequest {
   string slug = 1;
   repeated string labels = 2;
   string body = 3;
-}
-
-message NodePropertyValue {
-  oneof value {
-    string string_value = 1;
-    int64 integer_value = 2;
-    double double_value = 3;
-    bool boolean_value = 4;
-  }
-}
-
-message NodeMutationRequest {
-  NodeSearchFilter node_filter = 1;
-  map<string, NodePropertyValue> set_properties = 2;
-  repeated string remove_properties = 3;
-}
-
-message NodeMutationResult {
-  uint64 mutated_node_count = 1;
-}
-
-message NodeTreeQuery {
-  optional string root_node_slug = 1;
-  optional uint32 depth = 2;
-  NodeRelationshipType traverse_by = 3;
-  optional NodeSearchFilter node_filter = 4;
-  optional NodeSearchFilter root_node_filter = 5;
-}
-
-message NodeTreeOccurrence {
-  string occurrence_id = 1;
-  optional string parent_occurrence_id = 2;
-  uint32 depth = 3;
-  seville.node.v2.Node node = 4;
-}
-
-message NodeTree {
-  string root_node_slug = 1;
-  NodeRelationshipType relationship = 2;
-  uint32 depth = 3;
-  repeated NodeTreeOccurrence occurrences = 4;
 }
 
 // A bounded view of the canonical Node connection graph.

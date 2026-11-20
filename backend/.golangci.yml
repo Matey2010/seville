@@ -1,0 +1,6 @@
+version: "2"
+
+# Report every issue; the defaults hide repeats and understate the count.
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
