@@ -1,274 +1,67 @@
-# Seville HTTP API conventions
+# HTTP API
 
-This document defines how Seville names, versions, and transports HTTP API
-data. New endpoints should follow these rules unless an endpoint documents a
-specific compatibility exception.
+## Conventions
 
-## Route structure
+- **Routes:** `/{group}/v{major}/{resource}`. Each group versions
+  independently. Segments are lowercase kebab-case nouns. `GET /healthz` is
+  unversioned.
+- **Methods:**
+  - `QUERY`: safe structured reads with a protobuf body.
+  - `POST`: create with a caller-chosen unique slug.
+  - `PATCH`: partial mutation.
+  - `PUT`: complete replacement at a known URI.
+  - `DELETE`: removal.
 
-Application routes use this structure:
+  Never `CREATE` or `MUTATE`. `GET` is accepted on `QUERY` routes only as a
+  compatibility alias. The client falls back to it only after a 404, 405, or
+  501 and only for unfiltered requests.
+- **Wire format:** `application/x-protobuf` using messages from
+  `proto/seville/`. JSON is not a contract. Fields are `snake_case`; generated
+  Dart and Go names follow their language conventions. Counts use the `_count`
+  suffix and `uint64`.
+- **Auth:** every route except `/healthz` requires `Authorization: Bearer
+  $SEVILLE_TOKEN`.
+- **Concurrency:** canonical writes carry `expected_update_count` (or a ruleset
+  `revision`). A stale value returns `409` and leaves the client draft open.
+  Reads never increment `update_count`.
+- **Safety:** request values reach Cypher only as named parameters or
+  allowlisted enums. Labels must match `[A-Za-z_][A-Za-z0-9_]*`. Regular
+  expressions are validated before use.
 
-```text
-/{group}/v{major}/{resource}
-```
+## Endpoints used by the client
 
-- `group` is a stable product area such as `system` or `nodes`.
-- The major version belongs to that group. A breaking system API change moves
-  `/system/v1/...` to `/system/v2/...` without forcing unrelated APIs to move.
-- Route segments use lowercase kebab-case when more than one word is needed.
-- Resource names are nouns. HTTP methods express the operation.
-- Health checks that carry no application data may remain unversioned, such as
-  `GET /healthz`.
-
-## Field names and generated names
-
-Protocol Buffer definitions are the canonical wire contracts. Their fields use
-`snake_case`:
-
-```proto
-uint64 node_count = 1;
-uint64 node_property_count = 2;
-```
-
-Generated language bindings follow their language conventions without manual
-renaming:
-
-| Context | Example |
+| Route | Purpose |
 | --- | --- |
-| Protobuf source | `node_property_count` |
-| Dart | `nodePropertyCount` |
-| Go | `NodePropertyCount` |
-| Protobuf JSON, if explicitly offered later | `nodePropertyCount` |
+| `QUERY /api/v1/node/graph` | `NodeGraphQuery` → `NodeGraph`. Optional `root_node_slug` for a local `LINKS_TO` neighborhood, otherwise the global view filtered by search term. `depth` ≤ 2, `limit` 1–200. Only connections with both endpoints present; `has_more` on truncation. |
+| `QUERY /api/v1/node/search` | `NodeSearchQuery` → `NodeSearchResult`. Required `node_filter`; `limit` 1–100, default 20; deterministic slug order; no traversal. |
+| `POST /api/v1/node/` | `NodeCreateRequest` (slug, labels, body) → `201` Node. Parses connections in the same transaction. Existing slug → `409 node_already_exists`. |
+| `PATCH /api/v1/node/{slug}` | `NodeBodyUpdateRequest`. Body, `modified_at`, counter, and outgoing connections update atomically. |
+| `PUT /api/v1/node/{slug}/labels` | Replace one Node's labels. |
+| `PUT /api/v1/node/{slug}/temporal` | `NodeTemporalUpdateRequest`. Replace or clear the span (`DATE` start inclusive, end exclusive; signed ISO years for BCE). Ordinary mutation cannot touch these fields. |
+| `QUERY /api/v1/label/search` | Labels on canonical Nodes with usage counts. |
+| `PATCH /api/v1/label/{name}` | Rename a label on all Nodes, updating exact-label color rules. Rejects a name already in use. |
+| `DELETE /api/v1/label/{name}` | Remove a label from all Nodes and delete its exact-label color rules. |
+| `GET /api/v1/graph/color-rules` | `NodeColorRuleSet` with revision (empty at revision 0). |
+| `PUT /api/v1/graph/color-rules` | Replace the ordered ruleset atomically (≤ 100 rules). |
 
-Do not use `nodes_amount`, `node_amount`, or hand-written casing aliases.
-Countable entities use the `_count` suffix. Database-wide counters use
-`uint64`; an implementation must reject an invalid negative database result
-before converting it to the unsigned wire type.
+## Node filters
 
-Successful typed responses use `Content-Type: application/x-protobuf` and the
-message defined by the endpoint's protobuf package. JSON is not an implicit
-second contract. If JSON is added later, use standard protobuf JSON mapping
-rather than separately named fields.
+`node_filter` and `root_node_filter` hold `include_nodes_matching` and
+`exclude_nodes_matching` lists of `NodeSearchParameter`.
 
-Authenticated application routes require the existing bearer token. Errors use
-the existing typed API error response until a shared error package replaces it.
+- **Parameters:** `name`, `path`, `title`, `slug`, `label`.
+- **Operators:** exact, starts-with, ends-with, contains, regex; all
+  case-sensitive.
+- **Composition:** `include_match_mode` is `any` (the default) or `all`. Any
+  exclude match rejects. `negated` inverts the composed predicate.
+- **Errors:** invalid input returns `400 invalid_node_search_parameter`.
 
-## System v1
+Interactive search builds an OR over slug, title, and label with an escaped
+case-insensitive regex.
 
-The first system endpoint is:
+## Legacy routes (no client caller; removal planned)
 
-```text
-GET /system/v1/info
-```
-
-It returns a `seville.system.v1.SystemInfo` message:
-
-```proto
-message SystemInfo {
-  uint64 node_count = 1;
-  uint64 node_property_count = 2;
-  repeated string neo4j_labels = 3;
-  string go_version = 4;
-  string neo4j_version = 5;
-}
-```
-
-`node_count` is the number of graph Nodes that have a non-empty unique `slug`.
-It does not count alias records, unresolved
-connection records, or relationships.
-
-`node_property_count` is the total number of stored Neo4j property assignments
-across those same stable Nodes. If one stable Node has `slug`, `title`, and
-`body`, it contributes three. The metric counts assignments, not distinct
-property keys. Relationship properties and properties attached to Emoji
-metadata graph roles are excluded. The reserved Neo4j `:Node` label identifies
-canonical records for the `slug_unique` constraint. Other labels classify Nodes.
-
-`neo4j_labels` is the sorted list of user-facing labels on canonical Nodes;
-the internal `Node` marker is excluded.
-`go_version` comes from the running Go process, and `neo4j_version` comes from
-the connected Neo4j DBMS. These are administrative runtime facts rather than
-Node properties.
-
-The storage query should compute both values from one graph view so they
-describe the same instant:
-
-```cypher
-MATCH (candidate)
-WHERE candidate.slug IS NOT NULL AND trim(toString(candidate.slug)) <> ''
-WITH candidate.slug AS slug, collect(candidate) AS matches
-WHERE size(matches) = 1
-WITH matches[0] AS node
-RETURN count(node) AS node_count,
-       sum(size(keys(node))) AS node_property_count
-```
-
-A distinct count of property names would be a different future metric named
-`node_property_key_count`; it must not change the meaning of
-`node_property_count`.
-
-## Nodes v1
-
-Seville uses the registered HTTP methods according to their protocol semantics:
-`QUERY` for safe, idempotent reads whose structured request belongs in a body,
-`POST` for creation with a caller-selected unique slug, `PUT` for complete idempotent replacement,
-`PATCH` for partial mutation, and `DELETE` for removal. Neither `CREATE` nor
-`MUTATE` is an HTTP method in the Seville API; those words remain domain
-operations rather than custom transport verbs.
-
-`QUERY /api/v1/node/search` accepts an `application/x-protobuf`
-`seville.nodes.v1.NodeSearchQuery` body and returns a flat
-`NodeSearchResult`. Its `node_filter` is required. `limit` defaults to 20 and
-must be between 1 and 100. The endpoint returns complete Nodes in deterministic
-slug/path order and does not traverse relationships. Flutter's interactive
-search builds an OR filter across slug, title, and Neo4j labels with an
-escaped case-insensitive regular expression, so user text remains data rather
-than query syntax. Search does not increment `Node.update_count`.
-
-`QUERY /api/v1/node/graph` accepts `NodeGraphQuery`. An optional stable
-`root_node_slug` selects a local `LINKS_TO` neighborhood; otherwise a search term
-filters the bounded global view. `depth` is at most two and `limit` is between
-one and 200. The response returns complete Nodes, connections whose endpoints
-are both present, and `has_more` when the Node limit truncates a view. Reads do
-not mutate Node counters. The unfiltered global overview reserves up to half
-its slots for a chronological sample of Nodes with native temporal spans,
-covering both ends of the dated range. Remaining slots show other Nodes in
-slug order. This is an overview, not a complete timeline; `has_more` indicates
-that some Nodes were omitted. A submitted search still selects by its search
-term without time sampling.
-
-`PUT /api/v1/node/{slug}/temporal` replaces one Node's optional
-`NodeTemporalSpan` using `NodeTemporalUpdateRequest` and an
-`expected_update_count` conflict guard. The backend stores
-`temporal_start` and `temporal_end_exclusive` as native Neo4j `DATE` values,
-with inclusive start and exclusive end. `temporal_granularity` records year,
-season, month, week, day, or range. Omitting the span clears this placement.
-The route returns the updated Node; stale writes return 409. Ordinary scalar
-mutation cannot edit these reserved fields.
-
-`QUERY /api/v1/label/search` returns Neo4j labels used by canonical Nodes and
-their usage counts. `PUT /api/v1/node/{slug}/labels` replaces one Node's labels
-with `expected_update_count` conflict detection. `PATCH /api/v1/label/{name}`
-renames a label across all canonical Nodes; `DELETE` at the same URI removes it
-from all of them. A label is created by assigning it to a Node. Exact label
-color rules follow a rename and are removed when their label is deleted.
-
-`QUERY /api/v1/node/tree` accepts an `application/x-protobuf`
-`seville.nodes.v1.NodeTreeQuery` body and returns a
-`seville.nodes.v1.NodeTree`. A request must provide either `root_node_slug` or a
-structured `root_node_filter`. Neo4j's internal element ID remains store-private
-while traversal is evaluated. Every matching root is returned as a depth-zero
-occurrence in deterministic order: shortest stringified `slug`, then `slug`,
-`path`, and finally the internal locator. `root_node_slug` in the
-response is populated only when exactly one root is returned. The
-optional unsigned `depth` defaults to `3`, with the root at depth zero. The
-optional `traverse_by` field defaults to `part_of` and accepts only `part_of`
-or `family`. URL query parameters remain a filterless compatibility contract
-for older clients.
-
-`QUERY` is the canonical method. The backend temporarily accepts `GET` as a
-compatibility alias so a client can recover when an older HTTP runtime or proxy
-rejects the custom method. Flutter attempts `QUERY` first and uses that alias
-only after a method-routing response (`404`, `405`, or `501`) when no Node
-filters were requested. A filtered request must never silently retry as an
-unfiltered `GET`.
-
-The optional `root_node_filter` and `node_filter` contain
-`include_nodes_matching` and
-`exclude_nodes_matching` lists of structured `NodeSearchParameter` values.
-`include_match_mode` controls whether a candidate must match `any` (the default)
-or `all` include entries. Exclude entries are always OR-combined, and matching
-any exclude rejects the candidate. Use `all` for a compound selector such as a
-Neo4j label plus an exact slug. When `negated` is true, the complete predicate
-is inverted after include and exclude composition; this is the transport form
-of Flutter's `NodeSearchFilter.reverseOf(...)` and `.reversed()` APIs.
-Supported parameters are
-`name`, `path`, `title`, `slug`, and Neo4j `label`; supported operators are
-case-sensitive exact, starts-with, ends-with, contains, and regular-expression
-matching. Regular expressions are validated before they are passed to Neo4j's
-parameterized `=~` operator. `name` addresses the
-additional Neo4j `name` property transported in `Node.frontmatter`; it is not a
-second identity field and does not replace `Node.slug` or `Node.title`. `label`
-matches editable Neo4j labels returned by `labels(node)`. The internal `:Node`
-marker is excluded. Every returned Node transports its editable labels through
-`Node.labels`; labels are never flattened into frontmatter.
-
-`root_node_filter` applies only to root discovery; `node_filter` applies to
-traversed children. Rejecting an
-occurrence also prunes traversal below that occurrence, so its descendants do
-not appear at a later depth. Unsupported parameters, missing values, operators,
-and invalid regular expressions return `400 invalid_node_search_parameter`.
-Go compiles only allowlisted parameter and operator enums into Cypher predicate
-fragments. Search values are always supplied through named Neo4j parameters and
-are never interpolated into query text. Filtering runs in Neo4j before Node and
-Emoji hydration; the backend does not fetch rejected children for in-memory
-post-filtering.
-
-The endpoint follows incoming relationships: `part_of` maps to `PART_OF` and
-`family` maps to `FAMILY`, both stored as
-`(child)-[:RELATIONSHIP_TYPE]->(parent)`. Each traversal path produces its own
-`NodeTreeOccurrence`, identified independently from its Node. Repeated Nodes
-and cycles are therefore preserved until the requested depth instead of being
-deduplicated.
-
-The HTTP value is allowlisted into `NodeRelationshipType` before reaching the
-store. Cypher uses a fixed query and passes the corresponding Neo4j relationship
-name as a parameter to `type(relationship)`; request text is never interpolated
-into Cypher.
-
-`QUERY` endpoints are read-only. Graph and tree refreshes, searches, retries, and Fan
-requests never mutate a Node or increment `update_count`.
-
-`POST /api/v1/node/` creates one canonical Node from a protobuf
-`NodeCreateRequest`. The request contains a required `slug`, zero or more
-Neo4j labels, and initial Markdown `body` content. The backend initializes
-`update_count` to zero, records `modified_at`, and returns the complete Node with
-`201 Created`. An existing slug returns `409 node_already_exists`. Slugs remain
-Cypher parameters. Labels are trimmed, deduplicated, sorted, and accepted as
-Cypher identifiers only when they match `[A-Za-z_][A-Za-z0-9_]*`; the request
-therefore cannot inject Cypher through either field. The body remains a Cypher
-parameter. Creation parses the body and writes outgoing connections in the
-same transaction. It adds only the required internal `:Node` marker and the
-user-facing labels explicitly requested by the caller.
-
-`PUT` and `DELETE` retain their standard meanings, but no Node replacement or
-deletion route is exposed until relationship handling and deletion policy have
-an explicit contract. Advertising a method through CORS does not define that
-resource operation.
-
-Canonical Node mutations go through the store's filter-driven `MutateNodes`
-boundary. The selected Node update and
-`update_count = coalesce(toInteger(update_count), 0) + 1` execute in the same
-Neo4j write transaction. `update_count` is store-managed and cannot be supplied
-as an ordinary property mutation. Source import remains ingestion rather than a
-canonical Node update and does not increment it. The legacy `counter` property
-is not read, written, migrated, or removed by this policy.
-
-`PATCH /api/v1/node/{slug}` edits a known Node body. `NodeBodyUpdateRequest`
-includes the last observed `update_count`; a stale value returns 409 and
-preserves the client's draft. Body, timestamp, counter, and outgoing
-connections update in one transaction.
-
-`PATCH /api/v1/node/` is the filter-driven mutation API. Its protobuf
-`NodeMutationRequest` contains a required `node_filter`, typed scalar
-`set_properties`, and explicit `remove_properties`. A property cannot be set
-and removed in the same request. `counter`, `update_count`, `slug`, and
-`body` are reserved and
-cannot be supplied by clients. The response is `NodeMutationResult`, containing
-`mutated_node_count`. Because every successful application increments
-`update_count`, this PATCH operation is intentionally not idempotent. There is
-no read-method fallback for `PATCH` requests.
-
-## Implementation boundary
-
-Contracts live under the corresponding versioned package in `proto/seville/`.
-The backend queries Neo4j through the store and exposes authenticated handlers.
-Flutter consumes generated protobuf types rather than decoding untyped maps.
-
-Every returned `seville.node.v2.Node` includes its typed `emojis` collection,
-hydrated from outgoing `HAS_EMOJI` relationships. This applies consistently to
-snapshot Nodes, search results, and Nodes embedded in tree occurrences.
-
-This endpoint reports current canonical database state without mutating it. It
-must not scan a vault, run migration logic, or derive its values from the legacy
-import snapshot.
+`GET /v2/status`, `GET /v2/snapshot`, `GET /system/v1/info`, filter-driven
+`PATCH /api/v1/node/`, and `QUERY|GET /api/v1/node/tree` (the tree of
+`PART_OF`/`FAMILY` occurrences used by the retired Fan layout). The roadmap
+(P0) lists them for removal. Don't build on them.

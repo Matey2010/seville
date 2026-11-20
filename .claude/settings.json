@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(go build *)",
+      "Bash(go vet *)",
+      "Bash(gofmt -l *)",
+      "Bash(golangci-lint run *)",
+      "Bash(flutter analyze *)",
+      "Bash(flutter analyze)",
+      "Bash(flutter pub get)",
+      "Bash(dart format *)",
+      "Bash(make -C scripts proto)",
+      "Bash(make -C scripts status)",
+      "Bash(make -C scripts help)"
+    ],
+    "deny": [
+      "Bash(make -C scripts interface*)",
+      "Bash(make -C scripts start*)",
+      "Bash(make -C scripts serve*)",
+      "Bash(make -C scripts restart*)",
+      "Bash(make interface*)",
+      "Bash(flutter run *)",
+      "Bash(flutter run)",
+      "Bash(flutter test *)",
+      "Bash(go test *)",
+      "Bash(docker compose up *)",
+      "Read(./.env)"
+    ]
+  }
+}

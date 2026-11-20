@@ -48,3 +48,6 @@ app.*.map.json
 
 # Migration related
 /seville
+
+# Claude Code personal settings
+.claude/settings.local.json

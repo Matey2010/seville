@@ -1,50 +1,17 @@
 # Protocol Buffers
 
-Canonical API contracts are grouped and independently versioned under
-`seville/`. `seville/node/v2/node.proto` defines Nodes, assigned Emoji metadata,
-snapshots, and connections;
-`seville/system/v1/system.proto` defines database-wide system information,
-including the backend-limited most frequently assigned Neo4j labels and the
-running Go and Neo4j versions. The reserved internal `:Node` marker is omitted
-from API label lists; `Node.labels` contains only user-facing classifiers.
-`seville/nodes/v1/tree.proto` defines occurrence-preserving Fan tree data,
-structured Node filters, and the flat `NodeSearchQuery`/`NodeSearchResult`
-contract used by `QUERY /api/v1/node/search`. It also owns the typed
-`NodeCreateRequest` contract used by `POST /api/v1/node/` and the
-`NodeMutationRequest`/`NodeMutationResult` contract used by
-`PATCH /api/v1/node/`. Creation carries the caller-selected Neo4j labels and
-initial Markdown body together with the required slug.
-`seville/notification/v1/notification.proto` defines shared notification
-severity vocabulary without prescribing a renderer or transport endpoint.
-`Node.temporal_span` carries a calendar interval over native Neo4j `DATE`
-properties. The span has an inclusive start, exclusive end, and calendar
-granularity. `NodeTemporalUpdateRequest` replaces or clears it with
-`update_count` conflict detection; the slug remains the Node identifier.
-`seville/presentation/v1/color_rules.proto` defines the ordered, revisioned
-Node appearance ruleset used by `GET` and `PUT /api/v1/graph/color-rules`. A
-rule has a match field, operator, value, integer weight, enabled state, hex
-color, gravity scale, and size scale. It is presentation configuration and does
-not mutate canonical Nodes.
-`Node` remains the primary data unit rather than an abstract knowledge
-container. Its unique `slug` identifies it across every contract; there is no
-separate Node ID. Its typed `update_count` records canonical backend mutations and is
-never advanced by reads. Generated Go and Dart code is committed under `gen/`.
+Canonical wire contracts. Names follow [../docs/vocabulary.md](../docs/vocabulary.md).
+Generated Go and Dart code lives in `gen/` and is committed.
 
-Contract vocabulary follows [`../docs/vocabulary.md`](../docs/vocabulary.md).
-The v1 `knowledge.proto` contract was removed rather than retained as a second
-source of terminology.
+| Package | Contents |
+| --- | --- |
+| `seville/node/v2` | `Node` (with labels, Emoji, temporal span), connections, `NodeSnapshot`, `ApiError` |
+| `seville/nodes/v1` | Graph, search, filter, create, body, label, and temporal requests; legacy tree and filter-mutation messages |
+| `seville/presentation/v1` | Node appearance ruleset |
+| `seville/system/v1`, `seville/notification/v1` | Legacy, with no client caller (roadmap P0) |
 
-Regenerate all contracts from the repository root:
+Regenerate after editing any `.proto` file:
 
 ```sh
 make -C scripts proto
 ```
-
-The backend imports the generated module through the root `go.work` workspace.
-
-## Notification v1
-
-`NotificationType` has exactly four values: `info`, `error`, `warning`, and
-`success`. `info` is protobuf value zero and therefore the default. Presentation
-belongs to each consumer; the Flutter interface currently maps these values to
-hardcoded blue, red, yellow, and green notification widgets respectively.
