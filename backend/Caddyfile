@@ -1,3 +1,0 @@
-:8787 {
-	reverse_proxy backend:8787
-}

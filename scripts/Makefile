@@ -10,10 +10,8 @@ FLUTTER_DIR := $(ROOT)/frontend/obsivilian
 
 SEVILLE_ADDR ?= 127.0.0.1:8787
 SEVILLE_BASE_URL ?= http://127.0.0.1:8787
-SEVILLE_TOKEN ?= local-seville-token
 SEVILLE_NEO4J_URI ?= bolt://127.0.0.1:7687
 SEVILLE_NEO4J_USERNAME ?= neo4j
-SEVILLE_NEO4J_PASSWORD ?= seville-local-password
 SEVILLE_NEO4J_DATABASE ?= neo4j
 SEVILLE_NEO4J_QUERY_LOG ?= false
 SEVILLE_BACKUP_DIR ?= /Volumes/Memoria/Backups/seville
@@ -72,6 +70,10 @@ build:
 
 start:
 	@set -eu; \
+	if [ -z "$(SEVILLE_TOKEN)" ] || [ -z "$(SEVILLE_NEO4J_PASSWORD)" ]; then \
+		echo "Set SEVILLE_TOKEN and SEVILLE_NEO4J_PASSWORD in $(ROOT)/.env (see .env.example)." >&2; \
+		exit 1; \
+	fi; \
 	mkdir -p "$(LOCAL_DIR)"; \
 	if [ -f "$(PID_FILE)" ] && kill -0 "$$(cat "$(PID_FILE)")" 2>/dev/null && \
 		curl --fail --silent --max-time 1 "http://$(SEVILLE_ADDR)/healthz" >/dev/null 2>&1; then \

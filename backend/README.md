@@ -21,9 +21,9 @@ Startup connects to Neo4j, applies the idempotent startup migrations, and serves
 | `SEVILLE_ADDR` | `127.0.0.1:8787` | Listen address |
 | `SEVILLE_NEO4J_URI` | `bolt://127.0.0.1:7687` | A non-local URI skips Docker |
 | `SEVILLE_NEO4J_USERNAME` | `neo4j` | |
-| `SEVILLE_NEO4J_PASSWORD` | required | Initializes a new volume only. To rotate it, change it in Neo4j Browser and then in `.env`. |
+| `SEVILLE_NEO4J_PASSWORD` | required | Startup fails if it is unset or a placeholder. Initializes a new volume only. To rotate it, change it in Neo4j Browser and then in `.env`. |
 | `SEVILLE_NEO4J_DATABASE` | `neo4j` | |
-| `SEVILLE_TOKEN` | `local-seville-token` (to become required; roadmap P0) | Client bearer token |
+| `SEVILLE_TOKEN` | required | Client bearer token. Startup fails if it is unset or a placeholder. |
 | `SEVILLE_NEO4J_QUERY_LOG` | `false` | Logs Cypher, parameters, and timings. It can leak slugs and search terms, so enable it only while diagnosing. |
 
 `compose.yaml` holds wiring only. Credentials belong in the ignored `.env`.

@@ -21,11 +21,9 @@ Small items that protect data or remove noise. Do these first.
 1. ~~**Neo4j backups.**~~ Done 2026-11-19: age-encrypted daily dumps to the
    external SSD at 04:00, with a restore test passed (8,977 Nodes). See
    [data-runbook.md](data-runbook.md#backups). Run `backup-verify` monthly.
-2. **API exposure.**
-   - [compose.yaml](../compose.yaml) publishes Caddy on all interfaces
-     (`8787:8787`); bind it to `127.0.0.1`.
-   - Server and client fall back to the token `local-seville-token`; fail at
-     startup when `SEVILLE_TOKEN` is unset.
+2. ~~**API exposure.**~~ Done 2026-11-20: the API and Neo4j listen only on
+   `127.0.0.1`. The server, client, and Makefile have no default token or Neo4j
+   password. The unused Caddy proxy and API container were removed.
 3. **Remove dead API surface** (needs backend reopened). The client never calls:
    - `GET /v2/status` and `GET /v2/snapshot`
    - `GET /system/v1/info`
@@ -76,6 +74,24 @@ The next feature. The design is below.
    with a query carrying the visible window and an explicit include-undated
    flag. Debounce camera changes, page large results, and never use
    `modified_at` as semantic time.
+
+3. **Mobile access (iPad, Android).** Reach the Mac's API from the owner's own
+   devices over [Tailscale](https://tailscale.com), a private WireGuard
+   network.
+   - **Network.** Tailscale on the Mac and each device, one account.
+     `tailscale serve --bg 8787` gives HTTPS at the Mac's tailnet name and
+     forwards to `127.0.0.1:8787`. No router ports, nothing public; the API and
+     Neo4j stay on loopback. Clients never reach Neo4j, only the API.
+   - **Always on.** Tailnet traffic doesn't wake a sleeping Mac, so the Mac
+     mini must not sleep (Energy settings) while mobile access is wanted.
+   - **Auth** (needs backend reopened). One revocable token per device, so a
+     lost device is cut off alone. Optionally also check the
+     `Tailscale-User-Login` header that `tailscale serve` adds.
+   - **Client.** iOS and Android targets. Base URL and token are entered once
+     and kept in the Keychain or Keystore, not compiled in.
+   - **Scope.** v1 is online-only: quick capture and Objective check-off first.
+     Offline editing needs sync and conflict handling (see multi-peer recovery
+     in P3).
 
 ## P3 — Atlas
 
